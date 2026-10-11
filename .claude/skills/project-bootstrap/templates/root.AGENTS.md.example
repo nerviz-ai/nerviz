@@ -1,0 +1,20 @@
+<!--
+Exemplar of the ROOT AGENTS.md of a generated project. Written in step 6 of SKILL.md with
+{{projectName}} resolved and this comment dropped. A pointer, never an owner: every fact it
+would carry already has one in the root CLAUDE.md or in a module AGENTS.md, and a second copy
+here would drift (invariant 2 of Nerviz). Claude Code skips this file — the root has a
+CLAUDE.md — so it is read only by the other agents: Codex, Cursor, Gemini CLI, Jules, Aider,
+and GitHub Copilot, which reads CLAUDE.md too. Design: decision 0139 of Nerviz.
+-->
+
+# {{projectName}} — instructions for coding agents
+
+Read `CLAUDE.md`, at this root, before changing anything. It is written for every agent, not
+only Claude Code: the stack, the build and test commands, the invariants, the module
+structure, and its section "Under another agent", which says which of this project's checks
+hold for you and which do not.
+
+- **Norms** live in `.claude/rules/`, one topic per file; `.claude/rules/00-index.md` says
+  which file covers what. Open the one your change touches.
+- **Each module with import restrictions** has its own `AGENTS.md`, listing what that module
+  may not import.

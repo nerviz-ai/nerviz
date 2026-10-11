@@ -32,7 +32,7 @@ project, and a header written that way fails the generator's own verification.
 **This file is what gives `ArchHook.java check` its teeth.** Without it the hook warns
 that enforcement is off, but blocks nothing. Generating it is not optional.
 
-## 6 · Generate the root CLAUDE.md and the module ones
+## 6 · Generate the root CLAUDE.md and AGENTS.md, and the module ones
 
 **Root** — write `<project>/CLAUDE.md` with the shape of
 `templates/root.CLAUDE.md.example`, replacing the `{{...}}` placeholders with the
@@ -51,10 +51,23 @@ Target under 200 lines: it's an index and invariants, not a manual. No `rules/` 
 reproduced **inside** this file — only cited by path. The rule files themselves are
 copied into the project in step 6.6.
 
+**Root pointers** — write `<project>/AGENTS.md` from `templates/root.AGENTS.md.example`
+(`{{projectName}}` resolved) and `<project>/.github/copilot-instructions.md` from
+`templates/copilot-instructions.md.example`, each without its header comment. Both point at
+the root `CLAUDE.md` and carry no fact of their own: the root `CLAUDE.md` stays the single
+owner, and every GitHub Copilot surface already reads it — these two reach the agents that
+read only `AGENTS.md`, and the Copilot Chat surfaces that read only
+`copilot-instructions.md`.
+
 **Per module** — for each module with non-empty `forbidden_imports`, write
-`<module>/CLAUDE.md` with the shape of `templates/module.CLAUDE.md.example`, filled
-with that module's data. The content **derives from the blueprint** — if you write it
-by hand, it diverges from what the hook enforces.
+`<module>/AGENTS.md` with the shape of `templates/module.AGENTS.md.example`, filled
+with that module's data, and next to it `<module>/CLAUDE.md` holding exactly the line of
+`templates/module.CLAUDE.md.example` — `@AGENTS.md`, nothing else. The content **derives
+from the blueprint** — if you write it by hand, it diverges from what the hook enforces —
+and it is rendered once, into the `AGENTS.md`: the `CLAUDE.md` is only how Claude Code loads
+it, since a module `AGENTS.md` alone is skipped while the root has a `CLAUDE.md`, and GitHub
+Copilot reads a module `AGENTS.md` and never a module `CLAUDE.md`. `ArchHook.java doctor`'s
+`Agent instructions` line checks the pair against the blueprint.
 
 ## 6.5 · Generate CI
 

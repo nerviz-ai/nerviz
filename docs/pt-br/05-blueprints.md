@@ -62,7 +62,7 @@ segue com um valor inventado.
 | `id` | ✅ | Identificador único |
 | `path` | ✅ | Path relativo à raiz |
 | `depends_on` | ✅ | Lista de `id`s, `[]`, ou `["*"]` (para o módulo bootstrap) |
-| `forbidden_imports` | ➖ | Prefixos proibidos. Se presente, gera um `CLAUDE.md` local |
+| `forbidden_imports` | ➖ | Prefixos proibidos. Se presente, gera um `AGENTS.md` local, mais o `CLAUDE.md` de uma linha que o importa |
 | `feature` | ➖ | O módulo só é gerado se a feature estiver ativa |
 | `contains_main` | ➖ | Exatamente um módulo com `true` |
 

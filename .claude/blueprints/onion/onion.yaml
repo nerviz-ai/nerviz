@@ -147,7 +147,7 @@ dependency_rules:
 templates:
   parent_pom: templates/pom.parent.xml.example
   module_pom: templates/pom.module.xml.example
-  module_docs: templates/module.CLAUDE.md.example
+  module_docs: templates/module.AGENTS.md.example
   settings: templates/settings.json.example
 
 features:

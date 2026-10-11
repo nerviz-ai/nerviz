@@ -1,31 +1,8 @@
 <!--
-  EXEMPLAR — shows the shape of the file generated for each module with restrictions.
-  This example corresponds to the `domain` module of the `hexagonal` blueprint.
-  When generating, replace with the module's real data; don't copy this text verbatim.
+  EXEMPLAR — the CLAUDE.md generated next to each module AGENTS.md. Written as the single
+  line below, without this comment. It is what makes Claude Code load the module's AGENTS.md
+  — on a Read, Edit or Write under the module, subagents included — since a module AGENTS.md
+  alone is skipped while the root has a CLAUDE.md. Never add a fact here: the module's
+  facts have one owner, its AGENTS.md. Design: decision 0139 of Nerviz.
 -->
-
-# `domain` module
-
-Innermost boundary. Zero framework dependencies.
-
-## Allowed dependencies
-
-None. This is the core — it knows no other module.
-
-## Forbidden in this module
-
-- `org.springframework..`
-- `jakarta.persistence..`
-- `jakarta.validation..`
-- `com.fasterxml.jackson..`
-- `tools.jackson..`
-
-The `ArchHook.java check` hook blocks these imports post-edit, based on
-`.claude/forbidden-imports.txt`. If you need one of these, the responsibility is in the
-wrong module — move the code, not the rule.
-
-## Base package
-
-`com.exemplo.minhaapi.domain`
-
-Full rule: `.claude/rules/architecture-ddd.md`
+@AGENTS.md

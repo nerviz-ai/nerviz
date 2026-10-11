@@ -97,7 +97,8 @@ and `features/observability/application-observability.yml.example` and
 `features/observability/ApplicationTests-tracer.java.example` (4.7),
 `docker-compose.yml.example` (4.10) plus **either** `Dockerfile.example` (`maven`) **or**
 `Dockerfile-gradle.example` (`gradle`) — never both,
-`root.CLAUDE.md.example` and `module.CLAUDE.md.example` (step 6),
+`root.CLAUDE.md.example`, `root.AGENTS.md.example`, `module.AGENTS.md.example`,
+`module.CLAUDE.md.example` and `copilot-instructions.md.example` (step 6),
 `settings.json.example` (step 6.6, written by the `export` mode, not by hand), **either**
 `ci.yml.example` (`maven`) **or** `ci-gradle.yml.example` (`gradle`) — never both (step
 6.5), `README.md.example` and `README.pt-br.md.example` (step 8.5), and
@@ -287,7 +288,7 @@ Base pair, plus one service per active feature that needs a container, merged th
 **Read `references/project-files.md` now** — it holds steps 5 to 7.
 `.claude/forbidden-imports.txt`, one line per `forbidden_imports` prefix.
 
-### 6 · Generate the root CLAUDE.md and the module ones → `references/project-files.md` § 6
+### 6 · Generate the root CLAUDE.md and AGENTS.md, and the module ones → `references/project-files.md` § 6
 
 ### 6.5 · Generate CI → `references/project-files.md` § 6.5
 
@@ -461,7 +462,7 @@ born, never this repository) — no other skill touches these files:
 - Exactly one of: `pom.xml` and `*/pom.xml` (`build.tool: maven`), or `settings.gradle`,
   `build.gradle`, and `*/build.gradle` (`build.tool: gradle`) — never both in the same
   project, see step 4
-- `CLAUDE.md` and `*/CLAUDE.md`
+- `CLAUDE.md` and `*/CLAUDE.md`, `AGENTS.md` and `*/AGENTS.md`, `.github/copilot-instructions.md`
 - `.claude/forbidden-imports.txt`
 - `.claude/rules/*.md` — every rule of this repo, `paths` derived, see step 6.6
 - `.claude/skills/**` and `.claude/agents/**` — whatever `export`'s `include` lists, see

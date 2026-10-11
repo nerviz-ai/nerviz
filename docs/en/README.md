@@ -31,6 +31,7 @@ the others.
 | [10-arch-adopt.md](10-arch-adopt.md) | `/arch-adopt` workflow: installing this `.claude/` into a project never generated here, or updating one that is behind — the `export` mode, the copy manifest, the provenance stamp |
 | [11-pitfalls.md](11-pitfalls.md) | Every silent trap, in two parts. The runtime's: a skill named after a native command, `$ARGUMENTS` interpolated in prose, pipe segments in `allowed-tools`, an injection's cwd, unknown frontmatter, a hook's four mute failures, `AskUserQuestion`, and the four `.mcp.json` ones. This repository's: write territories and the guards, frozen spec folders, compose reachability, who owns `pom.xml` and the outbox |
 | [12-issues.md](12-issues.md) | Issues, both sides: `/report-issue` files a verifiable, sanitized issue from a generated project; `/triage-issue` has the read-only `issue-verifier` check every claim at `HEAD` — diagnosis and proposed fix included — before a comment, a label, or a design run |
+| [13-github-copilot.md](13-github-copilot.md) | What a generated project gives a GitHub Copilot user, surface by surface (CLI, cloud agent, VS Code, code review): what works the same, what needs a file or frontmatter translation, what only Claude Code has, what only Copilot has, and which Nerviz guarantee still holds there. Basis of `roadmap.md` phase 8 and of the `AGENTS.md` design |
 
 ## How this repository is organized (quick reference)
 

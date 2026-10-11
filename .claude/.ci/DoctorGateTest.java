@@ -43,6 +43,8 @@ public class DoctorGateTest {
         if (!healthy.contains("✅ doctor gate:")) fail("healthy project — no `✅ doctor gate:` line");
 
         broken("Boundaries", p -> Files.delete(p.resolve(".claude/forbidden-imports.txt")));
+        broken("Boundary violations", p -> write(p.resolve("domain/src/main/java/x/Order.java"),
+                "package x;\n\nimport org.springframework.stereotype.Component;\n\nclass Order { }\n"));
         broken("Schema", p -> write(p.resolve(".claude/skills/x/SKILL.md"),
                 "---\nname: x\nnot-a-field: 1\n---\n# x\n"));
         broken("Hook jar", p -> Files.writeString(p.resolve(".claude/hooks/ArchHook.java"),

@@ -177,16 +177,23 @@ stays Claude Code only — it relies on `context: fork`, the `Agent` tool, `AskU
 `` !`…` `` injections and `SubagentStart`, and one person runs it once. The **generated
 project** is what a mixed team uses daily, so that is what becomes portable.
 
+The vendor side is mapped in `docs/pt-br/13-github-copilot.md` (2026-10-11): which of
+`.claude/` each Copilot surface reads as-is, what needs translation, what has no equivalent,
+and which guarantee of this repository survives there. Read it before any step below.
+
 Every step goes through `/claude-code-architect-designer` with a decision record. Each
 Copilot capability below is re-verified against GitHub's documentation at design time.
 Cheapest mechanism first: a step starts only after the previous one is shipped and a real
 mixed team reports a gap it did not close.
 
-- [ ] 1. Generated `AGENTS.md` — root, plus one per module where the blueprint emits a module
-      `CLAUDE.md`; delivered by `project-bootstrap` and `arch-adopt`, listed in `export`,
-      with a `migrations` entry. Open: which file owns the portable facts (`AGENTS.md`
-      imported by `CLAUDE.md`, or the reverse), and whether Claude Code reads `AGENTS.md`
-      natively. Must say plainly which guarantees hold only under Claude Code
+- [x] 1. Generated `AGENTS.md` (decision 0139). The root `CLAUDE.md` stays the owner and gains
+      `## Under another agent`, which says that outside Claude Code only the build is
+      guaranteed; the root `AGENTS.md` and `.github/copilot-instructions.md` only point at it.
+      Per module, the `AGENTS.md` owns the facts and a one-line `CLAUDE.md` imports it, since
+      Claude Code skips a module `AGENTS.md` alone. Written by `project-bootstrap` only — not
+      `arch-adopt`, not `export` — with the `agents-md` migration for projects already
+      generated and a report-only `Agent instructions` line in `doctor`. Step 5 owes a
+      migration that rewords the section once the CLI guard is verified
 - [ ] 2. Measure the development skills under Copilot, which also loads `.claude/skills/` —
       record which work as-is and which break (`context: fork`, agent delegation, `!`
       injections) before rewriting any

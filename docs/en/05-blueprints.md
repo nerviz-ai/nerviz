@@ -62,7 +62,7 @@ right there — it never proceeds with a made-up value.
 | `id` | ✅ | Unique identifier |
 | `path` | ✅ | Path relative to the root |
 | `depends_on` | ✅ | List of `id`s, `[]`, or `["*"]` (for the bootstrap module) |
-| `forbidden_imports` | ➖ | Forbidden prefixes. If present, generates a local `CLAUDE.md` |
+| `forbidden_imports` | ➖ | Forbidden prefixes. If present, generates a local `AGENTS.md`, plus the one-line `CLAUDE.md` that imports it |
 | `feature` | ➖ | The module is only generated if the feature is active |
 | `contains_main` | ➖ | Exactly one module with `true` |
 
