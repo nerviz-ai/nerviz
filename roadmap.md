@@ -12,9 +12,9 @@ it is not a norm and is not loaded by any skill or hook.
 | 2 | `project-bootstrap`, `hexagonal` blueprint, agent, skills, exemplars | ✅ run end-to-end, green build |
 | 3 | Remaining blueprints, all satisfying `_schema.md` | ✅ `hexagonal`, `clean-architecture-multi-module`, `clean-architecture-single-module`, `layered`, `modular-monolith`, `onion`, `vertical-slice` done |
 | 4 | Feature skills (`use-case-design` → `domain-modeling` → `persistence-architect` → `rest-api-architect` → `test-architect`) | ✅ all 5 partials have an owner |
-| 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24 |
-| 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0` | ✅ only missing examples with real output |
-| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `security-architect`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks and `permissions`) | ✅ done; more triggered by real symptoms as they show up |
+| 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24; since `v0.22.0` the spec is designed by `/new-feature` and implemented by `/new-feature-implement` in a clean session |
+| 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0`, a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
+| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
 | 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | ⬜ planned — see § Multi-agent portability |
 
 Deliberate order: rules come **before** skills. Writing skills first leads to rules
@@ -39,7 +39,7 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `architecture-ddd.md`
 - [x] `naming.md`
 - [x] `code-quality.md`
-- [x] `error-handling.md`
+- [x] `error-handling.md` (domain exceptions, plus the integration families: 502, 503, 504)
 - [x] `api-rest.md`
 - [x] `lombok.md`
 - [x] `value-objects.md`
@@ -48,9 +48,13 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `observability.md`
 - [x] `logging.md`
 - [x] `messaging.md`
+- [x] `http-client.md` (outbound HTTP: client and engine choice, timeouts, one retrying layer,
+      failures mapped by "was the request sent?", outbound credentials, SSRF)
 - [x] `scheduling.md` (trigger shape, coordination across instances, bounded passes, job metrics)
 - [x] `personal-data.md` (personal data at rest and in transit)
-- [ ] `secrets.md` (planned — credentials in configuration and versioned files)
+- [x] `secrets.md` (where any credential, key or keystore may live)
+- [x] `transport-security.md` (where TLS terminates, HTTP/2, HSTS with one writer,
+      forwarded headers and trusted proxies)
 - [x] `authorization.md` (who may call an endpoint, how the caller authenticates, 401/403,
       CORS, Actuator and Swagger exposure — servlet stack only; see 0112)
 - [ ] `git-workflow.md` (planned — branches, commit messages, PRs)
@@ -64,27 +68,36 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `test-architect`
 - [x] `security-architect` (optional step after REST, fires when the use case's `Access` row
       asks for it — `32-seguranca.md`; see 0112)
-- [x] `new-feature` orchestrator + consolidation
+- [x] `new-feature` orchestrator + consolidation (designs only; ends with an approved spec)
+- [x] `new-feature-implement` (implements an approved spec in a clean session: pre-flight,
+      then the executor in three chained block groups — `domain`, `adapters`, `tests`; see
+      0130 and 0135)
+- [x] `http-client-architect` (optional step after security, fires when the domain declares
+      an `external HTTP` port — `28-cliente-http.md`; see 0121)
 - [x] `messaging-architect` (optional step, fires when an event needs external delivery)
 - [x] `jobs-architect` (optional step — scheduling technology, cadence, coordination, the
       outbox relay's schedule and its prune job; see 0087)
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
 - [x] `docker-architect` (chained on demand by persistence/test/messaging)
-- [x] `java-spring-boot-developer` (executor agent)
+- [x] `java-spring-boot-developer` (executor agent, called once per block group)
 - [x] `git-publish` (offers git init/commit + `gh` create/push, two confirmation
-      gates — chained by `project-initializer` after a green bootstrap build and by
-      `/new-feature` after every future executor run; see D34)
+      gates — chained by `/init-project` after a green bootstrap build, by `/new-feature`
+      after an approved spec and by `/new-feature-implement` after a green executor run;
+      see D34)
 
 ### Meta-tooling (stays in this repo, not copied into generated projects)
 
 - [x] `project-bootstrap`
 - [x] `init-project`
-- [x] `claude-code-architect-designer` (8 forms, including shared/per-agent MCP server
-      — Form 6a/6b, decision matrix § 2.1's CLI-first check; see D33 — hooks (Form 7) and
-      `permissions` rules (Form 8), always with a decision record)
-- [x] `project-initializer` (agent driving `/init-project`; `Skill` tool added to chain
-      into `git-publish` after a green build)
+- [x] `claude-code-architect-designer` (9 forms, including shared/per-agent MCP server
+      — Form 6a/6b, decision matrix § 2.1's CLI-first check; see D33 — hooks (Form 7),
+      `permissions` rules (Form 8) and mods (Form 9), always with a decision record)
+- [x] `nerviz-cockpit` mod (open skill phase and write territory above the prompt,
+      `/nerviz-doctor` in a pane, a `guard` refusal held behind two buttons; Claude Code
+      2.1.287+; see 0131)
+- [x] `project-initializer` (agent driving `/init-project` from the answers it already
+      collected; chains `transport-security-setup` and `sonarqube-setup` through `Skill`)
 - [x] `triage-issue` (verifies every claim of an issue against `HEAD`, never taking its
       diagnosis or fix as true; comments and labels only after confirmation; see 0103)
 - [x] `issue-verifier` (read-only agent of class `verifier`, invoked by `triage-issue`)
@@ -96,17 +109,22 @@ copied inside them — exactly the duplication this design exists to avoid.
       every design skill at design time (0089), injected into the executor at `SubagentStart`
       (0077), and `/gof-design-patterns` refactors existing code by hand
 - [x] `arch-adopt` (installs or updates this `.claude/` in a project, through `export`)
-- [x] `audit-usage` (reads the execution trail back)
+- [x] `audit-usage` (reads the execution trail back, in billable tokens only, with plan-window
+      projections; see 0134)
 - [x] `git-publish` (see Feature-design pipeline above)
 - [x] `sonarqube-setup` (scanner plugin, project key, server URL, CI step, a local
       SonarQube container through `docker-architect`; chained by `project-bootstrap` and
       `arch-adopt`; see 0091)
 - [x] `sonar-lessons` (turns the project's SonarQube analysis into a lessons-learned file
       that names the template, norm or Checkstyle setting behind each group; see 0100)
+- [x] `http-client-architect`, `transport-security-setup` (see Feature-design pipeline and
+      Norms above; `transport-security-setup` is chained by `project-bootstrap` and
+      `arch-adopt`; see 0122)
+- [x] `new-feature-implement` (see Feature-design pipeline above)
 - [x] `report-issue` (files an issue on this repository from a description or a
       lessons-learned file, behind a confirmation; see 0103)
 - [x] `archunit-installer` (agent, `test-architect`'s setup mode)
-- [x] `commons-logging-installer` (agent, `/new-feature`'s pre-flight)
+- [x] `commons-logging-installer` (agent, `/new-feature-implement`'s pre-flight)
 - [x] `ArchHook.java` + `ArchHook.jar` + `schemas/extensions.json`
 
 ### Enforcement
@@ -117,7 +135,11 @@ copied inside them — exactly the duplication this design exists to avoid.
       `model`, and write territory, enforced by `schema` and `guard`
 - [x] `guard` — write territory, shell writes (`guard bash`), force push refused in every
       spelling, the `Stop` sweep, frozen approved specs
-- [x] `compose gate` on `Stop` — a published port no host client can reach blocks
+- [x] `compose gate` on `Stop` — a published port no host client can reach blocks; a foreign
+      container on a declared port only warns while no container of the project exists
+- [x] `doctor gate` — the generated `architectural boundaries` CI job fails on a red
+      committed check (`doctor.gate.labels`)
+- [x] Generated CI fails when any integration test was skipped or none ran (see 0127)
 - [x] Precompiled hook jar, committed, verified byte for byte in CI (`build --verify`)
 - [x] Cross-platform hook as a single Java file, exec form (no `.sh`/`.ps1` twins)
 - [x] CI (`validate.yml`) — OS matrix (`ubuntu-latest`, `macos-latest`, `windows-latest`)
@@ -133,11 +155,13 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] CI (`templates.yml`) — the Checkstyle configs reject what they claim, and the Java
       templates copied verbatim compile and pass their tests in a fresh Initializr project
       (see 0099)
+- [x] CI (`mods.yml`) — `claude plugin validate` and `claude plugin test` over `.claude/mods`
 - [x] `release.yml` — every PR declares its bump level, and its merge leaves an annotated tag
 - [ ] CI — invariant 9 (generated project is self-contained) — half automated: `schema` checks the
       `export` manifest against disk and `export-determinism` exports every blueprint; a real
       generated project compiling is still checked by hand
-- [ ] `claude plugin validate` in CI — not installed on the GitHub Actions runner, run by hand before a PR
+- [ ] `claude plugin validate .claude/skills` in CI — run by hand before a PR; only `mods.yml`
+      installs the CLI, and it validates `.claude/mods` alone
 
 ### Multi-agent portability (generated project)
 
@@ -180,13 +204,15 @@ mixed team reports a gap it did not close.
 - [x] README (EN)
 - [x] `docs/` PT-BR (`00-visao-geral`, `01-tipos-de-arquivo`, `02-init-project`, `03-new-feature`, `04-arch-doctor`, `05-blueprints`, `06-claude-code-architect-designer`, `07-ci-validate`, `08-audit-usage`, `09-diferenciais`, `10-arch-adopt`, `11-pitfalls`, `12-issues`)
 - [x] `docs/en/` mirror of every PT-BR doc
+- [x] Claude Code reference under `docs/*/claude-code-docs/`, including mods (`16-mods.md`)
 - [x] Comparison with neighboring GitHub projects and the list of differentiators (`docs/pt-br/09-diferenciais.md`, `docs/en/09-differentiators.md`; README § What this is, and what it is not)
 - [x] `blueprints/README.md` + `blueprints/README.pt-br.md` (architecture overview)
 - [x] LICENSE
 - [x] `SECURITY.md` (private vulnerability reporting, linked first in the issue chooser)
 - [x] `CONTRIBUTING.md`
 - [x] GitHub Releases with notes, from `v0.15.0`
-- [ ] Worked examples with real output (still a gap noted in phase 6)
+- [x] Worked example with real output: [`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)
+      — generation report, approved specs, audit reports — plus the README's demo GIFs
 
 ## Future ideas
 
