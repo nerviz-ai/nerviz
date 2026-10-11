@@ -112,7 +112,7 @@ public class DoctorGateTest {
         Files.copy(Paths.get(".claude/hooks/ArchHook.java"), hooks.resolve("ArchHook.java"));
         Files.copy(HOOK, hooks.resolve("ArchHook.jar"));
         write(p.resolve(".claude/forbidden-imports.txt"), "# boundary\ndomain|org.springframework\n");
-        write(p.resolve(".claude/settings.json"), "{}");
+        write(p.resolve(".claude/settings.json"), blockedPluginsOff());
         write(p.resolve(".mcp.json"), "{\"mcpServers\":{}}");
         write(p.resolve(".claude/audit-usage/audited.json"), "{}");
         // Advertised only on its compose-network name: Compose is red with or without Docker.
@@ -126,6 +126,22 @@ public class DoctorGateTest {
                       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
                 """);
         return p;
+    }
+
+    /**
+     * A settings file carrying `"<id>": false` for every `settings.blocked_plugins` entry, read
+     * from the real extensions.json — `schema` fails without them (decision 0138), and an
+     * empty `{}` would turn the healthy fixture's Schema and Hooks lines red.
+     */
+    static String blockedPluginsOff() throws Exception {
+        String s = Files.readString(Paths.get(".claude/schemas/extensions.json"));
+        Matcher m = Pattern.compile("\"blocked_plugins\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(s);
+        List<String> off = new ArrayList<>();
+        if (m.find()) {
+            Matcher q = Pattern.compile("\"([^\"]+)\"").matcher(m.group(1));
+            while (q.find()) off.add("\"" + q.group(1) + "\":false");
+        }
+        return "{\"enabledPlugins\":{" + String.join(",", off) + "}}";
     }
 
     static List<String> gateLabels() throws Exception {

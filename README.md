@@ -221,6 +221,8 @@ changes the project has not seen yet; it never runs them. See
 | Hooks fail on every OS | `java` not on `PATH` | `/arch-doctor` |
 | A forbidden import is not blocked | `.claude/forbidden-imports.txt` does not exist yet (it is generated during init) | `/arch-doctor` shows the number of active rules |
 | Tests never run on `Stop` | No `HEAD` (first `git-publish` gate declined), or no Maven wrapper | `/arch-doctor` |
+| A pipeline skill behaves like someone else's | A personal skill in `~/.claude/skills/` has the same name, and personal wins over project | `/arch-doctor`, the `Skill shadowing` line |
+| A plugin you installed does nothing here | `superpowers` and `mattpocock-skills` are set to `false` in `enabledPlugins` on purpose: their skills compete with the pipeline | Re-enable one for yourself in `.claude/settings.local.json` |
 
 The hooks exit 0 when they cannot verify something. That is safe, but it can give false
 greens, which is why `/arch-doctor` exists. More traps, runtime and repository alike:
@@ -543,12 +545,12 @@ Startup costs about 0.3 s per invocation.
 | `check` | `PostToolUse` on writes to `.java` | yes | forbidden imports + incremental `test-compile` of the touched module |
 | `format` | same | no | `spotless:apply` on the module |
 | `tests` | `Stop` | yes | tests of the modules changed since `HEAD`, deferred while a writer subagent runs |
-| `schema` | `PreToolUse` / `PostToolUse` / `Stop` | yes | frontmatter and body of skills, agents, rules; `.mcp.json` with a secret scan; hook registrations; the export manifest |
+| `schema` | `PreToolUse` / `PostToolUse` / `Stop` | yes | frontmatter and body of skills, agents, rules; `.mcp.json` with a secret scan; hook registrations; the plugins `enabledPlugins` must keep off; the export manifest |
 | `guard` | `UserPromptSubmit`, `PreToolUse` (`Write`/`Edit`, `Bash`, `Skill`/`Agent`), `Stop` | yes | write territory per skill and agent class (allowlist, deny by default); frozen approved specs; no `build`-class skill during a design run; force pushes refused; end-of-turn sweep |
 | `compose` | `Stop` (`gate`), manual, inside `doctor` | `gate` only | services running, no foreign container on the ports, reachable published ports, `image:` tags matching `src/test`, `${VAR:default}` that holds on the host and in the `app` container |
 | `context` | `SubagentStart` (generated project) | no | hands the design-pattern catalog to agents whose class declares it |
 | `audit` | eleven lifecycle events (generated project) | no | execution trail of every skill and agent |
-| `doctor` | manual (`/arch-doctor`), generated CI (`gate`) | `gate` only | diagnoses the setup on this machine; `gate` fails on a red committed check (`doctor.gate.labels`) |
+| `doctor` | manual (`/arch-doctor`), generated CI (`gate`) | `gate` only | diagnoses the setup on this machine, a personal skill shadowing a project one included; `gate` fails on a red committed check (`doctor.gate.labels`) |
 | `export` | manual (through `/arch-adopt`) | no | writes a target project's `.claude/` from the manifest, with the provenance stamp |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 

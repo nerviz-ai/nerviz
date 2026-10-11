@@ -158,6 +158,18 @@ jobs:
       - name: doctor gate fails on every gated line and only on those
         run: java .claude/.ci/DoctorGateTest.java
 
+      # A plugin enabled at user level loads again, in silence, the moment its project-level
+      # `false` is gone; the list sits in two settings files and drifts on the first edit to
+      # one of them. `settings.blocked_plugins` is the owner, and both files must follow (0138).
+      - name: schema blocks a settings file that re-enables a colliding plugin
+        run: java .claude/.ci/PluginBlockTest.java
+
+      # A personal skill named like one of the project's replaces it with no warning. Nothing
+      # in the project can refuse the personal directory, so doctor reports it — and, being a
+      # developer's machine state, it must never fail the gate (0138).
+      - name: doctor names a personal skill that shadows a project skill, and never gates
+        run: java .claude/.ci/SkillShadowTest.java
+
       # SubagentStart cannot block and an empty stdout is legal: a catalog that stops
       # arriving, or starts arriving everywhere, fails silently (0077).
       - name: context subagent hands the catalog to pattern_catalog agents only
