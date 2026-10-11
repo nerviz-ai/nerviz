@@ -308,6 +308,23 @@ public class SkillTerritoryTest {
                         + "\"tool_input\":{\"skill\":\"test-architect\"}}",
                 0, "the pre-flight's test-architect setup call admitted");
 
+        // The implement run adds the spec's `materialize` services through an agent (decision
+        // 0137): the same docker-architect call the main thread is refused above passes from
+        // compose-service-installer, and the skill's write lands in the agent's territory.
+        failures += run(hook, "call", implement,
+                "{\"session_id\":\"%s\",\"agent_type\":\"compose-service-installer\","
+                        + "\"tool_name\":\"Skill\",\"tool_input\":{\"skill\":\"docker-architect\"}}",
+                0, "compose-service-installer's docker-architect call admitted mid-implement");
+
+        failures += run(hook, "write", implement,
+                "{\"session_id\":\"%s\",\"agent_type\":\"compose-service-installer\","
+                        + "\"tool_input\":{\"file_path\":\"docker-compose.yml\"}}",
+                0, "…and its compose write, judged by its own class");
+
+        failures += run(hook, "write", implement,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"docker-compose.yml\"}}",
+                2, "the implement thread itself still may not write compose");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — the territory guard is NOT"
                     + " enforcing what skill_classes declares.");

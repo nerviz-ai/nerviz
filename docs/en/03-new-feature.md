@@ -154,6 +154,8 @@ sequenceDiagram
     participant TST as skill: test-architect
     participant LOG as agent: commons-logging-installer
     participant DEV as agent: java-spring-boot-developer
+    participant CMP as agent: compose-service-installer
+    participant DKR as skill: docker-architect
     participant GIT as skill: git-publish
 
     U->>NFI: /new-feature-implement UC-NNN-slug — after /clear, in a clean session
@@ -167,6 +169,11 @@ sequenceDiagram
         DEV-->>NFI: group report, its checklist steps ticked
     end
     Note over DEV: the tests group closes status: implemented (or implemented-blocked)
+    opt a materialize row in the spec's ## Infrastructure
+        NFI->>CMP: Agent, after the tests group is green
+        CMP->>DKR: Skill, admitted because the caller is a classed agent
+        CMP-->>NFI: one line per row — added, already present or failed
+    end
     NFI->>GIT: feat(UC-NNN-slug) — two gates
     NFI-->>U: final report + recommend /clear
 ```
@@ -186,6 +193,7 @@ sequenceDiagram
 | 5 | `test-architect` | 1–4 | `40-testes.md` |
 | — | `new-feature` (consolidation) | all above | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | `approved` spec | code and migrations in `src/**` |
+| 7 | `compose-service-installer` (agent) | `implemented` code, and a `materialize` row in `## Infrastructure` | the service block in `docker-compose.yml`, written by `docker-architect` |
 | — | `git-publish` | end of flow | commit + push, behind two gates |
 
 **Why REST before persistence.** REST generates schema requirements (`Idempotency-Key`
@@ -193,12 +201,20 @@ needs the shared key table); persistence generates none for REST. In the old ord
 table was discovered after the persistence partial was written, and persistence ran
 twice.
 
-`docker-architect` is **not** chained by the pipeline. A design run is docs-only: when
-`persistence-architect`, `messaging-architect` or `test-architect` finds a service missing
-from `docker-compose.yml`, it records the pending service in the partial and reports the
-`/docker-architect` command, which the user runs afterwards in a prompt of its own.
-`ArchHook.java`'s `guard` mode refuses the call while a design phase is open —
-`.claude/decisions/0058-skill-classes-territory-schema.md`.
+`docker-architect` is **not** chained by the design run, which is docs-only: `ArchHook.java`'s
+`guard` mode refuses the call while a design phase is open —
+`.claude/decisions/0058-skill-classes-territory-schema.md`. What the design run does is ask.
+When `persistence-architect` or `messaging-architect` finds its service missing from
+`docker-compose.yml`, step 9 asks whether to add it, whether it runs elsewhere, or whether the
+user will add it, and records the answer (`materialize`, `external` or `pending`) in the
+partial's `## Compose services`. Consolidation copies those rows into the spec's
+`## Infrastructure`; absence stops consolidation. `/new-feature-implement` then launches
+`compose-service-installer` for every `materialize` row, after the `tests` group ends green
+and before `git-publish`. The agent runs `docker-architect` through `Skill` — the guard admits
+it because a classed agent's call is skipped, while the implement thread's own call stays
+refused — and `git-publish` commits the compose change with the code. The final report lists
+every `## Infrastructure` row with what the run did to it
+(`.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
 
 **Design patterns are decided inside that phase too.** `domain-modeling`,
 `persistence-architect`, `rest-api-architect`, `security-architect`, `http-client-architect`,

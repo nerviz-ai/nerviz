@@ -52,6 +52,7 @@ flowchart TB
         AG_DEV["agent: java-spring-boot-developer\n(model: sonnet, effort: high)"]:::agent
         AG_ARCH["agent: archunit-installer\n(model: sonnet, effort: medium)"]:::agent
         AG_LOG["agent: commons-logging-installer\n(model: sonnet, effort: medium)"]:::agent
+        AG_COMPOSE["agent: compose-service-installer\n(model: opus, effort: medium)"]:::agent
         AG_VER["agent: issue-verifier\n(model: opus, writes nothing)"]:::agent
     end
 
@@ -84,11 +85,13 @@ flowchart TB
     SK_SONAR -.->|Skill tool, no existing server| SK_DOCKER
     SK_TRANSPORT -.->|Skill tool, edge local or direct topology| SK_DOCKER
     SK_ADOPT -->|writes everything through the export mode| HOOK
-    SK_BOOT -->|copies| AG_DEV & AG_ARCH & AG_LOG
+    SK_BOOT -->|copies| AG_DEV & AG_ARCH & AG_LOG & AG_COMPOSE
     SK_DESIGNER -.->|proposes and writes, after approval| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent at SubagentStart: the catalog, generated project only| AG_DEV
     SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS -.->|read § Design-time use, decide the layer's patterns| SK_PAT
     SK_NF -->|Agent tool, pre-flight, if commons is empty| AG_LOG
+    SK_NF -->|"Agent tool, after the tests group, for each materialize row"| AG_COMPOSE
+    AG_COMPOSE -->|Skill tool, admitted because the caller is a classed agent| SK_DOCKER
     AG_LOG -->|writes| LOGOUT["commons.logging/** + AutoConfiguration.imports"]:::out
     SK_AUDIT -->|Bash, audit summary, no model| HOOK
 
@@ -102,8 +105,8 @@ flowchart TB
     SK_UC -.->|if the case names a scheduled/job trigger| SK_JOBS
     SK_MSG -.->|"if Form B (outbox + relay), or a partial defers a job"| SK_JOBS
     SK_HTTP -.->|"if § 10 asks for a reconciliation pass"| SK_JOBS
-    SK_PERS -.->|records the pending service; never chains| SK_DOCKER
-    SK_MSG -.->|records the pending service; never chains| SK_DOCKER
+    SK_PERS -.->|the partial records the decision; never chains| SK_DOCKER
+    SK_MSG -.->|the partial records the decision; never chains| SK_DOCKER
     SK_TEST -.->|records the pending service; never chains| SK_DOCKER
     SK_JOBS --> SK_PERS
     SK_SEC --> SK_PERS
@@ -167,7 +170,10 @@ Likewise, an agent only exists for one of three valid reasons (`CLAUDE.md` § In
 and `java-spring-boot-developer` meet all three reasons at once;
 `archunit-installer` and `commons-logging-installer` meet only the first (preserving
 context — neither has an interview, and isolating the `curl`/`./mvnw` they run keeps
-that noise from becoming permanent in the main conversation). One reason is already
+that noise from becoming permanent in the main conversation). `compose-service-installer`
+meets two: it preserves context (the body of `docker-architect` stays out of the implement
+thread) and it keeps the `opus` pin of that skill from leaking into the turns that follow,
+`git-publish` included. One reason is already
 enough under Invariant 5. Each agent documents its own reason in the `## Why this is an
 agent` (or `## Why this is Form 3`) section.
 

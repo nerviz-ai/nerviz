@@ -169,6 +169,7 @@ an agent` (or `## Why this is Form 3`) section, which reason applies:
 | `java-spring-boot-developer` | The full spec replaces the interview — the agent only executes | `Read, Write, Edit, Bash` — only reads spec/templates, only writes to `src/` | `sonnet`, `effort: high` — generating ~19 steps of compilable code |
 | `archunit-installer` | `test-architect`'s setup mode has no interview — a Maven Central `curl` and up to three `./mvnw` builds would become permanent in the main conversation if run inline | `Read, Write, Edit, Bash` — inside the project only | `sonnet`, `effort: medium` — translating exemplar packages onto the real blueprint layout and diagnosing an ArchUnit rule failure takes judgment, not just mechanical execution |
 | `commons-logging-installer` | Same shape as `archunit-installer`: translates thirteen logging/masking exemplars into the real package, edits a POM, compiles until green — eleven writes and a build log that don't need to land in the context of the `/new-feature` run that triggered it | `Read, Write, Edit, Bash` — inside `commons.logging` and the matching POM only | `sonnet`, `effort: medium` |
+| `compose-service-installer` | `/new-feature-implement` must add the service its spec decided at design time, and its own thread cannot: the guard refuses a `build`-class `Skill` call there and admits it from a classed agent. Running `docker-architect` here keeps its ~420-line body out of the implement thread | `Read, Write, Edit, Glob, Grep, Bash, Skill` — inside `docker-compose*.yml`, `docker/**`, `Dockerfile`, `.env`, `.env.example`, `.gitignore`, `.dockerignore` only | `opus`, `effort: medium` — the pin of `docker-architect`, kept out of the turns that follow, `git-publish` included |
 | `issue-verifier` | Reads the body of a public issue — third-party text — away from the thread that holds write territory over `.claude/` | `Read, Grep, Glob, Bash` — no `Write`/`Edit`; class `verifier` has an empty territory, so `guard` refuses every in-repo write, Bash included | `opus`, `effort: high` — refuting the reporter's narrative is the whole job (decision 0103) |
 
 Each belongs to a **class**, in `extensions.json` → `agent_classes`, and the class is what
@@ -179,7 +180,7 @@ and **which paths**:
 |---|---|---|
 | `driver` | `project-initializer` | `**` — it writes the tree of a project that does not exist yet |
 | `executor` | `java-spring-boot-developer` | `src/**`, the POMs (only for a dependency the spec declares), and its `UC-*-spec.md` — where the frozen-folder rule admits only the `status:` close and checklist toggles |
-| `installer` | `archunit-installer`, `commons-logging-installer` | Per-agent `overrides`: POMs + `ArchitectureTest.java`/`TestcontainersConfiguration.java` for the first; POMs + `**/logging/**` (main and test) + `META-INF/spring/*.imports` for the second |
+| `installer` | `archunit-installer`, `commons-logging-installer`, `compose-service-installer` | Per-agent `overrides`: POMs + `ArchitectureTest.java`/`TestcontainersConfiguration.java` for the first; POMs + `**/logging/**` (main and test) + `META-INF/spring/*.imports` for the second; for the third, the paths `docker-architect` writes — `docker-compose*.yml`, `docker/**`, `Dockerfile`, `.env`, `.env.example`, `.gitignore`, `.dockerignore` |
 | `verifier` | `issue-verifier` | nothing — `executor: false`; the scratch of a generated-project reproduction lands outside the repo |
 
 Territory is keyed on `agent_type`, which the `PreToolUse` payload of every subagent write
@@ -205,6 +206,8 @@ via the `Agent tool`: `init-project` delegates to `project-initializer`,
 an approved spec — three times, one per block group,
 `test-architect` delegates to `archunit-installer` in setup mode (no argument), and
 `new-feature-implement`'s pre-flight delegates to `commons-logging-installer` when `commons` is empty.
+After the `tests` group ends green and before `git-publish`, `new-feature-implement` delegates to
+`compose-service-installer` when the spec has a `materialize` row in its `## Infrastructure`.
 
 **Fork — a different kind of agent:** a *fork* inherits the entire conversation
 instead of starting from scratch (`claude-help.md` § Forks). Only the final result

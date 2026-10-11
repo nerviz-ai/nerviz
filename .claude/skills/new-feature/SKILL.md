@@ -61,9 +61,10 @@ use case number or slug — `use-case-design` does.
 `ArchHook.java guard` refuses a `Skill` call to a `build`-class skill — `docker-architect`
 included — while this orchestrator's phase is open, and refuses a write outside
 `skill_classes.orchestrator`'s territory. A partial that needs a service the compose file
-doesn't declare **records** it (`persistence-architect` step 9, `messaging-architect`
-step 9); the consolidated spec carries the list, and the user runs `/docker-architect` from a
-prompt of its own afterwards. Why: a design run once hand-wrote a `schema-registry` block
+doesn't declare **asks** whether to add it, and records the answer in its `## Compose services`
+(`persistence-architect` step 9, `messaging-architect` step 9); the consolidated spec carries
+the list in `## Infrastructure`, and `/new-feature-implement` adds every `materialize` row
+after the code is green — never this run. Why: a design run once hand-wrote a `schema-registry` block
 into `docker-compose.yml`, with no template, no tag verification and no healthcheck
 (`lessons-learned-012.md` §§ 4, 12, 13), and the review was of a spec nobody read that file
 through. Record: `@.claude/decisions/0058-skill-classes-territory-schema.md`
@@ -541,6 +542,12 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      precisely the decision this list reserves for the design skill. Consolidation is the block
      every run passes, which is why the check belongs here as well, exactly like `Satisfied by`
      above
+   - **A partial that needs a container must carry `## Compose services`, or consolidation
+     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran. `none` is
+     valid (H2, no broker) and absence is not. Every row goes into the spec's
+     `## Infrastructure` with the partial that decided it, shaped by
+     `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
+     this one's report, has nothing to add and nothing to name — the broker of issue #119
    - **A personal-data field crossing the process boundary in clear carries a recorded
      decision, or consolidation stops.** `25-mensageria.md` § 8 and `30-rest.md` § 6 each list
      the fields of the payload and the response body that match
@@ -642,18 +649,18 @@ second half of the pipeline lives in its own skill, so an implement run never lo
   ```
 
   What used to be staged here — `docker-compose.yml` and `docker/init/**`, when the pipeline
-  chained `docker-architect` — is no longer written during the run at all. The service the
-  spec names is **pending**: say so in the final report, with the `/docker-architect`
-  invocation the user should run next. An unmentioned pending service is how a `kafka`
-  service went orphan once (`lessons-learned-010.md` § 7), and the fix is naming it, not
-  writing the file mid-design.
+  chained `docker-architect` — is no longer written during the run at all. Every
+  `## Infrastructure` row goes into the final report: a `materialize` row is added by
+  `/new-feature-implement`, and a `pending` row carries the `/docker-architect` invocation the
+  user runs. An unmentioned service is how a `kafka` service went orphan once
+  (`lessons-learned-010.md` § 7), and the fix is naming it, not writing the file mid-design.
 
 ### Final report
 
 Last message of the run, and the only report: the spec path and status, the backlog
-entries left for later (if any), **every follow-up the run left pending outside `docs/`** —
-each compose service or `docker/init` file a partial named, with the `/docker-architect`
-command that materializes it, or "none" —
+entries left for later (if any), **every `## Infrastructure` row of the spec** — each
+compose service with its decision: `materialize` (the implement run adds it), `pending` (with
+the `/docker-architect` command that adds it), `external` (with its address), or "none" —
 **every approved use case this run left unreachable end to end**, with the backlog row that
 restores it named by its `BL-NN` (or "none") — never a `UC` number, which a backlog row does not
 have — **every item a partial deferred, with the owner it left it to** (a checklist item, or a

@@ -76,6 +76,29 @@ public class AgentTerritoryTest {
                 "src/test/java/com/acme/order/OrderTest.java",
                 2, "commons-logging-installer is refused src/test outside its package");
 
+        // ── installer · compose-service-installer ────────────────────────────
+        // Runs docker-architect inside an implement run (decision 0137). Every write the skill
+        // makes there is judged by this agent_type, so the territory must cover each path
+        // skill_classes.build gives docker-architect — a narrower list refuses the skill's own
+        // writes mid-run.
+        for (String f : new String[]{"docker-compose.yml", "docker-compose.override.yml",
+                "docker/init/01-create-db.sql", "docker/caddy/Caddyfile", "Dockerfile",
+                ".env", ".env.example", ".gitignore", ".dockerignore"}) {
+            failures += write(hook, session, "compose-service-installer", f,
+                    0, "compose-service-installer writes " + f + " — docker-architect's territory");
+        }
+
+        failures += write(hook, session, "compose-service-installer",
+                "src/main/resources/application.yml",
+                2, "compose-service-installer is refused application config");
+
+        failures += write(hook, session, "compose-service-installer", "pom.xml",
+                2, "compose-service-installer is refused the POM, the class default it replaces");
+
+        failures += write(hook, session, "compose-service-installer",
+                "docs/use-cases/UC-001-register-customer/UC-001-spec.md",
+                2, "compose-service-installer is refused the spec it reads");
+
         // ── executor ─────────────────────────────────────────────────────────
         failures += write(hook, session, "java-spring-boot-developer",
                 "src/main/java/com/acme/Order.java",

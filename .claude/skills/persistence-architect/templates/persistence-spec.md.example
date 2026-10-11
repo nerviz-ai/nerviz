@@ -169,6 +169,17 @@ Version column stays empty whenever the Boot parent manages it — never a versi
 |---|---|---|
 | — | — | Postgres driver and `spring-boot-starter-data-jpa` already came from the blueprint |
 
+## Compose services
+
+One row per container this layer needs at runtime — step 9's answer, in the shape and with the
+four decisions of `@.claude/skills/docker-architect/references/compose-service-decision.md`.
+`none` only when the engine is H2; absence is not `none`, and consolidation stops on it.
+Consolidation collects this section into `UC-NNN-spec.md` § Infrastructure.
+
+| Service | Image | Decision | Detail |
+|---|---|---|---|
+| `postgres` | `postgres:<tag>` | `exists` | — |
+
 ## Design patterns
 
 none — no force in the spec, no symptom on disk

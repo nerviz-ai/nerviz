@@ -307,7 +307,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    `none` when nothing matches, and absence is not `none`.
 
 8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/20-persistencia.md`, from
-   `templates/persistence-spec.md.example`. Six numbered blocks plus `## Design patterns`, all mandatory — § 6 · Declared
+   `templates/persistence-spec.md.example`. Six numbered blocks plus `## Compose services` and `## Design patterns`, all mandatory — § 6 · Declared
    dependencies written as `none` when this layer needs nothing the project lacks.
 
 9. **Check the engine has a container.** List the keys inside the `services:` block and
@@ -319,15 +319,17 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    awk '/^services:[[:space:]]*$/{s=1;next} /^[^[:space:]#]/{s=0} s&&/^  [A-Za-z0-9_.-]+:[[:space:]]*(#.*)?$/{sub(/[[:space:]]*#.*$/,"");print}' docker-compose.yml
    ```
 
-   Missing (and the engine isn't H2) → **record it** in the partial's § 6 as a pending
-   service: the engine, the image tag the spec assumes, and the one-line
-   `/docker-architect` invocation that materializes it. Do **not** invoke
-   `docker-architect` and do not edit `docker-compose.yml`: that skill is the file's single
-   owner, it is class `build`, and `ArchHook.java guard` refuses the call while a design run
-   is open — a design run produces a spec, never a container.
+   Write the answer as a row of the partial's `## Compose services`, shaped and decided by
+   `@.claude/skills/docker-architect/references/compose-service-decision.md` — `exists` when the engine is listed, otherwise the question
+   that reference owns (*add it*, *it runs elsewhere*, *I'll add it*), and `none` for H2. An
+   `external` answer makes that address the host default of `spring.datasource.url` in § 5.
+   Do **not** invoke `docker-architect` and do not edit `docker-compose.yml`: that skill is
+   the file's single owner, it is class `build`, and `ArchHook.java guard` refuses the call
+   while a design run is open — a design run produces a spec, never a container. A
+   `materialize` row is added by `/new-feature-implement`, after the code is green.
 
 10. **Report and stop.** Path of the partial written, divergences from `10-dominio.md`, the
-    pending compose service if step 9 found one (and the command that fixes it), and what's
+    `## Compose services` row step 9 wrote, and what's
     missing for the folder to be complete (`30-rest.md`, `40-testes.md`). Don't invoke anyone
     else.
 
@@ -387,8 +389,9 @@ executor materializes every file there from this partial.
 executor agent.
 
 **Does not edit `docker-compose.yml`, and does not invoke `docker-architect` either.** When
-step 9 finds the chosen engine has no container yet, it records the pending service in the
-partial's § 6 with the `/docker-architect` command that creates it. The guard enforces both
+step 9 finds the chosen engine has no container yet, it records the user's answer in the
+partial's `## Compose services` (`@.claude/skills/docker-architect/references/compose-service-decision.md`),
+and `/new-feature-implement` adds a `materialize` row after the code is green. The guard enforces both
 halves: the file is outside this class's territory, and a `build`-class skill is unreachable
 from inside a design run.
 

@@ -52,6 +52,7 @@ flowchart TB
         AG_DEV["agent: java-spring-boot-developer\n(model: sonnet, effort: high)"]:::agent
         AG_ARCH["agent: archunit-installer\n(model: sonnet, effort: medium)"]:::agent
         AG_LOG["agent: commons-logging-installer\n(model: sonnet, effort: medium)"]:::agent
+        AG_COMPOSE["agent: compose-service-installer\n(model: opus, effort: medium)"]:::agent
         AG_VER["agent: issue-verifier\n(model: opus, não escreve nada)"]:::agent
     end
 
@@ -84,11 +85,13 @@ flowchart TB
     SK_SONAR -.->|Skill tool, sem servidor existente| SK_DOCKER
     SK_TRANSPORT -.->|Skill tool, borda local ou topologia direta| SK_DOCKER
     SK_ADOPT -->|escreve tudo via modo export| HOOK
-    SK_BOOT -->|copia| AG_DEV & AG_ARCH & AG_LOG
+    SK_BOOT -->|copia| AG_DEV & AG_ARCH & AG_LOG & AG_COMPOSE
     SK_DESIGNER -.->|propõe e escreve, após aprovação| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent no SubagentStart: o catálogo, só no projeto gerado| AG_DEV
     SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
     SK_NF -->|Agent tool, pre-flight, se commons vazio| AG_LOG
+    SK_NF -->|"Agent tool, depois do grupo tests, para cada linha materialize"| AG_COMPOSE
+    AG_COMPOSE -->|Skill tool, admitida porque quem chama é um agent com classe| SK_DOCKER
     AG_LOG -->|escreve| LOGOUT["commons.logging/** + AutoConfiguration.imports"]:::out
     SK_AUDIT -->|Bash, audit summary, sem model| HOOK
 
@@ -102,8 +105,8 @@ flowchart TB
     SK_UC -.->|se o caso nomeia trigger agendado/job| SK_JOBS
     SK_MSG -.->|"se Form B (outbox + relay), ou partial adia um job"| SK_JOBS
     SK_HTTP -.->|"se § 10 pede uma reconciliação"| SK_JOBS
-    SK_PERS -.->|registra pendência; nunca encadeia| SK_DOCKER
-    SK_MSG -.->|registra pendência; nunca encadeia| SK_DOCKER
+    SK_PERS -.->|o partial registra a decisão; nunca encadeia| SK_DOCKER
+    SK_MSG -.->|o partial registra a decisão; nunca encadeia| SK_DOCKER
     SK_TEST -.->|registra pendência; nunca encadeia| SK_DOCKER
     SK_JOBS --> SK_PERS
     SK_SEC --> SK_PERS
@@ -167,7 +170,10 @@ Invariant 5): preservar contexto, restringir tools, ou trocar de modelo. `projec
 e `java-spring-boot-developer` atendem aos três motivos simultaneamente;
 `archunit-installer` e `commons-logging-installer` atendem só ao primeiro (preservar
 contexto — nenhum dos dois tem entrevista, e isolar o `curl`/`./mvnw` que rodam evita
-que esse ruído fique permanente na conversa principal). Um motivo já basta pelo
+que esse ruído fique permanente na conversa principal). `compose-service-installer`
+atende a dois: preserva contexto (o corpo do `docker-architect` fica fora da thread do
+implement) e impede que o pin `opus` dessa skill vaze para os turnos seguintes,
+`git-publish` incluído. Um motivo já basta pelo
 Invariant 5. Cada agent documenta o próprio motivo na seção `## Why this is an agent`
 (ou `## Why this is Form 3`).
 
