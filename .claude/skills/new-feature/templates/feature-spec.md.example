@@ -164,6 +164,19 @@ approved case produced; the approved specs themselves are never edited.
 
 ---
 
+## Infrastructure
+
+Collected from `## Compose services` of every partial that needs a container, shaped by
+`@.claude/skills/docker-architect/references/compose-service-decision.md`. `/new-feature-implement`
+adds each `materialize` row after the code is green and reports every row; the executor
+touches none of them.
+
+| Service | Image | Decision | Detail | Decided in |
+|---|---|---|---|---|
+| `postgres` | `postgres:<tag>` | `exists` | — | `20-persistencia.md` |
+
+---
+
 ## Implementation order (checklist)
 
 Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is marked

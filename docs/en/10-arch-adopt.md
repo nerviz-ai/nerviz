@@ -96,7 +96,7 @@ All of it is the `export` block of `@.claude/schemas/extensions.json` — data, 
 | `optional_copy` | `.mcp.json` and the MCP setup doc, when they exist |
 | `rules` | every norm in `rules/`, with its `paths` globs rewritten for the active blueprint's packages (`derived_paths`) |
 | `skills` | the 20 skills of `include`; the 4 of `exclude` stay out — the 2 creation skills (`init-project`, `project-bootstrap`) and the 2 that work on this repository itself (`claude-code-architect-designer`, `triage-issue`) |
-| `agents` | `java-spring-boot-developer`, `archunit-installer`, `commons-logging-installer`; `project-initializer` and `issue-verifier` stay out |
+| `agents` | `java-spring-boot-developer`, `archunit-installer`, `commons-logging-installer`, `compose-service-installer`; `project-initializer` and `issue-verifier` stay out |
 | `blueprint_copy` | **only the active blueprint**, never the catalog |
 | `ensure_dirs` | `.claude/audit-usage/` — creating the directory is what switches the trail on |
 | `gitignore_lines` | `.claude/audit-usage/.state/` and `docs/lessons-learned/` |

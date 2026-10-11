@@ -154,6 +154,8 @@ sequenceDiagram
     participant TST as skill: test-architect
     participant LOG as agent: commons-logging-installer
     participant DEV as agent: java-spring-boot-developer
+    participant CMP as agent: compose-service-installer
+    participant DKR as skill: docker-architect
     participant GIT as skill: git-publish
 
     U->>NFI: /new-feature-implement UC-NNN-slug — depois do /clear, em sessão limpa
@@ -167,6 +169,11 @@ sequenceDiagram
         DEV-->>NFI: relatório do grupo, passos do checklist dele marcados
     end
     Note over DEV: o grupo tests fecha status: implemented (ou implemented-blocked)
+    opt linha materialize no ## Infrastructure da spec
+        NFI->>CMP: Agent, depois que o grupo tests fica verde
+        CMP->>DKR: Skill, admitida porque quem chama é um agent com classe
+        CMP-->>NFI: uma linha por serviço — added, already present ou failed
+    end
     NFI->>GIT: feat(UC-NNN-slug) — dois portões
     NFI-->>U: relatório final + recomenda /clear
 ```
@@ -186,6 +193,7 @@ sequenceDiagram
 | 5 | `test-architect` | 1–4 | `40-testes.md` |
 | — | `new-feature` (consolidação) | todas acima | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | spec `approved` | código e migrations em `src/**` |
+| 7 | `compose-service-installer` (agent) | código `implemented` e uma linha `materialize` no `## Infrastructure` | o bloco do serviço no `docker-compose.yml`, escrito pelo `docker-architect` |
 | — | `git-publish` | fim do fluxo | commit + push, atrás de dois portões |
 
 **Por que REST antes de persistência.** REST gera requisito de schema
@@ -193,12 +201,20 @@ sequenceDiagram
 requisito de REST. Na ordem antiga a tabela era descoberta depois do partial de
 persistência escrito, e persistência rodava duas vezes.
 
-`docker-architect` **não** é encadeada pelo pipeline. Um run de design é docs-only: quando
-`persistence-architect`, `messaging-architect` ou `test-architect` detecta um serviço que
-falta no `docker-compose.yml`, registra a pendência na parcial e reporta o comando
-`/docker-architect`, que o usuário roda depois em um prompt próprio. O modo `guard` do
+`docker-architect` **não** é encadeada pelo run de design, que é docs-only: o modo `guard` do
 `ArchHook.java` recusa a chamada enquanto a fase de design está aberta —
-`.claude/decisions/0058-skill-classes-territory-schema.md`.
+`.claude/decisions/0058-skill-classes-territory-schema.md`. O que o run de design faz é perguntar.
+Quando `persistence-architect` ou `messaging-architect` detecta que o serviço dele falta no
+`docker-compose.yml`, o passo 9 pergunta se adiciona, se roda em outro lugar ou se o usuário
+adiciona, e registra a resposta (`materialize`, `external` ou `pending`) no `## Compose services`
+da parcial. A consolidação copia essas linhas para o `## Infrastructure` da spec; a ausência
+interrompe a consolidação. O `/new-feature-implement` então dispara o `compose-service-installer`
+para cada linha `materialize`, depois que o grupo `tests` termina verde e antes do `git-publish`.
+O agent roda o `docker-architect` via `Skill` — o guard admite porque a chamada de um agent com
+classe é ignorada, enquanto a chamada da própria thread do implement continua recusada — e o
+`git-publish` commita a mudança do compose junto com o código. O relatório final lista cada linha
+do `## Infrastructure` com o que o run fez com ela
+(`.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
 
 **Os design patterns também são decididos nessa fase.** `domain-modeling`,
 `persistence-architect`, `rest-api-architect`, `security-architect`, `http-client-architect`,

@@ -163,8 +163,9 @@ missing-variable warning; frontmatter schema validation does not.
 by default; the message names the class and its `write_allow`, and the fix is the data
 (`skill_classes` in `.claude/schemas/extensions.json`), never a retry. A design run is
 docs-only and cannot even *call* a `build`-class skill — `docker-architect` included: the
-missing compose service is recorded in the partial and materialized afterwards by
-`/docker-architect`. With no skill phase open, territory is unrestricted, which is why
+design run still cannot call it, but it asks: when the compose service is missing,
+`persistence-architect` and `messaging-architect` record the answer in the partial, and the
+implement run adds every `materialize` row through `compose-service-installer`. With no skill phase open, territory is unrestricted, which is why
 editing a file by hand is never blocked.
 
 **A skill that chains another of its own class adds that skill's territory; another class

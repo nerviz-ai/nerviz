@@ -272,6 +272,7 @@ would pay for that on every turn.
         → persistence-architect → test-architect
      │  one use case per run; a split goes to docs/use-cases/BACKLOG.md
      │  design skills write only docs/ — never src/, never docker-compose.yml, never git
+     │  a missing DB or broker is asked about and recorded: add it, runs elsewhere, or by hand
      │  each one decides the design patterns of its own layer, in its partial
      │
      ▼  consolidates into UC-NNN-spec.md (status: draft)
@@ -296,6 +297,8 @@ after `/clear`
      │  a failed group stops the chain, and the same command resumes there
      │
      ▼  status: implemented (or implemented-blocked)
+     ▼  agent: compose-service-installer → docker-architect, for each service the spec
+     │         marked materialize — the container lands in the same commit as the code
      ▼  git-publish (feature commit)
 ```
 
@@ -377,7 +380,7 @@ proposed fix, before anything is commented or designed. Details:
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 18 | `.claude/rules/` |
 | Skills (design, orchestration, build, ops, meta…) | 24 | `.claude/skills/` |
-| Agents (driver, executor, installer, verifier) | 5 | `.claude/agents/` |
+| Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
 

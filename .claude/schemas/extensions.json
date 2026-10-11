@@ -314,13 +314,13 @@
         "agents": ["java-spring-boot-developer"]
       },
       "installer": {
-        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the intersection of its two agents' territories — the POMs, which both edit — and each agent replaces it with its own full list. `pattern_catalog: false`: both write Java under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context.",
+        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the POMs, which the two Java installers both edit, and each agent replaces it with its own full list. `pattern_catalog: false`: the Java installers write under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context. compose-service-installer writes no Java at all: it carries docker-architect's procedure into an implement run, so its territory is that skill's, decision 0137.",
         "executor": true,
         "pattern_catalog": false,
         "required_fields": ["effort"],
         "write_allow": ["pom.xml", "**/pom.xml"],
         "required_sections": ["## Failure mode", "## Summary format", "## References"],
-        "agents": ["archunit-installer", "commons-logging-installer"],
+        "agents": ["archunit-installer", "commons-logging-installer", "compose-service-installer"],
         "overrides": {
           "archunit-installer": {
             "$comment": "Each path is listed twice, once rooted and once under `**/`, because `**` expands to `.*` and a single-module project writes `src/test/...` with nothing before it — the same pair `executor` carries for `src/**`.",
@@ -342,6 +342,10 @@
               "src/main/resources/META-INF/spring/*.imports",
               "**/src/main/resources/META-INF/spring/*.imports"
             ]
+          },
+          "compose-service-installer": {
+            "$comment": "The same list skill_classes.build gives docker-architect, which runs inside this agent: a classed agent's writes are judged by its own agent_type, never by the skill it invokes (decision 0126). The two lists change together.",
+            "write_allow": ["docker-compose*.yml", "docker/**", "Dockerfile", ".env", ".env.example", ".gitignore", ".dockerignore"]
           }
         }
       },
@@ -681,7 +685,7 @@
     "agents": {
       "from": ".claude/agents",
       "to": ".claude/agents",
-      "include": ["archunit-installer", "commons-logging-installer", "java-spring-boot-developer"],
+      "include": ["archunit-installer", "commons-logging-installer", "compose-service-installer", "java-spring-boot-developer"],
       "exclude": ["issue-verifier", "project-initializer"]
     },
 

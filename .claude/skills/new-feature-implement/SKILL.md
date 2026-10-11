@@ -48,7 +48,10 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
 - `@.claude/skills/new-feature/references/entry-guardrail.md` — survey, classification, error
   rule, worktree, project, disk; shared with `/new-feature`, owned there
 - `docs/use-cases/UC-*/` — folder existence and each spec's `status:` line, by command
-- `docs/use-cases/UC-NNN-<slug>/UC-NNN-spec.md` — the checklist, to find where the chain starts
+- `docs/use-cases/UC-NNN-<slug>/UC-NNN-spec.md` — the checklist, to find where the chain starts,
+  and `## Infrastructure`, for the services the run adds and reports
+- `@.claude/skills/docker-architect/references/compose-service-decision.md` — what each
+  `## Infrastructure` decision means, and who acts on it
 - `src/test/**`, the `commons` package — by command, for the pre-flight
 
 **Writes (indirectly):**
@@ -56,6 +59,8 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
 - the ArchUnit tests and coverage gate — via `test-architect` setup mode → `archunit-installer`
 - the logging/masking classes — via `commons-logging-installer`, from this skill's
   `templates/commons/*.example`
+- `docker-compose.yml` and what a service needs next to it — via `compose-service-installer`,
+  which runs `docker-architect` for every `materialize` row of the spec
 
 **Writes (directly): none.**
 
@@ -66,7 +71,8 @@ behind its two confirmations. No end of this flow is left without an explicit gi
 1. `test-architect` (setup mode) and `commons-logging-installer` — pre-flight, each only when
    its gap is found and the user answers **Install now**
 2. `java-spring-boot-developer` — three chained delegations, one per block group
-3. `git-publish` — on success
+3. `compose-service-installer` — on success, only when the spec has a `materialize` row
+4. `git-publish` — on success
 
 ---
 
@@ -170,8 +176,18 @@ pre-existing changes travel to `git-publish` at the end of the run.
      No git. `/new-feature-implement UC-NNN-<slug>` again resumes at that group.
    - **Success** — the `tests` group reports the checklist complete, the build green, and the
      spec at `status: implemented` (or `implemented-blocked`, which is a success too, with the
-     case it blocks on named) → **invoke** `git-publish` via the `Skill` tool, with
-     `feat(UC-NNN-<slug>): <one-line summary>` as context.
+     case it blocks on named) → item 3 below, then **invoke** `git-publish` via the `Skill` tool,
+     with `feat(UC-NNN-<slug>): <one-line summary>` as context.
+
+3. **Add the compose services the spec decided.** Read the spec's `## Infrastructure`. A
+   `materialize` row → **invoke** `compose-service-installer` via the `Agent` tool, in the
+   foreground and in the same turn as the `tests` report, with the use case folder and those
+   rows. It runs `docker-architect`, which this thread cannot call: the class keeps
+   `design_phase`, and the guard skips the `Skill` call of a classed agent instead
+   (`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
+   No `materialize` row, or no section → skip silently. The agent failing does not stop the
+   run: the code is green, the row is reported with the `/docker-architect` command, and
+   `git-publish` is still offered.
 
 `git-publish`'s two confirmation gates decide whether anything is committed or pushed —
 this orchestrator only triggers the offer.
@@ -194,8 +210,11 @@ first `Write`. A chain cut between groups resumes at the first group with open s
 ### 4 · Final report
 
 Last message of the run, and the only report: the spec path and its `status:`, the groups that
-ran and how each ended, **every approved use case this run left unreachable end to end**, with
-the backlog row that restores it named by its `BL-NN` (or "none"), **every item deferred, with
+ran and how each ended, **every `## Infrastructure` row of the spec, with what this run did to it** —
+`added` or `failed` by the installer, `already present`, `external` with its address, or
+`pending` with the `/docker-architect` command (or "none") — **every approved use case this
+run left unreachable end to end**, with the backlog row that restores it named by its `BL-NN`
+(or "none"), **every item deferred, with
 its owner** (or "none"), **every guarantee delegated to a consumer outside this project whose
 idempotency is assumed or unknown** (or "none"), and **every personal-data field that crosses
 a boundary in clear, with its receiver** (or "none") — the findings come from the `tests`
@@ -218,6 +237,10 @@ measurable per case. A failed group's report instead names the group, its failur
   group launches in the turn that receives the previous one's report.
 - **`@.claude/agents/commons-logging-installer.md`** — one-time logging/masking setup,
   triggered directly from the pre-flight, from this skill's `templates/commons/`.
+- **`@.claude/agents/compose-service-installer.md`** — adds the spec's `materialize` services
+  through `docker-architect`, after the `tests` group and before `git-publish`.
+- **`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`**
+  — why the service is decided at design time and added here, by an agent.
 
 ---
 

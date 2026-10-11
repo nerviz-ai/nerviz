@@ -59,13 +59,18 @@ step 4.10, once per blueprint feature that's already active and needs a containe
 `project-bootstrap/SKILL.md` step 4.10. A third path: chained by `sonarqube-setup` for a
 local `sonarqube` service when the project has no server of its own; a fourth, by
 `transport-security-setup` for the local `edge` of topology A or the `Dockerfile` port of
-topology B. That's why it carries no
+topology B. A fifth, by `compose-service-installer` inside `/new-feature-implement`, with the
+use case folder, for every `materialize` row of the spec's `## Infrastructure` — the answer the
+design run recorded through `references/compose-service-decision.md`, which this skill owns
+(`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
+That's why it carries no
 `disable-model-invocation` — a skill the model can't see is a skill a sibling skill can't
 call.
 
 **No longer chained mid-design.** `persistence-architect`, `messaging-architect` and
 `test-architect` used to invoke this skill the moment their spec named a missing service;
-they now record it in the partial and report the `/docker-architect` command instead.
+they now ask whether to add it, record the answer in the partial's `## Compose services`, and
+the implement run adds a `materialize` row once the code is green.
 `ArchHook.java guard` enforces it: this skill is class `build`, and a `build`-class call is
 refused while a design run is open. Why it changed: a design run hand-wrote a
 `schema-registry` service with no template, no tag verification and no healthcheck, inside a
@@ -95,8 +100,8 @@ pin lasts for the rest of the turn it fires in
 |---|---|---|
 | `project-bootstrap` | Base `Dockerfile` + `docker-compose.yml` (`app` service), once, at generation. Also *decides when* to call this skill for a feature already active in the blueprint (`persistence-jpa`, `observability`) — never writes the service block itself | Any service a use case adds later; the shape of any service block, ever |
 | **this skill** | Every service block in `docker-compose.yml`/`Dockerfile` — the ones `project-bootstrap` calls it for at generation, and the ones added later by hand or chained from a UC-driven skill | The engine choice itself — that's `20-persistencia.md`'s call, this skill reads it |
-| `persistence-architect` | Engine choice, schema, datasource properties (`20-persistencia.md`) | `docker-compose.yml` directly — invokes this skill instead |
-| `messaging-architect` | Broker choice, topic, consumer group (`25-mensageria.md`) | `docker-compose.yml` directly — invokes this skill instead |
+| `persistence-architect` | Engine choice, schema, datasource properties (`20-persistencia.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
+| `messaging-architect` | Broker choice, topic, consumer group (`25-mensageria.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
 | `test-architect` | The pinned image tag inside `TestcontainersConfiguration.java` (one line, Java side) | The compose-side service definition — invokes this skill instead, and both should agree on the same tag |
 
 **The OTLP signal contract has two owners, one per half**, and that is what made

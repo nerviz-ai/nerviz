@@ -176,6 +176,17 @@ becomes a checklist item, a `backlog` row becomes a line in `docs/use-cases/BACK
 |---|---|---|---|
 | Consumer-side contract test against the external KYC provider | A provider-owned contract to test against — none published yet | `@.claude/rules/messaging.md` § Delivery semantics | `backlog` |
 
+## Compose services
+
+One row per container this layer needs at runtime — step 9's answer, in the shape and with the
+four decisions of `@.claude/skills/docker-architect/references/compose-service-decision.md`.
+`none` only when no broker is reached; absence is not `none`, and consolidation stops on it.
+Consolidation collects this section into `UC-NNN-spec.md` § Infrastructure.
+
+| Service | Image | Decision | Detail |
+|---|---|---|---|
+| `kafka` | `apache/kafka:<tag>` | `materialize` | added by `/new-feature-implement` |
+
 ## Design patterns
 
 none — no force in the spec, no symptom on disk

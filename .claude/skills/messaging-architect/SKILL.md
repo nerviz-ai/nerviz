@@ -318,7 +318,7 @@ still transport.
    `none` when nothing matches, and absence is not `none`.
 
 8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/25-mensageria.md`, from
-   `templates/messaging-spec.md.example`. Nine numbered blocks plus `## Design patterns`, all mandatory — § 6 through § 9
+   `templates/messaging-spec.md.example`. Nine numbered blocks plus `## Compose services` and `## Design patterns`, all mandatory — § 6 through § 9
    included, each written as `none` when there is nothing to ask for.
 
    **§ 8 is `Personal data`, and it is written before the payload is called done.** Run
@@ -355,16 +355,19 @@ still transport.
    awk '/^services:[[:space:]]*$/{s=1;next} /^[^[:space:]#]/{s=0} s&&/^  [A-Za-z0-9_.-]+:[[:space:]]*(#.*)?$/{sub(/[[:space:]]*#.*$/,"");print}' docker-compose.yml
    ```
 
-   Missing → **record it** in the partial's § 6 as a pending service: the broker, the image
-   tag the spec assumes, and the one-line `/docker-architect` invocation that materializes it.
-   Do **not** invoke `docker-architect` and do not edit `docker-compose.yml`: that skill is
-   the file's single owner, it is class `build`, and `ArchHook.java guard` refuses the call
-   while a design run is open.
+   Write the answer as a row of the partial's `## Compose services`, shaped and decided by
+   `@.claude/skills/docker-architect/references/compose-service-decision.md` — `exists` when `kafka` is listed, otherwise the question
+   that reference owns (*add it*, *it runs elsewhere*, *I'll add it*). An `external` answer
+   makes that address the host default of `spring.kafka.bootstrap-servers` in § 5, in place
+   of `localhost:${KAFKA_EXTERNAL_PORT:29092}`. Do **not** invoke `docker-architect` and do
+   not edit `docker-compose.yml`: that skill is the file's single owner, it is class `build`,
+   and `ArchHook.java guard` refuses the call while a design run is open. A `materialize` row
+   is added by `/new-feature-implement`, after the code is green.
 
 10. **Report and stop.** Path of the file written, **the content of § 6** (each schema
     requirement handed to `persistence-architect`, or "none"), **the content of § 7** (each
-    declared dependency the executor has to add, or "none"), the pending broker service if
-    step 9 found one (and the command that fixes it),
+    declared dependency the executor has to add, or "none"), the `## Compose services` row
+    step 9 wrote,
     **the personal-data answer** (which fields cross, in what form, to which receiver — or
     "none"), **and, when the consumer is not in this project, whether its idempotency is
     contracted, assumed or unknown** — the last two are findings the person who asked for the
@@ -414,8 +417,9 @@ and the active blueprint's `packages.map`.
 executor agent.
 
 **Does not edit `docker-compose.yml`, and does not invoke `docker-architect` either.** When
-step 9 finds no `kafka` service, it records the pending service in the partial's § 6 with the
-`/docker-architect` command that creates it. The guard enforces both halves: the file is
+step 9 finds no `kafka` service, it records the user's answer in the partial's
+`## Compose services` (`@.claude/skills/docker-architect/references/compose-service-decision.md`),
+and `/new-feature-implement` adds a `materialize` row after the code is green. The guard enforces both halves: the file is
 outside this class's territory, and a `build`-class skill is unreachable from inside a design
 run.
 

@@ -167,6 +167,7 @@ própria seção `## Why this is an agent` (ou `## Why this is Form 3`):
 | `java-spring-boot-developer` | Spec completo substitui a entrevista — o agent só executa | `Read, Write, Edit, Bash` — só lê spec/templates, só escreve em `src/` | `sonnet`, `effort: high` — gerar ~19 passos de código compilável |
 | `archunit-installer` | Modo setup da `test-architect` não tem entrevista — `curl` no Maven Central e até três builds `./mvnw` ficariam permanentes na conversa principal se rodassem inline | `Read, Write, Edit, Bash` — só dentro do projeto | `sonnet`, `effort: medium` — traduzir pacotes do exemplar para o layout real do blueprint e diagnosticar falha de regra ArchUnit exige julgamento, não só execução mecânica |
 | `commons-logging-installer` | Mesma forma do `archunit-installer`: traduz treze exemplares de logging/máscara para o package real, edita um POM, compila até ficar verde — onze escritas e um log de build que não precisam voltar ao contexto do `/new-feature` que o disparou | `Read, Write, Edit, Bash` — só dentro de `commons.logging` e do POM correspondente | `sonnet`, `effort: medium` |
+| `compose-service-installer` | O `/new-feature-implement` precisa adicionar o serviço que a spec decidiu no design, e a thread dele não pode: o guard recusa a chamada de `Skill` de classe `build` ali e a admite vinda de um agent com classe. Rodar o `docker-architect` aqui mantém o corpo de ~420 linhas dele fora da thread do implement | `Read, Write, Edit, Glob, Grep, Bash, Skill` — só dentro de `docker-compose*.yml`, `docker/**`, `Dockerfile`, `.env`, `.env.example`, `.gitignore`, `.dockerignore` | `opus`, `effort: medium` — o pin do `docker-architect`, mantido fora dos turnos seguintes, `git-publish` incluído |
 | `issue-verifier` | Lê o corpo de uma issue pública — texto de terceiros — longe da thread que tem território de escrita em `.claude/` | `Read, Grep, Glob, Bash` — sem `Write`/`Edit`; a classe `verifier` tem território vazio, então `guard` recusa toda escrita no repo, Bash incluso | `opus`, `effort: high` — refutar a narrativa do relato é o trabalho todo (decisão 0103) |
 
 Cada um pertence a uma **classe**, em `extensions.json` → `agent_classes`, e é a classe que
@@ -177,7 +178,7 @@ e **quais caminhos**:
 |---|---|---|
 | `driver` | `project-initializer` | `**` — escreve a árvore de um projeto que ainda não existe |
 | `executor` | `java-spring-boot-developer` | `src/**`, os POMs (só para uma dependência que a spec declara), e o seu `UC-*-spec.md` — onde a regra de pasta congelada admite só o fechamento do `status:` e os toggles do checklist |
-| `installer` | `archunit-installer`, `commons-logging-installer` | `overrides` por agent: POMs + `ArchitectureTest.java`/`TestcontainersConfiguration.java` no primeiro; POMs + `**/logging/**` (main e test) + `META-INF/spring/*.imports` no segundo |
+| `installer` | `archunit-installer`, `commons-logging-installer`, `compose-service-installer` | `overrides` por agent: POMs + `ArchitectureTest.java`/`TestcontainersConfiguration.java` no primeiro; POMs + `**/logging/**` (main e test) + `META-INF/spring/*.imports` no segundo; no terceiro, os paths que o `docker-architect` escreve — `docker-compose*.yml`, `docker/**`, `Dockerfile`, `.env`, `.env.example`, `.gitignore`, `.dockerignore` |
 | `verifier` | `issue-verifier` | nada — `executor: false`; o scratch da reprodução em projeto gerado fica fora do repo |
 
 O território vale por `agent_type`, que o payload `PreToolUse` de toda escrita de subagent já
@@ -202,7 +203,9 @@ uma skill com `disable-model-invocation: true` não pode ser pré-carregada via 
 para `java-spring-boot-developer` quando `/new-feature-implement UC-NNN-slug` implementa uma spec
 aprovada — três vezes, uma por grupo de blocos, `test-architect` delega para
 `archunit-installer` no modo setup (sem argumento), e o pre-flight de `new-feature-implement` delega
-para `commons-logging-installer` quando `commons` está vazio.
+para `commons-logging-installer` quando `commons` está vazio. Depois que o grupo `tests` termina verde e
+antes do `git-publish`, `new-feature-implement` delega para `compose-service-installer` quando a spec tem
+uma linha `materialize` no `## Infrastructure`.
 
 **Fork — um caso diferente de agent:** um *fork* herda a conversa inteira em vez de
 começar do zero (`claude-help.md` § Forks). Só o resultado final volta à conversa

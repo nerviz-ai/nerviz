@@ -168,8 +168,9 @@ variável ausente; a validação de schema de frontmatter não.
 Negação por padrão; a mensagem nomeia a classe e o seu `write_allow`, e a correção é o dado
 (`skill_classes` em `.claude/schemas/extensions.json`), nunca uma nova tentativa. Uma rodada
 de design só escreve docs e não pode nem *chamar* uma skill de classe `build` —
-`docker-architect` inclusive: o serviço de compose que falta é registrado no parcial e
-materializado depois por `/docker-architect`. Sem fase de skill aberta, o território é livre,
+`docker-architect` inclusive: a rodada de design continua sem poder chamá-la, mas pergunta: quando falta o serviço de
+compose, `persistence-architect` e `messaging-architect` registram a resposta no parcial, e a
+rodada de implement adiciona cada linha `materialize` por meio do `compose-service-installer`. Sem fase de skill aberta, o território é livre,
 e é por isso que editar um arquivo à mão nunca é bloqueado.
 
 **Uma skill que encadeia outra da mesma classe soma o território dela; de outra classe, troca.**
