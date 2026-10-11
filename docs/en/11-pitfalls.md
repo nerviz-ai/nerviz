@@ -91,6 +91,20 @@ is documented. Design: `.claude/decisions/0118-skill-model-pin-audit-tail-and-bs
 live in the body's `## Contract` section. Do not put `metadata:` back into a `SKILL.md` — it
 costs tokens on every invocation and enforces nothing.
 
+**A personal skill named like a project skill replaces it, with no warning.** Claude Code
+resolves one name as enterprise > personal (`~/.claude/skills/`) > project (`.claude/skills/`):
+a `~/.claude/skills/use-case-design/` runs instead of the pipeline's, on `/use-case-design` and
+on automatic invocation. `/arch-doctor`'s `Skill shadowing` line names each collision; nothing
+in the project can refuse the personal directory. A plugin skill cannot do this — it is
+namespaced (`/plugin:skill`) — but it competes for the trigger through its `description`.
+
+**A plugin blocked here looks broken.** `enabledPlugins` carries `false` for the plugins of
+`settings.blocked_plugins` (`superpowers`, `mattpocock-skills`): installed at user level, they
+do not load in this project nor in a generated one, and nothing says so. On purpose — their
+skills compete with the pipeline for automatic invocation (decision 0138). To use one anyway,
+re-enable it for yourself in `.claude/settings.local.json`; removing the line from
+`settings.json` fails `schema`.
+
 ### Frontmatter and validation
 
 **The runtime silently ignores unknown frontmatter.** An invented field is decoration, not

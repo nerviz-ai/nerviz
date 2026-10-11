@@ -453,6 +453,8 @@ public class ArchHook {
 
         doctorMods();
 
+        doctorShadowedSkills();
+
         provenance();
 
         ComposeReport comp = composeReport();
@@ -678,6 +680,54 @@ public class ArchHook {
             }
         }
         return found;
+    }
+
+    /**
+     * The `Skill shadowing` line: every folder of the personal skills directory whose name is
+     * also a skill of this project. Claude Code resolves one name as enterprise over personal
+     * over project, so such a folder replaces the project's skill for every /command and every
+     * automatic invocation, with no warning. Why a `doctor` line and not a block: the personal
+     * directory is outside the project, nothing in the project can refuse it, and a person
+     * reads this report before a run (decision matrix § 2.2 — no guarantee reaches it). The
+     * closest rejected form, `settings.blocked_plugins`, covers plugins only: a plugin skill is
+     * namespaced and cannot shadow. Runner state, never in `doctor.gate.labels`; ⚪ when the
+     * directory does not exist. Reads `doctor.skill_shadowing`.
+     * Design: `.claude/decisions/0138-block-colliding-plugins-and-report-shadowed-skills.md`.
+     */
+    static void doctorShadowedSkills() {
+        Map<String, Object> spec = doctorSpec("skill_shadowing");
+        if (spec == null) return;
+        String env = asStr(spec.get("config_dir_env"));
+        String base = env == null ? null : System.getenv(env);
+        if (base == null || base.isBlank()) base = asStr(spec.get("config_dir_default"));
+        String sub = asStr(spec.get("skills_subdir"));
+        if (base == null || sub == null) return;
+        if (base.equals("~") || base.startsWith("~/")) {
+            base = System.getProperty("user.home") + base.substring(1);
+        }
+        Path personal = Paths.get(base).resolve(sub);
+        Path project = ROOT.resolve(".claude/skills");
+        if (!Files.isDirectory(personal)) {
+            err("  Skill shadowing ... ⚪ no " + personal + " — nothing can shadow (optional)");
+            return;
+        }
+        List<String> hit = new ArrayList<>();
+        try {
+            if (Files.isDirectory(project)
+                    && !personal.toRealPath().equals(project.toRealPath())) {
+                try (Stream<Path> s = Files.list(personal)) {
+                    s.filter(d -> Files.isRegularFile(d.resolve("SKILL.md")))
+                            .map(d -> d.getFileName().toString())
+                            .filter(n -> Files.isRegularFile(project.resolve(n).resolve("SKILL.md")))
+                            .sorted()
+                            .forEach(hit::add);
+                }
+            }
+        } catch (IOException ignored) { }
+        report("Skill shadowing", hit.isEmpty(),
+                "no personal skill replaces one of .claude/skills",
+                hit.size() + " personal skill(s) replace this project's: " + String.join(", ", hit)
+                        + " — rename or remove them in " + personal);
     }
 
     /**
@@ -3958,6 +4008,21 @@ public class ArchHook {
                 if (!topAllowed.contains(key)) {
                     errors.add("  " + rel + " — `" + key + "` is not a recognized top-level key");
                 }
+            }
+        }
+
+        // A plugin whose skills compete with the pipeline for automatic invocation stays off
+        // in the project, whatever the developer enabled at user level. The list has one
+        // owner; each settings file only carries it, and drifts the first time one is edited
+        // alone. Design: .claude/decisions/0138-block-colliding-plugins-and-report-shadowed-skills.md
+        Map<String, Object> plugins = asMap(root.get("enabledPlugins"));
+        for (String id : asStrList(get(sch, "settings", "blocked_plugins"))) {
+            if (plugins == null || !Boolean.FALSE.equals(plugins.get(id))) {
+                errors.add("  " + rel + " — `enabledPlugins` lacks `\"" + id + "\": false`."
+                        + " Its skills compete with this pipeline for automatic invocation"
+                        + " (.claude/schemas/extensions.json › settings.blocked_plugins)."
+                        + " Restore the entry; re-enable it for yourself in"
+                        + " .claude/settings.local.json instead");
             }
         }
 

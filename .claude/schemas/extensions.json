@@ -109,6 +109,13 @@
     "$comment_gate": "Read by `doctor gate`, the form the generated project's CI runs: the same report, then exit 1 when a line whose label is listed here printed ❌. A line doctor does not print — no .mcp.json, no audit directory — passes; an empty or missing list fails closed. Each label is a check of a committed file a push can break. Left out on purpose: `CLAUDE_PROJECT_DIR` and `Compose`, which are runner state (a CI runner never sets the variable and never starts the services); `Maven wrapper`, which the build job already fails without and which is blind to gradlew; `Audit`, which prices runs and gates nothing; `git HEAD`, always true on a checkout; the UC and BL references, which are documentation defects. Labels match the first argument of `report(...)` in ArchHook.java exactly — DoctorGateTest fails when one stops appearing. Design: .claude/decisions/0128-doctor-gate-fails-the-generated-boundaries-job.md",
     "gate": {
       "labels": ["Boundaries", "Schema", "Hook jar", "Hooks", "MCP", "Audit overrides"]
+    },
+
+    "$comment_shadowing": "Read by `doctor`, the `Skill shadowing` line. Claude Code resolves two skills with one name as enterprise over personal over project, so a folder in the personal skills directory named like one of .claude/skills/ replaces the project's skill for every /command and every automatic invocation, with no warning — the pipeline runs a skill that knows nothing of rules/ or the partials. A plugin skill cannot do this: it is namespaced as plugin:skill, and `settings.blocked_plugins` handles plugins. `config_dir_env` is the variable that relocates the personal directory, `config_dir_default` is used when it is unset (`~` is the user's home), `skills_subdir` is joined to either. Runner state: never in `gate.labels`, since a CI runner has no personal skills and a developer's home is not the project. Design: .claude/decisions/0138-block-colliding-plugins-and-report-shadowed-skills.md",
+    "skill_shadowing": {
+      "config_dir_env": "CLAUDE_CONFIG_DIR",
+      "config_dir_default": "~/.claude",
+      "skills_subdir": "skills"
     }
   },
 
@@ -143,6 +150,11 @@
       "$schema", "_comment", "hooks", "permissions", "enabledPlugins",
       "enabledMcpjsonServers", "disabledMcpjsonServers", "enableAllProjectMcpServers",
       "allowedMcpServers", "deniedMcpServers", "extraKnownMarketplaces"
+    ],
+    "$comment_blocked_plugins": "Read by ArchHook.java `schema`: every file in `match` must carry `\"<id>\": false` in `enabledPlugins` for each id below. A project-level `false` keeps a plugin the developer enabled at user level off inside this project. Each one ships skills whose description competes with this pipeline for automatic invocation, and a plugin skill that wins the trigger ignores rules/, the partials and /new-feature: `superpowers` runs its own brainstorm → plan → execute method, `mattpocock-skills` carries a `domain-modeling` with the same trigger as ours, plus `to-spec`, `implement-spec` and `tdd`. Plugins started by a typed command (`feature-dev`, `commit-commands`) are left out: they never fire on their own. A block by id is incomplete by nature — the same plugin from another marketplace has another key — and a project still re-enables one in its untracked settings.local.json. Written here and not only in the two files because the same list in two files with no owner diverges on the first edit (invariant 2). Design: .claude/decisions/0138-block-colliding-plugins-and-report-shadowed-skills.md",
+    "blocked_plugins": [
+      "superpowers@claude-plugins-official",
+      "mattpocock-skills@claude-plugins-official"
     ]
   },
 

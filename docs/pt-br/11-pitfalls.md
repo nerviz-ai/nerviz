@@ -95,6 +95,20 @@ comportamento é documentado. Design: `.claude/decisions/0118-skill-model-pin-au
 na seção `## Contract` do corpo. Não devolva `metadata:` a um `SKILL.md` — custa tokens em
 toda invocação e não impõe nada.
 
+**Uma skill pessoal com o nome de uma skill do projeto a substitui, sem aviso.** O Claude Code
+resolve um nome como enterprise > pessoal (`~/.claude/skills/`) > projeto (`.claude/skills/`):
+uma `~/.claude/skills/use-case-design/` roda no lugar da do pipeline, em `/use-case-design` e
+na invocação automática. A linha `Skill shadowing` do `/arch-doctor` nomeia cada colisão; nada
+no projeto pode recusar o diretório pessoal. Skill de plugin não faz isso — tem namespace
+(`/plugin:skill`) —, mas disputa o gatilho pela `description`.
+
+**Um plugin bloqueado aqui parece quebrado.** `enabledPlugins` traz `false` para os plugins de
+`settings.blocked_plugins` (`superpowers`, `mattpocock-skills`): instalados no nível de usuário,
+não carregam neste projeto nem no projeto gerado, e nada avisa. É de propósito — suas skills
+competem com o pipeline pela invocação automática (decisão 0138). Para usar um mesmo assim,
+religue-o só para você em `.claude/settings.local.json`; tirar a linha do `settings.json`
+falha o `schema`.
+
 ### Frontmatter e validação
 
 **O runtime ignora frontmatter desconhecido, em silêncio.** Um campo inventado é decoração,
