@@ -73,7 +73,7 @@ copy step isn't updated alongside it.
 
 This file is also read by GitHub Copilot, and `AGENTS.md` points every other agent here.
 **Outside Claude Code, only the build is guaranteed**: the CI job `architectural boundaries`
-fails on an import a module's `AGENTS.md` forbids, and Checkstyle, the JaCoCo gate and — once
+fails on an import `.claude/forbidden-imports.txt` forbids, and Checkstyle, the JaCoCo gate and — once
 `test-architect` installed it — the ArchUnit test refuse a violation whoever wrote it. The rest
 of what `.claude/` enforces runs as Claude Code hooks and permissions — the same forbidden
 imports blocked at edit time, each skill's write territory, approved specs under `docs/use-cases/`
@@ -123,9 +123,15 @@ of truth for its topic and is cited, never copied.
 - `{{path}}` — depends on: {{#if depends_on}}{{depends_on}}{{else}}nothing{{/if}}
 {{/each}}
 
+{{#if moduleAgentFiles}}
 Each module with restrictions has its own `AGENTS.md`, generated from the blueprint and read
 by every agent — next to it, a `CLAUDE.md` holding only `@AGENTS.md`, which is how Claude
 Code loads it. If the restriction changes, change the blueprint — not the markdown.
+{{else}}
+This layout restricts imports per package, not per module: `.claude/forbidden-imports.txt`,
+generated from the blueprint, lists each forbidden prefix with the package path it applies to.
+If a restriction changes, change the blueprint — not the file.
+{{/if}}
 
 **One exception to where Spring wiring goes: adapter-local wiring stays with its adapter.**
 A `@Configuration` that builds a `ProducerFactory`, a `KafkaTemplate`, a `DefaultErrorHandler`,

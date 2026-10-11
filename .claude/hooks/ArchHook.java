@@ -2192,18 +2192,24 @@ public class ArchHook {
                      List<String> vocabulary) {}
 
     static void export(String[] args) throws Exception {
-        String dest = null, blueprintId = null, ref = "working-tree";
+        String dest = null, blueprintId = null, ref = "working-tree", commit = null;
         boolean dry = false;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--dry-run")) dry = true;
             else if (a.equals("--blueprint") && i + 1 < args.length) blueprintId = args[++i];
             else if (a.equals("--ref") && i + 1 < args.length) ref = args[++i];
+            else if (a.equals("--commit") && i + 1 < args.length) commit = args[++i];
             else if (a.startsWith("--")) { err("❌ Unknown option: " + a); exportUsage(); System.exit(2); }
             else if (dest == null) dest = a;
             else { err("❌ Only one destination is accepted, got also: " + a); exportUsage(); System.exit(2); }
         }
         if (dest == null || blueprintId == null) { exportUsage(); System.exit(2); }
+        if (commit != null && !commit.matches("[0-9a-f]{7,40}")) {
+            err("❌ --commit takes a commit sha (7 to 40 lowercase hex digits), got: " + commit);
+            err("   arch-adopt resolves it with `git ls-remote`; a tag name goes in --ref.");
+            System.exit(2);
+        }
 
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         Map<String, Object> exp = sch == null ? null : asMap(sch.get("export"));
@@ -2227,7 +2233,7 @@ public class ArchHook {
         exportRules(exp, bp, out);
         exportTree(exp, "skills", out);
         exportTree(exp, "agents", out);
-        exportFiles(exp, bp, out, notes);
+        exportFiles(exp, bp, out, notes, destRoot);
         // Bytes, never text: the jar would not survive a UTF-8 round trip. Kept out of `out`,
         // so neither the stamp nor the residue scan reads it.
         Map<String, Path> binaries = new TreeMap<>();
@@ -2257,7 +2263,7 @@ public class ArchHook {
         String stampFile = asStr(get(sch, "source", "stamp_file")) == null
                 ? ".claude/.arch-provenance.json"
                 : asStr(get(sch, "source", "stamp_file"));
-        out.put(stampFile, stamp(bp, ref, out));
+        out.put(stampFile, stamp(bp, ref, commit, out));
 
         List<String> residue = new ArrayList<>();
         List<String> exempt = asStrList(get(exp, "body_transforms", "residue_exempt"));
@@ -2315,10 +2321,11 @@ public class ArchHook {
 
     static void exportUsage() {
         err("usage: java .claude/hooks/ArchHook.java export <dest> --blueprint <id>"
-                + " [--ref <label>] [--dry-run]");
+                + " [--ref <label>] [--commit <sha>] [--dry-run]");
         err("  <dest>        the target project's root (never this repository)");
         err("  --blueprint   id of a blueprint under .claude/blueprints/");
         err("  --ref         label recorded in the provenance stamp (default: working-tree)");
+        err("  --commit      the source commit to stamp; without it, the source's own git HEAD, or \"unknown\"");
     }
 
     /** Reads `packages.map`, `architecture_paths` and the naming-convention comment block. */
@@ -2443,7 +2450,7 @@ public class ArchHook {
     }
 
     static void exportFiles(Map<String, Object> exp, Blueprint bp, Map<String, String> out,
-                            List<String> notes) throws IOException {
+                            List<String> notes, Path destRoot) throws IOException {
         for (String group : List.of("copy", "overwrite", "optional_copy")) {
             for (Object e : asList(exp.get(group))) {
                 String from = asStr(get(e, "from")), to = asStr(get(e, "to"));
@@ -2457,8 +2464,12 @@ public class ArchHook {
                     continue;
                 }
                 String body = Files.readString(p, StandardCharsets.UTF_8);
-                out.put(to, Boolean.TRUE.equals(get(e, "verbatim")) ? body : transform(exp, bp, from, body));
-                if (group.equals("overwrite")) {
+                String written = Boolean.TRUE.equals(get(e, "verbatim")) ? body : transform(exp, bp, from, body);
+                out.put(to, written);
+                // Only a file that exists and changes: the note sends the person to `git diff`, and
+                // on a fresh tree or an unchanged file there is nothing there to read (issue #123).
+                String before = group.equals("overwrite") ? readOrNull(destRoot.resolve(to)) : null;
+                if (before != null && !before.replace("\r\n", "\n").equals(written.replace("\r\n", "\n"))) {
                     notes.add("Overwrites ........ " + to + " (its previous content is in the diff)");
                 }
             }
@@ -2673,8 +2684,9 @@ public class ArchHook {
      * files they have edited since the last export — `doctor` recomputes the digests and
      * names them. Everything else in the stamp answers "from where, and how old".
      */
-    static String stamp(Blueprint bp, String ref, Map<String, String> files) throws Exception {
-        String commit = firstLine(run("git", "-C", ROOT.toString(), "rev-parse", "HEAD"));
+    static String stamp(Blueprint bp, String ref, String given, Map<String, String> files)
+            throws Exception {
+        String commit = given != null ? given : sourceCommit();
         String origin = firstLine(run("git", "-C", ROOT.toString(), "config", "--get", "remote.origin.url"));
         String manifest = readOrNull(ROOT.resolve(SCHEMA_FILE));
         StringBuilder b = new StringBuilder("{\n"
@@ -2691,6 +2703,24 @@ public class ArchHook {
              .append(sha256(e.getValue())).append(++i < files.size() ? "\",\n" : "\"\n");
         }
         return b.append("  }\n}\n").toString();
+    }
+
+    /**
+     * The source's own HEAD, only when the source root is the top of its own work tree.
+     * `arch-adopt` exports from an extracted tarball, which is no repository: `rev-parse` there
+     * fails ("unknown"), or — with the tarball extracted inside some other work tree — answers
+     * with that repository's HEAD, a wrong commit stamped as if it were right (issue #123).
+     * `arch-adopt` passes `--commit` instead; this is what a local `--source` checkout uses.
+     */
+    static String sourceCommit() throws Exception {
+        String top = firstLine(run("git", "-C", ROOT.toString(), "rev-parse", "--show-toplevel"));
+        if (top == null) return null;
+        try {
+            if (!Paths.get(top).toRealPath().equals(ROOT.toRealPath())) return null;
+        } catch (IOException e) {
+            return null;
+        }
+        return firstLine(run("git", "-C", ROOT.toString(), "rev-parse", "HEAD"));
     }
 
     static String firstLine(Proc p) {

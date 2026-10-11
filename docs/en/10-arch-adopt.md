@@ -155,10 +155,15 @@ machine — that is how an unreleased change is tested.
 The mode is directly invocable, and it is what the skill calls:
 
 ```bash
-java .claude/hooks/ArchHook.java export <dest> --blueprint <id> [--ref <label>] [--dry-run]
+java .claude/hooks/ArchHook.java export <dest> --blueprint <id> [--ref <label>] [--commit <sha>] [--dry-run]
 ```
 
-`--dry-run` lists what it would write and writes nothing. Running it twice into the same
+`--dry-run` lists what it would write and writes nothing. `--commit` is the source commit the
+stamp records — the skill resolves it with `git ls-remote`, peeling an annotated tag, since the
+extracted tarball carries no repository. Without it the stamp takes the source's own HEAD, but
+only when the source is the top of its own work tree, and `unknown` otherwise — never the HEAD
+of a repository it happens to sit inside (decision 0141). `Overwrites` names a file only when
+it already exists in the destination and changes. Running it twice into the same
 destination produces byte-identical trees outside the stamp — determinism verified across
 the 7 official blueprints on every change to the manifest.
 

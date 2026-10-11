@@ -157,10 +157,15 @@ Move this project's use cases into one subpackage per aggregate, … (the entry'
 O modo é invocável direto, e é o que a skill chama:
 
 ```bash
-java .claude/hooks/ArchHook.java export <dest> --blueprint <id> [--ref <label>] [--dry-run]
+java .claude/hooks/ArchHook.java export <dest> --blueprint <id> [--ref <label>] [--commit <sha>] [--dry-run]
 ```
 
-`--dry-run` lista o que escreveria e não escreve nada. Rodar duas vezes no mesmo destino
+`--dry-run` lista o que escreveria e não escreve nada. `--commit` é o commit da fonte que o
+stamp registra — a skill o resolve com `git ls-remote`, descascando a tag anotada, porque o
+tarball extraído não traz repositório. Sem ele, o stamp usa o HEAD da própria fonte, mas só
+quando a fonte é o topo da própria work tree, e `unknown` caso contrário — nunca o HEAD de um
+repositório onde ela por acaso esteja (decisão 0141). `Overwrites` só nomeia um arquivo que já
+existe no destino e muda. Rodar duas vezes no mesmo destino
 produz árvores byte-identical fora do stamp — determinismo verificado nos 7 blueprints
 oficiais a cada mudança do manifesto.
 

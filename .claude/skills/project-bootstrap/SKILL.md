@@ -380,8 +380,10 @@ Next steps:
   1. /use-case-design <first-use-case-name>
   2. Install the architecture tests (ArchUnit) and wire up the coverage gate with the
      `test-architect` skill as soon as business classes exist. Until then boundaries
-     are guaranteed only by the hook (inside Claude Code)<, and by the POMs'
-     `depends_on` (in the build) — only if `layout: multi-module`>.
+     are guaranteed by the `check` hook at edit time (inside Claude Code) and by CI's
+     `doctor gate`, which sweeps every source file against `.claude/forbidden-imports.txt`
+     (whoever wrote it)<, and by the POMs' `depends_on` (in the build) — only if
+     `layout: multi-module`>.
   3. SonarQube — <local: `docker compose up -d sonarqube`, log in at http://localhost:9000
      as admin/admin (a password change is forced), create a token under My Account →
      Security, `export SONAR_TOKEN=…`, then `<./mvnw -B verify sonar:sonar | ./gradlew build sonar>`
@@ -390,9 +392,11 @@ Next steps:
 
 The part between `<>` in line 2 only appears if the blueprint is `layout:
 multi-module`. In `single-module` there's no per-layer POM and the compiler enforces no
-boundary at all: outside Claude Code the project has no enforcement whatsoever until
-ArchUnit is installed. Write that, in those words — the generic sentence promises a
-build guarantee that doesn't exist.
+boundary at all: outside Claude Code, the CI sweep of `.claude/forbidden-imports.txt` is the
+only boundary check until ArchUnit is installed — in this layout it carries the
+`dependency_rules` directions step 5 derived, plus the framework roots banned from the
+domain. Say that, and no more: a sentence promising a compiler-level guarantee, or denying
+the CI one, is false here.
 
 The ArchUnit and coverage lines aren't optional: without them the user ends up thinking
 `code-quality.md`, `architecture-ddd.md`, and `testing.md` already have full automatic
