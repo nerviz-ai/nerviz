@@ -13,7 +13,7 @@ it is not a norm and is not loaded by any skill or hook.
 | 3 | Remaining blueprints, all satisfying `_schema.md` | ✅ `hexagonal`, `clean-architecture-multi-module`, `clean-architecture-single-module`, `layered`, `modular-monolith`, `onion`, `vertical-slice` done |
 | 4 | Feature skills (`use-case-design` → `domain-modeling` → `persistence-architect` → `rest-api-architect` → `test-architect`) | ✅ all 5 partials have an owner |
 | 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24; since `v0.22.0` the spec is designed by `/new-feature` and implemented by `/new-feature-implement` in a clean session |
-| 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0`, a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
+| 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0` (batched since `v0.22.1`), a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
 | 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
 | 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | ⬜ planned — see § Multi-agent portability |
 
@@ -157,6 +157,8 @@ copied inside them — exactly the duplication this design exists to avoid.
       (see 0099)
 - [x] CI (`mods.yml`) — `claude plugin validate` and `claude plugin test` over `.claude/mods`
 - [x] `release.yml` — every PR declares its bump level, and its merge leaves an annotated tag
+- [x] `release-notes.yml` — every Friday, or by hand, one GitHub Release groups the tags since
+      the previous one, in the PRs' own words, with the migrations added in the range
 - [ ] CI — invariant 9 (generated project is self-contained) — half automated: `schema` checks the
       `export` manifest against disk and `export-determinism` exports every blueprint; a real
       generated project compiling is still checked by hand
@@ -210,7 +212,7 @@ mixed team reports a gap it did not close.
 - [x] LICENSE
 - [x] `SECURITY.md` (private vulnerability reporting, linked first in the issue chooser)
 - [x] `CONTRIBUTING.md`
-- [x] GitHub Releases with notes, from `v0.15.0`
+- [x] GitHub Releases with notes, from `v0.15.0`; one per batch of tags since `v0.22.1`
 - [x] Worked example with real output: [`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)
       — generation report, approved specs, audit reports — plus the README's demo GIFs
 

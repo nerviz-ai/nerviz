@@ -1,0 +1,212 @@
+name: release-notes
+
+# One claim: every GitHub Release groups the tags merged since the previous Release, in the
+# PRs' own words, so no tag is left without a note and no note is written twice.
+#
+# Tags and Releases answer different readers. `release.yml` tags every merge into `main`,
+# because the marketplace and `/arch-adopt` resolve refs, and a fix should reach them the
+# day it merges. A Release is for a person reading what changed: one per tag would be a
+# dozen a week, each a single PR. So this workflow, not `release.yml`, writes Releases,
+# and it writes one per batch:
+#
+#   start   the latest published Release (`gh release view`), or the `since` input
+#   end     the highest vMAJOR.MINOR.PATCH tag
+#   body    one heading per tag, grouped by the bump level its tag message records
+#           (Breaking, New, Fixes and docs), each with § What changes of its PR — or
+#           § What, § Summary, or the lead paragraphs when the PR has none of those —
+#           then the `migrations` entries `extensions.json` gained in the range, which
+#           `/arch-adopt` prints on update, and the compare link
+#   publish `gh release create <end> --latest`, on the existing tag; never a new tag
+#
+# Runs every Friday, and by hand (`workflow_dispatch`) whenever a batch deserves its
+# Release sooner; `dry_run` prints the notes to the run summary and publishes nothing.
+# A run with no tag after the latest Release is a no-op, so a quiet week costs nothing.
+#
+# A PR body is untrusted text: it is fetched into a file and only ever read by `awk`, never
+# interpolated into a script. The Release title is built from the tag and a count alone.
+on:
+  schedule:
+    - cron: '0 21 * * 5'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Start after this tag (default: the tag of the latest published Release)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Print the notes to the run summary, publish nothing'
+        type: boolean
+        default: false
+
+# Read by default. Only the job writes, and it says so itself.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: release the tags since the last Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A scheduled run and a manual one must not both publish the same batch.
+    concurrency:
+      group: release-notes
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # `fetch-depth: 0` brings the tags and their messages, which carry the PR number and
+      # the bump level `release.yml` wrote.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: write the notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SINCE_INPUT: ${{ inputs.since }}
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/release-notes"; rm -rf "$WORK"; mkdir -p "$WORK"
+          EXT=.claude/schemas/extensions.json
+
+          HEAD=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$HEAD" ]; then echo "No vMAJOR.MINOR.PATCH tag yet — nothing to release."; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+
+          # The start of the range: the input when given, else the latest published Release.
+          SINCE="${SINCE_INPUT:-}"
+          if [ -z "$SINCE" ]; then
+            SINCE=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          fi
+          if [ "$SINCE" = "$HEAD" ]; then
+            echo "✅ $HEAD already has a Release — nothing new to group."
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -n "$SINCE" ] && ! git rev-parse -q --verify "refs/tags/$SINCE" > /dev/null; then
+            echo "❌ start tag '$SINCE' does not exist."; exit 1
+          fi
+
+          # Every tag after SINCE, up to HEAD, oldest first. No SINCE: every tag.
+          TAGS=$(git tag -l 'v[0-9]*' --sort=v:refname \
+            | awk -v s="$SINCE" -v h="$HEAD" '(s == "" || found) { print } $0 == s { found = 1 } $0 == h { exit }')
+          [ -n "$TAGS" ] || { echo "❌ no tag after '$SINCE' up to '$HEAD'."; exit 1; }
+          COUNT=$(printf '%s\n' "$TAGS" | grep -c .)
+
+          # The PR's own prose: § What changes (or § What, § Summary), template comments dropped,
+          # its headings pushed one level down so they nest under the tag's heading. A body with
+          # none of those sections gives its lead paragraphs instead, up to the first heading.
+          trim() {
+            awk '!/^🤖 Generated with/' \
+              | awk 'NF { started = 1 } started' \
+              | awk '{ lines[NR] = $0 } NF { last = NR } END { for (i = 1; i <= last; i++) print lines[i] }'
+          }
+          section() {
+            tr -d '\r' < "$1" | awk '
+              /<!--/ { c = 1 }
+              c { if (/-->/) c = 0; next }
+              /^## / { if (insec) exit; if ($0 ~ /^## (What changes|What|Summary)[[:space:]]*$/) { insec = 1 }; next }
+              insec { sub(/^### /, "#### "); print }
+            ' | trim
+          }
+          lead() {
+            tr -d '\r' < "$1" | awk '
+              /<!--/ { c = 1 }
+              c { if (/-->/) c = 0; next }
+              /^#/ { exit }
+              { print }
+            ' | trim
+          }
+
+          for MODE in full short; do
+            : > "$WORK/major"; : > "$WORK/minor"; : > "$WORK/patch"; : > "$WORK/other"
+            for T in $TAGS; do
+              MSG=$(git for-each-ref "refs/tags/$T" --format='%(contents)')
+              SUBJECT=$(printf '%s\n' "$MSG" | head -1)
+              # The tag subject is "vX.Y.Z — <PR title>"; the Conventional Commits prefix goes.
+              TITLE=$(printf '%s\n' "${SUBJECT#* — }" | sed -E 's/^[a-z]+(\([^)]*\))?!?: //')
+              LEVEL=$(printf '%s\n' "$MSG" | sed -nE 's/^(major|minor|patch) bump from .*/\1/p' | head -1)
+              PR=$(printf '%s\n' "$MSG" | grep -oE 'merge commit of #[0-9]+' | grep -oE '[0-9]+$' | head -1 || true)
+              case "$LEVEL" in major|minor|patch) ;; *) LEVEL=other ;; esac
+              {
+                if [ -n "$PR" ]; then printf '### `%s` — %s (#%s)\n\n' "$T" "$TITLE" "$PR"; else printf '### `%s` — %s\n\n' "$T" "$TITLE"; fi
+                if [ "$MODE" = full ] && [ -n "$PR" ]; then
+                  [ -f "$WORK/pr-$PR.md" ] || gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json body -q .body > "$WORK/pr-$PR.md" 2>/dev/null || : > "$WORK/pr-$PR.md"
+                  BODY=$(section "$WORK/pr-$PR.md")
+                  [ -n "$BODY" ] || BODY=$(lead "$WORK/pr-$PR.md")
+                  [ -z "$BODY" ] || printf '%s\n\n' "$BODY"
+                fi
+              } >> "$WORK/$LEVEL"
+            done
+
+            # Migrations added in the range: what `/arch-adopt` will print to a project on update.
+            ids() { git show "$1:$EXT" 2>/dev/null | jq -r '.migrations.entries[]?.id' 2>/dev/null | sort -u; }
+            if [ -n "$SINCE" ]; then ids "$SINCE" > "$WORK/ids-old"; else : > "$WORK/ids-old"; fi
+            ids "$HEAD" > "$WORK/ids-new"
+            NEWIDS=$(comm -13 "$WORK/ids-old" "$WORK/ids-new")
+
+            {
+              if [ -n "$SINCE" ]; then
+                printf 'Groups %s merge(s) into `main` since `%s`, tags `%s` to `%s`.\n\n' "$COUNT" "$SINCE" "$(printf '%s\n' "$TAGS" | head -1)" "$HEAD"
+              else
+                printf 'Groups every merge into `main` up to `%s`.\n\n' "$HEAD"
+              fi
+              [ ! -s "$WORK/major" ] || { printf '## Breaking\n\n'; cat "$WORK/major"; }
+              [ ! -s "$WORK/minor" ] || { printf '## New\n\n';      cat "$WORK/minor"; }
+              [ ! -s "$WORK/patch" ] || { printf '## Fixes and docs\n\n'; cat "$WORK/patch"; }
+              [ ! -s "$WORK/other" ] || { printf '## Other\n\n';    cat "$WORK/other"; }
+              printf '## Upgrading a generated or adopted project\n\n'
+              if [ -n "$SINCE" ] && git diff --quiet "$SINCE" "$HEAD" -- .claude/; then
+                printf 'Nothing under `.claude/` changes. Generated projects need no update.\n\n'
+              else
+                printf 'Run `/arch-adopt` inside the project.'
+                if [ -n "$NEWIDS" ]; then
+                  printf ' It prints the note and prompt of each migration added here, and never runs them:\n\n'
+                  for ID in $NEWIDS; do printf -- '- `%s`\n' "$ID"; done
+                  printf '\n'
+                else
+                  printf ' No migration was added in this range.\n\n'
+                fi
+              fi
+              [ -z "$SINCE" ] || printf '**Full changelog:** https://github.com/%s/compare/%s...%s\n' "$GITHUB_REPOSITORY" "$SINCE" "$HEAD"
+            } > "$WORK/notes.md"
+
+            # GitHub caps a Release body at 125,000 characters: past that, titles only.
+            [ "$(wc -c < "$WORK/notes.md")" -gt 120000 ] || break
+            echo "⚠️  full notes exceed the Release body limit — falling back to titles only."
+          done
+
+          CHANGES=$([ "$COUNT" -eq 1 ] && echo "1 change" || echo "$COUNT changes")
+          SUMMARY="$CHANGES since ${SINCE:-the first tag}"
+
+          {
+            echo "tag=$HEAD"
+            echo "title=$HEAD — $SUMMARY"
+            echo "notes=$WORK/notes.md"
+          } >> "$GITHUB_OUTPUT"
+          echo "✅ $HEAD — $SUMMARY"
+
+      - name: show the notes (dry run)
+        if: steps.notes.outputs.skip != 'true' && inputs.dry_run == true
+        env:
+          TITLE: ${{ steps.notes.outputs.title }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          { printf '## %s\n\n' "$TITLE"; cat "$NOTES"; } >> "$GITHUB_STEP_SUMMARY"
+
+      # `--verify-tag`: the Release lands on the tag `release.yml` already pushed, and fails
+      # rather than create one. A Release created with GITHUB_TOKEN triggers no workflow.
+      - name: publish the Release
+        if: steps.notes.outputs.skip != 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.notes.outputs.tag }}
+          TITLE: ${{ steps.notes.outputs.title }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --verify-tag --latest --title "$TITLE" --notes-file "$NOTES"
+          printf '### `%s`\n\n%s\n' "$TAG" "$TITLE" >> "$GITHUB_STEP_SUMMARY"

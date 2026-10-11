@@ -184,9 +184,14 @@ Quatro decisões que não são óbvias no arquivo:
   o step lê o secret `MARKETPLACE_DISPATCH_TOKEN` (PAT fine-grained, só aquele repositório,
   Contents: read and write). Sem ele, o step avisa em vez de falhar: a tag já foi enviada.
 
-Duas coisas continuam manuais, de propósito: o GitHub Release, quando um ref merece mais
-prosa do que a mensagem que o workflow escreve (a mensagem aponta para o PR), e o merge do PR
-no marketplace — publicar é uma decisão, não consequência de um merge.
+O GitHub Release não é deste workflow. `release-notes.yml` roda toda sexta-feira, e à mão
+(`workflow_dispatch`) quando um lote deve sair antes: junta todas as tags desde o último
+Release publicado, agrupa por nível de bump (Breaking, New, Fixes and docs) com a § What
+changes de cada PR, lista as entradas de `migrations` novas no intervalo e publica um Release
+só, na tag mais nova. Com `dry_run`, só mostra as notas no resumo da execução.
+
+Uma coisa continua manual, de propósito: o merge do PR no marketplace — publicar é uma
+decisão, não consequência de um merge.
 
 **O que torna o campo obrigatório não está no arquivo:** é `bump-declared` como *required
 status check* na branch protection de `main`. Sem isso, o job falha e o merge acontece

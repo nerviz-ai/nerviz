@@ -14,9 +14,10 @@ name: release
 #   tag            runs once, on the `closed` event of a merged PR, creates the annotated
 #                  tag from the merge commit, and tells the marketplace a tag exists.
 #
-# What this does NOT do, on purpose: create a GitHub Release, write release notes, or
-# write to the marketplace repository. The tag message points at the PR, which is where
-# the prose already is. `nerviz-ai/marketplace` receives a
+# What this does NOT do, on purpose: create a GitHub Release or write to the marketplace
+# repository. The tag message points at the PR, which is where the prose already is;
+# `release-notes.yml` groups the tags since the previous Release into the next one, so a
+# Release is one per batch, not one per merge. `nerviz-ai/marketplace` receives a
 # `repository_dispatch` and its own `sync.yml` opens a PR there; merging that PR is the
 # decision about what to publish, and it stays a person's.
 on:
@@ -174,8 +175,8 @@ jobs:
             printf 'PR:     %s\n'   "$PR_URL"
             printf 'Author: @%s\n'  "$PR_AUTHOR"
             printf 'Commit: %s\n\n' "$MERGE_SHA"
-            printf 'The PR is the release note. A ref worth more prose than this gets a\n'
-            printf 'GitHub Release written on top of it by hand.\n'
+            printf 'The PR is the note for this tag. release-notes.yml groups it, with\n'
+            printf 'every tag since the previous GitHub Release, into the next one.\n'
           } > "$RUNNER_TEMP/tag-message.txt"
           git tag -a "$NEW" -F "$RUNNER_TEMP/tag-message.txt" "$MERGE_SHA"
           # `GITHUB_TOKEN` pushes do not trigger workflows, so this cannot re-enter here.
