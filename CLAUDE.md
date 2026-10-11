@@ -21,7 +21,7 @@ Claude CLI, from npm, to test them).
 | Create a project from a blueprint | `/init-project` |
 | Design a new extension of this `.claude/` | `/claude-code-architect-designer` |
 | Run the hook by hand | `java .claude/hooks/ArchHook.java doctor` |
-| The same report as a CI gate — exit 1 when a line `doctor.gate.labels` lists is red (boundary rules, schema, hook jar, hook registrations, `.mcp.json`, audit overrides); runner state never gates. The generated project's `architectural boundaries` job runs it | `java .claude/hooks/ArchHook.java doctor gate` |
+| The same report as a CI gate — exit 1 when a line `doctor.gate.labels` lists is red (boundary rules, a source file importing what its module forbids, schema, hook jar, hook registrations, `.mcp.json`, audit overrides); runner state never gates. The generated project's `architectural boundaries` job runs it | `java .claude/hooks/ArchHook.java doctor gate` |
 | Check one file against the architectural boundary by hand — exit 2 on a forbidden import, 1 when the path is no `.java` file, never a read of stdin | `java .claude/hooks/ArchHook.java check <path>` |
 | Check every compose service is up, no foreign container holds its ports (a warning, never a block, while no container of the project exists), every published port is advertised at a host-resolvable address, and every `${VAR:default}` pointing at a service holds on the host and in the `app` container — plus a warning, never a block, when the datasource's database or user disagrees with the database service it reaches, or has no password where the service requires one | `java .claude/hooks/ArchHook.java compose` |
 | Check which paths a shell command would write, and whether the guard admits them — and whether it is a force push, which it blocks | `echo '{"tool_input":{"command":"…"}}' \| java .claude/hooks/ArchHook.java guard bash` |
@@ -166,6 +166,7 @@ a design-time edge, like `project-bootstrap` writing `src/`; the runtime directi
 | Frontmatter fields the runtime recognizes | `.claude/schemas/extensions.json` (owner, read by `ArchHook.java schema`) · meaning of each: `@.claude/skills/claude-code-architect-designer/references/frontmatter-fields.md` |
 | How each piece of Claude Code works | `@claude-help.md` |
 | A skill, hook, injection or MCP server that silently does nothing, a write `guard` refused, a frozen spec folder, who owns `pom.xml` or the outbox — every silent trap, the runtime's and this repository's | `@docs/pt-br/11-pitfalls.md` |
+| What a generated project gives a GitHub Copilot user — which of `.claude/` the Copilot CLI, cloud agent and VS Code read as-is, what needs a file or frontmatter translation (`AGENTS.md` nested, `.instructions.md` with `applyTo`, `.agent.md`), what only Claude Code has (`` !` `` injection, `$ARGUMENTS`, `Skill` tool, `permissions.deny`), and which guarantee of this repo still holds there — the input of `roadmap.md` phase 8 and of the `AGENTS.md` design | `@docs/pt-br/13-github-copilot.md` — facts verified against the vendor docs on the date it states, re-verified before a decision uses one |
 
 ## Known pitfalls
 

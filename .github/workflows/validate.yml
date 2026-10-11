@@ -170,6 +170,19 @@ jobs:
       - name: doctor names a personal skill that shadows a project skill, and never gates
         run: java .claude/.ci/SkillShadowTest.java
 
+      # A module's facts now live in its AGENTS.md, and Claude Code loads it only through the
+      # one-line CLAUDE.md next to it — a module AGENTS.md alone is skipped while the root has
+      # a CLAUDE.md, in silence. The files are rendered by the model, so doctor checks them
+      # against the blueprint copy; it reports, never gates (0139).
+      - name: doctor checks the agent instruction files against the blueprint, and never gates
+        run: java .claude/.ci/AgentInstructionsTest.java
+
+      # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
+      # the one gated line that reads code: it sweeps every source file with check's own match.
+      # A sweep that matched nothing would read as a clean project, under any agent (0140).
+      - name: doctor sweeps every source file for forbidden imports, with check's own match
+        run: java .claude/.ci/BoundarySweepTest.java
+
       # SubagentStart cannot block and an empty stdout is legal: a catalog that stops
       # arriving, or starts arriving everywhere, fails silently (0077).
       - name: context subagent hands the catalog to pattern_catalog agents only

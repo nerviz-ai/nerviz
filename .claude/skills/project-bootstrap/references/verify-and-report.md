@@ -60,6 +60,15 @@ dead path here is exactly the failure § 6.6 exists to prevent, and the `export`
 already reported any citation that survived its cut — this is the second reading of the
 same question, from the project's side.
 
+```bash
+java .claude/hooks/ArchHook.java doctor 2>&1 | grep "Agent instructions"   # must show ✅
+```
+
+Step 6's agent files — the root `AGENTS.md`, `.github/copilot-instructions.md`, and every
+module's `AGENTS.md` with its one-line `CLAUDE.md` — checked against the blueprint copy
+`export` just wrote: every forbidden prefix listed, every import in place, every cited path
+present. A ⚠️ names the file; fix it before reporting.
+
 ## 8.5 · Generate the project README
 
 Runs **after** Verify, on purpose: everything this step writes — the build status, the

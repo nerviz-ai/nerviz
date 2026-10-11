@@ -1,0 +1,36 @@
+<!--
+  EXEMPLAR — shows the shape of the AGENTS.md generated for each module with restrictions.
+  This example corresponds to the `domain` module of the `hexagonal` blueprint.
+  When generating, replace with the module's real data; don't copy this text verbatim.
+  This file is the module's single owner of these facts. Next to it goes a CLAUDE.md
+  holding only `@AGENTS.md` (module.CLAUDE.md.example): Claude Code does not read a module
+  AGENTS.md on its own while the root has a CLAUDE.md, and GitHub Copilot never reads a
+  module CLAUDE.md. Design: decision 0139 of Nerviz.
+-->
+
+# `domain` module
+
+Innermost boundary. Zero framework dependencies.
+
+## Allowed dependencies
+
+None. This is the core — it knows no other module.
+
+## Forbidden in this module
+
+- `org.springframework..`
+- `jakarta.persistence..`
+- `jakarta.validation..`
+- `com.fasterxml.jackson..`
+- `tools.jackson..`
+
+Whoever writes them, the CI job `architectural boundaries` fails on them: its
+`ArchHook.java doctor gate` sweeps every source file against `.claude/forbidden-imports.txt`.
+Under Claude Code the `check` hook also blocks them at edit time. If you need one of these, the
+responsibility is in the wrong module — move the code, not the rule.
+
+## Base package
+
+`com.exemplo.minhaapi.domain`
+
+Full rule: `.claude/rules/architecture-ddd.md`

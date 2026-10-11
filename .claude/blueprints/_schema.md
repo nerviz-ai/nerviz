@@ -59,7 +59,7 @@ Corollary for whoever writes a blueprint: adding a feature means adding a line t
 | `id` | ✅ | Unique identifier |
 | `path` | ✅ | Path relative to the root |
 | `depends_on` | ✅ | List of `id`s, `[]`, or `["*"]` for the bootstrap |
-| `forbidden_imports` | ➖ | Forbidden prefixes. If present, generates a local `CLAUDE.md` |
+| `forbidden_imports` | ➖ | Forbidden prefixes. If present, generates a local `AGENTS.md`, plus the one-line `CLAUDE.md` that imports it |
 | `feature` | ➖ | Module is only generated if the feature is active |
 | `contains_main` | ➖ | Exactly one module with `true` |
 

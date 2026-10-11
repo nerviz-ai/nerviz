@@ -169,6 +169,17 @@ name as the team's `.mcp.json` one shadows it — no warning either way.
 `${VAR}` text and fails to connect at runtime instead. `claude mcp list` surfaces the
 missing-variable warning; frontmatter schema validation does not.
 
+### `CLAUDE.md` and `AGENTS.md`
+
+**A module `AGENTS.md` alone is invisible to Claude Code while the root has a `CLAUDE.md`.** The
+documentation says Claude Code reads `AGENTS.md` when there is no `CLAUDE.md` "on the path", and
+leaves open whether the root one counts; Claude Code 2.1.296 did not load the module's on a
+Read. What loads it is a `CLAUDE.md` in the module holding only `@AGENTS.md` — on a Read, Edit or
+Write under the module, inside a subagent too. The `claude-md-and-agents-md` mode would fix it,
+but project settings ignore it. In a generated project, `/arch-doctor`'s `Agent instructions`
+line names the module missing the import. Design:
+`.claude/decisions/0139-agents-md-root-pointer-module-owner.md`.
+
 ## Part 2 · This repository
 
 ### Write territory and the guards

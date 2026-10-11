@@ -87,7 +87,8 @@ jobs:
           java-version: '21'
 
       # Fails when a committed check of the .claude/ setup is red — the lines
-      # `doctor.gate.labels` names in .claude/schemas/extensions.json: boundary rules present,
+      # `doctor.gate.labels` names in .claude/schemas/extensions.json: boundary rules present, no
+      # source file importing what its module forbids (whoever wrote it),
       # schema valid, hook jar built from the current source, hook registrations, .mcp.json,
       # audit overrides. CLAUDE_PROJECT_DIR and Compose are runner state and never gate. The
       # bare `doctor` only prints and always exits 0.

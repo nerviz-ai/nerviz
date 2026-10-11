@@ -244,7 +244,7 @@ greens, which is why `/arch-doctor` exists. More traps, runtime and repository a
      ├─ 2. VALIDATES blueprint — 6-rule checklist            [fails fast]
      ├─ 3. BASE via Spring Initializr (curl)                 [GA versions, nothing hardcoded]
      ├─ 4. RESTRUCTURES into modules per the blueprint       [exemplars give the shape]
-     ├─ 5. GENERATES forbidden-imports.txt + root and <module>/CLAUDE.md, CI, Checkstyle,
+     ├─ 5. GENERATES forbidden-imports.txt + root and module CLAUDE.md/AGENTS.md, CI, Checkstyle,
      │      lombok.config, logback, Dockerfile + docker-compose
      ├─ 6. EXPORTS norms, development skills, executor agents — the project is self-contained
      ├─ 7. INSTALLS hooks (ArchHook.jar + extensions.json + settings.json), opens the audit trail

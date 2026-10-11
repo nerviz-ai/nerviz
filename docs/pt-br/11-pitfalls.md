@@ -174,6 +174,17 @@ nenhum dos lados.
 texto literal `${VAR}` e falha ao conectar em runtime. `claude mcp list` mostra o aviso de
 variável ausente; a validação de schema de frontmatter não.
 
+### `CLAUDE.md` e `AGENTS.md`
+
+**Um `AGENTS.md` de módulo sozinho é invisível ao Claude Code enquanto a raiz tem um
+`CLAUDE.md`.** A documentação diz que o Claude Code lê `AGENTS.md` quando não há `CLAUDE.md` "no
+caminho", e deixa em aberto se o da raiz conta; o Claude Code 2.1.296 não carregou o do módulo
+num Read. O que carrega é um `CLAUDE.md` no módulo contendo só `@AGENTS.md` — num Read, Edit ou
+Write sob o módulo, dentro de subagent também. O modo `claude-md-and-agents-md` resolveria, mas
+é ignorado em settings de projeto. Num projeto gerado, a linha `Agent instructions` do
+`/arch-doctor` nomeia o módulo sem o import. Design:
+`.claude/decisions/0139-agents-md-root-pointer-module-owner.md`.
+
 ## Parte 2 · Este repositório
 
 ### Território de escrita e os guards

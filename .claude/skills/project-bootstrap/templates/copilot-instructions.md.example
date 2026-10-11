@@ -1,0 +1,9 @@
+<!--
+Exemplar of .github/copilot-instructions.md in a generated project. Written in step 6 of
+SKILL.md as the single line below, without this comment. The only instruction file that
+Copilot Chat on GitHub.com, Visual Studio, JetBrains, Xcode and Eclipse reads; every other
+Copilot surface reads CLAUDE.md as well. A Markdown link, not `@CLAUDE.md`: the Copilot CLI
+expands an `@` path into a second copy of a file it already reads. Design: decision 0139 of
+Nerviz.
+-->
+Read [CLAUDE.md](../CLAUDE.md) at the repository root before changing anything: it holds this project's build commands, invariants and module structure, and says which of its checks hold outside Claude Code.
