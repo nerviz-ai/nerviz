@@ -159,10 +159,14 @@ public class BoundarySweepTest {
         Files.writeString(f, s, StandardCharsets.UTF_8);
     }
 
+    /** Git writes its objects read-only, and Windows refuses to delete a read-only file. */
     static void deleteTree(Path root) throws Exception {
         if (!Files.exists(root)) return;
         try (Stream<Path> s = Files.walk(root)) {
-            for (Path x : s.sorted(Comparator.reverseOrder()).toList()) Files.delete(x);
+            for (Path x : s.sorted(Comparator.reverseOrder()).toList()) {
+                x.toFile().setWritable(true);
+                Files.delete(x);
+            }
         }
     }
 }
