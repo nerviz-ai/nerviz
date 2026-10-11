@@ -183,6 +183,12 @@ jobs:
       - name: doctor sweeps every source file for forbidden imports, with check's own match
         run: java .claude/.ci/BoundarySweepTest.java
 
+      # What export tells the person who runs it: `Overwrites` only for a file that exists and
+      # changes, and a stamp whose commit is the one given, the source's own HEAD, or
+      # "unknown" — never a parent repository's. report-issue reads that commit (0141).
+      - name: export notes only real overwrites, and never guesses the stamp's commit
+        run: java .claude/.ci/ExportProvenanceTest.java
+
       # SubagentStart cannot block and an empty stdout is legal: a catalog that stops
       # arriving, or starts arriving everywhere, fails silently (0077).
       - name: context subagent hands the catalog to pattern_catalog agents only

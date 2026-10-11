@@ -77,6 +77,19 @@ The newest tag is the default. `--ref <tag|sha|main>` overrides it; `main` is on
 used when asked for explicitly, because it moves. No tags at all → say so and use `main`,
 stating that the stamp will record a moving ref.
 
+Then the commit that ref names, for the stamp — the tarball carries no repository, so
+`export` cannot read it there, and `report-issue` compares it with the source's HEAD when the
+ref is not a tag:
+
+```bash
+git ls-remote <git_url> "refs/tags/<ref>^{}" "refs/tags/<ref>" "refs/heads/<ref>"
+```
+
+Take the first column of the `^{}` line when there is one — an annotated tag's own line is
+the tag object, not the commit — else of the other line. A full 40-digit sha given as `--ref`
+is its own commit. Nothing resolved → no `--commit` in step 5, and the stamp says
+`unknown`, which is honest.
+
 ### 3 · Fetch
 
 ```bash
@@ -153,8 +166,13 @@ block there means none. Keep the list for step 9.
 
 ```bash
 CLAUDE_PROJECT_DIR="$SRC" java "$SRC/.claude/hooks/ArchHook.java" export . \
-  --blueprint <id> --ref <ref>
+  --blueprint <id> --ref <ref> --commit <sha from step 2>
 ```
+
+With `--source <path>`, leave `--commit` out: `export` reads that checkout's own HEAD, and
+only when the path is the top of its own work tree. Leave it out too when
+`grep -q -- '--commit' "$SRC/.claude/hooks/ArchHook.java"` finds nothing: the export that runs
+is the fetched ref's, and one older than the flag refuses it as an unknown option.
 
 Add `--dry-run` first whenever the project already has files at those paths, and show the
 user the list before the real run. Read the mode's own output: a line reporting a

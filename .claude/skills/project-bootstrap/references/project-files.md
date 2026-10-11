@@ -51,8 +51,14 @@ Target under 200 lines: it's an index and invariants, not a manual. No `rules/` 
 reproduced **inside** this file — only cited by path. The rule files themselves are
 copied into the project in step 6.6.
 
+`{{#if moduleAgentFiles}}` in both root templates is true when at least one module of the
+blueprint has a non-empty `forbidden_imports` — the same fact that decides, below, whether
+module files are written. Never key it on a blueprint id or on `layout` alone: a
+`single-module` blueprint declares its restrictions per package (step 5), gets no module
+file, and its root files must say so instead of promising one.
+
 **Root pointers** — write `<project>/AGENTS.md` from `templates/root.AGENTS.md.example`
-(`{{projectName}}` resolved) and `<project>/.github/copilot-instructions.md` from
+(`{{projectName}}` and `moduleAgentFiles` resolved) and `<project>/.github/copilot-instructions.md` from
 `templates/copilot-instructions.md.example`, each without its header comment. Both point at
 the root `CLAUDE.md` and carry no fact of their own: the root `CLAUDE.md` stays the single
 owner, and every GitHub Copilot surface already reads it — these two reach the agents that

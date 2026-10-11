@@ -167,8 +167,10 @@ Next steps:
   1. /use-case-design <first-use-case-name>
   2. Install the architecture tests (ArchUnit) and wire up the coverage gate with the
      test-architect skill as soon as business classes exist. Until then boundaries
-     are guaranteed only by the hook (inside Claude Code), and by the POMs'
-     depends_on (in the build) — only if layout: multi-module.
+     are guaranteed by the check hook at edit time (inside Claude Code) and by CI's
+     doctor gate, which sweeps every source file against .claude/forbidden-imports.txt
+     (whoever wrote it), and by the POMs' depends_on (in the build) — only if
+     layout: multi-module.
 ```
 
 Como o build passou, o `/init-project` roda `ArchHook.java audit genesis`, que preenche
