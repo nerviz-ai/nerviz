@@ -187,9 +187,14 @@ Four decisions the file doesn't make obvious:
   `MARKETPLACE_DISPATCH_TOKEN` secret (fine-grained PAT, that repository only, Contents:
   read and write). Missing, it warns instead of failing: the tag is already pushed.
 
-Two things stay manual on purpose: the GitHub Release, for a ref that deserves more prose
-than the message the workflow writes (that message points at the PR), and merging the
-marketplace PR — publishing is a decision, not a consequence of merging.
+The GitHub Release is not this workflow's. `release-notes.yml` runs every Friday, and by
+hand (`workflow_dispatch`) whenever a batch should ship sooner: it takes every tag since the
+latest published Release, groups them by bump level (Breaking, New, Fixes and docs) under
+§ What changes of each PR, lists the `migrations` entries added in the range, and publishes
+one Release on the newest tag. `dry_run` only prints the notes to the run summary.
+
+One thing stays manual on purpose: merging the marketplace PR — publishing is a decision,
+not a consequence of merging.
 
 **What makes the field mandatory isn't in the file:** it's `bump-declared` as a required
 status check in the branch protection of `main`. Without that, the job fails and the merge

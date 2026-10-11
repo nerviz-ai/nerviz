@@ -208,9 +208,15 @@ whose `sync.yml` runs `./sync.sh vX.Y.Z`, sets the plugin version, validates the
 opens a PR. The dispatch needs the `MARKETPLACE_DISPATCH_TOKEN` secret here — a fine-grained
 PAT scoped to the marketplace with Contents: read and write; without it the step only warns.
 
-Two things stay manual on purpose: a GitHub Release, when a ref deserves more prose than
-the tag message the workflow writes, and merging that marketplace PR — publishing is a
-decision, not a consequence of merging.
+GitHub Releases come in batches, not one per merge. `release-notes.yml` runs every Friday,
+and by hand (`workflow_dispatch`) whenever a batch should ship sooner. It takes every tag
+since the latest published Release, groups them by bump level (Breaking, New, Fixes and
+docs) under § What changes of each PR, lists the `migrations` entries added in the range,
+and publishes one Release on the newest tag. `dry_run` prints the notes without publishing.
+That is why § What changes is worth writing for a reader: it becomes the Release text.
+
+One thing stays manual on purpose: merging that marketplace PR — publishing is a decision,
+not a consequence of merging.
 
 ## Reporting instead of contributing
 

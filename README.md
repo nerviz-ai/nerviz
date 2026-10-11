@@ -498,7 +498,7 @@ nerviz/
 ├── claude-help.md                 # Claude Code runtime reference the docs cite
 ├── roadmap.md                     # phases and feature checklist
 ├── docs/en/ · docs/pt-br/         # how the pieces collaborate, in two languages
-├── .github/workflows/             # validate.yml (CI) · release.yml (version tagging)
+├── .github/workflows/             # validate.yml (CI) · release.yml (version tagging) · release-notes.yml (batched Releases)
 └── .claude/
     ├── settings.json              # hooks + permissions (versioned)
     ├── schemas/extensions.json    # single owner of recognized fields, skill and agent classes,
