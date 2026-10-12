@@ -12,10 +12,16 @@
 // Why a stub wrapper: the claim is which arguments reach `mvnw`, not what Maven does with
 // them (`-pl . -am` on a single-module POM was checked by hand, 0107). The stub appends its
 // arguments to a file next to it; `mvnw` on Unix, `mvnw.cmd` on Windows, as `wrapper()` picks.
+//
+// The `tests` cases also prove what follows `-am`: the goals of `tests.stop_maven_args`, read
+// from the project's own extensions.json, and an exit 2 with no Maven call when the key is
+// gone. The gate stopped at `test` while spotless:check and checkstyle-test sit at `verify`,
+// and printed green on a tree CI rejected (issue #126, decision 0142).
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.regex.*;
 
 public class ModuleMapTest {
 
@@ -43,8 +49,18 @@ public class ModuleMapTest {
         Path tests = project(true, null);
         source(tests, "src/main/java/a/X.java");
         git(tests, "init", "-q");
-        failures += expect(hook, tests, "tests", "{}", "-pl . -am test",
-                "single-module, root src/ changed — tests runs the root module");
+        schema(tests, null);
+        failures += expect(hook, tests, "tests", "{}",
+                "-pl . -am verify -DskipITs -Djacoco.skip=true",
+                "single-module, root src/ changed — tests runs verify, no ITs, on the root module");
+
+        schema(tests, "[\"verify\", \"-Dcustom.skip=true\"]");
+        failures += expect(hook, tests, "tests", "{}", "-pl . -am verify -Dcustom.skip=true",
+                "tests.stop_maven_args edited — tests hands Maven the data, not a constant");
+
+        schema(tests, "");
+        failures += expect(hook, tests, "tests", "{}", null, 2,
+                "tests.stop_maven_args missing — tests blocks, no Maven call");
 
         Path multi = project(true, "domain");
         failures += expect(hook, multi, "check",
@@ -98,9 +114,32 @@ public class ModuleMapTest {
                 + f.toAbsolutePath().toString().replace("\\", "\\\\") + "\"}}";
     }
 
-    /** Runs one mode; {@code wanted} null means the wrapper must not have been called. */
+    /**
+     * Writes the real extensions.json into the project; {@code args} replaces the value of
+     * `tests.stop_maven_args`, and an empty string drops the key. Null keeps it as it is.
+     */
+    static void schema(Path project, String args) throws Exception {
+        String real = Files.readString(Paths.get(".claude/schemas/extensions.json"),
+                StandardCharsets.UTF_8);
+        Matcher m = Pattern.compile(",\\s*\"stop_maven_args\":\\s*\\[[^\\]]*\\]").matcher(real);
+        if (!m.find()) throw new IllegalStateException("tests.stop_maven_args not in extensions.json");
+        String json = args == null ? real
+                : args.isEmpty() ? real.substring(0, m.start()) + real.substring(m.end())
+                : real.substring(0, m.start()) + ",\n    \"stop_maven_args\": " + args
+                        + real.substring(m.end());
+        Path dir = project.resolve(".claude/schemas");
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("extensions.json"), json, StandardCharsets.UTF_8);
+    }
+
     static int expect(Path hook, Path project, String mode, String stdin, String wanted,
                       String label) throws Exception {
+        return expect(hook, project, mode, stdin, wanted, 0, label);
+    }
+
+    /** Runs one mode; {@code wanted} null means the wrapper must not have been called. */
+    static int expect(Path hook, Path project, String mode, String stdin, String wanted,
+                      int exit, String label) throws Exception {
         Path record = project.resolve("mvnw-args.txt");
         Files.deleteIfExists(record);
         ProcessBuilder pb = new ProcessBuilder(
@@ -115,7 +154,7 @@ public class ModuleMapTest {
         int code = p.waitFor();
         String called = Files.exists(record)
                 ? Files.readString(record, StandardCharsets.UTF_8).strip() : null;
-        String why = code != 0 ? "exit " + code
+        String why = code != exit ? "exit " + code + ", expected " + exit
                 : wanted == null && called != null ? "Maven called with: " + called
                 : wanted != null && called == null ? "Maven never called"
                 : wanted != null && !called.contains(wanted)

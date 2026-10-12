@@ -440,6 +440,14 @@ abre. Um marcador mais velho que `tests.writer_agent_max_minutes` é apagado e i
 agente morto pelo sono da máquina nunca chega ao `SubagentStop`. Design:
 `.claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md`.
 
+**`✅ verify … green` no `Stop` não é o CI verde.** O gate roda `tests.stop_maven_args` —
+`verify -DskipITs -Djacoco.skip=true` — nos módulos alterados, offline. Então `spotless:check` e
+o `checkstyle-test` rodam em todo fim de turno, mas os ITs (Testcontainers) e o `check` do
+JaCoCo ficam com o `./mvnw verify` do executor e com o `./mvnw clean verify` do CI. Um plugin do
+próprio projeto ligado a `verify` que precise de rede bloqueia offline: o skip dele vai nessa
+lista, nunca o plugin desligado. Sem a chave, o gate bloqueia e a nomeia. Design:
+`.claude/decisions/0142-stop-gate-runs-verify-without-its.md`.
+
 **Um A/B de custo atravessando o `/arch-adopt` perde as linhas do "antes" se o commit daquele
 run foi recusado.** A trilha `.claude/audit-usage/` é stageada junto com o commit do run pelo
 `git-publish`. Recusado o commit, ela fica como append não commitado, e o `/arch-adopt` recusa

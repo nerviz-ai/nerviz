@@ -11,7 +11,7 @@
 // a person may run the source directly, java ArchHook.java <mode> (JDK 21+).
 //   check   PostToolUse — forbidden imports + incremental compile     (blocks)
 //   format  PostToolUse — spotless on the touched module              (never blocks)
-//   tests   Stop        — tests of the changed modules, deferred while a writer
+//   tests   Stop        — verify of the changed modules, deferred while a writer
 //                         subagent runs; agent-start/agent-end at SubagentStart/Stop
 //                         keep that marker                              (blocks)
 //   schema  Pre/PostToolUse + Stop — frontmatter, injection paths, skill bodies (blocks)
@@ -228,18 +228,45 @@ public class ArchHook {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (modules.isEmpty()) return;
 
+        List<String> goals = testsStopArgs();
+        if (goals.isEmpty()) {
+            err("❌ tests.stop_maven_args is missing or empty in " + SCHEMA_FILE + ".");
+            err("   The Stop gate does not guess what to hand Maven. Restore the key —");
+            err("   `/arch-adopt` rewrites the file — or run `./mvnw verify` by hand.");
+            System.exit(2);
+        }
         String list = String.join(",", modules);
-        err("▶ Tests for affected modules: " + list);
-        Proc r = run(mvnw, "-q", "-o", "-pl", list, "-am", "test");
+        String ran = String.join(" ", goals);
+        err("▶ " + ran + " for affected modules: " + list);
+        List<String> cmd = new ArrayList<>(List.of(mvnw, "-q", "-o", "-pl", list, "-am"));
+        cmd.addAll(goals);
+        Proc r = run(cmd.toArray(String[]::new));
         if (r.exit != 0) {
-            err("❌ Tests failed");
+            err("❌ " + ran + " failed — a formatting failure is fixed by `./mvnw spotless:apply`");
             List<String> relevant = r.out.stream()
                     .filter(l -> l.matches(".*(ERROR|FAIL|Tests run).*"))
                     .collect(Collectors.toList());
             tail(relevant.isEmpty() ? r.out : relevant, 25).forEach(ArchHook::err);
             System.exit(2);
         }
-        err("✅ Tests green");
+        err("✅ " + ran + " green — CI's `./mvnw clean verify` also runs what these flags skip");
+    }
+
+    /**
+     * What the `Stop` gate hands Maven after `-pl <modules> -am`, from `tests.stop_maven_args`
+     * of `extensions.json`; empty when the key is missing, which the gate refuses to guess.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, motivated by axis 16 — `tests` owns the
+     * gate, and it stopped at `test` while `checkstyle-test` and `spotless:check` sit at
+     * `verify`, so it printed green on a tree CI rejects (issue #126). Data, not a constant,
+     * so the POM stays the owner of what `verify` checks and a project can skip a plugin of
+     * its own; the closest rejected form named those two goals in the hook, restating the POM.
+     * Design: .claude/decisions/0142-stop-gate-runs-verify-without-its.md
+     */
+    static List<String> testsStopArgs() throws IOException {
+        String raw = readOrNull(ROOT.resolve(SCHEMA_FILE));
+        return raw == null ? List.of()
+                : asStrList(get(Json.parse(raw), "tests", "stop_maven_args"));
     }
 
     /**

@@ -429,6 +429,14 @@ marker older than `tests.writer_agent_max_minutes` is deleted and ignored: an ag
 machine sleep never reaches `SubagentStop`. Design:
 `.claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md`.
 
+**`✅ verify … green` at `Stop` is not a green CI.** The gate runs `tests.stop_maven_args` —
+`verify -DskipITs -Djacoco.skip=true` — on the changed modules, offline. So `spotless:check` and
+`checkstyle-test` run at every turn end, but the integration tests (Testcontainers) and JaCoCo's
+`check` stay with the executor's `./mvnw verify` and CI's `./mvnw clean verify`. A plugin of the
+project's own bound to `verify` that needs the network blocks offline: its skip flag goes in
+that list, never the plugin switched off. With the key gone, the gate blocks and names it.
+Design: `.claude/decisions/0142-stop-gate-runs-verify-without-its.md`.
+
 **A cost A/B across `/arch-adopt` loses the "before" rows when that run's commit was
 declined.** `git-publish` stages the `.claude/audit-usage/` trail with the run's commit. Declined,
 the trail stays as uncommitted appends, and `/arch-adopt` refuses a dirty worktree with no
