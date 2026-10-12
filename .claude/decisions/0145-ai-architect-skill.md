@@ -196,7 +196,7 @@ and Spring AI free to enter the application layer.
 | `.claude/skills/ai-architect/templates/*.example` | New — `StructuredOutputAdapter`, `SemanticSearchAdapter`, `AiClientConfig` (+ `AiProperties`, `AiFailureTranslator`), `application-ai.yml`, two `.st` prompts, `vector-store-migration.sql`, `ai-spec.md` |
 | `.claude/rules/ai.md` | New norm — scope, boundary, wiring, prompts, output, data sent, semantic search, failure and retry, observability, tests, How to verify |
 | `.claude/rules/00-index.md` | `ai.md` row; listed with the package-territory rules |
-| `.claude/schemas/extensions.json` | `skill_classes.design.skills` (and its count), `export.skills.include`, `derived_paths["ai.md"]` (optional, suffix `.ai`, extra `prompts/`), the prompts glob among the exempt ones |
+| `.claude/schemas/extensions.json` | `skill_classes.design.skills` (and its count), `export.skills.include`, `derived_paths["ai.md"]` (optional, suffix `.ai`, extra `prompts/`), the prompts glob among the exempt ones, the `ai-adapter-boundary` migration |
 | `.claude/blueprints/*/*.yaml` (8) | A `packages.map` key ending in `.ai`; `org.springframework.ai..` in the `application` module's `forbidden_imports` (hexagonal, clean multi-module); layered and vertical-slice also gain the `ai` glob and its dependency rules |
 | `.claude/skills/domain-modeling/SKILL.md` + `templates/domain-spec.md.example` | Step 4e: kinds `LLM` and `vector store`, the "could not decide" value and the review state, ids from a search |
 | `.claude/skills/new-feature/SKILL.md` + `templates/feature-spec.md.example` | Step 3d, its order and reason, short-path criterion, jobs and persistence reading § 9, tests reading § 8, precedence row, declared-dependency, compose and personal-data gates on `29-ia.md`, spec block `3.7 AI` |
@@ -204,15 +204,20 @@ and Spring AI free to enter the application layer.
 | `.claude/skills/new-feature-implement/SKILL.md` | `adapters` group lists A |
 | `.claude/skills/test-architect/SKILL.md` + `templates/AiAdapterContractTest`, `AiProviderIT`, `VectorStoreIT` | Reads `29-ia.md`; the three levels of AI tests, none calling a real model |
 | `.claude/skills/docker-architect/SKILL.md` + `templates/postgres-service.yml.example` + `references/compose-service-decision.md` | The pgvector image variant of the `postgres` service and its catalog row; the decision reference names its new reader |
+| `.claude/.ci/AgentInstructionsTest.java` | The hexagonal fixture's `application/AGENTS.md` lists `org.springframework.ai..` |
 | `.claude/.ci/AiTemplateTest.java` + `.github/workflows/validate.yml` | New test in `design`; `exemplar-imports` gains `spring-ai-openai`, `spring-ai-vectordb-pgvector` and the `com.openai` and `tools.jackson` prefixes |
 | `CLAUDE.md`, `project-bootstrap/templates/root.CLAUDE.md.example`, `README.md`, `claude-help.md`, `roadmap.md`, `docs/{en,pt-br}/*` | Routing rows, pipeline, design-skill list, norm and skill counts, CI rows, the ownership pitfall |
 
 Goes to the generated project: **yes** — `ai-architect` via `export.skills.include`, `ai.md` via
 `export.rules` with its glob derived from the blueprint's `.ai` entry plus the prompts folder.
 
-Not changed, on purpose: no `migrations` entry. A project generated before this version has no AI
-port this rule governs; one that called a model by hand is caught by the skill's survey (step 2)
-when a case touches that port. No `BoundaryTest` case: `check` reads whatever `forbidden_imports`
+A `migrations` entry, `ai-adapter-boundary` (hexagonal, clean-architecture-multi-module, layered,
+vertical-slice): `.claude/forbidden-imports.txt` and each module `AGENTS.md` are written once, at
+generation, and `export` rewrites neither — so a project generated before this version would not
+refuse `org.springframework.ai` in its application layer, and `doctor`'s `Agent instructions` line
+would warn. Caught before push by `AgentInstructionsTest`, whose hexagonal fixture lists the
+`application` prefixes by hand; the fixture gained the new one. A project that called a model by
+hand is caught by the skill's survey (step 2) when a case touches that port. No `BoundaryTest` case: `check` reads whatever `forbidden_imports`
 holds, and the data itself is held by `AiTemplateTest`.
 
 **Found while writing, recorded here:**
@@ -241,4 +246,5 @@ holds, and the data itself is held by `AiTemplateTest`.
 | `validate · design › compose service templates merge and parse` | The pgvector variant leaves the compose merge valid | green; red with a separate `pgvector-service.yml.example` (duplicate `postgres` key) — the reason it became a variant |
 | `validate · design › frontmatter schema`, `rules is a leaf`, `every norm paths matches some blueprint`, `no hardcoded Spring/Java version`, `exemplar bodies carry no comment but Javadoc` | Skill class, sections, export entry, rule `paths` and `derived_paths`, the leaf, the globs, dated versions, Javadoc-only bodies | green; `schema` red by name with `ai-architect` out of `export.skills.include`; the comment check first caught four `//` lines in `AiClientConfig` and one in `AiProviderIT`, made Javadoc |
 | `validate · export-determinism` + `ArchHook.java export` by hand | `ai.md` travels with its glob derived from each blueprint | exported into seven blueprints: `**/adapter/out/ai/**`, `**/infrastructure/ai/**` ×2, `**/ai/**` ×2, `**/shared/internal/adapter/ai/**`, `**/app/ai/**`, each with `**/src/main/resources/prompts/**`; `ai-architect` present and `schema` green inside each |
+| `validate · hooks-cross-platform › doctor checks the agent instruction files against the blueprint, and never gates` (`AgentInstructionsTest`) and `› schema blocks a migrations entry no project would see` (`MigrationsSchemaTest`) | A module `AGENTS.md` that omits a blueprint prefix is named; the new migration entry is well-formed | `AgentInstructionsTest` red on the first run after the blueprint change (`application/AGENTS.md does not list org.springframework.ai..`), green with the fixture updated; `MigrationsSchemaTest` green |
 | Outside CI, on the day | The exemplars compile and run | split into a Boot 4.1.1 / Spring AI 2.0.1 project and `./mvnw verify`: 7 contract cases, 5 WireMock cases, 3 pgvector cases green; the timeout case red with the per-port timeout removed |

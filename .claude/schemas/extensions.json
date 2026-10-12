@@ -615,6 +615,17 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "modular-monolith", "layered", "vertical-slice", "onion"],
         "note": "The `tests` Stop gate now runs `verify -DskipITs -Djacoco.skip=true` on the changed modules instead of `test` (`tests.stop_maven_args` in .claude/schemas/extensions.json), so spotless:check and the checkstyle-test execution run at every turn end, as CI's `./mvnw clean verify` runs them. A module that already carries an unformatted file or a Checkstyle violation in src/test blocks the first turn that touches it. Maven projects only: the gate does not run under Gradle.",
         "prompt": "Make this project pass the offline checks the `tests` Stop gate now runs. Run `./mvnw spotless:apply`, then `./mvnw verify -DskipITs -Djacoco.skip=true`. Fix every Checkstyle violation it reports, in src/main and src/test, changing no behavior — a restricted identifier is renamed, a throw lambda keeps one call. If the build fails on a plugin bound to verify that needs the network, tell me its skip property instead of disabling the plugin. Finish with the same command green."
+      },
+      {
+        "id": "ai-adapter-boundary",
+        "blueprints": [
+          "hexagonal",
+          "clean-architecture-multi-module",
+          "layered",
+          "vertical-slice"
+        ],
+        "note": "Outbound AI adapters — a language model or a vector store behind a port, designed by `ai-architect` — now have their own package (`.ai` in packages.map), and the blueprint keeps Spring AI out of the layers above them: `org.springframework.ai..` is forbidden in the `application` module (hexagonal, clean-architecture-multi-module), and layered and vertical-slice gained dependency rules for the `ai` package. `.claude/forbidden-imports.txt` and each module AGENTS.md are written once, when the project is generated, so a project generated before this change does not refuse the new import, and `doctor`'s `Agent instructions` line warns that an AGENTS.md does not list it. Nothing breaks if they stay; until they are updated, nothing stops Spring AI from being imported into the application layer.",
+        "prompt": "Bring this project's boundary map and module instructions up to the active blueprint's import rules. Read the active blueprint at .claude/blueprints/<id>/<id>.yaml (its id is in .claude/.arch-provenance.json) and the generation rule in Nerviz's project-bootstrap references/project-files.md § 5 — never from memory: if /arch-adopt just ran it is under $SRC/.claude/skills/project-bootstrap/references/ (SRC defaults to /tmp/arch-src); otherwise download the tarball named by `source.base_url` in .claude/schemas/extensions.json, with {ref} set to the `ref` of .claude/.arch-provenance.json. (1) Add to .claude/forbidden-imports.txt every `<module-path>|<prefix>` line that rule derives from the blueprint and the file does not hold yet — for a module layout, `application|org.springframework.ai.` with the module's real path; for a single-module layout, the lines the new `ai` dependency rules derive. Never remove a line. (2) In every module AGENTS.md that lists forbidden imports, add the prefixes now missing, in the same list format. Change nothing else. Finish with `java .claude/hooks/ArchHook.java doctor` and show me its `Boundaries`, `Boundary violations` and `Agent instructions` lines."
       }
     ]
   },
