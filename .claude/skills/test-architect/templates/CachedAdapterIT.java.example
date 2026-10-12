@@ -1,0 +1,141 @@
+/*
+ * EXEMPLAR — integration test of a cached outbound port, for the reads `22-cache.md` § 1 lists.
+ * Suffix `IT`: it starts a container. Shape owned here; the cached reads, keys and writers are
+ * `cache-architect`'s.
+ *
+ * THE THREE CASES PER CACHED READ (`.claude/rules/caching.md` § Tests), one test each:
+ *   hit                 — a second read with the same inputs does not reach the delegate
+ *   eviction            — a write through the port evicts, and only once the transaction commits
+ *   key per caller      — two callers with different identities never share an entry
+ * A test that disables caching proves none of the three, which is why caching stays ON here and
+ * in the test profile.
+ *
+ * THROUGH THE PORT: the test injects the outbound port — the @Primary bean, so the decorator —
+ * and replaces the adapter behind it by its bean name with a Mockito double. What it proves is
+ * what the use case gets. The count of calls on the double is the assertion: the cache has no
+ * other observable effect.
+ *
+ * THE REAL PROVIDER: a Redis container wired by @ServiceConnection, never the in-memory map
+ * provider, which hides every serialization defect — a value that does not survive the JSON
+ * round trip fails here, not in production. Same tag as the compose file's `redis` service:
+ * `ArchHook.java compose` compares the two. For a Caffeine project the container goes away and
+ * the three cases stay.
+ *
+ * CONTEXT: the project's full context, like every other `IT` — with the
+ * `TestcontainersConfiguration` import when the project has a database. Caches are cleared
+ * before each test: the context is shared, and one test's entry is another test's answer.
+ */
+package com.exemplo.minhaapi.adapter.out.cache;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.exemplo.minhaapi.application.port.out.AccountBalanceView;
+import com.exemplo.minhaapi.application.port.out.AccountRepositoryPort;
+import com.exemplo.minhaapi.domain.model.account.Account;
+import com.exemplo.minhaapi.test.TestFixtures;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.cache.CacheManager;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Testcontainers
+class CachedAccountRepositoryIT {
+
+    private static final UUID OWNER = UUID.fromString("0190a3c2-7b1e-7c3a-9f2d-000000000001");
+    private static final UUID OTHER_OWNER = UUID.fromString("0190a3c2-7b1e-7c3a-9f2d-000000000002");
+    private static final UUID ACCOUNT = UUID.fromString("0190a3c2-7b1e-7c3a-9f2d-0000000000a1");
+    private static final AccountBalanceView BALANCE =
+            new AccountBalanceView(ACCOUNT, new BigDecimal("150.00"), "BRL", Instant.parse("2026-10-12T12:00:00Z"));
+
+    /** static: one container per class. @ServiceConnection names it `redis` — no host or port to configure. */
+    @Container
+    @ServiceConnection(name = "redis")
+    static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7.4-alpine").withExposedPorts(6379);
+
+    /** The adapter the decorator wraps, replaced by its bean name — the decorator's delegate. */
+    @MockitoBean(name = "accountRepositoryAdapter")
+    private AccountRepositoryPort adapter;
+
+    @Autowired
+    private AccountRepositoryPort port;
+
+    @Autowired
+    private CacheManager caches;
+
+    @Autowired
+    private TransactionTemplate transactions;
+
+    @BeforeEach
+    void clearCaches() {
+        caches.getCacheNames().forEach(name -> caches.getCache(name).clear());
+    }
+
+    @Test
+    @DisplayName("a second read with the same owner and account is served from the cache")
+    void secondReadIsAHit() {
+        when(adapter.findBalance(OWNER, ACCOUNT)).thenReturn(Optional.of(BALANCE));
+
+        port.findBalance(OWNER, ACCOUNT);
+        Optional<AccountBalanceView> second = port.findBalance(OWNER, ACCOUNT);
+
+        assertThat(second).contains(BALANCE);
+        verify(adapter, times(1)).findBalance(OWNER, ACCOUNT);
+    }
+
+    @Test
+    @DisplayName("a save evicts the balance, and only once its transaction commits")
+    void saveEvictsAfterCommit() {
+        when(adapter.findBalance(OWNER, ACCOUNT)).thenReturn(Optional.of(BALANCE));
+        Account account = TestFixtures.account(OWNER, ACCOUNT);
+        port.findBalance(OWNER, ACCOUNT);
+
+        transactions.executeWithoutResult(status -> {
+            port.save(account);
+            port.findBalance(OWNER, ACCOUNT);
+            verify(adapter, times(1)).findBalance(OWNER, ACCOUNT);
+        });
+        port.findBalance(OWNER, ACCOUNT);
+
+        verify(adapter, times(2)).findBalance(OWNER, ACCOUNT);
+    }
+
+    @Test
+    @DisplayName("two owners never share an entry, even for the same account id")
+    void keyNamesTheOwner() {
+        when(adapter.findBalance(OWNER, ACCOUNT)).thenReturn(Optional.of(BALANCE));
+        when(adapter.findBalance(OTHER_OWNER, ACCOUNT)).thenReturn(Optional.empty());
+
+        port.findBalance(OWNER, ACCOUNT);
+        Optional<AccountBalanceView> other = port.findBalance(OTHER_OWNER, ACCOUNT);
+
+        assertThat(other).isEmpty();
+        verify(adapter, times(1)).findBalance(OTHER_OWNER, ACCOUNT);
+    }
+
+    @Test
+    @DisplayName("an absent balance is not cached — the next read asks the source again")
+    void absenceIsNotCached() {
+        when(adapter.findBalance(OWNER, ACCOUNT)).thenReturn(Optional.empty());
+
+        port.findBalance(OWNER, ACCOUNT);
+        port.findBalance(OWNER, ACCOUNT);
+
+        verify(adapter, times(2)).findBalance(OWNER, ACCOUNT);
+    }
+}

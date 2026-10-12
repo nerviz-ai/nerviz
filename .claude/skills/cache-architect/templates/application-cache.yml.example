@@ -1,0 +1,51 @@
+# EXEMPLAR — configuration the cache exemplars read. The Redis block goes in only when
+# `22-cache.md` § 2 chose Redis; the `app.cache` block always. Form reference for the executor
+# agent; not a file to copy.
+# Rules: .claude/rules/caching.md (§ Expiry and size, § Failure, § Observability)
+#        .claude/rules/secrets.md (the password placeholder has no default)
+#
+# Every value below is a DECISION recorded in 22-cache.md § 3 (expiry and size, next to the
+# freshness tolerance each one serves) or § 6 (failure). Each key is shaped in exactly one
+# exemplar — this one.
+
+spring:
+  # Redis only. One set of variables with the compose service — REDIS_HOST/REDIS_PORT default to
+  # the host run's published port, the `app` container overrides them with the compose hostname
+  # and the container port (docker-architect wires that; `ArchHook.java compose` checks both).
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      # A cache that waits longer than the read it saves is slower than no cache. The client's
+      # own default command timeout is far above any read this service serves: the failure
+      # handler only gets to answer "go to the source" once the timeout fires.
+      timeout: 250ms
+      connect-timeout: 500ms
+      # ssl:
+      #   enabled: true            # outside a local environment — caching.md § Failure
+
+app:
+  cache:
+    # Raised whenever a cached record's shape changes: the Redis key prefix becomes v<N>, and
+    # a rolling deploy's two versions read different keys instead of each other's bytes.
+    format-version: 1
+    # One entry per cache name in CacheNames — a cache missing here fails on first use. The
+    # ttl is never longer than the freshness tolerance 00-caso-de-uso.md states for that read;
+    # maximum-size is read by the local provider only.
+    caches:
+      account-balance:
+        ttl: PT30S
+        maximum-size: 10000
+      exchange-rate:
+        ttl: PT5M
+        maximum-size: 200
+      product-catalog:
+        ttl: PT10M
+        maximum-size: 50
+
+---
+# src/test/resources/application-test.yml — caching stays ON in tests. A test that disables it
+# proves nothing about the cache: not the hit, not the eviction, not the key per caller.
+# Integration tests run Redis in a container (@ServiceConnection), never the in-memory map
+# provider, which hides every serialization defect. Nothing to override here on purpose.

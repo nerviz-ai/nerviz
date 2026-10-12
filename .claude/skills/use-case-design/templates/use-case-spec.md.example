@@ -14,6 +14,7 @@
 | Transaction | opens at the inbound port, closes before the response |
 | Repetition | repeating the request with the same email must **not** create a second user (business fact). The mechanism — `Idempotency-Key` or none — is delegated to `rest-api-architect` |
 | Concurrency | the `UNIQUE(email)` constraint is the arbiter; no application-level lock |
+| Freshness | none — a create returns what it just wrote. For a read: how old an answer may be when served, in business words ("a balance may be up to 30 seconds old"), or `none` when every read must see the last write. A duration here is what makes `cache-architect` run; whether a cache exists, its provider, expiry and keys belong to it, in `22-cache.md` |
 | Active blueprint | `hexagonal` |
 
 ## Trigger, payload, and response

@@ -92,6 +92,11 @@ packages:
     # not live inline in a slice: one `integration` package, one subpackage per remote system plus
     # `shared`. A slice's handler depends on the client's interface there — decision 0121.
     integration.http: "integration"
+    # Cache decorators and the cache wiring do not live inline in a slice either: like the
+    # scheduling triggers, they sit next to `config`, so the project keeps one `@EnableCaching`
+    # and one place the caching norm loads on. A decorator implements the slice's own port —
+    # decision 0144.
+    bootstrap.cache: "config.cache"
 
 # Naming convention for this blueprint (specific to vertical-slice, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and

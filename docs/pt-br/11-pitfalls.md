@@ -422,6 +422,16 @@ suportar, e o job de prune. Uma linha de § 6 nomeando colunas é divergência, 
 coluna ou de claim que derrubaria uma garantia declarada para o pipeline em vez de ser
 resolvida por precedência (`.claude/decisions/0087-jobs-architect-skill.md`).
 
+**Cache precisa de uma tolerância que o negócio declarou, e mora num pacote só.** O
+`cache-architect` só roda quando a linha `Freshness` de `00-caso-de-uso.md` diz quão velha uma
+resposta pode ser — um spec aprovado antes dessa linha existir nunca o dispara, e "a query
+parece lenta" não é tolerância. O cache é um decorator do port de saída no pacote `.cache` do
+blueprint, registrado como o bean `@Primary` do port pelo nome do bean delegado: um
+`@Cacheable` num adapter de persistência ou num service está fora de `rules/caching.md`, um
+escritor que contorna o port (um `UPDATE` em massa, um job, outro serviço) não invalida, e
+`sync = true` junto de `unless` falha no startup. O second-level cache do Hibernate fica
+desligado; cache HTTP é do `rest-api-architect` (`.claude/decisions/0144-cache-architect-skill.md`).
+
 **O bounded context é um fato do projeto, não uma resposta por caso de uso.** É o primeiro
 segmento de todo nome de tópico, perguntado junto com as coordenadas no `/init-project` e
 escrito no `CLAUDE.md` raiz do projeto gerado. Um prefixo escolhido dentro de um caso de uso

@@ -87,6 +87,9 @@ packages:
     # Outbound HTTP adapters, same rank as `adapter.persistence` — decision 0121. A real module
     # gets its own `<module>.internal.adapter.http` later.
     adapter.http: "shared.internal.adapter.http"
+    # Cache decorators of outbound ports, same rank as `adapter.http` — decision 0144. A decorator
+    # imports only the port, so `adapter` never reaches `adapter`.
+    adapter.cache: "shared.internal.adapter.cache"
     bootstrap.config: "config"
     # Cross-cutting logging/masking annotations + AOP aspects (rules/logging.md) — not
     # a new bounded-context module. Placed under `shared` itself, one level OUT of

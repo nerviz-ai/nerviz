@@ -1,0 +1,153 @@
+/*
+ * EXEMPLAR — a local cache on Caffeine, and the wiring every cache exemplar here reuses.
+ * The provider is chosen in `SKILL.md` step 4, against `references/provider-decision-matrix.md`
+ * § 2. This one is the answer when the application runs on ONE instance, or when the freshness
+ * tolerance of every cached read covers its expiry on each instance — an eviction here reaches
+ * only the instance that wrote. Anything else is `RedisCacheConfig.java.example`.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/caching.md` (§ Boundary, § Expiry and size, § Invalidation, § Failure,
+ *        § Observability)
+ *        `.claude/rules/observability.md` (§ Metrics)
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - `@EnableCaching` exists exactly once, here in the cache package — never on the main
+ *    class, where caching would become mandatory in every test context;
+ *  - every cache is declared by name with its OWN expiry and maximum size, read from
+ *    `app.cache.caches.<name>.*`. The manager is put in static mode first, so a
+ *    `@Cacheable` naming an undeclared cache fails on its first call instead of getting an
+ *    unbounded cache with no expiry — the dynamic default;
+ *  - `recordStats()` on every cache: without it the metrics binder registers the cache with
+ *    zeros, and a hit ratio nobody can read is a cache nobody can tune;
+ *  - null values are refused by the manager; a decorator that may return an absent result
+ *    says `unless = "#result == null"` — caching an absence is a decision with its own
+ *    expiry (`caching.md` § Values), never a side effect;
+ *  - the manager is wrapped so puts and evictions wait for the commit of the transaction the
+ *    use case opened: evicted before the commit, a concurrent read stores the old row again.
+ *    The metrics binder unwraps the decorator, so the caches stay instrumented;
+ *  - a cache failure is logged, counted and swallowed: the read goes to the source.
+ *
+ * PACKAGE: the blueprint's `packages.map` entry ending in `.cache` — `adapter.out.cache` in
+ * hexagonal, `infrastructure.cache` in the clean-architecture blueprints. Never next to the
+ * adapter the cache wraps.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- CacheSettings.java (one entry per cache, bound once, shared by both providers' configs)
+package com.example.demo.adapter.out.cache;
+
+import java.time.Duration;
+import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+/**
+ * Expiry and size per cache, from `app.cache.caches.<name>`. The expiry is never longer than
+ * the freshness tolerance `00-caso-de-uso.md` states for the read the cache serves — the
+ * partial records both numbers side by side. {@code maximumSize} is read by the local
+ * provider only; {@code formatVersion} by the distributed one only.
+ */
+@ConfigurationProperties("app.cache")
+record CacheSettings(int formatVersion, Map<String, Spec> caches) {
+
+    /** One cache: how long an entry lives and how many entries an instance keeps. */
+    record Spec(Duration ttl, long maximumSize) {
+    }
+}
+
+// --- CacheNames.java (every cache name in one place — one name per kind of value)
+package com.example.demo.adapter.out.cache;
+
+/**
+ * Cache names, one per kind of value. Two methods sharing a name share a key space; the
+ * second one reads the first one's values.
+ */
+final class CacheNames {
+
+    static final String EXCHANGE_RATE = "exchange-rate";
+
+    static final String PRODUCT_CATALOG = "product-catalog";
+
+    private CacheNames() {
+    }
+}
+
+// --- CaffeineCacheConfig.java (the project's only @EnableCaching)
+package com.example.demo.adapter.out.cache;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurer;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@EnableCaching
+@EnableConfigurationProperties(CacheSettings.class)
+class CaffeineCacheConfig implements CachingConfigurer {
+
+    private final MeterRegistry meters;
+
+    CaffeineCacheConfig(MeterRegistry meters) {
+        this.meters = meters;
+    }
+
+    /**
+     * Static mode first ({@code setCacheNames} with an empty list), then one custom cache per
+     * entry of {@link CacheSettings}: an undeclared name finds no cache and fails its first
+     * call, instead of the unbounded default the dynamic mode would create.
+     */
+    @Bean
+    CacheManager cacheManager(CacheSettings settings) {
+        CaffeineCacheManager caffeine = new CaffeineCacheManager();
+        caffeine.setAllowNullValues(false);
+        caffeine.setCacheNames(List.of());
+        settings.caches().forEach((name, spec) -> caffeine.registerCustomCache(name,
+                Caffeine.newBuilder()
+                        .expireAfterWrite(spec.ttl())
+                        .maximumSize(spec.maximumSize())
+                        .recordStats()
+                        .build()));
+        return new TransactionAwareCacheManagerProxy(caffeine);
+    }
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CountingCacheErrorHandler(meters);
+    }
+}
+
+// --- CountingCacheErrorHandler.java (shared by both providers — log, count, continue)
+package com.example.demo.adapter.out.cache;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.function.Supplier;
+import org.springframework.cache.interceptor.LoggingCacheErrorHandler;
+
+/**
+ * A cache failure never fails a read the source can answer: logged at WARN by the parent,
+ * counted here, swallowed — the annotated method then runs as if the cache missed. Degraded
+ * caching shows only as a rate, so the counter is what an alarm reads
+ * (`caching.md` § Failure, § Observability).
+ */
+class CountingCacheErrorHandler extends LoggingCacheErrorHandler {
+
+    private final MeterRegistry meters;
+
+    CountingCacheErrorHandler(MeterRegistry meters) {
+        super(false);
+        this.meters = meters;
+    }
+
+    @Override
+    protected void logCacheError(Supplier<String> messageSupplier, RuntimeException exception) {
+        meters.counter("cache.errors", "exception", exception.getClass().getSimpleName()).increment();
+        super.logCacheError(messageSupplier, exception);
+    }
+}

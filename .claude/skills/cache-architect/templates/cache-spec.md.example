@@ -1,0 +1,125 @@
+# UC-005 · Cache
+
+> Partial of `docs/use-cases/UC-005-get-account-balance/`. Owner: `cache-architect`.
+> Inherits the freshness tolerance from `00-caso-de-uso.md` and the ports from `10-dominio.md` —
+> doesn't redecide them. Contains no code. Form references in
+> `.claude/skills/cache-architect/templates/`.
+> Rules applied, never reproduced: `@.claude/rules/caching.md`.
+
+| Field | Value |
+|---|---|
+| Mother spec | `00-caso-de-uso.md` |
+| Why this partial exists | `00-caso-de-uso.md` § Freshness: "a balance may be up to 30 seconds old" |
+| Cache package | `adapter.out.cache` (blueprint `packages.map`) |
+| Divergences from other partials | none |
+
+## 1 · Cached reads
+
+| Read (port method) | Cache name | Key — every input that changes the result | Value | Freshness tolerance | Absence cached | Concurrent misses |
+|---|---|---|---|---|---|---|
+| `AccountRepositoryPort.findBalance(ownerId, accountId)` | `account-balance` | `ownerId + ':' + accountId` — the owner is a parameter: the use case passes the authenticated owner it already checked | `AccountBalanceView` (record, plain components, declared next to the port) | 30 s | no — `unless = "#result == null"` | computed per caller — `sync` is refused next to `unless`, and one balance is not hot enough to need it |
+
+Authorization sits above this port, in the use case: a hit never skips it.
+
+## 2 · Provider
+
+| Decision | Value | Why |
+|---|---|---|
+| Provider | Redis | Replicas = 2 (inherited from `20-persistencia.md` § 1 `Claim strategy`). A local cache would evict on the writing instance only, and the other one would serve the old balance for a whole expiry — inside 30 s, but `references/provider-decision-matrix.md` § 2 row 2 picks the shared copy whenever an eviction must reach every instance |
+| Transaction-aware | yes | The write (`save`) runs inside the deposit and withdrawal use cases' transactions; the eviction waits for the commit |
+| Inherited? | no — first cache of this project | `pom.xml` carries no cache dependency; no earlier `22-cache.md` |
+
+Rejected, one line each: **Caffeine** — two replicas and an eviction that must reach both.
+**Two-level (Caffeine over Redis)** — no read hot enough to justify a second copy and its
+invalidation broadcast. **Hibernate second-level cache** — the balance is a query-shaped read,
+not an entity by id.
+
+## 3 · Expiry and size
+
+| Cache | Expiry | Tolerance it serves | Maximum size | Jitter | Refresh ahead |
+|---|---|---|---|---|---|
+| `account-balance` | `PT30S` | 30 s | — (distributed) | up to a tenth, subtracted | no |
+
+## 4 · Invalidation
+
+Every writer of the data each cache holds — not only this case's.
+
+| Writer | Writes | Path | Eviction | Staleness bound |
+|---|---|---|---|---|
+| `DepositMoneyService` (UC-003) | `Account` balance | through `AccountRepositoryPort.save` — decorated | `ownerId + ':' + accountId`, after commit | none beyond the race `caching.md` § Invalidation names, bounded by the expiry |
+| `WithdrawMoneyService` (UC-004) | `Account` balance | through `AccountRepositoryPort.save` — decorated | same | same |
+| `InterestAccrualJob` (UC-007, `35-jobs.md`) | every balance, nightly | **bulk `UPDATE`**, not through the port | none — accepted: the job runs at 03:00 and each entry lives 30 s, so the expiry is the bound | 30 s |
+
+## 5 · Failure and load
+
+| Fact | Value |
+|---|---|
+| Cache down | `CountingCacheErrorHandler`: logged, counted as `cache.errors`, the read goes to the database |
+| Client timeout | `250ms` command, `500ms` connect — under the balance query's p99 |
+| Source without the cache | The balance query is an index read on `accounts(id)`; the database holds the full read rate without the cache — measured in the load test the case's `Freshness` row cites |
+
+## 6 · Serialization
+
+| Cache | Serializer | Format version |
+|---|---|---|
+| `account-balance` | `JacksonJsonRedisSerializer<AccountBalanceView>` — typed, no default typing | `app.cache.format-version: 1` — raised when `AccountBalanceView` changes shape |
+
+## 7 · Observability
+
+| Metric | Alarm it exists for |
+|---|---|
+| `cache.gets` (tags `cache`, `result` = hit/miss) — from the binder, statistics enabled | hit ratio of `account-balance` below 50 % for 15 min: the expiry or the key is wrong |
+| `cache.errors` (tag `exception`) | above zero for 5 min: Redis degraded, every read on the database |
+
+## 8 · Declared dependencies
+
+| Dependency | Version | Why |
+|---|---|---|
+| `org.springframework.boot:spring-boot-starter-cache` | (managed by the Boot parent) | `@EnableCaching`, the cache abstraction |
+| `org.springframework.boot:spring-boot-starter-data-redis` | (managed by the Boot parent) | `RedisCacheManager`, Lettuce |
+
+## 9 · Configuration
+
+| Property | Value | Owner of the value |
+|---|---|---|
+| `spring.data.redis.host` / `port` | `${REDIS_HOST:localhost}` / `${REDIS_PORT:6379}` | this partial; the `app` container's override is `docker-architect`'s |
+| `spring.data.redis.password` | `${REDIS_PASSWORD}` — no default | `@.claude/rules/secrets.md` |
+| `spring.data.redis.timeout` / `connect-timeout` | `250ms` / `500ms` | this partial, § 5 |
+| `app.cache.format-version` | `1` | this partial, § 6 |
+| `app.cache.caches.account-balance.ttl` | `PT30S` | this partial, § 3 — bounded by `00-caso-de-uso.md` § Freshness |
+
+Full shape in `templates/application-cache.yml.example`.
+
+## 10 · Deferred
+
+none
+
+## Compose services
+
+| Service | Image | Decision | Detail |
+|---|---|---|---|
+| `redis` | `redis:<tag>` | `materialize` | added by `/new-feature-implement` |
+
+## Design patterns
+
+| Force or symptom | Pattern | Classes and interfaces it creates | "When not" checked |
+|---|---|---|---|
+| `caching.md` § Boundary — the cache wraps an outbound port the use case already depends on | Decorator | `CachedAccountRepository implements AccountRepositoryPort`, `CachedAccountRepositoryConfig` | Not a Proxy written by hand: the framework's caching proxy wraps the decorator; the decorator only exists to keep the annotations out of the persistence adapter |
+
+One row per pattern this layer adopts, decided through
+`@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use. Consolidation collects this
+section into `UC-NNN-spec.md`.
+
+## Impact on approved use cases
+
+| Approved case | Change | Why | Satisfied by |
+|---|---|---|---|
+| UC-007-accrue-interest | its bulk `UPDATE` leaves `account-balance` entries up to 30 s stale after 03:00 — accepted, no code change | § 4: the job bypasses the decorated port | — |
+
+## Implementation order
+
+1. The dependencies of § 8
+2. `CacheSettings`, `CacheNames`, `CountingCacheErrorHandler`, `RedisCacheConfig` in the cache package — once per project
+3. `CachedAccountRepository` and `CachedAccountRepositoryConfig` — after `AccountRepositoryPort` and its persistence adapter exist
+4. Properties in `application.yml`
+5. Tests — `40-testes.md`: a second read does not reach the adapter, `save` evicts after commit, two owners never share an entry

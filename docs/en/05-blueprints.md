@@ -48,7 +48,7 @@ right there — it never proceeds with a made-up value.
 | `build.tool` | ✅ | `maven` \| `gradle` | Overridable at initialization |
 | `modules[]` | ✅ | list | See § `modules[]` below |
 | `packages.base` | ✅ | string | Template, e.g. `{{groupId}}.{{artifactName}}` |
-| `packages.map` | ✅ | map | Logical role → package suffix. A role ending in `.scheduling` is where `jobs-architect` puts every job trigger — without one it stops and names the missing line |
+| `packages.map` | ✅ | map | Logical role → package suffix. A role ending in `.scheduling` is where `jobs-architect` puts every job trigger — without one it stops and names the missing line. A role ending in `.cache` is where `cache-architect` puts every port decorator and the cache wiring, under the same stop |
 | `architecture_paths` | ✅ | string[] | Globs identifying the code covered by `rules/architecture-ddd.md`. They go **verbatim** into the `paths` of the file the bootstrap generates at `<project>/.claude/rules/architecture-ddd.md` — not inferred from `modules[].path` |
 | `dependency_rules.direction` | ✅ | `inward` \| `explicit` | |
 | `dependency_rules.forbidden[]` | ✅ | list | `{from, to[], reason}` |

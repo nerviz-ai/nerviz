@@ -94,6 +94,10 @@ packages:
     # Compiled into `bootstrap` like `adapter.in.scheduling`, until a project needs build isolation
     # for them, at which point an `adapters/adapter-out-http` module is added.
     adapter.out.http: "adapter.out.http"
+    # Cache decorators of outbound ports, and the cache wiring — decision 0144. Compiled into
+    # `bootstrap` like `adapter.out.http`: a decorator imports only the port it implements, and the
+    # composition root already sees the adapter it wraps, by bean name.
+    adapter.out.cache: "adapter.out.cache"
 
 # Naming convention for this blueprint (specific to hexagonal, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and

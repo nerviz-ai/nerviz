@@ -411,6 +411,16 @@ row naming columns is a divergence, and a column or claim decision that would dr
 declared guarantee stops the pipeline instead of being settled by precedence
 (`.claude/decisions/0087-jobs-architect-skill.md`).
 
+**A cache needs a tolerance the business stated, and lives in one package.** `cache-architect`
+runs only when `00-caso-de-uso.md`'s `Freshness` row states how old an answer may be — a
+spec approved before that row existed never triggers it, and "the query looks slow" is not a
+tolerance. The cache is a decorator of the outbound port in the blueprint's `.cache` package,
+wired as the port's `@Primary` bean by the delegate's bean name: a `@Cacheable` on a
+persistence adapter or a service is outside `rules/caching.md`, a writer that bypasses the port
+(a bulk `UPDATE`, a job, another service) does not evict, and `sync = true` next to `unless`
+fails at startup. Hibernate's second-level cache stays off; HTTP caching is
+`rest-api-architect`'s (`.claude/decisions/0144-cache-architect-skill.md`).
+
 **The bounded context is a project fact, not a per-use-case answer.** First segment of every
 topic name, asked with the coordinates in `/init-project` and written into the generated
 project's root `CLAUDE.md`. A prefix chosen inside one use case gives one system two

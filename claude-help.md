@@ -1530,6 +1530,7 @@ claude-help.md                     # this guide; cited from CLAUDE.md, not impor
 │   ├── messaging-architect/               # pipeline 3b, conditional — Kafka producer/consumer
 │   ├── jobs-architect/                    # pipeline 3c, conditional — scheduled jobs, outbox relay
 │   ├── persistence-architect/             # pipeline 4
+│   ├── cache-architect/                   # pipeline 4b, conditional — Caffeine or Redis behind a port
 │   ├── test-architect/                    # pipeline 5
 │   ├── new-feature/                       # orchestrates the pipeline above
 │   ├── gof-design-patterns/               # catalog: read at design time, injected into the executor

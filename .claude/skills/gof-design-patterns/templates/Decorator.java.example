@@ -1,16 +1,19 @@
 // Exemplar: Decorator over an output port. Adds cross-cutting behavior
 // without touching the real implementation or the domain. Lives in the adapter, not the domain.
-// Before using: confirm that Spring's @Cacheable or @Retryable doesn't already solve this.
+// Before using: confirm that a Spring aspect (@Retryable, @Observed) doesn't already solve this.
+// A cache over a port is never this exemplar: its keys, expiry, eviction after the commit and
+// package are `@.claude/rules/caching.md`'s, with its own decorator shape.
 // Same subpackage as the aggregate it decorates (`@.claude/rules/persistence.md`
 // § Boundary) — that's what lets it take the package-private `OrderRepositoryAdapter`
 // as its delegate without widening anything to `public`.
 //
 // Exemplar invariants:
 // - implements the same port, not a sub-interface — LSP intact
-// - no business rule here; only caching
+// - no business rule here; only the audit entry
 // - the domain and application don't know the decorator exists
 package com.example.adapter.out.persistence.order;
 
+import com.example.application.port.out.AuditTrailPort;
 import com.example.application.port.out.OrderRepositoryPort;
 import com.example.domain.model.order.Order;
 import com.example.domain.model.order.OrderId;
@@ -20,32 +23,29 @@ import org.springframework.stereotype.Component;
 
 /**
  * {@code @Primary}: the decorator is what the application receives; the delegate stays
- * behind it.
+ * behind it. Every save of an order leaves an audit entry, in the same transaction the use
+ * case opened, whichever use case saved it.
  */
 @Component
 @Primary
-public final class CachedOrderRepository implements OrderRepositoryPort {
+public final class AuditedOrderRepository implements OrderRepositoryPort {
 
     private final OrderRepositoryPort delegate;
-    private final OrderCache cache;
+    private final AuditTrailPort audit;
 
-    public CachedOrderRepository(OrderRepositoryAdapter delegate, OrderCache cache) {
+    public AuditedOrderRepository(OrderRepositoryAdapter delegate, AuditTrailPort audit) {
         this.delegate = delegate;
-        this.cache = cache;
+        this.audit = audit;
     }
 
     @Override
     public Optional<Order> findById(OrderId id) {
-        return cache.get(id).or(() -> {
-            Optional<Order> found = delegate.findById(id);
-            found.ifPresent(cache::put);
-            return found;
-        });
+        return delegate.findById(id);
     }
 
     @Override
     public void save(Order order) {
         delegate.save(order);
-        cache.evict(order.id());
+        audit.record("order", order.id().value().toString(), order.status().name());
     }
 }
