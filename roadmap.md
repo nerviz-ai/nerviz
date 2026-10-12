@@ -15,7 +15,7 @@ it is not a norm and is not loaded by any skill or hook.
 | 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24; since `v0.22.0` the spec is designed by `/new-feature` and implemented by `/new-feature-implement` in a clean session |
 | 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0` (batched since `v0.22.1`), a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
 | 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
-| 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | ⬜ planned — see § Multi-agent portability |
+| 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | 🟡 step 1 shipped in `v0.25.0` (generated `AGENTS.md`, 0139); steps 2–5 wait for a real mixed team's gap — see § Multi-agent portability |
 
 Deliberate order: rules come **before** skills. Writing skills first leads to rules
 copied inside them — exactly the duplication this design exists to avoid.
@@ -80,6 +80,10 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
 - [x] `docker-architect` (chained on demand by persistence/test/messaging)
+- [x] Compose service decided at design time — `persistence-architect` and `messaging-architect`
+      record `exists`/`external`/`materialize`/`pending` in the partial's `## Compose services`,
+      consolidated into the spec's `## Infrastructure`; `/new-feature-implement` adds every
+      `materialize` row through `compose-service-installer` (see 0137)
 - [x] `java-spring-boot-developer` (executor agent, called once per block group)
 - [x] `git-publish` (offers git init/commit + `gh` create/push, two confirmation
       gates — chained by `/init-project` after a green bootstrap build, by `/new-feature`
@@ -125,6 +129,8 @@ copied inside them — exactly the duplication this design exists to avoid.
       lessons-learned file, behind a confirmation; see 0103)
 - [x] `archunit-installer` (agent, `test-architect`'s setup mode)
 - [x] `commons-logging-installer` (agent, `/new-feature-implement`'s pre-flight)
+- [x] `compose-service-installer` (agent, `/new-feature-implement`'s infrastructure step —
+      runs `docker-architect` after the `tests` group ends green and before `git-publish`)
 - [x] `ArchHook.java` + `ArchHook.jar` + `schemas/extensions.json`
 
 ### Enforcement
@@ -138,7 +144,11 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `compose gate` on `Stop` — a published port no host client can reach blocks; a foreign
       container on a declared port only warns while no container of the project exists
 - [x] `doctor gate` — the generated `architectural boundaries` CI job fails on a red
-      committed check (`doctor.gate.labels`)
+      committed check (`doctor.gate.labels`), including `Boundary violations`: every source
+      file swept for a forbidden import, in every layout, from the first commit (see 0140)
+- [x] Colliding plugins blocked by data — `enabledPlugins: false` in both settings files for
+      every id of `settings.blocked_plugins`, checked by `schema`; `doctor` names a personal
+      skill that shadows a project one (`Skill shadowing`, never gated; see 0138)
 - [x] Generated CI fails when any integration test was skipped or none ran (see 0127)
 - [x] Precompiled hook jar, committed, verified byte for byte in CI (`build --verify`)
 - [x] Cross-platform hook as a single Java file, exec form (no `.sh`/`.ps1` twins)
@@ -192,8 +202,11 @@ mixed team reports a gap it did not close.
       Per module, the `AGENTS.md` owns the facts and a one-line `CLAUDE.md` imports it, since
       Claude Code skips a module `AGENTS.md` alone. Written by `project-bootstrap` only — not
       `arch-adopt`, not `export` — with the `agents-md` migration for projects already
-      generated and a report-only `Agent instructions` line in `doctor`. Step 5 owes a
-      migration that rewords the section once the CLI guard is verified
+      generated and a report-only `Agent instructions` line in `doctor`. A project with no
+      module `forbidden_imports` (the `single-module` layouts) gets no module files: its root
+      files point at `forbidden-imports.txt`, and the `single-module-agent-wording` migration
+      fixes projects generated before that (0141). Step 5 owes a migration that rewords the
+      section once the CLI guard is verified
 - [ ] 2. Measure the development skills under Copilot, which also loads `.claude/skills/` —
       record which work as-is and which break (`context: fork`, agent delegation, `!`
       injections) before rewriting any
