@@ -277,7 +277,7 @@
             "type": "command",
             "command": "java",
             "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "tests"],
-            "statusMessage": "Running tests for changed modules...",
+            "statusMessage": "Running the verify gate on changed modules...",
             "timeout": 600
           }
         ]

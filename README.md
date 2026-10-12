@@ -544,7 +544,7 @@ Startup costs about 0.3 s per invocation.
 |---|---|---|---|
 | `check` | `PostToolUse` on writes to `.java` | yes | forbidden imports + incremental `test-compile` of the touched module |
 | `format` | same | no | `spotless:apply` on the module |
-| `tests` | `Stop` | yes | tests of the modules changed since `HEAD`, deferred while a writer subagent runs |
+| `tests` | `Stop` | yes | `verify` without ITs and coverage on the modules changed since `HEAD`, deferred while a writer subagent runs |
 | `schema` | `PreToolUse` / `PostToolUse` / `Stop` | yes | frontmatter and body of skills, agents, rules; `.mcp.json` with a secret scan; hook registrations; the plugins `enabledPlugins` must keep off; the export manifest |
 | `guard` | `UserPromptSubmit`, `PreToolUse` (`Write`/`Edit`, `Bash`, `Skill`/`Agent`), `Stop` | yes | write territory per skill and agent class (allowlist, deny by default); frozen approved specs; no `build`-class skill during a design run; force pushes refused; end-of-turn sweep |
 | `compose` | `Stop` (`gate`), manual, inside `doctor` | `gate` only | services running, no foreign container on the ports, reachable published ports, `image:` tags matching `src/test`, `${VAR:default}` that holds on the host and in the `app` container |
