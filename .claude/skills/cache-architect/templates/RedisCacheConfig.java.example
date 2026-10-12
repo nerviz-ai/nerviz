@@ -1,0 +1,132 @@
+/*
+ * EXEMPLAR — a distributed cache on Redis, through Spring Data Redis. The provider is chosen in
+ * `SKILL.md` step 4, against `references/provider-decision-matrix.md` § 2. This one is the
+ * answer when more than one instance serves the cached read and an eviction must reach all of
+ * them within the freshness tolerance, or when an instance restart must not empty the cache.
+ * `CacheSettings`, `CacheNames` and `CountingCacheErrorHandler` are the ones in
+ * `CaffeineCacheConfig.java.example` — the same three files, whichever provider wins.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/caching.md` (§ Values, § Expiry and size, § Invalidation, § Failure,
+ *        § Observability)
+ *        `.claude/rules/secrets.md` (the connection password)
+ *
+ * WHAT THIS EXEMPLAR SHOWS — each line a default of the library turned into a decision:
+ *  - VALUES: one serializer per cache, typed to that cache's value record. The library's
+ *    default is Java serialization — the stored bytes are bound to the class version, and the
+ *    reader instantiates whatever type the bytes name. No default typing either: a typed
+ *    serializer needs none;
+ *  - FORMAT VERSION in the key prefix (`v<N>:<cache>::<key>`). A change to a cached record's
+ *    shape raises `app.cache.format-version`: during a rolling deploy the old and the new
+ *    instance read different keys instead of each other's bytes;
+ *  - EXPIRY per cache, with jitter: entries loaded together — a warm-up, a deploy — do not
+ *    all expire in the same second. Redis stores without expiry unless told;
+ *  - NULLS refused (`disableCachingNullValues`) — the library caches them by default;
+ *  - CLEAR by `SCAN` in batches, never `KEYS`, which blocks the server over a large keyspace;
+ *  - TRANSACTION-AWARE: puts and evictions wait for the commit of the use case's transaction;
+ *  - NO CACHE CREATED ON DEMAND: a name missing from `app.cache.caches` fails on first use;
+ *  - STATISTICS enabled, so the metrics binder has hits and misses to report.
+ * The connection, its short timeouts and its password are configuration —
+ * `application-cache.yml.example`.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- RedisCacheConfig.java (the project's only @EnableCaching)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.AccountBalanceView;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.annotation.CachingConfigurer;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.BatchStrategies;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheWriter;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
+
+@Configuration
+@EnableCaching
+@EnableConfigurationProperties(CacheSettings.class)
+class RedisCacheConfig implements CachingConfigurer {
+
+    private static final int CLEAR_BATCH = 1000;
+
+    /**
+     * The value record each cache stores — the type its serializer reads back. A cache missing
+     * here has no serializer, and the build of the manager fails at startup with its name.
+     */
+    private static final Map<String, Class<?>> VALUE_TYPES = Map.of(
+            CacheNames.ACCOUNT_BALANCE, AccountBalanceView.class);
+
+    private final MeterRegistry meters;
+
+    RedisCacheConfig(MeterRegistry meters) {
+        this.meters = meters;
+    }
+
+    @Bean
+    RedisCacheManager cacheManager(RedisConnectionFactory connections, CacheSettings settings) {
+        RedisCacheWriter writer = RedisCacheWriter.nonLockingRedisCacheWriter(
+                connections, BatchStrategies.scan(CLEAR_BATCH));
+        Map<String, RedisCacheConfiguration> perCache = new HashMap<>();
+        settings.caches().forEach((name, spec) ->
+                perCache.put(name, configurationOf(name, spec, settings.formatVersion())));
+        return RedisCacheManager.builder(writer)
+                .withInitialCacheConfigurations(perCache)
+                .disableCreateOnMissingCache()
+                .transactionAware()
+                .enableStatistics()
+                .build();
+    }
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CountingCacheErrorHandler(meters);
+    }
+
+    private static RedisCacheConfiguration configurationOf(
+            String name, CacheSettings.Spec spec, int formatVersion) {
+        Class<?> valueType = VALUE_TYPES.get(name);
+        if (valueType == null) {
+            throw new IllegalStateException("No value type declared for cache " + name);
+        }
+        return RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl((key, value) -> withJitter(spec.ttl()))
+                .disableCachingNullValues()
+                .prefixCacheNameWith("v" + formatVersion + ":")
+                .serializeValuesWith(SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(valueType)));
+    }
+
+    /**
+     * Up to a tenth of the expiry taken off at random, so a batch of entries written together
+     * expires spread over that tenth. Never added: the expiry stays within the freshness
+     * tolerance it was sized for.
+     */
+    private static Duration withJitter(Duration ttl) {
+        long tenth = Math.max(1, ttl.toMillis() / 10);
+        return ttl.minusMillis(ThreadLocalRandom.current().nextLong(tenth));
+    }
+}
+
+// --- CacheNames.java (the Redis exemplar's cache)
+package com.example.demo.adapter.out.cache;
+
+/** Cache names, one per kind of value. */
+final class CacheNames {
+
+    static final String ACCOUNT_BALANCE = "account-balance";
+
+    private CacheNames() {
+    }
+}

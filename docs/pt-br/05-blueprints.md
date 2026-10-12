@@ -48,7 +48,7 @@ segue com um valor inventado.
 | `build.tool` | ✅ | `maven` \| `gradle` | Sobrescrevível na inicialização |
 | `modules[]` | ✅ | lista | Ver § `modules[]` abaixo |
 | `packages.base` | ✅ | string | Template, ex.: `{{groupId}}.{{artifactName}}` |
-| `packages.map` | ✅ | mapa | Papel lógico → sufixo de package. Um papel terminado em `.scheduling` é onde `jobs-architect` põe todo trigger de job — sem ele, a skill para e nomeia a linha que falta |
+| `packages.map` | ✅ | mapa | Papel lógico → sufixo de package. Um papel terminado em `.scheduling` é onde `jobs-architect` põe todo trigger de job — sem ele, a skill para e nomeia a linha que falta. Um papel terminado em `.cache` é onde `cache-architect` põe todo decorator de port e a configuração do cache, com a mesma parada |
 | `architecture_paths` | ✅ | string[] | Globs que identificam o código coberto por `rules/architecture-ddd.md`. Vão **verbatim** para o `paths` do arquivo que o bootstrap gera em `<projeto>/.claude/rules/architecture-ddd.md` — não são inferidos de `modules[].path` |
 | `dependency_rules.direction` | ✅ | `inward` \| `explicit` | |
 | `dependency_rules.forbidden[]` | ✅ | lista | `{from, to[], reason}` |

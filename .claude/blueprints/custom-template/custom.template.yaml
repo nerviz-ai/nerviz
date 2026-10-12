@@ -45,6 +45,8 @@ packages:
     app.scheduling: "app.scheduling"
     # Example: outbound HTTP adapters (one subpackage per remote system) — decision 0121.
     app.http: "app.http"
+    # Example: cache decorators of outbound ports and the cache wiring — decision 0144.
+    app.cache: "app.cache"
 
 dependency_rules:
   direction: inward             # inward | explicit

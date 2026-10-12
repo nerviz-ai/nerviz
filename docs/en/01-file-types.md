@@ -21,7 +21,7 @@ becomes the command: `.claude/skills/arch-doctor/SKILL.md` creates `/arch-doctor
 pasted repeatedly into chat. In this repository, every design skill
 (`use-case-design`, `domain-modeling`, `persistence-architect`, `rest-api-architect`,
 `security-architect`, `http-client-architect`, `messaging-architect`, `jobs-architect`,
-`test-architect`) owns a single layer of a feature spec; `project-bootstrap` owns the
+`cache-architect`, `test-architect`) owns a single layer of a feature spec; `project-bootstrap` owns the
 8-step procedure that generates a project from scratch.
 
 **When it enters context:** only when invoked. Unlike a `CLAUDE.md`, a skill's body

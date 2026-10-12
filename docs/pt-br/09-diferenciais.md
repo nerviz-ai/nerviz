@@ -137,7 +137,8 @@ arquivo Java testado em três sistemas operacionais, em vez de bash com `jq`.
 O `/new-feature` desenha um caso de uso por execução: `use-case-design` →
 `domain-modeling` → `rest-api-architect` → `security-architect` (condicional) →
 `http-client-architect` (condicional) → `messaging-architect` (condicional) →
-`jobs-architect` (condicional) → `persistence-architect` → `test-architect`. Cada skill é
+`jobs-architect` (condicional) → `persistence-architect` → `cache-architect` (condicional) →
+`test-architect`. Cada skill é
 dona de um parcial e decide os
 design patterns da sua camada. Os parciais são consolidados em `UC-NNN-spec.md`, cujo status
 vai de `draft → approved → implemented` (ou `implemented-blocked`). Depois que a spec é

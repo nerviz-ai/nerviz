@@ -1,0 +1,40 @@
+# EXEMPLAR — Redis service block, as an application CACHE. Merge under `services:`, indentation
+# matched to the file's own. Tag matched to test-architect's pin in the cached adapter's IT
+# (`DockerImageName` / `GenericContainer` image) when one exists — see docker-architect/SKILL.md
+# step 4. Valkey (`valkey/valkey`) is a drop-in replacement with the same commands and port.
+#
+# A CACHE, NOT A STORE. No volume, no snapshot, no append-only file: everything here can be
+# recomputed from the source, and a cache that survives a `docker compose down` hands the next
+# run values from code that no longer exists. `--maxmemory` with `allkeys-lru` makes it evict the
+# least recently used entry when full, instead of refusing writes — Redis's default with a
+# memory limit is `noeviction`, which turns a full cache into failed writes.
+#
+# ONE SET OF VARIABLES FOR BOTH SIDES. `REDIS_PORT` and `REDIS_PASSWORD` are the names
+# application.yml reads too (`application-cache.yml.example`), so one line in the untracked
+# `.env` moves the container and the application together. The password has no default:
+# `rules/secrets.md`, and `:?` makes `docker compose up` name the missing variable instead of
+# starting an open server. The `app` service gets `REDIS_HOST: redis`, `REDIS_PORT: "6379"` and
+# the same password line — step 5 of docker-architect/SKILL.md.
+  redis:
+    image: redis:7.4-alpine
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

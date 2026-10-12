@@ -1,0 +1,167 @@
+/*
+ * EXEMPLAR — the cache as a decorator of an outbound port: reads answered from the cache, every
+ * write through the same port evicting what it changed. The shape every cached read takes,
+ * whichever provider `RedisCacheConfig` / `CaffeineCacheConfig` wired.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/caching.md` (§ Boundary, § Annotations and proxies, § Keys, § Values,
+ *        § Invalidation)
+ *        `.claude/rules/architecture-ddd.md` (§ Adapters — the port is the application's)
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - the decorator IMPLEMENTS the port and DEPENDS ON THE PORT, never on the class it wraps:
+ *    it imports nothing from the persistence or HTTP adapter. Which bean it delegates to is
+ *    decided by bean name in `CachedAccountRepositoryConfig` — an import of the persistence
+ *    adapter would be an adapter talking to an adapter, which every blueprint forbids;
+ *  - the decorator is the @Primary bean of the port, so the use case — and every job and
+ *    consumer that writes through the same port — gets it without knowing it exists. That
+ *    is what makes "every writer evicts" hold by construction for writers that use the port;
+ *  - the decorator is a @Bean, not a @Component, so there is exactly one primary and the
+ *    delegate is never decorated twice. The caching proxy still applies to it;
+ *  - every key is written out and names every input that changes the result. The owner is a
+ *    PARAMETER of the port method — the use case passes the authenticated owner it already
+ *    checked. A method that read the principal from the security context would cache one
+ *    owner's balance under a key that does not say whose it is;
+ *  - an absent result is not cached (`unless = "#result == null"` — for an `Optional`,
+ *    `#result` is the unwrapped value). Caching absence is a decision with its own expiry;
+ *  - `sync = true` (one computation per key under concurrent misses) is for a read that never
+ *    returns absence: the framework refuses it at startup next to `unless`, next to a second
+ *    cache name, or next to another cache operation on the same method;
+ *  - the write evicts by the same key expression the read stored under; the transaction-aware
+ *    manager runs the eviction after the use case's commit.
+ *
+ * A WRITER THAT DOES NOT GO THROUGH THIS PORT — a bulk `UPDATE` in another adapter method, a
+ * migration, another service writing the same table — does not evict. `22-cache.md` § 4 lists
+ * every such writer and, for each, either an explicit eviction or the sentence that the expiry
+ * is the only bound on its staleness.
+ *
+ * CACHED VALUE: `AccountBalanceView` is a record of plain components, declared next to the port.
+ * When a port returns an aggregate, or a value whose type is not a record, the decorator caches
+ * a record of its own (`…CacheEntry`, package-private here) and maps on the way in and out —
+ * never the aggregate itself, never a persistence entity (`caching.md` § Values).
+ *
+ * OTHER ARCHITECTURES: layered has no outbound port — the decorator there is a `<Noun>Cache`
+ * class in the `cache` package that the service calls for the cached read and the write, and it
+ * calls the repository; vertical-slice puts this pair in `config.cache`, decorating the slice's
+ * own port. Same annotations, same keys.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- AccountRepositoryPort.java (application.port.out — already declared by domain-modeling)
+package com.example.demo.application.port.out;
+
+import com.example.demo.domain.model.account.Account;
+import java.util.Optional;
+import java.util.UUID;
+
+/** Outbound port the use cases read balances from and write accounts through. */
+public interface AccountRepositoryPort {
+
+    Optional<AccountBalanceView> findBalance(UUID ownerId, UUID accountId);
+
+    void save(Account account);
+}
+
+// --- AccountBalanceView.java (application.port.out — the read model the port returns)
+package com.example.demo.application.port.out;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+/** An account's balance as of {@code asOf}. Immutable, plain components — safe to cache. */
+public record AccountBalanceView(UUID accountId, BigDecimal amount, String currency, Instant asOf) {
+}
+
+// --- CachedAccountRepository.java (adapter.out.cache — the decorator)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.AccountBalanceView;
+import com.example.demo.application.port.out.AccountRepositoryPort;
+import com.example.demo.domain.model.account.Account;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+
+class CachedAccountRepository implements AccountRepositoryPort {
+
+    private final AccountRepositoryPort delegate;
+
+    CachedAccountRepository(AccountRepositoryPort delegate) {
+        this.delegate = delegate;
+    }
+
+    /**
+     * Owner and account both in the key: the balance depends on both, and two owners never
+     * share an entry. No {@code sync} here: the framework rejects it next to {@code unless},
+     * and a balance read is not hot enough per key to need it — the exchange rate below is.
+     */
+    @Override
+    @Cacheable(cacheNames = CacheNames.ACCOUNT_BALANCE, key = "#ownerId + ':' + #accountId",
+            unless = "#result == null")
+    public Optional<AccountBalanceView> findBalance(UUID ownerId, UUID accountId) {
+        return delegate.findBalance(ownerId, accountId);
+    }
+
+    /** Evicts under the read's key expression, after the commit (transaction-aware manager). */
+    @Override
+    @CacheEvict(cacheNames = CacheNames.ACCOUNT_BALANCE, key = "#account.ownerId() + ':' + #account.id()")
+    public void save(Account account) {
+        delegate.save(account);
+    }
+}
+
+// --- CachedAccountRepositoryConfig.java (adapter.out.cache — who decorates whom)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.AccountRepositoryPort;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+@Configuration
+class CachedAccountRepositoryConfig {
+
+    /**
+     * The persistence adapter is injected by bean name — its class's default bean name — so
+     * the cache package imports nothing from the persistence package. Every other consumer of
+     * the port receives this decorator, the primary.
+     */
+    @Bean
+    @Primary
+    AccountRepositoryPort cachedAccountRepository(
+            @Qualifier("accountRepositoryAdapter") AccountRepositoryPort delegate) {
+        return new CachedAccountRepository(delegate);
+    }
+}
+
+// --- CachedExchangeRates.java (adapter.out.cache — decorating an outbound HTTP port)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.ExchangeRatePort;
+import com.example.demo.application.port.out.ExchangeRateView;
+import org.springframework.cache.annotation.Cacheable;
+
+/**
+ * The same shape over an outbound HTTP port. Nothing in this service writes exchange rates:
+ * the provider does, so there is no eviction and the expiry is the only bound on staleness —
+ * `22-cache.md` § 4 says so in writing, and the expiry is sized to the tolerance the use
+ * case stated. Registered as the port's @Primary bean exactly like the account decorator,
+ * delegating to the HTTP adapter by its bean name.
+ */
+class CachedExchangeRates implements ExchangeRatePort {
+
+    private final ExchangeRatePort delegate;
+
+    CachedExchangeRates(ExchangeRatePort delegate) {
+        this.delegate = delegate;
+    }
+
+    @Override
+    @Cacheable(cacheNames = CacheNames.EXCHANGE_RATE, key = "#base + ':' + #quote", sync = true)
+    public ExchangeRateView rate(String base, String quote) {
+        return delegate.rate(base, quote);
+    }
+}

@@ -1,0 +1,86 @@
+/*
+ * EXEMPLAR — refresh ahead of expiry, for one hot read: the old value keeps being served while a
+ * new one loads in the background, so no caller ever waits on the source once the entry exists.
+ * Programmatic Caffeine, because `@Cacheable` cannot express it — refresh needs a loader, and
+ * an annotation has none.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/caching.md` (§ Concurrency and load, § Expiry and size, § Observability)
+ *
+ * WHEN — all three, recorded in `22-cache.md` § 1:
+ *  - one read so hot that a miss on it is felt — every request needs it;
+ *  - the freshness tolerance covers serving the old value for one refresh interval PLUS the
+ *    time a refresh takes;
+ *  - local is acceptable — one instance, or the tolerance covers per-instance drift.
+ * Anything else is a plain `@Cacheable` decorator (`CachedPortAdapter.java.example`).
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - `refreshAfterWrite` below `expireAfterWrite`: an entry read after the refresh interval
+ *    is reloaded in the background and the old value returned meanwhile; an entry nobody read
+ *    for the whole expiry is dropped, so a value that stopped being needed does not refresh
+ *    forever. The expiry, not the refresh, is what the freshness tolerance bounds;
+ *  - a failed refresh keeps the old value and logs — Caffeine's own behaviour. Until the
+ *    expiry: after it, the next read waits on the source and sees the failure;
+ *  - the cache is registered with the metrics registry by hand: it is not a cache of the
+ *    `CacheManager`, so the binder does not find it (`caching.md` § Observability);
+ *  - same decorator shape as every cached read: implements the port, depends on the port,
+ *    @Primary bean wired by the delegate's bean name.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- RefreshingProductCatalog.java (adapter.out.cache)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.ProductCatalogPort;
+import com.example.demo.application.port.out.ProductCatalogView;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
+
+class RefreshingProductCatalog implements ProductCatalogPort {
+
+    private final LoadingCache<String, ProductCatalogView> catalogs;
+
+    RefreshingProductCatalog(ProductCatalogPort delegate, CacheSettings.Spec spec, MeterRegistry meters) {
+        this.catalogs = Caffeine.newBuilder()
+                .refreshAfterWrite(spec.ttl().dividedBy(2))
+                .expireAfterWrite(spec.ttl())
+                .maximumSize(spec.maximumSize())
+                .recordStats()
+                .build(delegate::catalog);
+        CaffeineCacheMetrics.monitor(meters, catalogs, CacheNames.PRODUCT_CATALOG);
+    }
+
+    @Override
+    public ProductCatalogView catalog(String region) {
+        return catalogs.get(region);
+    }
+}
+
+// --- RefreshingProductCatalogConfig.java (adapter.out.cache)
+package com.example.demo.adapter.out.cache;
+
+import com.example.demo.application.port.out.ProductCatalogPort;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+@Configuration
+class RefreshingProductCatalogConfig {
+
+    /**
+     * Refresh interval and expiry from the same `app.cache.caches.product-catalog` entry the
+     * annotated caches use: {@code ttl} is the expiry, and the refresh interval is a fixed
+     * fraction of it, recorded in `22-cache.md` § 3 next to the tolerance.
+     */
+    @Bean
+    @Primary
+    ProductCatalogPort refreshingProductCatalog(
+            @Qualifier("productCatalogAdapter") ProductCatalogPort delegate, CacheSettings settings,
+            MeterRegistry meters) {
+        return new RefreshingProductCatalog(delegate, settings.caches().get(CacheNames.PRODUCT_CATALOG), meters);
+    }
+}

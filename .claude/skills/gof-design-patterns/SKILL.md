@@ -50,7 +50,7 @@ Pinned to `opus`: choosing a pattern against a growing chain is judgment, and th
 | `switch`/`if-else` over a type or enum, repeated in ≥ 2 places, growing with each new rule | Strategy | Two stable branches that have never grown |
 | Construction with invariants, many steps, or possible invalid combinations | Static factory (`of`, `from`) | A record with validation in the compact constructor is already enough |
 | ≥ 4 optional constructor parameters | Builder | Record + `with*`; Lombok `@Builder` on a domain object hides invariants |
-| Cross-cutting behavior (cache, retry, audit) repeated across implementations | Decorator | A Spring aspect already exists (`@Transactional`, `@Cacheable`) that does the same thing |
+| Cross-cutting behavior (retry, audit) repeated across implementations | Decorator | A Spring aspect already exists (`@Transactional`, `@Retryable`) that does the same thing — or the behavior is a cache, whose decorator shape `@.claude/rules/caching.md` owns |
 | Business predicate duplicated between service and query | Specification | Predicate used only once |
 | Output adapter with multiple technologies (JPA + external REST) behind the same port | Adapter (already the blueprint) | A single technology — the port is enough |
 | Aggregate that emits ≥ 2 events consumed by several modules | Domain Events | A single consumer in the same module — direct call |
@@ -157,7 +157,7 @@ four pipeline skills. Renaming one of those three headings empties the injection
 `skills:` field, so the catalog 0025 described never arrived.
 
 **Doesn't collide with the design skills** (`domain-modeling`, `persistence-architect`,
-`rest-api-architect`, `messaging-architect`, `jobs-architect`). They own the pattern decision
+`rest-api-architect`, `messaging-architect`, `jobs-architect`, `cache-architect`). They own the pattern decision
 for a use case being designed, each for its own layer, through § Design-time use; this skill
 owns the catalog and, invoked standalone, refactors code that already exists and already
 hurts, from a concrete `file:line`, outside any feature run.

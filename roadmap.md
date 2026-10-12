@@ -14,7 +14,7 @@ it is not a norm and is not loaded by any skill or hook.
 | 4 | Feature skills (`use-case-design` → `domain-modeling` → `persistence-architect` → `rest-api-architect` → `test-architect`) | ✅ all 5 partials have an owner |
 | 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24; since `v0.22.0` the spec is designed by `/new-feature` and implemented by `/new-feature-implement` in a clean session |
 | 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0` (batched since `v0.22.1`), a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
-| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
+| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `cache-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
 | 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | 🟡 step 1 shipped in `v0.25.0` (generated `AGENTS.md`, 0139); steps 2–5 wait for a real mixed team's gap — see § Multi-agent portability |
 
 Deliberate order: rules come **before** skills. Writing skills first leads to rules
@@ -79,6 +79,9 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `messaging-architect` (optional step, fires when an event needs external delivery)
 - [x] `jobs-architect` (optional step — scheduling technology, cadence, coordination, the
       outbox relay's schedule and its prune job; see 0087)
+- [x] `cache-architect` (optional step after persistence, fires when the use case states a
+      freshness tolerance — Caffeine or Redis behind a decorator of the outbound port,
+      `22-cache.md`, `rules/caching.md`; see 0144)
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
 - [x] Mermaid diagrams in the specs — a `sequenceDiagram` under `00-caso-de-uso.md`'s

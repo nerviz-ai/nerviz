@@ -101,8 +101,8 @@ what's left to cover outside of transport.
 ## Procedure — design mode
 
 1. **Read the partials.** `00-caso-de-uso.md` and `10-dominio.md` are mandatory;
-   without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `28-cliente-http.md` and
-   `35-jobs.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
+   without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `28-cliente-http.md`,
+   `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
    the HTTP contract's case table, and each job of `35-jobs.md` § 1 — a job is tested through
    the inbound port it calls, never by waiting for a scheduler, and the test profile's
    switches (`@.claude/rules/scheduling.md` § Triggers) get one context test proving no
@@ -126,6 +126,16 @@ what's left to cover outside of transport.
    the read timeout lowered only for that class. `wiremock-spring-boot` goes into § 5 when the
    build does not declare it — not managed by the Boot parent, so its version is the `<release>`
    of its `maven-metadata.xml`, read at design time; never from memory.
+
+   **`22-cache.md`, when it exists, fixes cases this partial must test — three per cached read
+   of § 1.** Through the port, against the real provider (a Redis container when § 2 chose
+   Redis — `@ServiceConnection` on a `redis` container, never the in-memory map provider): a
+   second read does not reach the delegate; every write § 4 routes through the port evicts, and
+   only after the commit; two callers never share an entry when the key names the caller
+   (`@.claude/rules/caching.md` § Tests) — shape in `templates/CachedAdapterIT.java.example`.
+   Caching stays on in every test, and the caches are cleared between tests that share a context.
+   The Redis image tag is pinned like every other container's, and `ArchHook.java compose`
+   compares it with the compose file's.
 
 2. **Survey what already exists.**
 
@@ -249,7 +259,7 @@ question nobody asked.
 | Block | Fixes | Shape exemplar |
 |---|---|---|
 | Distribution by level | Each behavior, the level it's tested at, and why | `DomainTest.java.example` |
-| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `PersistenceIT.java.example` · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
+| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `PersistenceIT.java.example` · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
 | Data and doubles | Factories, meaningful fields, substituted ports, clock | `TestFixtures.java.example` |
 | Coverage and gaps | Invariants with no test, and what's deliberately left uncovered | `@.claude/rules/testing.md` § Coverage |
 | Test dependencies | Test-scoped libraries the build doesn't declare yet — the executor's only license to add them | `@.claude/rules/testing.md` § Asynchronous effects |
@@ -279,8 +289,9 @@ bypasses as an executor.
 
 **Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md`
 (mandatory in design mode — stops without the second), `20-persistencia.md`,
-`30-rest.md`, `32-seguranca.md`, `28-cliente-http.md` and `35-jobs.md` when they exist,
-`@.claude/rules/scheduling.md` when the last one does, `@.claude/rules/authorization.md` § Tests
+`30-rest.md`, `32-seguranca.md`, `28-cliente-http.md`, `35-jobs.md` and `22-cache.md` when they
+exist, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
+when `22-cache.md` does, `@.claude/rules/authorization.md` § Tests
 when `32-seguranca.md` does, `@.claude/rules/http-client.md` § Tests when `28-cliente-http.md` does,
 `@.claude/rules/testing.md`,
 `@.claude/rules/error-handling.md`, `@.claude/rules/naming.md`,

@@ -107,7 +107,7 @@ the decision.
    when the case stops being backlog.
 
    Nothing is saved before the answer.
-3. **Interview** with `AskUserQuestion`, six blocks, one per call when earlier
+3. **Interview** with `AskUserQuestion`, seven blocks, one per call when earlier
    answers change the next questions:
 
    | Block | Fixes |
@@ -118,6 +118,7 @@ the decision.
    | External calls — **always asked when a side effect reaches a system this service does not own** | Per system: what it is and what the case asks of it (read, or a write with an effect over there); its documentation link and whether it publishes an OpenAPI document; **how it authenticates this service** — as this service itself (an authorization server issues it a token), on behalf of the user who made the request, a static key, a username and password, a client certificate, a signature over each request, or none — and the credential's owner; whether it accepts an idempotency key on writes; what the business wants when it is down (fail now, or degrade to a named alternative); and, for a write, what happens when its result is unknown (stop, or reconcile later). The answers are the `External calls` row; a port of kind `external HTTP` in `10-dominio.md` is what then decides whether `http-client-architect` runs. Never asked as library, timeout or retry questions |
    | Invariants and errors | Rules the domain guarantees, and the situation each violation produces — described, never named as an exception |
    | Repetition, transaction, concurrency | Does repeating the request create a duplicate (business fact)? Where does the transaction open and close? What business key could collide? |
+   | Freshness — **always asked when the case returns data it did not just write** | How old may the answer be when it is served: must every read see the last write, or may it be some seconds or minutes old — in business words ("a balance may be up to 30 seconds old"). The answer is the `Freshness` row, `none` or a duration; a duration is what decides whether `cache-architect` runs. A case that only writes, or returns what it just wrote, records `none` without asking |
 
    Don't move on with a block unanswered. A missing answer becomes a silent assumption
    in the spec.
@@ -132,6 +133,7 @@ the decision.
    | JWT, OAuth2, an API key, a filter, `@PreAuthorize`, 401 or 403 — for who calls **this** service | don't ask — ask who may execute it; `security-architect` decides the mechanism and the enforcement |
    | a client library (`RestClient`, Feign, `WebClient`), a timeout, a retry count, a circuit breaker | don't ask — ask what the business tolerates when the other system is down or slow; `http-client-architect` decides. **Exception: how the other system authenticates this service is asked here, always** — it is a fact of the integration contract, and the credential's owner is a person to find before the design, not after |
    | the shape of a domain field (value object, `enum`, primitive) | don't ask — ask what values the field admits; `domain-modeling` decides the shape |
+   | a cache, Redis, Caffeine, an expiry or TTL, a hit ratio | don't ask — ask how old the answer may be when served; `cache-architect` decides whether a cache exists and its shape |
    | fewer than 2 real options | don't ask — decide and record it in the spec. The runtime rejects the whole batch over a single one-option question (`@CLAUDE.md` § Known pitfalls) |
 
    A question whose answer another skill overwrites is worse than no question: it costs

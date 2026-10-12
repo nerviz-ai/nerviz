@@ -129,7 +129,8 @@ that project: read `<path>/docker-compose.yml` instead.
 
 2. **Find out what's needed.**
    - If the target above names a `UC-NNN-<slug>` folder: read `20-persistencia.md` for the
-     engine and version, `25-mensageria.md` for the broker and topic, and `40-testes.md`
+     engine and version, `25-mensageria.md` for the broker and topic, `22-cache.md` for a `redis`
+     row, and `40-testes.md`
      for whether `testcontainers` is active and which image tag `test-architect` already
      pinned in `TestcontainersConfiguration.java`
      (`grep -rn "DockerImageName.parse" src/test`).
@@ -252,6 +253,9 @@ that project: read `<path>/docker-compose.yml` instead.
      `Dockerfile`'s build stage runs `COPY . .`, and a secret left in a layer is a secret in
      the image (`@.claude/rules/secrets.md`). Append each only when missing.
 
+   **Redis** takes the same `.env`, `.env.example`, `.gitignore` and `.dockerignore` steps for its
+   one key, `REDIS_PASSWORD` — generated the same way, never typed. It has no database name.
+
 5. **Wire the app service's environment**, only the variables that change because of
    step 4. For a database that is `DB_URL` — the JDBC URL at the service's compose hostname
    and container port, the database `${DB_NAME:-<literal>}` — plus `DB_USERNAME:
@@ -264,6 +268,9 @@ that project: read `<path>/docker-compose.yml` instead.
    and `OTLP_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics`, matching the two
    placeholders the observability fragment declares. Wiring only the tracing one leaves
    metrics pointed at the app container's own `localhost`, which is silent and wrong.
+   For Redis that is `REDIS_HOST: redis`, `REDIS_PORT: "6379"` — the container port, a literal —
+   and `REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}`, the names
+   `application-cache.yml.example` reads, never `SPRING_DATA_REDIS_*`.
 
    **Every pair is host-first by default and container-first in `app`.** The default in
    `application.yml` serves `./mvnw spring-boot:run` on the host, so it names `localhost`
@@ -353,6 +360,7 @@ that project: read `<path>/docker-compose.yml` instead.
 | PostgreSQL | `templates/postgres-service.yml.example` | Engine chosen in `20-persistencia.md` isn't Postgres — or, at bootstrap time, when `persistence-jpa` isn't active in the blueprint |
 | MySQL | `templates/mysql-service.yml.example` | Engine chosen in `20-persistencia.md` isn't MySQL |
 | Kafka | `templates/kafka-service.yml.example` | Broker chosen in `25-mensageria.md` isn't Kafka, or there is none |
+| Redis (cache) | `templates/redis-service.yml.example` | `22-cache.md` § 2 chose Caffeine, or the cache is `external`. No volume and no persistence on purpose — a cache is recomputed from its source — and `allkeys-lru` under a memory limit, so a full cache evicts instead of refusing writes. Needs `REDIS_PASSWORD` in `.env` (step 4.5) |
 | Schema Registry (Confluent) | `templates/schema-registry-service.yml.example` | `25-mensageria.md` kept the JSON default — which is the rule's default, so this is the common case. Only when the partial recorded the Avro/Protobuf upgrade **and** its trigger. Needs `kafka` in the file, has no volume on purpose (state lives in the `_schemas` topic), and its tag has to match the `kafka-avro-serializer` the POM resolves — verified in the registry, per step 4 |
 | OpenTelemetry Collector | `templates/otel-collector-service.yml.example` + init script `templates/otel-collector-config.yml.example` | `observability` isn't active in the blueprint. No engine choice for the collector itself — one vendor-neutral ingest point, always the same shape. Where it *exports* to is a real choice, and it's the next two rows |
 | Jaeger | `templates/jaeger-service.yml.example` | No `otel-collector` in the file yet, a backend is already there, or the project wants metrics too — Jaeger stores traces only |

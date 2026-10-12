@@ -55,6 +55,8 @@ use case number or slug — `use-case-design` does.
   already give (step 3b)
 - `docs/use-cases/UC-NNN-<slug>/28-cliente-http.md` — via `http-client-architect`, only if
   `10-dominio.md` § Ports declares a port of kind `external HTTP` (step 3c)
+- `docs/use-cases/UC-NNN-<slug>/22-cache.md` — via `cache-architect`, only if
+  `00-caso-de-uso.md`'s `Freshness` row states a tolerance (step 5b)
 - `docs/use-cases/UC-NNN-<slug>/40-testes.md` — via `test-architect`
 
 **Writes outside `docs/`: none.** A run is docs-only, and that is enforced, not promised:
@@ -99,7 +101,10 @@ below. No end of this flow is left without an explicit git instruction.
    schedule, or `28-cliente-http.md` § 10 asks for a reconciliation pass, and `35-jobs.md` is
    missing (depends on 1, 3c, 4). Skipped otherwise
 6. `persistence-architect` — invoked if `20-persistencia.md` is missing (depends on 2, 3, 3b, 3c, 4, 5)
-7. `test-architect` — invoked if `40-testes.md` is missing (depends on 2,3,3b,3c,4,5,6)
+6b. `cache-architect` — invoked if `00-caso-de-uso.md`'s `Freshness` row states a tolerance and
+   `22-cache.md` is missing (depends on 1, 2, 6; reads 3c and 5 when present). Skipped when the
+   row reads `none` — every case that only writes, and every read that must see the last write
+7. `test-architect` — invoked if `40-testes.md` is missing (depends on 2,3,3b,3c,4,5,6,6b)
 
 **Why REST and messaging both run before persistence.** The order follows who generates
 requirements for whom. REST generates schema requirements — `Idempotency-Key` on a
@@ -137,6 +142,13 @@ reconciliation pass — a column persistence cannot see and a job scheduling can
 filter chain exists from `32-seguranca.md`, so it waits for both
 (`@.claude/decisions/0121-http-client-architect-skill.md`).
 
+The cache runs after persistence, the one step here that generates no requirement for anyone
+before it: a cache adds no table and no column. It wraps an outbound port, so it waits for the
+adapters behind it — `20-persistencia.md`'s query and `28-cliente-http.md`'s call — and it
+lists every writer of the data it holds, which only the finished partials name. Tests run
+after it, because a cached read owes three tests no other layer asks for
+(`@.claude/decisions/0144-cache-architect-skill.md`).
+
 **Design order isn't implementation order.** Messaging is designed fourth and implemented
 sixth: `UC-NNN-spec.md` keeps messaging as block 6, and the executor's conditional Block M
 still runs between REST and Tests. Jobs is block 7, implemented by the conditional Block J
@@ -145,7 +157,9 @@ among the production blocks. Outbound HTTP is block 3.3, implemented by the cond
 right after Block 2 — an adapter compiles against the outbound port and the domain types, and
 nothing upstream compiles against it. Security is block 4.5, implemented by the conditional Block S
 right after Block 3 — its annotations and the actor resolution go on the controllers Block 3
-just wrote. The pipeline orders by who needs whose requirements;
+just wrote. Cache is block 3.4, implemented by the conditional Block C last among the production
+blocks, after Block J — a decorator compiles against the port and needs its delegate, and every
+writer that must go through it already exists. The pipeline orders by who needs whose requirements;
 the spec orders by what compiles against what.
 8. `git-publish` — invoked at § Approval, per § End of flow, to commit the approved spec
 
@@ -311,7 +325,7 @@ created — never with the others.
 
 ### Short path — checked right after step 1
 
-A trivial case doesn't need five partials. Check all four against `00-caso-de-uso.md`
+A trivial case doesn't need five partials. Check all five against `00-caso-de-uso.md`
 and the approved specs:
 
 | Criterion | Unmet when |
@@ -320,8 +334,9 @@ and the approved specs:
 | No new table, column, or migration | the component table has a NEW or CHANGE migration or entity |
 | No new exception | an error situation has no exception already named in an approved spec |
 | No question asked to the user | `use-case-design` needed `AskUserQuestion` |
+| No freshness tolerance | the `Freshness` row states a duration — a cache to design |
 
-All four met → skip steps 2–6 and write `UC-NNN-spec.md` from
+All five met → skip steps 2–6 and write `UC-NNN-spec.md` from
 `templates/feature-spec-short.md.example`: every row names its source, an approved spec or
 a rule. A row that needs judgment to fill means the case isn't trivial — discard the
 short spec and take steps 2–6. One criterion unmet → steps 2–6.
@@ -434,20 +449,40 @@ and consolidation checks it again, for the paths that never take this step.
 
 **Output:** "✅ Persistence ready" or gaps.
 
-### Step 6: Tests (depends on 1,2,3,3b,3c,4,5)
+### Step 5b: Cache (depends on 1, 2, 5, conditional)
+
+Invoke `/cache-architect UC-NNN` if `22-cache.md` is missing and `00-caso-de-uso.md`'s
+`Freshness` row states a tolerance — a duration an answer may be old. The row reads `none`, or
+the case predates the row → skip this step: no tolerance, no cache
+(`@.claude/rules/caching.md` § Boundary). If `22-cache.md` exists: read, validate (ten blocks:
+cached reads, provider, expiry and size, invalidation, failure and load, serialization,
+observability, declared dependencies, configuration, deferred).
+
+Every expiry in § 3 is at most the tolerance it serves, and every writer of the cached data
+has a § 4 row — a writer named in another approved case's Components table and missing from
+§ 4 is a gap. § 8 is the only list that entitles the executor to add a cache dependency to
+`pom.xml`; § 1 and § 4 are what step 6 turns into tests.
+
+**Output:** "✅ Cache ready", "— skipped (no freshness tolerance)", or gaps.
+
+### Step 6: Tests (depends on 1,2,3,3b,3c,4,5,5b)
 
 If `40-testes.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
 If it exists: read, validate (five blocks: pyramid, cases, fixtures, coverage, test dependencies).
 When step 3b ran, every case of `32-seguranca.md` § 10 has a test row — a missing one is a gap.
 When step 3c ran, every case of `28-cliente-http.md` § 9 has a test row — a missing one is a gap.
+When step 5b ran, every cached read of `22-cache.md` § 1 has three test rows — a second read
+not reaching the source, an eviction by every writer of § 4 that goes through the port, and
+two callers never sharing an entry when the key names the caller (`@.claude/rules/caching.md`
+§ Tests). A missing one is a gap.
 
 **Output:** "✅ Tests ready" or gaps.
 
-### Consolidation (after 1,2,3,5,6 ✅ — steps 3b, 3c, 4 and 4b conditional)
+### Consolidation (after 1,2,3,5,6 ✅ — steps 3b, 3c, 4, 4b and 5b conditional)
 
 If all specs that apply exist and validate (security only when step 3b wasn't skipped,
 outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs only when step
-4b wasn't):
+4b wasn't, cache only when step 5b wasn't):
 
 1. **Resolve divergences before consolidating.** The partials are written by different
    skills, and downstream corrects upstream: `30-rest.md` fixes the path and status
@@ -468,6 +503,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
    | Outbox table, its columns, the claim query, and the values the columns encode (batch size, backoff, attempt ceiling, retention window, the prune's statement) | `20-persistencia.md` — the whole table is its territory. `25-mensageria.md` declares the **guarantee** those values have to deliver, never the columns; a § 6 row naming columns is reported as a divergence and the guarantee is what carries over |
    | Client, engine and pool, timeouts, the retrying layer and its policy, breaker and bulkhead, outbound authentication, the failure table of each remote operation | `28-cliente-http.md`. The outbound port, its domain types, the idempotency key field and the unknown-outcome state stay `10-dominio.md`'s; the column and the reconciliation schedule are persistence's and jobs's, as for every requirement |
    | Scheduling technology, a job's trigger and cadence (the relay's poll interval included), coordination across instances and the replica count, overlap and missed-run policy, on/off property, job metrics, the prune job | `35-jobs.md`. A claim strategy in `20-persistencia.md` that does not meet `35-jobs.md` § 3's replica count is not settled by precedence — it is a guarantee dropped by a shape decision: **stop and ask** |
+   | Which reads are cached, each cache key, the cache provider, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md`. The freshness tolerance stays `00-caso-de-uso.md`'s; an expiry longer than it is not settled by precedence — it serves answers older than the business allowed: **stop and ask** |
    | Aggregate name, value object, port, event | `10-dominio.md` |
    | Exception class and `errorCode` | `10-dominio.md` |
    | Use case boundary, invariants, error situations | `00-caso-de-uso.md` |
@@ -510,6 +546,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      reads `none` with the skip row of step 3b, so "covered by deny-by-default" is a recorded
      fact and not a missing block
    - The outbound HTTP block (`## 3.3 Outbound HTTP`) only when step 3c ran; `none` otherwise
+   - The cache block (`## 3.4 Cache`) only when step 5b ran; `none` otherwise
    - `## Impact on approved use cases`: every row from the same section of each partial —
      "none" when all are empty
    - `## Design patterns`: every row from the same section of each partial, with the partial
@@ -532,7 +569,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
    - **A partial that applies must carry its declared-dependency section, or consolidation
      stops.** `20-persistencia.md` § 6 always; `32-seguranca.md` § 8 whenever step 3b ran;
      `28-cliente-http.md` § 8 whenever step 3c ran;
-     `25-mensageria.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `40-testes.md` § 5 always. The
+     `25-mensageria.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-testes.md` § 5 always. The
      value `none` is legitimate and common — most cases need no new dependency — but **absence
      is not `none`**: one says the design skill decided nothing was needed, the other says
      nobody looked, and the executor cannot tell them apart. Steps 4 and 5 validate the same
@@ -543,7 +580,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      every run passes, which is why the check belongs here as well, exactly like `Satisfied by`
      above
    - **A partial that needs a container must carry `## Compose services`, or consolidation
-     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran. `none` is
+     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran. `none` is
      valid (H2, no broker) and absence is not. Every row goes into the spec's
      `## Infrastructure` with the partial that decided it, shaped by
      `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
@@ -595,7 +632,9 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      conditional Block M (steps M1-M4, between REST and Tests), which generates the Kafka
      producer/consumer adapters from `25-mensageria.md`; a spec with § 7 runs Block J (steps
      J1-J3, right after Block M), which generates the scheduling wiring and triggers from
-     `35-jobs.md`. Neither touches the fixed 19-item checklist
+     `35-jobs.md`; a spec with § 3.4 runs Block C (steps C1-C3, right after Block J), which
+     generates the cache wiring and the port decorators from `22-cache.md`. None touches the fixed
+     19-item checklist
 
 3. **Check whether the architecture tests can now be turned on.** The bootstrap doesn't
    install ArchUnit or the coverage gate by design: a `check` over an empty set proves
@@ -679,7 +718,7 @@ did, and the next commands. After § Approval those are `/clear` and
 Lives at `.claude/skills/new-feature/templates/feature-spec.md.example`; the short path
 uses `templates/feature-spec-short.md.example`.
 
-Structure (5 blocks, implementation order — plus outbound HTTP, security, messaging and jobs when they apply):
+Structure (5 blocks, implementation order — plus outbound HTTP, cache, security, messaging and jobs when they apply):
 - Frontmatter: `status:`
 - Block 1: Use case
 - Block 2: Domain model (aggregate, VOs, invariants, ports, events)
@@ -687,6 +726,9 @@ Structure (5 blocks, implementation order — plus outbound HTTP, security, mess
 - Block 3.3 (conditional): Outbound HTTP (client and engine per dependency, timeouts, retrying
   layer, authentication, project-wide setup NEW/REUSE) — present when step 3c ran; "none"
   otherwise. Implemented by the executor's Block H, right after Block 2
+- Block 3.4 (conditional): Cache (cached reads and keys, provider, expiry per cache, writers that
+  evict) — present only when step 5b ran; "none" otherwise. Implemented by the executor's
+  Block C, last among the production blocks
 - Block 3.5 (conditional): Messaging (producer/consumer, delivery semantics, retry/DLQ)
   — present only when `10-dominio.md` named external delivery for the event; "none"
   otherwise. See the known gap above — the executor doesn't consume this block yet
@@ -713,6 +755,8 @@ See `templates/feature-spec.md.example` for the full shape.
 - **D22** — `/new-feature` design (this record).
 - **`@.claude/decisions/0032-messaging-architect-skill.md`** — `messaging-architect`
   chained as a conditional step, same pattern as `persistence-architect`/`rest-api-architect`.
+- **`@.claude/decisions/0144-cache-architect-skill.md`** — `cache-architect` chained as step 5b,
+  after persistence, only when the use case states a freshness tolerance.
 - **`@.claude/decisions/0130-executor-split-by-block-group-implement-in-clean-session.md`** and
   **`@.claude/decisions/0135-new-feature-split-spec-and-implement.md`** — design and implement
   never share a session; the implement flow is `/new-feature-implement`, a skill of its own.

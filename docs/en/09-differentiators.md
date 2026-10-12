@@ -136,7 +136,7 @@ Java file tested on three operating systems instead of bash plus `jq`.
 `/new-feature` designs one use case per run: `use-case-design` → `domain-modeling` →
 `rest-api-architect` → `security-architect` (conditional) → `http-client-architect`
 (conditional) → `messaging-architect` (conditional) → `jobs-architect` (conditional) →
-`persistence-architect` → `test-architect`. Each skill owns one partial and decides the design patterns of its
+`persistence-architect` → `cache-architect` (conditional) → `test-architect`. Each skill owns one partial and decides the design patterns of its
 layer. The partials are consolidated into `UC-NNN-spec.md`, whose status goes `draft →
 approved → implemented` (or `implemented-blocked`). Once a spec is approved, `guard`
 freezes its folder except for the status line, checklist toggles, and `CHANGELOG.md`. Only

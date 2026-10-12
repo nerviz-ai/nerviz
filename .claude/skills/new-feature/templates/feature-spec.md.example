@@ -35,6 +35,7 @@ Detail: `00-caso-de-uso.md`.
 | Side effects | 1 — `INSERT` into `users` |
 | Transaction | opens at the use case, closes before the response |
 | Repetition | the same email never creates a second user |
+| Freshness | none — a create returns what it just wrote |
 
 ---
 
@@ -74,6 +75,16 @@ none — `10-dominio.md` declares no port of kind `external HTTP`. When present:
 dependency (client, engine, read timeout, retrying layer, authentication scheme), the shared
 setup NEW / REUSE, and the dependencies of `28-cliente-http.md` § 8 — detail in
 `28-cliente-http.md`. Implemented by the executor's Block H, right after Block 2.
+
+---
+
+## 3.4 Cache — conditional, implement after 3 and 3.3
+
+none — `00-caso-de-uso.md`'s `Freshness` row reads `none`: a create returns what it just
+wrote. When present: the provider, one line per cached read (port method, cache name, key,
+expiry next to the tolerance it serves), every writer that must evict and its path, and the
+dependencies of `22-cache.md` § 8 — detail in `22-cache.md`. Implemented by the executor's
+Block C, after Block J.
 
 ---
 

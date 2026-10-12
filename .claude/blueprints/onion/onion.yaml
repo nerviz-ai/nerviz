@@ -95,6 +95,10 @@ packages:
     # composition root, for the same reason `app.scheduling` does: no ring module owns them yet,
     # and `app/**` is already an architecture path — decision 0121.
     app.http: "app.http"
+    # Cache decorators implement a `domain.gateway` Gateway and wrap the persistence or HTTP
+    # adapter by bean name; they compile into `app`, the composition root, like `app.http` —
+    # decision 0144.
+    app.cache: "app.cache"
     commons.logging: "commons.logging"
 
 # Naming convention for this blueprint (specific to onion, not universal — see

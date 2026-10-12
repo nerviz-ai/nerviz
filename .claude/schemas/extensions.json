@@ -235,7 +235,7 @@
     "universal_fields": ["model"],
     "classes": {
       "design": {
-        "$comment": "Emits one partial of one use case folder and nothing else. Nine skills, one shape.",
+        "$comment": "Emits one partial of one use case folder and nothing else. Ten skills, one shape.",
         "design_phase": true,
         "allowed_models": ["opus"],
         "write_allow": ["docs/use-cases/UC-*/**", "docs/use-cases/BACKLOG.md"],
@@ -243,7 +243,7 @@
         "skills": [
           "use-case-design", "domain-modeling", "persistence-architect",
           "rest-api-architect", "security-architect", "http-client-architect", "messaging-architect",
-          "jobs-architect", "test-architect"
+          "jobs-architect", "cache-architect", "test-architect"
         ]
       },
       "orchestrator": {
@@ -719,6 +719,7 @@
         "arch-adopt",
         "arch-doctor",
         "audit-usage",
+        "cache-architect",
         "docker-architect",
         "domain-modeling",
         "git-publish",
@@ -768,6 +769,7 @@
       "messaging.md": { "suffix": [".messaging"], "glob": "**/{}/**", "optional": true },
       "scheduling.md": { "suffix": [".scheduling"], "glob": "**/{}/**", "optional": true },
       "http-client.md": { "suffix": [".http"], "glob": "**/{}/**", "optional": true },
+      "caching.md": { "suffix": [".cache"], "glob": "**/{}/**", "optional": true },
       "authorization.md": {
         "$comment": "Wiring lives in the `.config` package; hexagonal, onion and custom-template have none, so it lives in a `security` subpackage of the REST adapter and the `.rest` glob already covers it. vertical-slice has `.config` and no `.rest`, so the fallback never fires there and the rule loads on `config/**` only — a slice's controller does not pull it, and the executor cites it inline anyway (decision 0112).",
         "suffix": [".rest", ".config"],

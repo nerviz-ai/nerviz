@@ -66,6 +66,8 @@ packages:
     infrastructure.scheduling: "infrastructure.scheduling"
     # Outbound HTTP adapters (one subpackage per remote system, plus `shared`) — decision 0121.
     infrastructure.http: "infrastructure.http"
+    # Cache decorators of outbound ports, and the cache wiring — decision 0144.
+    infrastructure.cache: "infrastructure.cache"
     infrastructure.config: "infrastructure.config"
     commons.logging: "commons.logging"
 
