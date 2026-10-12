@@ -421,6 +421,15 @@ persistence adapter or a service is outside `rules/caching.md`, a writer that by
 fails at startup. Hibernate's second-level cache stays off; HTTP caching is
 `rest-api-architect`'s (`.claude/decisions/0144-cache-architect-skill.md`).
 
+**A model or a vector store is one port, and four partials own its pieces.** `ai-architect` runs
+only when `10-dominio.md` declares a port of kind `LLM` or `vector store`, and `29-ia.md` owns
+the provider, the model, the prompts, the answer type, the data sent, the timeout and the one
+retrying layer. The port, its "could not decide" value and the review state stay
+`10-dominio.md`'s; the vector store's migration is `20-persistencia.md`'s (`29-ia.md` § 9 only
+asks); a re-index trigger or an ingestion job is `25-mensageria.md`'s or `35-jobs.md`'s. Spring
+AI lives in the `.ai` package alone, so `org.springframework.ai..` in an `application` module
+is a boundary violation (`.claude/decisions/0145-ai-architect-skill.md`).
+
 **The bounded context is a project fact, not a per-use-case answer.** First segment of every
 topic name, asked with the coordinates in `/init-project` and written into the generated
 project's root `CLAUDE.md`. A prefix chosen inside one use case gives one system two

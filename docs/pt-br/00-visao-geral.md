@@ -39,6 +39,7 @@ flowchart TB
         SK_MSG["skill: messaging-architect"]:::skill
         SK_JOBS["skill: jobs-architect"]:::skill
         SK_CACHE["skill: cache-architect"]:::skill
+        SK_AI["skill: ai-architect"]:::skill
         SK_DOCTOR["skill: arch-doctor"]:::skill
         SK_GIT["skill: git-publish"]:::skill
         SK_SONAR["skill: sonarqube-setup"]:::skill
@@ -58,7 +59,7 @@ flowchart TB
     end
 
     subgraph L3["Normas e dados — folhas"]
-        RULES["rules/*.md\n(architecture-ddd, naming, error-handling,\ncode-quality, api-rest, http-client, lombok,\nvalue-objects, persistence, testing,\nobservability, logging, messaging, scheduling,\nauthorization, transport-security, secrets,\nspec-diagrams, caching)"]:::rule
+        RULES["rules/*.md\n(architecture-ddd, naming, error-handling,\ncode-quality, api-rest, http-client, lombok,\nvalue-objects, persistence, testing,\nobservability, logging, messaging, scheduling,\nauthorization, transport-security, secrets,\nspec-diagrams, caching, ai)"]:::rule
         BLUEPRINTS["blueprints/*/*.yaml\n(_schema.md define o contrato)"]:::blueprint
     end
 
@@ -78,7 +79,7 @@ flowchart TB
     SK_BOOT -->|lê e copia para o projeto gerado| RULES
     SK_BOOT -->|instala, com guard + audit ligados| SETTINGS
     SK_BOOT -->|copia verbatim| HOOK
-    SK_BOOT -->|copia| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
+    SK_BOOT -->|copia| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
     SK_BOOT -.->|Skill tool, step 7.5| SK_TRANSPORT
     SK_BOOT -.->|Skill tool, step 8.4| SK_SONAR
     SK_ADOPT -.->|Skill tool, quando o build file não tem scanner| SK_SONAR
@@ -89,7 +90,7 @@ flowchart TB
     SK_BOOT -->|copia| AG_DEV & AG_ARCH & AG_LOG & AG_COMPOSE
     SK_DESIGNER -.->|propõe e escreve, após aprovação| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent no SubagentStart: o catálogo, só no projeto gerado| AG_DEV
-    SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
+    SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
     SK_NF -->|Agent tool, pre-flight, se commons vazio| AG_LOG
     SK_NF -->|"Agent tool, depois do grupo tests, para cada linha materialize"| AG_COMPOSE
     AG_COMPOSE -->|Skill tool, admitida porque quem chama é um agent com classe| SK_DOCKER
@@ -102,6 +103,7 @@ flowchart TB
     SK_DOM --> SK_REST
     SK_REST -.->|se Access pede algo que a filter chain ainda não dá| SK_SEC
     SK_DOM -.->|se o port é do tipo external HTTP| SK_HTTP
+    SK_DOM -.->|se o port é do tipo LLM ou vector store| SK_AI
     SK_DOM -.->|se evento pede entrega externa| SK_MSG
     SK_UC -.->|se o caso nomeia trigger agendado/job| SK_JOBS
     SK_MSG -.->|"se Form B (outbox + relay), ou partial adia um job"| SK_JOBS
@@ -114,6 +116,8 @@ flowchart TB
     SK_HTTP --> SK_PERS
     SK_PERS -.->|se Freshness declara uma tolerância| SK_CACHE
     SK_CACHE --> SK_TEST
+    SK_AI --> SK_PERS
+    SK_AI --> SK_TEST
     SK_PERS --> SK_TEST
     SK_MSG --> SK_TEST
     SK_JOBS --> SK_TEST
@@ -135,7 +139,7 @@ flowchart TB
     HOOK -->|bloqueia ou avisa sobre| SRC
     HOOK -->|audit: escreve, no projeto gerado| TRAIL[".claude/audit-usage/*.md + history.jsonl + nodes.jsonl"]:::out
 
-    RULES -.->|citadas por path, nunca copiadas| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE
+    RULES -.->|citadas por path, nunca copiadas| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE & SK_AI
     BLUEPRINTS -.->|citado por path| SK_BOOT
 
     classDef hook fill:#5c1a1a,stroke:#ff6b6b,color:#fff,stroke-width:2px

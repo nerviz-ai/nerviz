@@ -1,0 +1,191 @@
+/*
+ * EXEMPLAR — the project-wide AI wiring every port of kind `LLM` shares: one `ChatClient` per port,
+ * built from the auto-configured builder, with its model and options named in configuration; the
+ * prompt delimiters; and the translation of a provider failure into the integration families.
+ * Written once, by the first use case whose `29-ia.md` § 6 declares them NEW; REUSE afterwards,
+ * adding one bean and one `app.ai.ports` entry per new port.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/ai.md` (§ Wiring, § Prompts, § Failure and retry)
+ *        `.claude/rules/http-client.md` (§ Retry, § Failures)
+ *        `.claude/rules/error-handling.md` § Integration families
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - every client starts from the injected `ChatClient.Builder` — a prototype bean that carries the
+ *    observations and customizers. `ChatClient.create(model)` / `ChatClient.builder(model)` would
+ *    build a client the metrics and traces never see;
+ *  - model, temperature, output budget AND TIMEOUT are this port's, read from `app.ai.ports.<port>`
+ *    — never left to the library: Spring AI 2.0 removed the 0.7 temperature default, a model left
+ *    unset is whichever one the provider's starter names that release, and the OpenAI model sends
+ *    the options' timeout with every request — 60 s when the options name none, whatever
+ *    `spring.ai.openai.timeout` says (found by `AiProviderIT`'s timeout case, Spring AI 2.0.1);
+ *  - the template renderer uses `<` `>`: the system prompt shows the model a JSON example, and the
+ *    default `{` `}` delimiters would read it as variables;
+ *  - the translation answers one question, as `http-client.md` § Failures does — was the request
+ *    processed? 429 and 503 were not (dependency unavailable, with the announced wait); a timeout
+ *    or a lost connection may have been (outcome unknown — safe to retry for a model call, which
+ *    changes nothing at the provider, but the SDK already did); anything else is an answer we
+ *    cannot use (dependency response);
+ *  - THE ONE RETRYING LAYER is the provider SDK's own (`spring.ai.openai.max-retries` in
+ *    `application-ai.yml.example`). Spring AI 2.0's OpenAI model does not go through
+ *    `spring.ai.retry.*`, so nothing here adds a second one; when the trigger already retries — a
+ *    Kafka listener, a job's next run — `max-retries` is 0.
+ *
+ * VARIANT — provider. The options type (`OpenAiChatOptions`) is the OpenAI starter's, and the
+ * exception types below are the OpenAI SDK's (`com.openai.errors`). With the Anthropic starter,
+ * `AnthropicChatOptions` and the same three branches over the Anthropic SDK's types; a provider on
+ * Spring's `RestClient` (Ollama) raises `TransientAiException` / `NonTransientAiException` and a
+ * `ResourceAccessException` for the transport — the question asked is the same.
+ *
+ * PACKAGE: the `.ai` entry of the active blueprint's `packages.map`.
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- AiProperties.java
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.time.Duration;
+import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+/**
+ * `app.ai.ports.<port>`: the model and options each chat port runs with. `app.ai.search.<port>`: the
+ * threshold and result ceiling each semantic search runs with. A port looked up and not configured
+ * fails the startup with its key — never a library default.
+ */
+@Validated
+@ConfigurationProperties("app.ai")
+record AiProperties(Map<String, @Valid PortSettings> ports, Map<String, @Valid SearchSettings> search) {
+
+    AiProperties {
+        ports = ports == null ? Map.of() : Map.copyOf(ports);
+        search = search == null ? Map.of() : Map.copyOf(search);
+    }
+
+    /**
+     * `temperature` may be absent only for a model that rejects it — a reasoning model. `timeout` is
+     * the port's whole call, per attempt: it is sent with every request and wins over the starter's
+     * `spring.ai.openai.timeout`.
+     */
+    record PortSettings(
+            @NotBlank String model, Double temperature, @NotNull @Positive Integer maxTokens, @NotNull Duration timeout) {}
+
+    record SearchSettings(
+            @NotNull @DecimalMin("0.0") @DecimalMax("1.0") Double similarityThreshold,
+            @NotNull @Positive Integer maxResults) {}
+
+    PortSettings port(String name) {
+        return required(ports.get(name), "app.ai.ports." + name);
+    }
+
+    SearchSettings search(String name) {
+        return required(search.get(name), "app.ai.search." + name);
+    }
+
+    private static <T> T required(T value, String key) {
+        if (value == null) {
+            throw new IllegalStateException(key + " is not configured");
+        }
+        return value;
+    }
+}
+
+// --- AiClientConfig.java
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.template.st.StTemplateRenderer;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(AiProperties.class)
+class AiClientConfig {
+
+    /** One constant per port: the bean name and the `app.ai.ports` key. */
+    static final String TICKET_CLASSIFIER = "ticket-classifier";
+
+    @Bean(TICKET_CLASSIFIER)
+    ChatClient ticketClassifierChatClient(ChatClient.Builder builder, AiProperties properties) {
+        return forPort(builder, properties.port(TICKET_CLASSIFIER));
+    }
+
+    @Bean
+    AiFailureTranslator aiFailureTranslator() {
+        return new AiFailureTranslator();
+    }
+
+    /**
+     * A null temperature is not sent: the provider's own default applies, which is what a reasoning
+     * model requires. Every other option is always this port's — the timeout above all: Spring AI
+     * 2.0's OpenAI model sends the options' timeout with each request, and an options object built
+     * without one carries a 60 s default that overrides `spring.ai.openai.timeout` in silence.
+     */
+    private static ChatClient forPort(ChatClient.Builder builder, AiProperties.PortSettings settings) {
+        return builder
+                .defaultTemplateRenderer(StTemplateRenderer.builder()
+                        .startDelimiterToken('<')
+                        .endDelimiterToken('>')
+                        .build())
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .model(settings.model())
+                        .temperature(settings.temperature())
+                        .maxTokens(settings.maxTokens())
+                        .timeout(settings.timeout()))
+                .build();
+    }
+}
+
+// --- AiFailureTranslator.java
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import com.exemplo.minhaapi.domain.exception.DependencyResponseException;
+import com.exemplo.minhaapi.domain.exception.DependencyUnavailableException;
+import com.exemplo.minhaapi.domain.exception.IntegrationException;
+import com.exemplo.minhaapi.domain.exception.OutcomeUnknownException;
+import com.openai.errors.InternalServerException;
+import com.openai.errors.OpenAIException;
+import com.openai.errors.OpenAIIoException;
+import com.openai.errors.OpenAIServiceException;
+import com.openai.errors.RateLimitException;
+import java.time.Duration;
+import java.util.Locale;
+
+/** Provider failure → integration family. The SDK type never leaves the AI package. */
+class AiFailureTranslator {
+
+    IntegrationException translate(String dependency, OpenAIException failure) {
+        String code = dependency.toUpperCase(Locale.ROOT).replace('-', '_');
+        if (failure instanceof RateLimitException limited) {
+            return new DependencyUnavailableException(code + "_UNAVAILABLE", dependency,
+                    "the model provider is rate limiting", retryAfter(limited), failure);
+        }
+        if (failure instanceof InternalServerException server && server.statusCode() == 503) {
+            return new DependencyUnavailableException(code + "_UNAVAILABLE", dependency,
+                    "the model provider is unavailable", retryAfter(server), failure);
+        }
+        if (failure instanceof OpenAIIoException
+                || failure instanceof InternalServerException server && (server.statusCode() == 502 || server.statusCode() == 504)) {
+            return new OutcomeUnknownException(code + "_NO_ANSWER", dependency,
+                    "the model provider did not answer in time", failure);
+        }
+        return new DependencyResponseException(code + "_FAILED", dependency,
+                "the model provider answered with an error", failure);
+    }
+
+    private static Duration retryAfter(OpenAIServiceException failure) {
+        return failure.headers().values("retry-after").stream()
+                .findFirst()
+                .filter(value -> value.chars().allMatch(Character::isDigit))
+                .map(seconds -> Duration.ofSeconds(Long.parseLong(seconds)))
+                .orElse(null);
+    }
+}

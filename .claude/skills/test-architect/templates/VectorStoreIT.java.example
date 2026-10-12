@@ -1,0 +1,156 @@
+/*
+ * EXEMPLAR — integration test of a port of kind `vector store`, for the search cases `29-ia.md`
+ * § 8 lists. Suffix `IT`: it runs against a real pgvector database. Shape owned here; the cases are
+ * `ai-architect`'s.
+ *
+ * THE REAL ENGINE, A STUB EMBEDDING: the store is PostgreSQL with the pgvector extension, created by
+ * the project's own migration — `.claude/rules/testing.md` § Database in integration tests. The
+ * embedding model is a `@TestConfiguration` bean that maps each known text to a fixed vector, so
+ * similarity is decided by the test, not by a model: no network, no key, the same order every run.
+ * Its vectors have the store's real dimension count — the migration's `vector(N)` — with only the
+ * first three components set: the schema under test is production's, not one shrunk for the test.
+ * `SimpleVectorStore` is never the substitute — it is not the engine, the index or the schema.
+ *
+ * THE IMAGE: `pgvector/pgvector`, the same tag as the compose file's database service.
+ * `ArchHook.java compose` compares them, and a plain `postgres` image fails the migration's
+ * `CREATE EXTENSION vector`. Spring AI's Testcontainers module has no pgvector connection; Spring
+ * Boot's `@ServiceConnection` on `PostgreSQLContainer` wires the datasource the store uses.
+ *
+ * THE MANDATORY CASES (`.claude/rules/ai.md` § Semantic search, § Tests), one test each:
+ *   nearest first          — ids in order of similarity, and ids only
+ *   below the threshold    — empty, never the nearest unrelated item
+ *   re-index replaces      — indexing the same product again leaves one entry, the new text
+ *   remove                 — a removed product is never found again
+ *   schema from migration  — the context starts with `schema-validation: true`
+ */
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.exemplo.minhaapi.application.port.out.ProductEmbeddings;
+import com.exemplo.minhaapi.application.port.out.ProductSemanticSearch;
+import com.exemplo.minhaapi.domain.model.product.Product;
+import com.exemplo.minhaapi.domain.model.product.ProductId;
+import com.exemplo.minhaapi.domain.model.product.SearchPhrase;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.Embedding;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+
+@Testcontainers
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+        "spring.ai.openai.api-key=unused-the-embedding-model-is-stubbed"})
+class VectorStoreIT {
+
+    @Container @ServiceConnection
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+            DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
+
+    private static final Product RAIN_SHOES = product("Trail runner GTX", "waterproof running shoe");
+    private static final Product SANDALS = product("Beach sandal", "open sandal for summer");
+
+    @Autowired
+    private ProductSemanticSearch search;
+
+    @Autowired
+    private ProductEmbeddings embeddings;
+
+    @Test
+    @DisplayName("the nearest product comes first, as an id")
+    void nearestFirst() {
+        embeddings.index(RAIN_SHOES);
+        embeddings.index(SANDALS);
+
+        assertThat(search.closestTo(new SearchPhrase("shoes for running in the rain"), 10))
+                .containsExactly(RAIN_SHOES.id());
+    }
+
+    @Test
+    @DisplayName("nothing above the threshold is an empty answer, not the nearest unrelated item")
+    void belowThreshold() {
+        embeddings.index(SANDALS);
+
+        assertThat(search.closestTo(new SearchPhrase("winter jacket"), 10)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("indexing again replaces, and a removed product is never found")
+    void reindexAndRemove() {
+        embeddings.index(RAIN_SHOES);
+        embeddings.index(RAIN_SHOES);
+        assertThat(search.closestTo(new SearchPhrase("shoes for running in the rain"), 10)).hasSize(1);
+
+        embeddings.remove(RAIN_SHOES.id());
+        assertThat(search.closestTo(new SearchPhrase("shoes for running in the rain"), 10)).isEmpty();
+    }
+
+    private static Product product(String name, String description) {
+        return Product.of(new ProductId(UUID.randomUUID()), name, description);
+    }
+
+    /**
+     * Three meaningful components — running shoe, sandal, jacket — padded to the store's dimension
+     * count. Each known text points along one of them; an unknown text fails the test loudly.
+     */
+    @TestConfiguration
+    static class FixedEmbeddings {
+
+        private static final Map<String, float[]> DIRECTIONS = Map.of(
+                "Trail runner GTX\nwaterproof running shoe", new float[] {1f, 0f, 0f},
+                "shoes for running in the rain", new float[] {0.95f, 0.05f, 0f},
+                "Beach sandal\nopen sandal for summer", new float[] {0f, 1f, 0f},
+                "winter jacket", new float[] {0f, 0f, 1f});
+
+        @Bean
+        @Primary
+        EmbeddingModel fixedEmbeddingModel(@Value("${spring.ai.vectorstore.pgvector.dimensions}") int dimensions) {
+            return new EmbeddingModel() {
+                @Override
+                public EmbeddingResponse call(EmbeddingRequest request) {
+                    List<Embedding> vectors = new ArrayList<>();
+                    for (int i = 0; i < request.getInstructions().size(); i++) {
+                        vectors.add(new Embedding(vectorOf(request.getInstructions().get(i), dimensions), i));
+                    }
+                    return new EmbeddingResponse(vectors);
+                }
+
+                @Override
+                public float[] embed(Document document) {
+                    return vectorOf(document.getText(), dimensions);
+                }
+
+                @Override
+                public int dimensions() {
+                    return dimensions;
+                }
+            };
+        }
+
+        private static float[] vectorOf(String text, int dimensions) {
+            float[] direction = DIRECTIONS.get(text);
+            if (direction == null) {
+                throw new IllegalArgumentException("no fixed vector for: " + text);
+            }
+            return Arrays.copyOf(direction, dimensions);
+        }
+    }
+}

@@ -48,6 +48,7 @@ architecture_paths:
   - "**/scheduler/**/*.java"
   - "**/client/**/*.java"
   - "**/cache/**/*.java"
+  - "**/ai/**/*.java"
 
 # A single element — layout: single-module — rule 5 of `_schema.md`. No
 # `forbidden_imports` here: in this architecture that field applies per package, not
@@ -84,6 +85,9 @@ packages:
     # here wraps the repository or client calls the service makes for a cached read and the writes
     # that must evict it. The service calls it; it calls the repository or the client.
     cache.cache: "cache"
+    # AI — decision 0145. Layered has no outbound port: an `<Noun>Classifier` / `<Noun>Search` class here
+    # holds the model or store call the service makes. The service calls it; it calls nothing back.
+    ai.ai: "ai"
 
 # Naming convention for this blueprint (specific to layered, not universal — see
 # .claude/rules/architecture-ddd.md for what IS universal, DDD, and
@@ -108,26 +112,29 @@ dependency_rules:
   direction: inward
   forbidden:
     - from: domain
-      to: [service, repository, controller, scheduler, client, cache, commons]
-      reason: "The domain does not know about services, repositories, controllers, scheduling triggers, outbound HTTP clients, or caches — commons included: it carries Spring AOP/AspectJ/Lombok framework code, and domain stays framework-free"
+      to: [service, repository, controller, scheduler, client, cache, ai, commons]
+      reason: "The domain does not know about services, repositories, controllers, scheduling triggers, outbound HTTP clients, caches, or AI adapters — commons included: it carries Spring AOP/AspectJ/Lombok framework code, and domain stays framework-free"
     - from: repository
-      to: [service, controller, scheduler, client, cache]
+      to: [service, controller, scheduler, client, cache, ai]
       reason: "The repository is a leaf adapter — it never calls back into the layers that use it"
     - from: controller
-      to: [repository, client, cache]
+      to: [repository, client, cache, ai]
       reason: "Strict layering: the controller only talks to the service directly below it, never skips to the repository (kamilmazurek.pl)"
     - from: scheduler
-      to: [repository, client, cache]
+      to: [repository, client, cache, ai]
       reason: "Same adjacency rule as `controller`: the scheduling trigger only talks to the service directly below it, never skips to the repository"
     - from: service
       to: [controller, scheduler]
       reason: "The service layer does not know who calls it — controller or scheduling trigger alike"
     - from: client
-      to: [service, controller, scheduler, repository, cache]
+      to: [service, controller, scheduler, repository, cache, ai]
       reason: "An outbound HTTP client is a leaf adapter, like the repository — it never calls back into the layers that use it, nor sideways into the database (decision 0121)"
     - from: cache
       to: [service, controller, scheduler]
       reason: "A cache sits between the service and the repository or client it wraps — it never calls back into the layers that use it (decision 0144)"
+    - from: ai
+      to: [service, controller, scheduler, repository, client, cache]
+      reason: "An AI adapter is a leaf, like the client — it never calls back into the layers that use it, nor sideways into the database or another remote system (decision 0145)"
 
 # Real, compilable exemplars (not templates to swap mechanically).
 # The project base comes from Spring Initializr; these files provide the SHAPE.

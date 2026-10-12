@@ -51,6 +51,7 @@ modules:
     forbidden_imports:
       - "jakarta.persistence.."
       - "org.springframework.web.."
+      - "org.springframework.ai.."  # the model suggests through a port; the library stays in adapter.out.ai — decision 0145
   - id: adapter-in-rest
     path: adapters/adapter-in-rest
     depends_on: [application, domain, commons]
@@ -98,6 +99,9 @@ packages:
     # `bootstrap` like `adapter.out.http`: a decorator imports only the port it implements, and the
     # composition root already sees the adapter it wraps, by bean name.
     adapter.out.cache: "adapter.out.cache"
+    # Outbound AI adapters — a language model or a vector store behind a port, and the AI wiring —
+    # decision 0145. Compiled into `bootstrap` like `adapter.out.http`; Spring AI appears nowhere else.
+    adapter.out.ai: "adapter.out.ai"
 
 # Naming convention for this blueprint (specific to hexagonal, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and

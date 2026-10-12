@@ -90,6 +90,9 @@ packages:
     # Cache decorators of outbound ports, same rank as `adapter.http` — decision 0144. A decorator
     # imports only the port, so `adapter` never reaches `adapter`.
     adapter.cache: "shared.internal.adapter.cache"
+    # Outbound AI adapters, same rank as `adapter.http` — decision 0145. A real module gets its own
+    # `<module>.internal.adapter.ai` later.
+    adapter.ai: "shared.internal.adapter.ai"
     bootstrap.config: "config"
     # Cross-cutting logging/masking annotations + AOP aspects (rules/logging.md) — not
     # a new bounded-context module. Placed under `shared` itself, one level OUT of

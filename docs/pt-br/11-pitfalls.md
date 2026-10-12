@@ -432,6 +432,16 @@ escritor que contorna o port (um `UPDATE` em massa, um job, outro serviço) não
 `sync = true` junto de `unless` falha no startup. O second-level cache do Hibernate fica
 desligado; cache HTTP é do `rest-api-architect` (`.claude/decisions/0144-cache-architect-skill.md`).
 
+**Um modelo ou um vector store é um port só, e quatro parciais são donas das suas peças.** O
+`ai-architect` só roda quando `10-dominio.md` declara um port do tipo `LLM` ou `vector store`, e
+`29-ia.md` é dona do provedor, do modelo, dos prompts, do tipo da resposta, dos dados enviados, do
+timeout e da única camada de retry. O port, o valor "não consegui decidir" e o estado de revisão
+continuam sendo de `10-dominio.md`; a migration do vector store é de `20-persistencia.md`
+(`29-ia.md` § 9 só pede); um gatilho de reindexação ou um job de ingestão é de
+`25-mensageria.md` ou `35-jobs.md`. O Spring AI mora só no pacote `.ai`, então
+`org.springframework.ai..` num módulo `application` é violação de fronteira
+(`.claude/decisions/0145-ai-architect-skill.md`).
+
 **O bounded context é um fato do projeto, não uma resposta por caso de uso.** É o primeiro
 segmento de todo nome de tópico, perguntado junto com as coordenadas no `/init-project` e
 escrito no `CLAUDE.md` raiz do projeto gerado. Um prefixo escolhido dentro de um caso de uso

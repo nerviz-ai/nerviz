@@ -110,7 +110,7 @@ public class AgentInstructionsTest {
                 + "\nFull rule: `.claude/rules/architecture-ddd.md`\n");
         f.put("domain/CLAUDE.md", "@AGENTS.md\n");
         f.put("application/AGENTS.md", "# `application` module\n\n- `jakarta.persistence..`\n"
-                + "- `org.springframework.web..`\n");
+                + "- `org.springframework.web..`\n- `org.springframework.ai..`\n");
         f.put("application/CLAUDE.md", "@AGENTS.md\n");
         return f;
     }

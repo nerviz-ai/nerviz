@@ -2,7 +2,7 @@
 
 What a design partial records about a container its use case needs at runtime, and who acts
 on each answer. Owned here because `docker-architect` is the single owner of every service
-block. Read by `persistence-architect` and `messaging-architect` (step 9), by `cache-architect` (step 10), by `/new-feature`
+block. Read by `persistence-architect` and `messaging-architect` (step 9), by `cache-architect` (step 10), by `ai-architect` (step 9), by `/new-feature`
 consolidation, by `/new-feature-implement` and by `compose-service-installer`.
 Record: `@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`.
 

@@ -16,6 +16,14 @@
 # directory. After the first start the named volume keeps the old database and user, while
 # `docker exec … env` shows the new ones. Changing any of the three needs
 # `docker compose down -v`, which deletes the data.
+#
+# VARIANT — a vector store (`29-ia.md` declares one). The `image:` line below becomes
+# `pgvector/pgvector:pg16` — the official PostgreSQL image of the same major with pgvector compiled
+# in — and nothing else changes: same service, variables, volume and healthcheck, so the datasource
+# and every other partial see the same `postgres`. Never a second database service. Nothing here
+# runs `CREATE EXTENSION`: the project's migration does (`vector`, `hstore`, `uuid-ossp`), and a
+# plain `postgres` image fails it with `extension "vector" is not available`. The tag matches the
+# one `src/test` pins in `DockerImageName.parse`.
   postgres:
     image: postgres:16-alpine
     environment:

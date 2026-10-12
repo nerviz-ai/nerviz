@@ -68,6 +68,8 @@ packages:
     infrastructure.http: "infrastructure.http"
     # Cache decorators of outbound ports, and the cache wiring — decision 0144.
     infrastructure.cache: "infrastructure.cache"
+    # Outbound AI adapters (a language model or a vector store behind a port) and the AI wiring — decision 0145.
+    infrastructure.ai: "infrastructure.ai"
     infrastructure.config: "infrastructure.config"
     commons.logging: "commons.logging"
 

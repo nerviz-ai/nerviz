@@ -1,0 +1,144 @@
+/*
+ * EXEMPLAR — integration test of an AI port's wiring against a stub server that speaks the model
+ * provider's protocol, for the failure cases `29-ia.md` § 8 lists. Suffix `IT`: it opens real
+ * sockets. Shape owned here; the cases are `ai-architect`'s.
+ *
+ * WHAT ONLY THIS TEST PROVES: the starter, the properties and the SDK's HTTP layer as the project
+ * configured them — the key placeholder resolves, the base URL is honored, the configured timeout
+ * fires, the configured retries are the ONLY ones, and 429, 5xx and a timeout leave the port as
+ * integration families. `AiAdapterContractTest` proves the answers; it cannot see any of this.
+ *
+ * A RECORDED RESPONSE, NEVER A REAL MODEL: WireMock answers `POST /chat/completions` (the OpenAI
+ * SDK appends `chat/completions` to the base URL, with no `/v1` of its own) with a body shaped like
+ * the provider's. No test of the build calls a real model — `.claude/rules/ai.md` § Tests. When the
+ * provider changes its response shape, this body is updated from its API reference, and the date
+ * goes in `40-testes.md`.
+ *
+ * THE MANDATORY CASES, one test each:
+ *   happy path        — the suggestion mapped AND the request verified: model, key header, the ticket
+ *   503               — exactly 1 + `max-retries` attempts, then dependency unavailable
+ *   429 + Retry-After — dependency unavailable with the wait on the exception
+ *   delay > timeout   — outcome unknown, after 1 + `max-retries` attempts. The case that found the
+ *                       starter's `spring.ai.openai.timeout` overridden by a 60 s per-request
+ *                       default: it stays, so a wiring that drops the port's timeout fails here
+ *   400               — exactly one attempt (the SDK never retries it), dependency response
+ *
+ * CONTEXT: the project's full context, like every other `IT`. `max-retries` and the port's timeout
+ * are lowered for this class only, so the slow cases run in about a second; the counts asserted follow
+ * from the values set here, which is the point — the count proves no second retrying layer exists.
+ *
+ * DEPENDENCY: `org.wiremock.integrations:wiremock-spring-boot`, test scope — the same one
+ * `HttpClientAdapterIT` uses, versioned the same way.
+ */
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.exemplo.minhaapi.application.port.out.TicketClassifier;
+import com.exemplo.minhaapi.domain.exception.DependencyResponseException;
+import com.exemplo.minhaapi.domain.exception.DependencyUnavailableException;
+import com.exemplo.minhaapi.domain.exception.OutcomeUnknownException;
+import com.exemplo.minhaapi.domain.model.ticket.ClassificationSuggestion;
+import com.exemplo.minhaapi.domain.model.ticket.TicketCategory;
+import com.exemplo.minhaapi.domain.model.ticket.TicketPriority;
+import com.exemplo.minhaapi.domain.model.ticket.TicketText;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.wiremock.spring.ConfigureWireMock;
+import org.wiremock.spring.EnableWireMock;
+import org.wiremock.spring.InjectWireMock;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+        "spring.ai.openai.api-key=test-key",
+        "app.ai.ports.ticket-classifier.timeout=500ms",
+        "spring.ai.openai.max-retries=1"})
+@EnableWireMock(@ConfigureWireMock(name = "openai", baseUrlProperties = "spring.ai.openai.base-url"))
+class AiProviderIT {
+
+    private static final String COMPLETIONS = "/chat/completions";
+    private static final TicketText TICKET = new TicketText("I was charged twice for March.");
+    /** 1 + `max-retries`: the SDK's retries are the only ones, so the stub counts exactly this many. */
+    private static final int ATTEMPTS = 2;
+
+    @InjectWireMock("openai")
+    private WireMockServer provider;
+
+    @Autowired
+    private TicketClassifier classifier;
+
+    @Test
+    @DisplayName("a completion is mapped, and the request names the port's model, the key and the ticket")
+    void happyPath() {
+        provider.stubFor(post(COMPLETIONS).willReturn(okJson(completion(
+                "{\\\"category\\\": \\\"BILLING\\\", \\\"priority\\\": \\\"NORMAL\\\"}"))));
+
+        assertThat(classifier.suggest(TICKET))
+                .isEqualTo(new ClassificationSuggestion.Suggested(TicketCategory.BILLING, TicketPriority.NORMAL));
+        provider.verify(1, postRequestedFor(urlEqualTo(COMPLETIONS))
+                .withHeader("Authorization", equalTo("Bearer test-key"))
+                .withRequestBody(matchingJsonPath("$.model", equalTo("gpt-4.1-mini")))
+                .withRequestBody(containing("I was charged twice for March.")));
+    }
+
+    @Test
+    @DisplayName("a 503 is retried by the SDK only, then dependency unavailable")
+    void unavailable() {
+        provider.stubFor(post(COMPLETIONS).willReturn(aResponse().withStatus(503)));
+
+        assertThatThrownBy(() -> classifier.suggest(TICKET)).isInstanceOf(DependencyUnavailableException.class);
+        provider.verify(ATTEMPTS, postRequestedFor(urlEqualTo(COMPLETIONS)));
+    }
+
+    @Test
+    @DisplayName("a 429 carries the provider's wait on the exception")
+    void rateLimited() {
+        provider.stubFor(post(COMPLETIONS).willReturn(aResponse().withStatus(429).withHeader("Retry-After", "0")));
+
+        assertThatThrownBy(() -> classifier.suggest(TICKET))
+                .isInstanceOfSatisfying(DependencyUnavailableException.class,
+                        failure -> assertThat(failure.retryAfter()).isPresent());
+    }
+
+    @Test
+    @DisplayName("an answer slower than the timeout is outcome unknown")
+    void timeout() {
+        provider.stubFor(post(COMPLETIONS).willReturn(okJson(completion("{}")).withFixedDelay(1_500)));
+
+        assertThatThrownBy(() -> classifier.suggest(TICKET)).isInstanceOf(OutcomeUnknownException.class);
+        provider.verify(ATTEMPTS, postRequestedFor(urlEqualTo(COMPLETIONS)));
+    }
+
+    @Test
+    @DisplayName("a 400 is never retried, and is dependency response")
+    void badRequest() {
+        provider.stubFor(post(COMPLETIONS).willReturn(aResponse().withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": {\"message\": \"bad\", \"type\": \"invalid_request_error\"}}")));
+
+        assertThatThrownBy(() -> classifier.suggest(TICKET)).isInstanceOf(DependencyResponseException.class);
+        provider.verify(1, postRequestedFor(urlEqualTo(COMPLETIONS)));
+    }
+
+    /** A chat completion as the provider's API reference shapes it, `content` already JSON-escaped. */
+    private static String completion(String escapedContent) {
+        return """
+                {"id": "chatcmpl-it", "object": "chat.completion", "created": 1760000000,
+                 "model": "gpt-4.1-mini",
+                 "choices": [{"index": 0, "finish_reason": "stop", "logprobs": null,
+                              "message": {"role": "assistant", "content": "%s", "refusal": null}}],
+                 "usage": {"prompt_tokens": 120, "completion_tokens": 12, "total_tokens": 132}}
+                """.formatted(escapedContent);
+    }
+}

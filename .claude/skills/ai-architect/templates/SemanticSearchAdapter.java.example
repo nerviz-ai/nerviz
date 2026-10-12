@@ -1,0 +1,193 @@
+/*
+ * EXEMPLAR — an outbound port answered by an embedding model and a vector store: products found by
+ * meaning ("comfortable running shoes for rain") instead of by words. The shape every port of kind
+ * `vector store` takes — the search, and the writer that keeps the store in step with the records.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/ai.md` (§ Boundary, § Semantic search, § Data sent, § Failure and retry)
+ *        `.claude/rules/architecture-ddd.md` (§ Adapters)
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - the search returns IDENTIFIERS, in order of similarity, never products: price, stock and
+ *    visibility are read by the use case from the product repository afterwards. The metadata next
+ *    to a vector is a copy as old as its last embedding;
+ *  - every search names its threshold and its result count, from `app.ai.search.<port>`: the
+ *    library's default threshold (0.0) accepts every item, so a query with no real match would
+ *    still return the four nearest unrelated products. An empty result is the port's "nothing
+ *    similar enough", an answer, not an error;
+ *  - the stored item's id IS the product id, so writing it again replaces it (the pgvector store
+ *    upserts by id) and deleting the product deletes it by the same id. Whoever writes the product
+ *    calls `ProductEmbeddings` — the use case that changes it, or a consumer of its event
+ *    (`29-ia.md` § 9 hands that to `25-mensageria.md` or `35-jobs.md`);
+ *  - only the text the search needs is embedded — name and description. The supplier's contact,
+ *    the cost price and anything personal never go to the embedding provider (`29-ia.md` § 4);
+ *  - a filter on metadata is built with `FilterExpressionBuilder`, never by concatenating input
+ *    into a filter string;
+ *  - provider failures go through the same `AiFailureTranslator` as the chat ports — the embedding
+ *    call is the remote one. The vector store is the project's own database: its failures are the
+ *    persistence failures they always were.
+ *
+ * SCHEMA: the table is created by a versioned migration (`vector-store-migration.sql.example`) and
+ * `spring.ai.vectorstore.pgvector.initialize-schema` stays false.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- ProductId.java (domain.model.product — declared by domain-modeling)
+package com.exemplo.minhaapi.domain.model.product;
+
+import java.util.Objects;
+import java.util.UUID;
+
+public record ProductId(UUID value) {
+    public ProductId {
+        Objects.requireNonNull(value, "value");
+    }
+}
+
+// --- SearchPhrase.java (domain.model.product)
+package com.exemplo.minhaapi.domain.model.product;
+
+import java.util.Objects;
+
+/** What the shopper typed. Bounded: the whole phrase is sent to the embedding provider. */
+public record SearchPhrase(String value) {
+
+    public static final int MAX_LENGTH = 200;
+
+    public SearchPhrase {
+        Objects.requireNonNull(value, "value");
+        if (value.isBlank() || value.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("search phrase must hold 1 to " + MAX_LENGTH + " characters");
+        }
+    }
+}
+
+// --- Product.java (domain.model.product — the aggregate, reduced to what the search reads)
+package com.exemplo.minhaapi.domain.model.product;
+
+public final class Product {
+
+    private final ProductId id;
+    private final String name;
+    private final String description;
+
+    private Product(ProductId id, String name, String description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+    }
+
+    public static Product of(ProductId id, String name, String description) {
+        return new Product(id, name, description);
+    }
+
+    public ProductId id() {
+        return id;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public String description() {
+        return description;
+    }
+}
+
+// --- ProductSemanticSearch.java (application.port.out — declared by domain-modeling, kind vector store)
+package com.exemplo.minhaapi.application.port.out;
+
+import com.exemplo.minhaapi.domain.model.product.ProductId;
+import com.exemplo.minhaapi.domain.model.product.SearchPhrase;
+import java.util.List;
+
+public interface ProductSemanticSearch {
+
+    /** Ids of the products closest in meaning, best first. Empty when nothing is similar enough. */
+    List<ProductId> closestTo(SearchPhrase phrase, int limit);
+}
+
+// --- ProductEmbeddings.java (application.port.out — the write side of the same store)
+package com.exemplo.minhaapi.application.port.out;
+
+import com.exemplo.minhaapi.domain.model.product.Product;
+import com.exemplo.minhaapi.domain.model.product.ProductId;
+
+public interface ProductEmbeddings {
+
+    /** Stores, or replaces, what the search compares this product by. */
+    void index(Product product);
+
+    void remove(ProductId id);
+}
+
+// --- VectorProductSearch.java (adapter.out.ai)
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import com.exemplo.minhaapi.application.port.out.ProductEmbeddings;
+import com.exemplo.minhaapi.application.port.out.ProductSemanticSearch;
+import com.exemplo.minhaapi.domain.model.product.Product;
+import com.exemplo.minhaapi.domain.model.product.ProductId;
+import com.exemplo.minhaapi.domain.model.product.SearchPhrase;
+import com.openai.errors.OpenAIException;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+import org.springframework.stereotype.Component;
+
+@Component
+class VectorProductSearch implements ProductSemanticSearch, ProductEmbeddings {
+
+    static final String DEPENDENCY = "product-embedding-model";
+    static final String PORT = "product-search";
+
+    private final VectorStore store;
+    private final AiProperties.SearchSettings settings;
+    private final AiFailureTranslator failures;
+
+    VectorProductSearch(VectorStore store, AiProperties properties, AiFailureTranslator failures) {
+        this.store = store;
+        this.settings = properties.search(PORT);
+        this.failures = failures;
+    }
+
+    @Override
+    public List<ProductId> closestTo(SearchPhrase phrase, int limit) {
+        SearchRequest request = SearchRequest.builder()
+                .query(phrase.value())
+                .topK(Math.min(limit, settings.maxResults()))
+                .similarityThreshold(settings.similarityThreshold())
+                .filterExpression(new FilterExpressionBuilder().eq("kind", "product").build())
+                .build();
+        try {
+            return store.similaritySearch(request).stream()
+                    .map(document -> new ProductId(UUID.fromString(document.getId())))
+                    .toList();
+        } catch (OpenAIException failure) {
+            throw failures.translate(DEPENDENCY, failure);
+        }
+    }
+
+    @Override
+    public void index(Product product) {
+        Document document = Document.builder()
+                .id(product.id().value().toString())
+                .text(product.name() + "\n" + product.description())
+                .metadata(Map.of("kind", "product"))
+                .build();
+        try {
+            store.add(List.of(document));
+        } catch (OpenAIException failure) {
+            throw failures.translate(DEPENDENCY, failure);
+        }
+    }
+
+    @Override
+    public void remove(ProductId id) {
+        store.delete(List.of(id.value().toString()));
+    }
+}

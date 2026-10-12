@@ -73,6 +73,10 @@ both directions. See § Design patterns.
 - `.claude/rules/http-client.md`, `.claude/rules/error-handling.md` § Integration families —
   Block H, only when `28-cliente-http.md` exists: one retrying layer, the retry allowlist, no
   transport type past the adapter, tolerant remote DTOs, no credential in a versioned file
+- `.claude/rules/ai.md` — Block A, only when `29-ia.md` exists: the AI library only in the AI
+  package, one chat client per port from the auto-configured builder with its model, options and
+  timeout, prompts as resources, every unusable answer as the port's "could not decide" value,
+  content logging off, one retrying layer
 - `.claude/rules/messaging.md`, `.claude/rules/observability.md` — Block M, only when
   `25-mensageria.md` exists. `observability.md` is cited here as well as in Block 3 on
   purpose: a Form B relay that dead-letters with nothing but a `log.warn` makes loss silent
@@ -115,6 +119,9 @@ from the destination map surveyed in the guardrail, never from a path written he
   and client configuration, and the `shared` subpackage (failure translator, retry predicate,
   engine customizer, outbound authentication wiring) — Block H only, when the spec carries the
   outbound HTTP block. The integration families go to `[domain]` with the domain exceptions
+- `[ai]/**` — AI adapters, their answer types, `AiProperties`, `AiClientConfig` and the failure
+  translator — Block A only, when the spec carries the AI block; the prompts go to
+  `src/main/resources/prompts/`
 - `[messaging]/**` — Kafka producer/consumer adapters, payload records — Block M only,
   when the spec carries the messaging block
 - `[scheduling]/**` — scheduling wiring and job triggers — Block J only, when the spec carries
@@ -127,7 +134,7 @@ from the destination map surveyed in the guardrail, never from a path written he
   § Migrations
 - `src/main/resources/` — application-[feature].yml
 - `pom.xml` — **only** a dependency the spec declares as a requirement (the security
-  partial's § 8, the outbound HTTP partial's § 8, the messaging partial's § 7, the jobs partial's § 7, the cache partial's § 8, the persistence one's equivalent, or the tests
+  partial's § 8, the outbound HTTP partial's § 8, the AI partial's § 10, the messaging partial's § 7, the jobs partial's § 7, the cache partial's § 8, the persistence one's equivalent, or the tests
   partial's § 5 — test scope), one `<dependency>` element per row,
   with no version when the Boot parent manages it. Nothing else in the file: not a plugin,
   not a property, not a version bump. Until lessons-learned-013 § 10 no participant in the
@@ -317,7 +324,7 @@ reference, never invoked as a separate turn. This agent stays the single writer 
 (invariant 2), exactly as when it reads a `templates/*.example` exemplar from any of the
 design skills.
 
-**The spec decides; this agent implements.** Before Block 1, and again before Block H, Block 3,
+**The spec decides; this agent implements.** Before Block 1, and again before Block H, Block A, Block 3,
 Block M, Block J and Block C, read the spec's `## Design patterns` rows for the layer that block
 implements. Each row names the pattern, the force that justified it, and the classes it
 creates — those classes are already in the block's components. Shape them after the row's
@@ -346,14 +353,14 @@ that `subagent_context` lists before Block 1.
 
 ---
 
-## Procedure — 4 fixed blocks + 5 conditional
+## Procedure — 4 fixed blocks + 6 conditional
 
 Order: domain (1-7) → persistence (8-12) → REST (13-15) → security (S1-S3, only when the spec
 carries the security block) → messaging (M1-M4, only when the
 spec carries the messaging block) → jobs (J1-J3, only when it carries the jobs block) → cache (C1-C3, only when it carries the
 cache block) → tests (16-19). Block H (H1-H3) runs right after Block 2 when the spec carries the
-outbound HTTP block. **Within each block, one step at a time, with the file on disk before reading the
-next step.** Blocks H, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
+outbound HTTP block, and Block A (A1-A3) right after it when the spec carries the AI block. **Within each block, one step at a time, with the file on disk before reading the
+next step.** Blocks H, A, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
 not they run; a spec without any of them skips straight from Block 3 to Block 4, same as it always
 did.
 
@@ -475,7 +482,7 @@ Compilation: `./mvnw -q -pl <persistence-module> test-compile` in multi-module, 
 ### Block H: Outbound HTTP (steps H1-H3, conditional)
 
 **Runs only when the spec carries the outbound HTTP block** — `grep -m1 -E '^## [0-9.]+ Outbound HTTP' <spec>`,
-and the block is not `none`. No match, or `none` → skip to Block 3. Read the outbound HTTP block of
+and the block is not `none`. No match, or `none` → skip to Block A. Read the outbound HTTP block of
 spec.md, then `28-cliente-http.md`. It runs right after Block 2 because an adapter compiles against
 the outbound port and the domain types, and nothing upstream compiles against it. § 2 decides the
 client exemplar of each dependency in `.claude/skills/http-client-architect/templates/` — never a
@@ -530,6 +537,62 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [http]>` in mu
 - Retry: adapter, 3 attempts; breaker and bulkhead: payment-gateway
 - Shared: integration families, translator, retry predicate (NEW)
 - Files: 11 classes, 0 errors
+```
+
+### Block A: AI (steps A1-A3, conditional)
+
+**Runs only when the spec carries the AI block** — `grep -m1 -E '^## [0-9.]+ AI' <spec>`, and the
+block is not `none`. No match, or `none` → skip to Block 3. Read the AI block of spec.md, then
+`29-ia.md`, then `.claude/rules/ai.md`. It runs right after Block H because an AI adapter compiles
+against the outbound port, the domain types and the integration families, and nothing upstream
+compiles against it. The exemplars are in `.claude/skills/ai-architect/templates/`:
+
+| Port kind (`29-ia.md` § 1) | Exemplar |
+|---|---|
+| `LLM` | `StructuredOutputAdapter.java.example` + the two `.st.example` prompts |
+| `vector store` | `SemanticSearchAdapter.java.example` |
+| both — the project-wide pieces | `AiClientConfig.java.example` + `application-ai.yml.example` |
+
+- **A1 · Shared setup** — every component § 6 marks NEW: the integration families in `[domain]`
+  (`http-client-architect/templates/IntegrationExceptions.java.example`) when absent, and in `[ai]`
+  `AiProperties`, `AiClientConfig` (one `ChatClient` bean per `LLM` port, built from the injected
+  `ChatClient.Builder`, its options carrying the port's model, temperature, output budget and
+  timeout) and `AiFailureTranslator`. The dependencies of § 10 in `pom.xml` — the BOM import with
+  the version § 10 recorded, the starters with none. A REUSE component gets only its new bean or
+  `app.ai` entry
+- **A2 · Adapters and prompts** — per port, in `[ai]`: the answer type with the closed fields § 3
+  names, the adapter implementing the port `10-dominio.md` declared, every unusable answer § 3
+  lists mapped to the port's "could not decide" value, every provider exception through the
+  translator. The prompt resources of § 3 in `src/main/resources/prompts/`, the input only in the
+  named variables. Per `vector store` port: the search with § 3's threshold and ceiling, returning
+  ids; the write side § 5 names. Only the fields § 4 marks as sent reach a prompt or an embedding
+- **A3 · Configuration** — the properties of § 11 in `application.yml` (shape in
+  `application-ai.yml.example`): the key as a placeholder with no default, the SDK's `max-retries`
+  as § 6 says, every content-logging flag `false`, the store's `initialize-schema: false`. The
+  store's migration is Block 2's, from `20-persistencia.md`
+
+Rules: `.claude/rules/ai.md`, `.claude/rules/error-handling.md` § Integration families,
+`.claude/rules/architecture-ddd.md` § Adapters, `.claude/rules/personal-data.md` § In transit,
+`.claude/rules/secrets.md`, `.claude/rules/logging.md` (outcome and latency, never a prompt, an
+answer or a key).
+
+Validation, each item checkable:
+
+- the greps of `.claude/rules/ai.md` § How to verify return what that section says;
+- no class outside `[ai]` imports `org.springframework.ai`, `com.openai` or `com.anthropic`, and no
+  port signature carries one of their types;
+- every `ChatClient` bean receives `ChatClient.Builder`, and its options set a timeout;
+- no prompt text appears in Java: every `.system(...)`/`.user(...)` reads a `Resource`.
+
+Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [ai]>` in multi-module) ✅
+
+**Line in the final report:**
+```
+✅ Block A: AI complete (steps A1-A3)
+- ticket-classifier: LLM, gpt-4.1-mini, timeout 4s, SDK retries 1, Undecided → AWAITING_TRIAGE
+- Sent to the provider: Ticket.text only
+- Shared: AiProperties, AiClientConfig, AiFailureTranslator (NEW); integration families (REUSE)
+- Files: 6 classes, 2 prompts, 0 errors
 ```
 
 ### Block 3: REST (steps 13-15)
@@ -905,6 +968,12 @@ Read § 5 of spec.md, then the partial it cites for the step at hand. Generates:
   stub, the family and `errorCode` on the exception
   (`.claude/skills/test-architect/templates/HttpClientAdapterIT.java.example`,
   `.claude/rules/http-client.md` § Tests)
+- When Block A ran: every case of `29-ia.md` § 8 at the level it names — the answers through the
+  adapter with a scripted stub `ChatModel` (`AiAdapterContractTest.java.example`), the wiring
+  against a stub server speaking the provider's protocol with the attempt count asserted
+  (`AiProviderIT.java.example`), a store against the real `pgvector/pgvector` engine with a stub
+  embedding model (`VectorStoreIT.java.example`) — all in `.claude/skills/test-architect/templates/`.
+  No test calls a real model (`.claude/rules/ai.md` § Tests)
 - When Block J ran: each job's use case is tested by calling its inbound port — never by
   waiting for a scheduler; the prune's service with a gateway fake that returns full batches
   then a short one; and one context test asserting that, under the test profile, no trigger
