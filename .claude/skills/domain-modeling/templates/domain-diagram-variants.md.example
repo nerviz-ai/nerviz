@@ -1,0 +1,116 @@
+# Class and state diagram variants for block 1
+
+> Exemplars of block 1's diagrams for shapes the base template (`domain-spec.md.example`, a
+> root with value objects and a three-value lifecycle) does not show. Each variant carries
+> the excerpt of the partial it is drawn from. The diagram names nothing that excerpt does
+> not.
+
+## Variant 1 · Child entity with multiplicity, reference by id
+
+**Aggregate root:** `Order`. An order has one or more lines, owned by the order and never
+reached from outside it. The customer enters by **reference (id)**: `Customer` is another
+aggregate.
+
+| Field | Type | Why this type |
+|---|---|---|
+| `id` | `OrderId` | Value object over `UUID` |
+| `customerId` | `CustomerId` | Reference to the `Customer` aggregate |
+| `lines` | `List<OrderLine>` | Child entity, one or more, built only through the root |
+| `total` | `Money` | Amount and currency together |
+
+| VO | Wraps | Own invariant |
+|---|---|---|
+| `OrderId` | `UUID` | not null |
+| `CustomerId` | `UUID` | not null |
+| `Money` | `BigDecimal`, `Currency` | amount ≥ 0, scale of the currency |
+
+`OrderLine` is an entity with fields `sku` (`Sku`), `quantity` (`int`) and `price` (`Money`).
+
+```mermaid
+classDiagram
+    direction LR
+    class Order {
+        OrderId id
+        CustomerId customerId
+        List~OrderLine~ lines
+        Money total
+    }
+    class OrderLine {
+        Sku sku
+        int quantity
+        Money price
+    }
+    Order *-- OrderId
+    Order *-- CustomerId : Customer by reference
+    Order "1" *-- "1..*" OrderLine : lines
+    Order *-- Money
+    OrderLine *-- Sku
+    OrderLine *-- Money
+```
+
+The multiplicity is drawn because the text states it ("one or more"). `Customer` is a label,
+never a class: the order holds its id, not the aggregate.
+
+## Variant 2 · Sealed type instead of an optional field
+
+**Aggregate root:** `User`. The department is either assigned or not, and the partial decides
+a sealed `UserDepartment` with two permitted records, `Assigned` (holding `departmentId`, a
+`DepartmentId`) and `Unassigned` — no `null`, no `Optional` on a field.
+
+| Field | Type | Why this type |
+|---|---|---|
+| `id` | `UserId` | Value object over `UUID` |
+| `department` | `UserDepartment` | Sealed: `Assigned` or `Unassigned` |
+
+```mermaid
+classDiagram
+    direction LR
+    class User {
+        UserId id
+        UserDepartment department
+    }
+    class UserDepartment {
+        <<interface>>
+    }
+    class Assigned {
+        DepartmentId departmentId
+    }
+    class Unassigned
+    User *-- UserId
+    User *-- UserDepartment
+    Assigned ..|> UserDepartment
+    Unassigned ..|> UserDepartment
+```
+
+## Variant 3 · Lifecycle with final states and a shared transition
+
+| State field | Value | Reached by | Status |
+|---|---|---|---|
+| `status` | `PLACED` | `Order.place(...)` — the creation factory | this case |
+| `status` | `CONFIRMED` | `Order.confirm()` — from `PLACED` | this case |
+| `status` | `SHIPPED` | `Order.ship(...)` — from `CONFIRMED` | `UC-121-ship-order` (backlog) |
+| `status` | `CANCELLED` | `Order.cancel(reason)` — from `PLACED` or `CONFIRMED` | this case |
+
+`SHIPPED` and `CANCELLED` are final: no method leaves them.
+
+```mermaid
+stateDiagram-v2
+    [*] --> PLACED : place
+    PLACED --> CONFIRMED : confirm
+    CONFIRMED --> SHIPPED : ship
+    PLACED --> CANCELLED : cancel
+    CONFIRMED --> CANCELLED : cancel
+    SHIPPED --> [*]
+    CANCELLED --> [*]
+```
+
+`cancel` is drawn twice because the text gives it two origins. The arrows to `[*]` are drawn
+because the text says the two values are final — without that sentence, they stay out.
+
+<!--
+HOW TO USE:
+- Read by `domain-modeling` at step 6, with references/mermaid-class-and-state.md, when the
+  aggregate matches a variant here. Never copied whole: the diagrams are redrawn from the
+  case's own tables, per @.claude/rules/spec-diagrams.md.
+- The names here are illustrations. A case uses the canonical names its own partial fixes.
+-->

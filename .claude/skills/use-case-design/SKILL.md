@@ -199,6 +199,14 @@ the decision.
    `00-caso-de-uso.md` is read in step 4 as a contract — aggregate, names — never as a
    format exemplar: a spec written by an older version keeps lines the template has since
    dropped, and copying one revives them.
+
+   The two diagrams are drawn last, from the text already written, per
+   `@.claude/rules/spec-diagrams.md`: the `sequenceDiagram` under `## Flow` from the numbered
+   list, and the `flowchart TD` under the **Out** table from the checks of the flow and the
+   table's situations. A name or an outcome a diagram needs and the text lacks goes into the
+   text first. Syntax and the renderer's traps: `references/mermaid-use-case-diagrams.md`; a
+   trigger, port or outcome the base template does not show (an event, a schedule, an
+   `external HTTP` port and its failures): `templates/use-case-diagram-variants.md.example`.
 9. **Report and stop.** File path, the boundary applied, the backlog entries the split
    produced (if any), and the table of who details each partial. **Don't invoke any
    skill** — see § Handoff.
@@ -243,7 +251,10 @@ use case folder and the backlog, nothing else; a write anywhere outside is refus
 
 **Reads** `@.claude/rules/architecture-ddd.md` (Application section — where the
 transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md`,
-`@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`), the active blueprint's `packages.map` and naming convention, and this
+`@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`),
+`@.claude/rules/spec-diagrams.md` (the sequence diagram and the flowchart) with
+`references/mermaid-use-case-diagrams.md`,
+the active blueprint's `packages.map` and naming convention, and this
 skill's `references/scope-boundary.md` before counting effects.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and appends to

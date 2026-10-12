@@ -340,6 +340,13 @@ jobs:
       - name: XML exemplars are well-formed
         run: java .claude/.ci/XmlTemplatesTest.java
 
+      # A spec template is the only source of a spec's shape (0115), so a diagram that drifts
+      # from its own text there ships into every spec generated from it. Holds the templates'
+      # Mermaid blocks to spec-diagrams.md: allowed types, names from the text, one message per
+      # flow step (0143). Generated specs are not checked — nothing under .claude/.ci/ travels.
+      - name: spec template diagrams name only what their text defines
+        run: java .claude/.ci/SpecDiagramTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0

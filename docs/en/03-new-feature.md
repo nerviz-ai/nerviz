@@ -196,6 +196,22 @@ sequenceDiagram
 | 7 | `compose-service-installer` (agent) | `implemented` code, and a `materialize` row in `## Infrastructure` | the service block in `docker-compose.yml`, written by `docker-architect` |
 | — | `git-publish` | end of flow | commit + push, behind two gates |
 
+**Diagrams in the spec.** `00-caso-de-uso.md` carries two. A `sequenceDiagram` under `## Flow`
+draws who calls whom on the path that succeeds, one message per step of the numbered list. A
+`flowchart TD` under the **Out** table draws every check of the flow and where it ends, one end
+node per situation of the table. `10-dominio.md` carries a `classDiagram` of the
+aggregate and its value objects and, when a state field has more than one value, a
+`stateDiagram-v2` of the *State reachability* table. They are Mermaid blocks inside the
+markdown, which GitHub renders in the PR. There is no `.drawio` or `.excalidraw` file, and
+nothing is installed. A diagram uses only names the same file's text already defines and adds
+no fact. Where the two disagree, the text wins (`.claude/rules/spec-diagrams.md`, decision
+0143). `UC-NNN-spec.md` consolidates by reference and copies no diagram. Syntax and worked variants
+live in each skill: `use-case-design/references/mermaid-use-case-diagrams.md` with
+`templates/use-case-diagram-variants.md.example` (`external HTTP` port with its outcomes, event, schedule), and
+`domain-modeling/references/mermaid-class-and-state.md` with
+`templates/domain-diagram-variants.md.example` (child entity with multiplicity, sealed type,
+final states).
+
 **Why REST before persistence.** REST generates schema requirements (`Idempotency-Key`
 needs the shared key table); persistence generates none for REST. In the old order the
 table was discovered after the persistence partial was written, and persistence ran
