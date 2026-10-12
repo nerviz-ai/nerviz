@@ -196,6 +196,15 @@ sequenceDiagram
 | 7 | `compose-service-installer` (agent) | código `implemented` e uma linha `materialize` no `## Infrastructure` | o bloco do serviço no `docker-compose.yml`, escrito pelo `docker-architect` |
 | — | `git-publish` | fim do fluxo | commit + push, atrás de dois portões |
 
+**Diagramas no spec.** `00-caso-de-uso.md` traz um `sequenceDiagram` em `## Flow`, uma
+mensagem por passo da lista numerada. `10-dominio.md` traz um `classDiagram` do agregado e dos
+value objects e, quando um campo de estado tem mais de um valor, um `stateDiagram-v2` da
+tabela *State reachability*. São blocos Mermaid dentro do markdown, que o GitHub renderiza no
+PR. Não existe arquivo `.drawio` nem `.excalidraw`, e nada é instalado. O diagrama só usa nomes
+que o texto do mesmo arquivo já define e não acrescenta fato. Quando os dois discordam, vale o
+texto (`.claude/rules/spec-diagrams.md`, decisão 0143). O `UC-NNN-spec.md` consolida por
+referência e não copia diagrama.
+
 **Por que REST antes de persistência.** REST gera requisito de schema
 (`Idempotency-Key` precisa da tabela compartilhada de chaves); persistência não gera
 requisito de REST. Na ordem antiga a tabela era descoberta depois do partial de

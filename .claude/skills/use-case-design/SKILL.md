@@ -199,6 +199,10 @@ the decision.
    `00-caso-de-uso.md` is read in step 4 as a contract — aggregate, names — never as a
    format exemplar: a spec written by an older version keeps lines the template has since
    dropped, and copying one revives them.
+
+   The `sequenceDiagram` under `## Flow` is drawn last, from the numbered list already
+   written, per `@.claude/rules/spec-diagrams.md`: a name the diagram needs and the list
+   lacks goes into the list first.
 9. **Report and stop.** File path, the boundary applied, the backlog entries the split
    produced (if any), and the table of who details each partial. **Don't invoke any
    skill** — see § Handoff.
@@ -243,7 +247,8 @@ use case folder and the backlog, nothing else; a write anywhere outside is refus
 
 **Reads** `@.claude/rules/architecture-ddd.md` (Application section — where the
 transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md`,
-`@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`), the active blueprint's `packages.map` and naming convention, and this
+`@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`),
+`@.claude/rules/spec-diagrams.md` (the `## Flow` diagram), the active blueprint's `packages.map` and naming convention, and this
 skill's `references/scope-boundary.md` before counting effects.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and appends to

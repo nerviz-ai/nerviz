@@ -230,7 +230,9 @@ mother spec, it also isn't this skill.
    class it creates into § 5 Components to create — `none` when nothing matches, and absence
    is not `none`.
 6. **Generate** from `templates/domain-spec.md.example` to
-   `docs/use-cases/UC-NNN-<slug>/10-dominio.md`.
+   `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. The diagrams of block 1 — the `classDiagram`, and the
+   `stateDiagram-v2` whenever *State reachability* is not `none` — are drawn last, from the
+   tables already written, per `@.claude/rules/spec-diagrams.md`.
 7. **Report and stop.** File path, divergences found against the mother spec, and what's
    missing for the folder to be complete (`20-persistencia.md`, `30-rest.md`,
    `40-testes.md`). Don't invoke anyone.
@@ -242,7 +244,7 @@ question nobody asked.
 
 | Block | Details | Form exemplar |
 |---|---|---|
-| Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` |
+| Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` |
 | Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example` and the four typed ones · `@.claude/rules/error-handling.md` |
 | Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP`) | `UseCasePort.java.example` · `Command.java.example` |
 | Events | Which event, which payload, which UC consumes it | `DomainEvent.java.example` |
@@ -269,7 +271,7 @@ it), `@.claude/rules/architecture-ddd.md` (Domain and Application sections),
 `@.claude/rules/value-objects.md` (criterion for which field becomes a value object),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
 `@.claude/rules/code-quality.md`, `@.claude/rules/logging.md` (which fields to flag as
-masking candidates), `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
+masking candidates), `@.claude/rules/spec-diagrams.md` (the diagrams of block 1), `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
 owner — step 4c), and the active blueprint's `packages.map`.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. Only that file.

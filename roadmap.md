@@ -57,6 +57,8 @@ copied inside them — exactly the duplication this design exists to avoid.
       forwarded headers and trusted proxies)
 - [x] `authorization.md` (who may call an endpoint, how the caller authenticates, 401/403,
       CORS, Actuator and Swagger exposure — servlet stack only; see 0112)
+- [x] `spec-diagrams.md` (Mermaid diagrams in use case specs: names only from the spec's text,
+      the text wins on disagreement; see 0143)
 - [ ] `git-workflow.md` (planned — branches, commit messages, PRs)
 
 ### Feature-design pipeline (`/new-feature`)
@@ -79,6 +81,10 @@ copied inside them — exactly the duplication this design exists to avoid.
       outbox relay's schedule and its prune job; see 0087)
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
+- [x] Mermaid diagrams in the specs — a `sequenceDiagram` under `00-caso-de-uso.md`'s
+      `## Flow`, a `classDiagram` and, when the aggregate has a lifecycle, a `stateDiagram-v2`
+      in `10-dominio.md`; drawn from the spec's own text, rendered by GitHub, no new
+      dependency (see 0143)
 - [x] `docker-architect` (chained on demand by persistence/test/messaging)
 - [x] Compose service decided at design time — `persistence-architect` and `messaging-architect`
       record `exists`/`external`/`materialize`/`pending` in the partial's `## Compose services`,

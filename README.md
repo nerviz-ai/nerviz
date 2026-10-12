@@ -380,7 +380,7 @@ proposed fix, before anything is commented or designed. Details:
 | Piece | Count | Where |
 |---|---|---|
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
-| Norms, loaded on demand through `paths` | 18 | `.claude/rules/` |
+| Norms, loaded on demand through `paths` | 19 | `.claude/rules/` |
 | Skills (design, orchestration, build, ops, meta…) | 24 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
