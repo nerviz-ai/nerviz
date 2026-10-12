@@ -36,7 +36,23 @@ correct it in prose.
 |---|---|
 | created | reference to the created resource + `id`, `email`, `name` |
 | malformed payload | rejected without touching the domain |
+| invalid email or name | rejected by the aggregate's invariants |
 | email already in use | conflict with existing state |
+
+```mermaid
+flowchart TD
+    trigger((user creation)) --> shape{"payload shape valid?"}
+    shape -->|no| malformed(["malformed payload"])
+    shape -->|yes| invariants{"email and name valid?"}
+    invariants -->|no| invalid(["invalid email or name"])
+    invariants -->|yes| unique{"email already in use?"}
+    unique -->|yes| conflict(["email already in use"])
+    unique -->|no| created(["created"])
+```
+
+One end node per situation above, and the checks in the order `## Flow` makes them — the
+shape in the adapter, the invariants when the aggregate is built, uniqueness at the outbound
+port — `@.claude/rules/spec-diagrams.md`.
 
 ## Flow
 
@@ -121,6 +137,7 @@ Invariants live in the aggregate, never in the caller —
 |---|---|
 | email already in use | conflict with existing state |
 | malformed email | validation |
+| name outside 2 to 120 characters | validation |
 | required field missing | shape — rejected in the adapter, never reaches the domain |
 
 Situations and kinds, never exception names or statuses. The exception class and
@@ -190,9 +207,10 @@ HOW TO USE THIS:
   case class names change — names from the blueprint's naming convention.
 - Fixed sections, in this order. An empty section gets "none" written in — deleting a
   section hides a question nobody asked.
-- `## Flow` carries the numbered list and, below it, one `sequenceDiagram` drawn from it,
-  per `@.claude/rules/spec-diagrams.md`. The list is the source; the diagram never names
-  what the list does not.
+- `## Flow` carries the numbered list and, below it, one `sequenceDiagram` drawn from it;
+  the **Out** table carries, below it, one `flowchart TD` ending in exactly its situations —
+  both per `@.claude/rules/spec-diagrams.md`. The text is the source; a diagram never names
+  what the text does not.
 - The `Detailed by` column is declarative. The skill invokes nobody.
 - While partials 10- through 40- don't exist yet, this spec stands on its own; the
   header records their status.

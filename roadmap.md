@@ -82,7 +82,7 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
 - [x] Mermaid diagrams in the specs — a `sequenceDiagram` under `00-caso-de-uso.md`'s
-      `## Flow`, a `classDiagram` and, when the aggregate has a lifecycle, a `stateDiagram-v2`
+      `## Flow` and a `flowchart TD` of its outcomes, a `classDiagram` and, when the aggregate has a lifecycle, a `stateDiagram-v2`
       in `10-dominio.md`; drawn from the spec's own text, rendered by GitHub, no new
       dependency (see 0143)
 - [x] `docker-architect` (chained on demand by persistence/test/messaging)

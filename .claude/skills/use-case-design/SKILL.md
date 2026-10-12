@@ -200,11 +200,13 @@ the decision.
    format exemplar: a spec written by an older version keeps lines the template has since
    dropped, and copying one revives them.
 
-   The `sequenceDiagram` under `## Flow` is drawn last, from the numbered list already
-   written, per `@.claude/rules/spec-diagrams.md`: a name the diagram needs and the list
-   lacks goes into the list first. Syntax and the renderer's traps:
-   `references/mermaid-sequence.md`; a trigger or port the base template does not show (an
-   event, a schedule, an `external HTTP` port): `templates/sequence-diagram-variants.md.example`.
+   The two diagrams are drawn last, from the text already written, per
+   `@.claude/rules/spec-diagrams.md`: the `sequenceDiagram` under `## Flow` from the numbered
+   list, and the `flowchart TD` under the **Out** table from the checks of the flow and the
+   table's situations. A name or an outcome a diagram needs and the text lacks goes into the
+   text first. Syntax and the renderer's traps: `references/mermaid-use-case-diagrams.md`; a
+   trigger, port or outcome the base template does not show (an event, a schedule, an
+   `external HTTP` port and its failures): `templates/use-case-diagram-variants.md.example`.
 9. **Report and stop.** File path, the boundary applied, the backlog entries the split
    produced (if any), and the table of who details each partial. **Don't invoke any
    skill** — see § Handoff.
@@ -250,7 +252,8 @@ use case folder and the backlog, nothing else; a write anywhere outside is refus
 **Reads** `@.claude/rules/architecture-ddd.md` (Application section — where the
 transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md`,
 `@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`),
-`@.claude/rules/spec-diagrams.md` (the `## Flow` diagram) with `references/mermaid-sequence.md`,
+`@.claude/rules/spec-diagrams.md` (the sequence diagram and the flowchart) with
+`references/mermaid-use-case-diagrams.md`,
 the active blueprint's `packages.map` and naming convention, and this
 skill's `references/scope-boundary.md` before counting effects.
 

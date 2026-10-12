@@ -23,7 +23,8 @@ two files and never reach whoever reads the finished spec. Full record in
 ## Format
 
 - **A diagram is a fenced `mermaid` block inside the spec's markdown.** Its first line is one of
-  `sequenceDiagram`, `classDiagram` or `stateDiagram-v2` — nothing else is drawn in a spec
+  `sequenceDiagram`, `flowchart TD`, `classDiagram` or `stateDiagram-v2` — nothing else is drawn
+  in a spec
 - **No diagram file next to the spec** — no `.drawio`, `.excalidraw`, `.svg` or `.png`. Each
   tool that draws one imports Mermaid, so the block is already the source of any such view, and
   a second file is a copy nobody updates
@@ -50,8 +51,13 @@ two files and never reach whoever reads the finished spec. Full record in
 | Diagram | Draws | Leaves out |
 |---|---|---|
 | `sequenceDiagram` | One message per numbered step of the flow, with `autonumber` so the numbers match: the caller of the trigger, the inbound adapter, the inbound port, the aggregate, each outbound port; each side effect of the header as a note | Path, verb and status — the transport spec's facts; framework types |
+| `flowchart TD` | How the case reaches each situation of its response table: one start node for the trigger; one decision per check the text makes, in the order the flow makes it; one end node per situation of that table, and no end node that is not one | Status codes, exception names, retries — and any check, branch or outcome the text does not state |
 | `classDiagram` | The aggregate root with the fields of its field table; each value object, child entity and sealed type the text names, with a multiplicity only where the text states one; another aggregate by its id only | Composition with another aggregate; persistence and transport types |
 | `stateDiagram-v2` | One state per value of a state field, one transition per method that reaches it, labelled with that method; a value goes to the end marker only where the text says no method leaves it; a value nothing reaches yet carries a note naming the case that will | The rehydration path — rebuilding persisted state is not a transition |
+
+The sequence diagram and the flowchart split one flow in two views: the sequence draws who
+calls whom on the path that succeeds, with no branch; the flowchart draws every check and where
+each one ends, with no participant. Neither repeats the other.
 
 The state diagram exists exactly when the spec records more than one value for a state field.
 With no state field, there is no state diagram.
@@ -60,7 +66,7 @@ With no state field, there is no state diagram.
 
 ```bash
 # Every mermaid block opens with an allowed diagram type. Zero lines is the expected result.
-grep -rn -A1 '^```mermaid' docs/use-cases/ | grep -vE '```mermaid|^--$|(sequenceDiagram|classDiagram|stateDiagram-v2)$'
+grep -rn -A1 '^```mermaid' docs/use-cases/ | grep -vE '```mermaid|^--$|(sequenceDiagram|flowchart TD|classDiagram|stateDiagram-v2)$'
 
 # No diagram file beside a spec. Zero lines is the expected result.
 find docs/use-cases -type f \( -name '*.drawio' -o -name '*.excalidraw' -o -name '*.svg' -o -name '*.png' \)

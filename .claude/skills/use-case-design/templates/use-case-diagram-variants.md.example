@@ -1,9 +1,10 @@
-# Sequence diagram variants for `## Flow`
+# Diagram variants for the parent spec
 
-> Exemplars of the `## Flow` diagram for triggers and ports the base template
-> (`use-case-spec.md.example`, an HTTP trigger with one persistence port) does not show.
-> Each variant carries the excerpt of the spec it is drawn from: the trigger, the side
-> effects and the numbered flow. The diagram names nothing that excerpt does not.
+> Exemplars of the parent spec's diagrams for triggers, ports and outcomes the base template
+> (`use-case-spec.md.example`, an HTTP trigger with one persistence port) does not show: the
+> `sequenceDiagram` of `## Flow` in every variant, and the `flowchart TD` of the **Out** table
+> where the outcomes are what the variant teaches. Each variant carries the excerpt of the spec
+> it is drawn from. The diagrams name nothing that excerpt does not.
 
 ## Variant 1 · External HTTP port
 
@@ -11,7 +12,7 @@
 |---|---|
 | Trigger | payment authorization by a caller, over HTTP — inbound REST adapter |
 | Side effects | **2** — the charge at the payment provider through `PaymentGateway`, and `INSERT` into `payments` |
-| External calls | the payment provider, reached only through the outbound port `PaymentGateway` |
+| External calls | the payment provider, reached only through the outbound port `PaymentGateway`; when it does not answer, nothing is recorded and the caller may retry |
 
 1. The inbound adapter receives the request and validates its shape.
 2. Translates it into the domain command `AuthorizePaymentCommand`.
@@ -40,6 +41,29 @@ sequenceDiagram
 ```
 
 The provider is never a participant: the spec reaches it only through `PaymentGateway`.
+
+**Out**
+
+| Situation | Result |
+|---|---|
+| authorized | reference to the payment and its status |
+| malformed payload | rejected without touching the domain |
+| declined by the provider | the payment recorded as declined |
+| provider unavailable | nothing recorded, the caller may retry |
+
+```mermaid
+flowchart TD
+    trigger((payment authorization)) --> shape{"payload shape valid?"}
+    shape -->|no| malformed(["malformed payload"])
+    shape -->|yes| answered{"provider answered?"}
+    answered -->|no| unavailable(["provider unavailable"])
+    answered -->|yes| approved{"charge approved?"}
+    approved -->|no| declined(["declined by the provider"])
+    approved -->|yes| authorized(["authorized"])
+```
+
+Two decisions come from the external call: whether the provider answered (the `External calls`
+row's tolerance) and what it answered. The sequence above draws only the path to `authorized`.
 
 ## Variant 2 · Event trigger, event published
 
@@ -105,8 +129,9 @@ them is drawn.
 
 <!--
 HOW TO USE:
-- Read by `use-case-design` at step 8, with references/mermaid-sequence.md, when the case's
-  trigger or ports match a variant here. Never copied whole: the diagram is redrawn from the
-  case's own numbered flow, one message per step, per @.claude/rules/spec-diagrams.md.
+- Read by `use-case-design` at step 8, with references/mermaid-use-case-diagrams.md, when the case's
+  trigger, ports or outcomes match a variant here. Never copied whole: the sequence is redrawn
+  from the case's own numbered flow, one message per step, and the flowchart from its own
+  **Out** table, one end node per situation — per @.claude/rules/spec-diagrams.md.
 - The names here are illustrations. A case uses the canonical names its own spec fixes.
 -->

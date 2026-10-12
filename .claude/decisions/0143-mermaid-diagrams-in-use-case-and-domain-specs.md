@@ -119,7 +119,7 @@ one diagram family per skill, so nothing is written twice:
 
 | Skill | `references/` — syntax subset, spec-to-diagram mapping, renderer traps, official links verified on 2026-10-12 | `templates/` — worked variants, each with the spec excerpt it is drawn from |
 |---|---|---|
-| `use-case-design` | `mermaid-sequence.md` | `sequence-diagram-variants.md.example` — external HTTP port, event trigger with an event published, scheduled trigger with no reply |
+| `use-case-design` | `mermaid-use-case-diagrams.md` | `use-case-diagram-variants.md.example` — external HTTP port, event trigger with an event published, scheduled trigger with no reply |
 | `domain-modeling` | `mermaid-class-and-state.md` | `domain-diagram-variants.md.example` — child entity with multiplicity and a reference by id, sealed type, lifecycle with final states and a shared transition |
 
 The variants made two gaps in the rule visible, closed in the same change: the class diagram
@@ -133,7 +133,25 @@ a remote system drawn as a participant (`StripeApi`), a missing message in the s
 variant, an unknown class (`Customers`), the state block removed. The test checks names, not
 meaning: an aggregate the text names, drawn as a class, still passes — that stays review.
 
-## References
+## Addendum 2 — a `flowchart TD` in the parent spec
+
+Asked on the same day, before merge, by the same approver. To not repeat the sequence diagram,
+the flowchart draws what the sequence leaves out on purpose: the branches. One start node for
+the trigger, one decision per check the text makes in the order of `## Flow`, one end node per
+situation of the **Out** table and no other — placed under that table, which is what it is a
+view of. The sequence stays the path that succeeds, with no `alt`.
+
+| Piece | Change |
+|---|---|
+| `rules/spec-diagrams.md` | `flowchart TD` allowed; its row in *What each diagram draws*; a paragraph splitting the two views |
+| `use-case-spec.md.example` | The flowchart under **Out**. Drawing it exposed an outcome the exemplar lacked: an email or name failing the aggregate's invariants reached no situation of **Out** — the row `invalid email or name` is added, and `## Errors` gains the name-length validation it was missing |
+| `use-case-diagram-variants.md.example` (renamed from `sequence-diagram-variants.md.example`) | Variant 1 gains an **Out** table and a flowchart with two decisions from the external call — whether the provider answered, and what it answered |
+| `references/mermaid-use-case-diagrams.md` (renamed from `mermaid-sequence.md`) | Flowchart subset, spec-to-flowchart mapping, what is not used, and the flowchart traps (lowercase `end`, an id starting with `o` or `x`, unquoted `?`) |
+| `SpecDiagramTemplateTest` | `flowchart TD` allowed and required in both use case templates; end nodes counted against the **Out** table above. Red by name on: an end node with no row, a row with no end node, an exception name as an outcome, `flowchart LR`, no **Out** table above |
+
+The two files were renamed because neither is about the sequence diagram alone any more; both
+were new in this PR, so nothing outside it cited the old names.
+
 
 | Claim | Source |
 |---|---|
@@ -164,7 +182,7 @@ meaning: an aggregate the text names, drawn as a class, still passes — that st
 | `docs/pt-br/03-new-feature.md` · `docs/en/03-new-feature.md` | *Diagrams in the spec* paragraph |
 | `README.md` | Norm count 18 → 19 |
 | `roadmap.md` | The norm, and the pipeline item |
-| `use-case-design/references/mermaid-sequence.md` · `templates/sequence-diagram-variants.md.example` | Addendum |
+| `use-case-design/references/mermaid-use-case-diagrams.md` · `templates/use-case-diagram-variants.md.example` | Addendum |
 | `domain-modeling/references/mermaid-class-and-state.md` · `templates/domain-diagram-variants.md.example` | Addendum |
 
 Not touched, on purpose: `java-spring-boot-developer.md`, `new-feature-implement`, the

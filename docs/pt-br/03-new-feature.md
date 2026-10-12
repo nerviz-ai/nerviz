@@ -196,16 +196,18 @@ sequenceDiagram
 | 7 | `compose-service-installer` (agent) | código `implemented` e uma linha `materialize` no `## Infrastructure` | o bloco do serviço no `docker-compose.yml`, escrito pelo `docker-architect` |
 | — | `git-publish` | fim do fluxo | commit + push, atrás de dois portões |
 
-**Diagramas no spec.** `00-caso-de-uso.md` traz um `sequenceDiagram` em `## Flow`, uma
-mensagem por passo da lista numerada. `10-dominio.md` traz um `classDiagram` do agregado e dos
+**Diagramas no spec.** `00-caso-de-uso.md` traz dois. Um `sequenceDiagram` em `## Flow` mostra
+quem chama quem no caminho que dá certo, com uma mensagem por passo da lista numerada. Um
+`flowchart TD` abaixo da tabela **Out** mostra cada checagem do fluxo e onde ela termina, com um
+nó final por situação da tabela. `10-dominio.md` traz um `classDiagram` do agregado e dos
 value objects e, quando um campo de estado tem mais de um valor, um `stateDiagram-v2` da
 tabela *State reachability*. São blocos Mermaid dentro do markdown, que o GitHub renderiza no
 PR. Não existe arquivo `.drawio` nem `.excalidraw`, e nada é instalado. O diagrama só usa nomes
 que o texto do mesmo arquivo já define e não acrescenta fato. Quando os dois discordam, vale o
 texto (`.claude/rules/spec-diagrams.md`, decisão 0143). O `UC-NNN-spec.md` consolida por
 referência e não copia diagrama. Sintaxe e variantes de exemplo ficam em cada skill:
-`use-case-design/references/mermaid-sequence.md` com `templates/sequence-diagram-variants.md.example`
-(evento, agendamento, port `external HTTP`), e `domain-modeling/references/mermaid-class-and-state.md`
+`use-case-design/references/mermaid-use-case-diagrams.md` com `templates/use-case-diagram-variants.md.example`
+(port `external HTTP` com seus desfechos, evento, agendamento), e `domain-modeling/references/mermaid-class-and-state.md`
 com `templates/domain-diagram-variants.md.example` (entidade filha com multiplicidade, tipo selado,
 estados finais).
 

@@ -1,8 +1,9 @@
 ///usr/bin/env java --source 21 "$0" "$@" ; exit $?
 //
 // CI test: proves every Mermaid diagram in a spec template names only what the same template's
-// text already defines, opens with a diagram type `spec-diagrams.md` allows, and — for a
-// sequence diagram — carries one message per step of the numbered list it is drawn from.
+// text already defines, opens with a diagram type `spec-diagrams.md` allows, and matches the text
+// it is drawn from: a sequence diagram carries one message per step of the numbered list above
+// it, and a flowchart one end node — a stadium `([…])` — per row of the **Out** table above it.
 //
 // Why this test exists: a spec template is the only source of a spec's shape (0115), so a
 // diagram that drifts from its own text there ships into every spec generated from it. The norm
@@ -27,11 +28,11 @@ public class SpecDiagramTemplateTest {
 
     static final Path SKILLS = Paths.get(".claude/skills");
 
-    static final Set<String> ALLOWED = Set.of("sequenceDiagram", "classDiagram", "stateDiagram-v2");
+    static final Set<String> ALLOWED = Set.of("sequenceDiagram", "flowchart TD", "classDiagram", "stateDiagram-v2");
 
     static final Map<String, List<String>> REQUIRED = Map.of(
-            "use-case-design/templates/use-case-spec.md.example", List.of("sequenceDiagram"),
-            "use-case-design/templates/sequence-diagram-variants.md.example", List.of("sequenceDiagram"),
+            "use-case-design/templates/use-case-spec.md.example", List.of("sequenceDiagram", "flowchart TD"),
+            "use-case-design/templates/use-case-diagram-variants.md.example", List.of("sequenceDiagram", "flowchart TD"),
             "domain-modeling/templates/domain-spec.md.example", List.of("classDiagram", "stateDiagram-v2"),
             "domain-modeling/templates/domain-diagram-variants.md.example", List.of("classDiagram", "stateDiagram-v2"));
 
@@ -80,6 +81,16 @@ public class SpecDiagramTemplateTest {
                     if (messages != steps) {
                         failures.add(where + "  " + messages + " messages for " + steps
                                 + " numbered steps above it — one message per step");
+                    }
+                }
+                if (type.equals("flowchart TD")) {
+                    long ends = b.body().stream().mapToLong(l -> l.split("\\(\\[", -1).length - 1).sum();
+                    long rows = outRows(lines, b.line());
+                    if (rows < 0) {
+                        failures.add(where + "  no **Out** table above it in the same section");
+                    } else if (ends != rows) {
+                        failures.add(where + "  " + ends + " end nodes for " + rows
+                                + " situations in the **Out** table — one end node per situation");
                     }
                 }
             }
@@ -163,6 +174,23 @@ public class SpecDiagramTemplateTest {
 
     static boolean present(String text, String name) {
         return Pattern.compile("(?<![A-Za-z0-9_])" + Pattern.quote(name) + "(?![A-Za-z0-9_])").matcher(text).find();
+    }
+
+    static long outRows(List<String> lines, int blockLine) {
+        int out = -1;
+        for (int i = blockLine - 2; i >= 0; i--) {
+            if (lines.get(i).startsWith("## ")) break;
+            if (lines.get(i).trim().equals("**Out**")) { out = i; break; }
+        }
+        if (out < 0) return -1;
+        long rows = 0;
+        boolean inTable = false;
+        for (int i = out + 1; i < blockLine - 1; i++) {
+            String l = lines.get(i).trim();
+            if (l.startsWith("|")) { inTable = true; rows++; }
+            else if (inTable) break;
+        }
+        return Math.max(0, rows - 2);
     }
 
     static long steps(List<String> lines, int blockLine) {
