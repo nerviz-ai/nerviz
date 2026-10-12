@@ -1,0 +1,112 @@
+# Sequence diagram variants for `## Flow`
+
+> Exemplars of the `## Flow` diagram for triggers and ports the base template
+> (`use-case-spec.md.example`, an HTTP trigger with one persistence port) does not show.
+> Each variant carries the excerpt of the spec it is drawn from: the trigger, the side
+> effects and the numbered flow. The diagram names nothing that excerpt does not.
+
+## Variant 1 · External HTTP port
+
+| Field | Value |
+|---|---|
+| Trigger | payment authorization by a caller, over HTTP — inbound REST adapter |
+| Side effects | **2** — the charge at the payment provider through `PaymentGateway`, and `INSERT` into `payments` |
+| External calls | the payment provider, reached only through the outbound port `PaymentGateway` |
+
+1. The inbound adapter receives the request and validates its shape.
+2. Translates it into the domain command `AuthorizePaymentCommand`.
+3. The inbound port `AuthorizePaymentUseCase` builds the `Payment` aggregate.
+4. The outbound port `PaymentGateway` requests the charge.
+5. The outbound port `PaymentRepository` persists the `Payment` with the provider's answer.
+6. The adapter translates the returned aggregate into the response.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor caller
+    participant adapter as inbound adapter
+    participant AuthorizePaymentUseCase
+    participant Payment
+    participant PaymentGateway
+    participant PaymentRepository
+    caller->>adapter: request, its shape validated
+    adapter->>AuthorizePaymentUseCase: AuthorizePaymentCommand
+    AuthorizePaymentUseCase->>Payment: builds it
+    AuthorizePaymentUseCase->>PaymentGateway: requests the charge
+    Note right of PaymentGateway: the charge at the payment provider
+    AuthorizePaymentUseCase->>PaymentRepository: persists Payment
+    Note right of PaymentRepository: INSERT into payments
+    adapter-->>caller: response from the returned aggregate
+```
+
+The provider is never a participant: the spec reaches it only through `PaymentGateway`.
+
+## Variant 2 · Event trigger, event published
+
+| Field | Value |
+|---|---|
+| Trigger | the `OrderConfirmed` event, consumed from the broker — inbound messaging adapter |
+| Side effects | **2** — `UPDATE` of `stock_items`, and the `StockReserved` event published through `StockEventPublisher` |
+
+1. The inbound adapter receives the `OrderConfirmed` event from the broker.
+2. Translates it into the domain command `ReserveStockCommand`.
+3. The inbound port `ReserveStockUseCase` loads the `StockItem` aggregate through `StockItemRepository`.
+4. The aggregate reserves the quantity, and `StockItemRepository` persists it.
+5. The outbound port `StockEventPublisher` publishes `StockReserved`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor broker
+    participant adapter as inbound adapter
+    participant ReserveStockUseCase
+    participant StockItemRepository
+    participant StockEventPublisher
+    broker->>adapter: OrderConfirmed
+    adapter->>ReserveStockUseCase: ReserveStockCommand
+    ReserveStockUseCase->>StockItemRepository: loads StockItem
+    ReserveStockUseCase->>StockItemRepository: persists StockItem, quantity reserved
+    Note right of StockItemRepository: UPDATE of stock_items
+    ReserveStockUseCase-)StockEventPublisher: StockReserved
+    Note right of StockEventPublisher: StockReserved published
+```
+
+No message back to the broker: the flow has no step that answers it. The publish is
+asynchronous (`-)`), and its transport is the messaging partial's.
+
+## Variant 3 · Scheduled trigger, no reply
+
+| Field | Value |
+|---|---|
+| Trigger | a schedule — inbound job adapter, run by the scheduler |
+| Side effects | **1** — `UPDATE` of `subscriptions`, each expired one marked `EXPIRED` |
+
+1. The scheduler starts the inbound adapter.
+2. The adapter calls the inbound port `ExpireSubscriptionsUseCase` with `ExpireSubscriptionsCommand`.
+3. The outbound port `SubscriptionRepository` finds the `Subscription` aggregates past their end date.
+4. Each `Subscription` is expired, and `SubscriptionRepository` persists it.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor scheduler
+    participant adapter as inbound adapter
+    participant ExpireSubscriptionsUseCase
+    participant SubscriptionRepository
+    scheduler->>adapter: starts the run
+    adapter->>ExpireSubscriptionsUseCase: ExpireSubscriptionsCommand
+    ExpireSubscriptionsUseCase->>SubscriptionRepository: finds Subscription past its end date
+    ExpireSubscriptionsUseCase->>SubscriptionRepository: persists each Subscription, EXPIRED
+    Note right of SubscriptionRepository: UPDATE of subscriptions
+```
+
+Cadence, coordination across instances and batch size are the jobs partial's — nothing of
+them is drawn.
+
+<!--
+HOW TO USE:
+- Read by `use-case-design` at step 8, with references/mermaid-sequence.md, when the case's
+  trigger or ports match a variant here. Never copied whole: the diagram is redrawn from the
+  case's own numbered flow, one message per step, per @.claude/rules/spec-diagrams.md.
+- The names here are illustrations. A case uses the canonical names its own spec fixes.
+-->

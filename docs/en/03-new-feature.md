@@ -203,7 +203,12 @@ aggregate and its value objects and, when a state field has more than one value,
 markdown, which GitHub renders in the PR. There is no `.drawio` or `.excalidraw` file, and
 nothing is installed. A diagram uses only names the same file's text already defines and adds
 no fact. Where the two disagree, the text wins (`.claude/rules/spec-diagrams.md`, decision
-0143). `UC-NNN-spec.md` consolidates by reference and copies no diagram.
+0143). `UC-NNN-spec.md` consolidates by reference and copies no diagram. Syntax and worked variants
+live in each skill: `use-case-design/references/mermaid-sequence.md` with
+`templates/sequence-diagram-variants.md.example` (event, schedule, `external HTTP` port), and
+`domain-modeling/references/mermaid-class-and-state.md` with
+`templates/domain-diagram-variants.md.example` (child entity with multiplicity, sealed type,
+final states).
 
 **Why REST before persistence.** REST generates schema requirements (`Idempotency-Key`
 needs the shared key table); persistence generates none for REST. In the old order the

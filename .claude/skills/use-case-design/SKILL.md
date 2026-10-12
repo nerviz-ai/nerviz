@@ -202,7 +202,9 @@ the decision.
 
    The `sequenceDiagram` under `## Flow` is drawn last, from the numbered list already
    written, per `@.claude/rules/spec-diagrams.md`: a name the diagram needs and the list
-   lacks goes into the list first.
+   lacks goes into the list first. Syntax and the renderer's traps:
+   `references/mermaid-sequence.md`; a trigger or port the base template does not show (an
+   event, a schedule, an `external HTTP` port): `templates/sequence-diagram-variants.md.example`.
 9. **Report and stop.** File path, the boundary applied, the backlog entries the split
    produced (if any), and the table of who details each partial. **Don't invoke any
    skill** — see § Handoff.
@@ -248,7 +250,8 @@ use case folder and the backlog, nothing else; a write anywhere outside is refus
 **Reads** `@.claude/rules/architecture-ddd.md` (Application section — where the
 transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md`,
 `@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`),
-`@.claude/rules/spec-diagrams.md` (the `## Flow` diagram), the active blueprint's `packages.map` and naming convention, and this
+`@.claude/rules/spec-diagrams.md` (the `## Flow` diagram) with `references/mermaid-sequence.md`,
+the active blueprint's `packages.map` and naming convention, and this
 skill's `references/scope-boundary.md` before counting effects.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and appends to

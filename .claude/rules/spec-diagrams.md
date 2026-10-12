@@ -50,8 +50,8 @@ two files and never reach whoever reads the finished spec. Full record in
 | Diagram | Draws | Leaves out |
 |---|---|---|
 | `sequenceDiagram` | One message per numbered step of the flow, with `autonumber` so the numbers match: the caller of the trigger, the inbound adapter, the inbound port, the aggregate, each outbound port; each side effect of the header as a note | Path, verb and status — the transport spec's facts; framework types |
-| `classDiagram` | The aggregate root with the fields of its field table, each value object, and another aggregate by its id only | Composition with another aggregate; persistence and transport types |
-| `stateDiagram-v2` | One state per value of a state field, one transition per method that reaches it, labelled with that method; a value nothing reaches yet carries a note naming the case that will | The rehydration path — rebuilding persisted state is not a transition |
+| `classDiagram` | The aggregate root with the fields of its field table; each value object, child entity and sealed type the text names, with a multiplicity only where the text states one; another aggregate by its id only | Composition with another aggregate; persistence and transport types |
+| `stateDiagram-v2` | One state per value of a state field, one transition per method that reaches it, labelled with that method; a value goes to the end marker only where the text says no method leaves it; a value nothing reaches yet carries a note naming the case that will | The rehydration path — rebuilding persisted state is not a transition |
 
 The state diagram exists exactly when the spec records more than one value for a state field.
 With no state field, there is no state diagram.

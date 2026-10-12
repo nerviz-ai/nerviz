@@ -203,7 +203,11 @@ tabela *State reachability*. São blocos Mermaid dentro do markdown, que o GitHu
 PR. Não existe arquivo `.drawio` nem `.excalidraw`, e nada é instalado. O diagrama só usa nomes
 que o texto do mesmo arquivo já define e não acrescenta fato. Quando os dois discordam, vale o
 texto (`.claude/rules/spec-diagrams.md`, decisão 0143). O `UC-NNN-spec.md` consolida por
-referência e não copia diagrama.
+referência e não copia diagrama. Sintaxe e variantes de exemplo ficam em cada skill:
+`use-case-design/references/mermaid-sequence.md` com `templates/sequence-diagram-variants.md.example`
+(evento, agendamento, port `external HTTP`), e `domain-modeling/references/mermaid-class-and-state.md`
+com `templates/domain-diagram-variants.md.example` (entidade filha com multiplicidade, tipo selado,
+estados finais).
 
 **Por que REST antes de persistência.** REST gera requisito de schema
 (`Idempotency-Key` precisa da tabela compartilhada de chaves); persistência não gera

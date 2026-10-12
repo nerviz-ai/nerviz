@@ -31,7 +31,9 @@ public class SpecDiagramTemplateTest {
 
     static final Map<String, List<String>> REQUIRED = Map.of(
             "use-case-design/templates/use-case-spec.md.example", List.of("sequenceDiagram"),
-            "domain-modeling/templates/domain-spec.md.example", List.of("classDiagram", "stateDiagram-v2"));
+            "use-case-design/templates/sequence-diagram-variants.md.example", List.of("sequenceDiagram"),
+            "domain-modeling/templates/domain-spec.md.example", List.of("classDiagram", "stateDiagram-v2"),
+            "domain-modeling/templates/domain-diagram-variants.md.example", List.of("classDiagram", "stateDiagram-v2"));
 
     static final Set<String> KEYWORDS = Set.of("Note", "LR", "RL", "TB", "BT", "TD");
 

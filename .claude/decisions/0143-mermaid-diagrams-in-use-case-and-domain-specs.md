@@ -110,6 +110,29 @@ stays unserved, and the item stays open on the roadmap.
 | Does consolidation copy the diagrams into `UC-NNN-spec.md`? | No | `UC-NNN-spec.md` is consolidated by reference; a copied diagram would be a second place for the same fact |
 | A `migrations` entry for projects already generated? | No | Nothing existing is left wrong: an `approved` or `implemented` folder is frozen (`0066`) and stays valid without a diagram; the next spec takes the shape from the template, its only source (`0115`). `/arch-adopt` carries the rule and both templates |
 
+## Addendum — syntax references and worked variants
+
+Asked on the same day, before merge, by the same approver: the model drew Mermaid from memory,
+guided only by the one exemplar per diagram type in each spec template. Same split of ownership
+as the norm — **what** to draw stays in the rule, **how** lives with the skill that draws it,
+one diagram family per skill, so nothing is written twice:
+
+| Skill | `references/` — syntax subset, spec-to-diagram mapping, renderer traps, official links verified on 2026-10-12 | `templates/` — worked variants, each with the spec excerpt it is drawn from |
+|---|---|---|
+| `use-case-design` | `mermaid-sequence.md` | `sequence-diagram-variants.md.example` — external HTTP port, event trigger with an event published, scheduled trigger with no reply |
+| `domain-modeling` | `mermaid-class-and-state.md` | `domain-diagram-variants.md.example` — child entity with multiplicity and a reference by id, sealed type, lifecycle with final states and a shared transition |
+
+The variants made two gaps in the rule visible, closed in the same change: the class diagram
+also draws child entities and sealed types, with a multiplicity only where the text states
+one; the state diagram draws an end marker only where the text says no method leaves a value.
+
+`SpecDiagramTemplateTest` already scanned every `*.md.example`; it now also requires the
+variants' diagram types. It caught two names in the first draft of the variants that their
+own text lacked (`caller`, `departmentId`) — fixed in the text, as the rule says. Red runs:
+a remote system drawn as a participant (`StripeApi`), a missing message in the scheduled
+variant, an unknown class (`Customers`), the state block removed. The test checks names, not
+meaning: an aggregate the text names, drawn as a class, still passes — that stays review.
+
 ## References
 
 | Claim | Source |
@@ -141,6 +164,8 @@ stays unserved, and the item stays open on the roadmap.
 | `docs/pt-br/03-new-feature.md` · `docs/en/03-new-feature.md` | *Diagrams in the spec* paragraph |
 | `README.md` | Norm count 18 → 19 |
 | `roadmap.md` | The norm, and the pipeline item |
+| `use-case-design/references/mermaid-sequence.md` · `templates/sequence-diagram-variants.md.example` | Addendum |
+| `domain-modeling/references/mermaid-class-and-state.md` · `templates/domain-diagram-variants.md.example` | Addendum |
 
 Not touched, on purpose: `java-spring-boot-developer.md`, `new-feature-implement`, the
 consolidation of `new-feature` (see *Not needed*), no `migrations` entry, and the thirteen

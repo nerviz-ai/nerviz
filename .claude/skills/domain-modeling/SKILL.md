@@ -232,7 +232,10 @@ mother spec, it also isn't this skill.
 6. **Generate** from `templates/domain-spec.md.example` to
    `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. The diagrams of block 1 — the `classDiagram`, and the
    `stateDiagram-v2` whenever *State reachability* is not `none` — are drawn last, from the
-   tables already written, per `@.claude/rules/spec-diagrams.md`.
+   tables already written, per `@.claude/rules/spec-diagrams.md`. Syntax and the renderer's
+   traps: `references/mermaid-class-and-state.md`; a shape the base template does not show (a
+   child entity with a multiplicity, a sealed type, final states):
+   `templates/domain-diagram-variants.md.example`.
 7. **Report and stop.** File path, divergences found against the mother spec, and what's
    missing for the folder to be complete (`20-persistencia.md`, `30-rest.md`,
    `40-testes.md`). Don't invoke anyone.
@@ -271,7 +274,8 @@ it), `@.claude/rules/architecture-ddd.md` (Domain and Application sections),
 `@.claude/rules/value-objects.md` (criterion for which field becomes a value object),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
 `@.claude/rules/code-quality.md`, `@.claude/rules/logging.md` (which fields to flag as
-masking candidates), `@.claude/rules/spec-diagrams.md` (the diagrams of block 1), `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
+masking candidates), `@.claude/rules/spec-diagrams.md` (the diagrams of block 1) with
+`references/mermaid-class-and-state.md`, `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
 owner — step 4c), and the active blueprint's `packages.map`.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. Only that file.
