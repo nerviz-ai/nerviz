@@ -235,7 +235,7 @@
     "universal_fields": ["model"],
     "classes": {
       "design": {
-        "$comment": "Emits one partial of one use case folder and nothing else. Ten skills, one shape.",
+        "$comment": "Emits one partial of one use case folder and nothing else. Eleven skills, one shape.",
         "design_phase": true,
         "allowed_models": ["opus"],
         "write_allow": ["docs/use-cases/UC-*/**", "docs/use-cases/BACKLOG.md"],
@@ -243,7 +243,7 @@
         "skills": [
           "use-case-design", "domain-modeling", "persistence-architect",
           "rest-api-architect", "security-architect", "http-client-architect", "messaging-architect",
-          "jobs-architect", "cache-architect", "test-architect"
+          "jobs-architect", "cache-architect", "ai-architect", "test-architect"
         ]
       },
       "orchestrator": {
@@ -716,6 +716,7 @@
       "to": ".claude/skills",
       "keep": ["SKILL.md", "templates", "references"],
       "include": [
+        "ai-architect",
         "arch-adopt",
         "arch-doctor",
         "audit-usage",
@@ -751,7 +752,7 @@
 
     "derived_paths": {
       "$comment_exempt": "Globs that are valid in any architecture and so need no derivation: they name no package. A rule whose `paths` holds only these is not expected here. Java is `**/src/**/*.java`, never `**/*.java`, which also matches .claude/hooks/ArchHook.java and loads every Java norm on each read of the hook (0082). One that names a package and is missing from this map would travel with the glob of whichever blueprint happened to be written into the file — gap 8 of lessons-learned-001. `schema` checks both directions.",
-      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**"],
+      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**", "**/src/main/resources/prompts/**"],
       "$comment": "A rule with a territory auto-loads by `paths`, and a glob naming a package the active blueprint does not use leaves it silently unloaded. The glob is therefore derived from the blueprint's packages.map — the VALUE, not the key, with `.` becoming `/` — and never copied from the original file. `suffix` selects the packages.map entry whose key ends with it; `key` names candidates in order of preference, first hit wins. A selector that matches nothing and is `optional` keeps the master example globs, inert in that architecture — never strips them, since a rule without `paths` loads at launch in every session (.claude/decisions/0082-rules-without-paths-load-at-launch.md); one that matches nothing and is not optional is a failure of the export, not of the project. No defensive union: this blueprint's glob and no other.",
       "api-rest.md": {
         "suffix": [".rest"],
@@ -770,6 +771,7 @@
       "scheduling.md": { "suffix": [".scheduling"], "glob": "**/{}/**", "optional": true },
       "http-client.md": { "suffix": [".http"], "glob": "**/{}/**", "optional": true },
       "caching.md": { "suffix": [".cache"], "glob": "**/{}/**", "optional": true },
+      "ai.md": { "suffix": [".ai"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/prompts/**"] },
       "authorization.md": {
         "$comment": "Wiring lives in the `.config` package; hexagonal, onion and custom-template have none, so it lives in a `security` subpackage of the REST adapter and the `.rest` glob already covers it. vertical-slice has `.config` and no `.rest`, so the fallback never fires there and the rule loads on `config/**` only — a slice's controller does not pull it, and the executor cites it inline anyway (decision 0112).",
         "suffix": [".rest", ".config"],

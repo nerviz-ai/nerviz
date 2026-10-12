@@ -1,0 +1,163 @@
+# UC-012 · AI
+
+> Partial of `docs/use-cases/UC-012-classify-support-ticket/`. Owner: `ai-architect`.
+> Inherits the ports, their domain types and the review state from `10-dominio.md`, the trigger's
+> deadline from `30-rest.md` or `25-mensageria.md` — doesn't redecide them. Contains no code. Form
+> references in `.claude/skills/ai-architect/templates/`.
+> Rules applied, never reproduced: `@.claude/rules/ai.md`.
+
+| Field | Value |
+|---|---|
+| Mother spec | `00-caso-de-uso.md` |
+| Why this partial exists | `10-dominio.md` § Ports: `TicketClassifier`, kind `LLM` |
+| AI package | `adapter.out.ai` (blueprint `packages.map`) |
+| Spring AI line | 2.x — the project runs Boot 4 (`pom.xml` parent); BOM resolved by the Initializr on write, never written here |
+| Divergences from other partials | none |
+
+## 1 · AI ports
+
+| Port (method) | Kind | Asks | Returns | "Could not decide" value | Review state it leads to |
+|---|---|---|---|---|---|
+| `TicketClassifier.suggest(TicketText)` | `LLM` | a category and a priority for the ticket text | `ClassificationSuggestion` — `Suggested(category, priority)` or `Undecided(reason)` | `Undecided` | `Ticket.status = AWAITING_TRIAGE` (`10-dominio.md` § Invariants) |
+
+The model suggests; `Ticket.applySuggestion` decides. A `CRITICAL` priority is never a suggestion:
+the domain rule "an outage keyword from an enterprise customer" sets it (`10-dominio.md`).
+
+## 2 · Provider and models
+
+| Decision | Value | Why |
+|---|---|---|
+| Provider | OpenAI, `spring-ai-starter-model-openai` | Asked: the company's contract and data-processing agreement are with it |
+| Model per port | `ticket-classifier`: `gpt-4.1-mini`, temperature 0.0, max 200 output tokens | Asked; non-reasoning, so temperature is accepted. A classification wants the most likely label |
+| Inherited? | no — first AI port of this project | `pom.xml` carries no Spring AI dependency |
+
+## 3 · Prompts and output
+
+| Port | Prompt resources | Variables | Answer type | Closed fields | Unreadable answer |
+|---|---|---|---|---|---|
+| `ticket-classifier` | `prompts/ticket-classifier-system.st`, `prompts/ticket-classifier-user.st` | `ticket` — inside the `TICKET START` / `TICKET END` markers the system prompt names as data | `TicketClassificationAnswer(TicketCategory category, TicketPriority priority)`, declared in the adapter | both enums; `null` category = none fits | `Undecided` — malformed, outside the enum, empty, refused, `null`, or `CRITICAL` |
+
+Schema validation on (`validateSchema()`): one non-matching answer goes back to the model with the
+error before the adapter sees it. Template delimiters `<` `>`: the system prompt shows a JSON example.
+
+## 4 · Data sent
+
+`@.claude/rules/personal-data.md` § In transit — asked per field, before the prompt was written.
+
+| Field available | Sent | Form | Why |
+|---|---|---|---|
+| `Ticket.text` | yes | full | the classification's whole input |
+| `Ticket.customerEmail` | no | — | not needed to classify |
+| `Ticket.customerName` | no | — | not needed to classify |
+| `Ticket.accountId` | no | — | not needed to classify |
+
+Receiver: the model provider, outside the project, under the company's data-processing agreement
+(recorded by the user on 2026-10-12). Customers do write personal data into the text itself; that is
+accepted under the same agreement and recorded here — masking inside free text is not part of this
+case.
+
+## 5 · Vector store
+
+none — no port of kind `vector store`.
+
+## 6 · Failure and retry
+
+| Port | Timeout (per attempt) | Retrying layer | Attempts | Trigger's own retry |
+|---|---|---|---|---|
+| `ticket-classifier` | 4 s — under the 5 s deadline of `POST /tickets` (`30-rest.md` § 2); p99.9 measured at 2.8 s | the OpenAI SDK (`spring.ai.openai.max-retries: 1`) | 2 | none — a REST request |
+
+| Failure | Family | `errorCode` | Reaches our caller as |
+|---|---|---|---|
+| 429, 503 | dependency unavailable | `TICKET_CLASSIFIER_MODEL_UNAVAILABLE` | the ticket is created `AWAITING_TRIAGE` — the use case catches it: classification is best effort (`00-caso-de-uso.md` § Alternative flows) |
+| read timeout, connection lost, 502, 504 | outcome unknown | `TICKET_CLASSIFIER_MODEL_NO_ANSWER` | same |
+| any other 4xx/5xx | dependency response | `TICKET_CLASSIFIER_MODEL_FAILED` | same, and the `ai.review.share` alarm |
+
+| Project-wide piece | NEW or REUSE |
+|---|---|
+| `AiProperties`, `AiClientConfig`, `AiFailureTranslator` | NEW |
+| Integration families (`IntegrationException` and its three subclasses) | REUSE — `28-cliente-http.md` of UC-004 created them |
+
+## 7 · Observability
+
+| Metric | Alarm it exists for |
+|---|---|
+| `gen_ai.client.operation` (tags `gen_ai.request.model`, `error.type`) — from the library's observations | p99 above 3.5 s for 15 min: the timeout is about to cut answers |
+| `gen_ai.client.token.usage` (tag `gen_ai.token.type`) | daily input tokens 50 % above the 7-day average: a prompt or an input grew |
+| `ai.review.share` (tag `port`) — counted by the use case on `Undecided` | above 20 % for 1 h: the prompt, the model or the input changed |
+
+Content logging: every flag false (`application-ai.yml.example`).
+
+## 8 · Test cases
+
+| Level | Case | Expected |
+|---|---|---|
+| Contract (stub `ChatModel`) | valid answer | `Suggested(BILLING, NORMAL)` |
+| Contract | category outside the enum | `Undecided`, after the schema retry |
+| Contract | malformed answer | `Undecided` |
+| Contract | `null` category | `Undecided` |
+| Contract | `CRITICAL` priority | `Undecided` |
+| Contract | prompt content | the ticket inside its markers; no e-mail, name or account id |
+| Contract | SDK rate limit | dependency unavailable, `TICKET_CLASSIFIER_MODEL_UNAVAILABLE`, wait carried |
+| Provider IT (WireMock) | happy path | mapped; request names the port's model, the key header and the ticket |
+| Provider IT | 503 | dependency unavailable after exactly 2 requests |
+| Provider IT | 429 + `Retry-After` | dependency unavailable, wait carried |
+| Provider IT | delay above the timeout | outcome unknown after exactly 2 requests |
+| Provider IT | 400 | dependency response after exactly 1 request |
+
+## 9 · Requirements to other partials
+
+| To | Requirement |
+|---|---|
+| `10-dominio.md` | none — the review state and `Undecided` already exist |
+| `20-persistencia.md` | none — no vector store |
+| `35-jobs.md` | none — no ingestion, no re-index |
+
+## 10 · Declared dependencies
+
+| Dependency | Version | Why |
+|---|---|---|
+| `org.springframework.ai:spring-ai-bom` (import) | `<the version the Initializr returned for the project's Boot, with the date>` | manages every Spring AI artifact |
+| `org.springframework.ai:spring-ai-starter-model-openai` | (managed by the BOM) | `ChatClient`, the OpenAI model and its SDK |
+
+## 11 · Configuration
+
+| Property | Value | Owner of the value |
+|---|---|---|
+| `spring.ai.openai.api-key` | `${OPENAI_API_KEY}` — no default | `@.claude/rules/secrets.md` |
+| `spring.ai.openai.base-url` | `${OPENAI_BASE_URL:https://api.openai.com/v1}` | this partial — the IT points it at WireMock |
+| `spring.ai.openai.max-retries` | `1` | this partial, § 6 |
+| `app.ai.ports.ticket-classifier.model` / `temperature` / `max-tokens` / `timeout` | `gpt-4.1-mini` / `0.0` / `200` / `4s` | this partial, § 2 and § 6 |
+| content-logging flags | `false` | `@.claude/rules/ai.md` § Data sent |
+
+Full shape in `templates/application-ai.yml.example`.
+
+## 12 · Deferred
+
+none
+
+## Compose services
+
+none — a chat model is a remote API, never a container of this project.
+
+## Design patterns
+
+| Force or symptom | Pattern | Classes and interfaces it creates | "When not" checked |
+|---|---|---|---|
+| The port must not know a model answers it, and the provider SDK's types must stop at the adapter | Adapter | `ChatTicketClassifier implements TicketClassifier`, `TicketClassificationAnswer` | Not a Strategy over providers: one provider, chosen in § 2 |
+
+One row per pattern this layer adopts, decided through
+`@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use. Consolidation collects this
+section into `UC-NNN-spec.md`.
+
+## Impact on approved use cases
+
+none
+
+## Implementation order
+
+1. The dependencies of § 10
+2. `AiProperties`, `AiClientConfig`, `AiFailureTranslator` in the AI package — once per project
+3. The prompt resources of § 3
+4. `TicketClassificationAnswer` and `ChatTicketClassifier` — after `TicketClassifier` and the domain types exist
+5. Properties in `application.yml`
+6. Tests — `40-testes.md`: every row of § 8

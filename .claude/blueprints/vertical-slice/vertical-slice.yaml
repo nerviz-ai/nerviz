@@ -57,6 +57,7 @@ architecture_paths:
   - "**/features/**/*.java"
   - "**/config/**/*.java"
   - "**/integration/**/*.java"
+  - "**/ai/**/*.java"
 
 # A single element — layout: single-module — rule 5 of `_schema.md`. The slice
 # boundary (this blueprint's actual reason to exist) is not a Maven module at all —
@@ -97,6 +98,10 @@ packages:
     # and one place the caching norm loads on. A decorator implements the slice's own port —
     # decision 0144.
     bootstrap.cache: "config.cache"
+    # Outbound AI adapters are shared by every slice that asks the same model or searches the same
+    # store, like the HTTP clients — but in their own top-level package, so the HTTP norm does not
+    # load on them nor the AI norm on the clients. A slice depends on the port there — decision 0145.
+    ai.ai: "ai"
 
 # Naming convention for this blueprint (specific to vertical-slice, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and
@@ -154,11 +159,14 @@ dependency_rules:
   direction: inward
   forbidden:
     - from: domain
-      to: [features, integration]
-      reason: "The shared kernel does not know about any feature that uses it, nor about the outbound HTTP clients — same universal rule as every other blueprint's domain module, architecture-ddd.md § Domain"
+      to: [features, integration, ai]
+      reason: "The shared kernel does not know about any feature that uses it, nor about the outbound HTTP clients or AI adapters — same universal rule as every other blueprint's domain module, architecture-ddd.md § Domain"
     - from: integration
       to: [features]
       reason: "An outbound HTTP client is called by slices and never calls back into one — it translates a remote system into the shared kernel's types (decision 0121)"
+    - from: ai
+      to: [features, integration]
+      reason: "An AI adapter is called by slices and never calls back into one, nor sideways into an HTTP client — it answers a slice's port with the shared kernel's types (decision 0145)"
 
 # Real, compilable exemplars (not templates to swap mechanically).
 # The project base comes from Spring Initializr; these files provide the SHAPE.

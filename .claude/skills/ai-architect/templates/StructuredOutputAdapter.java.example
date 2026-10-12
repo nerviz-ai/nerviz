@@ -1,0 +1,185 @@
+/*
+ * EXEMPLAR — an outbound port answered by a language model with a structured answer: a support
+ * ticket classified into a closed set of categories. The shape every port of kind `LLM` takes.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/ai.md` (§ Boundary, § Prompts, § Output, § Data sent, § Failure and retry)
+ *        `.claude/rules/architecture-ddd.md` (§ Adapters — the port is the application's)
+ *        `.claude/rules/error-handling.md` § Integration families
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - the port speaks the business: `TicketClassifier.suggest(TicketText)` returns a
+ *    `ClassificationSuggestion` — `Suggested` or `Undecided`. Nothing from `org.springframework.ai`
+ *    or the provider SDK crosses it, and the use case cannot tell a model answers it;
+ *  - the model SUGGESTS: the use case applies the suggestion through the aggregate, which decides
+ *    (a `CRITICAL` priority, for instance, is never set on the model's word — a domain rule does it),
+ *    and an `Undecided` result routes the ticket to manual triage. That review state is the
+ *    default outcome, declared by `10-dominio.md`, not an error path;
+ *  - the answer is a TYPE, `TicketClassificationAnswer`, declared in the adapter. Its closed fields
+ *    are the domain's enums, so the JSON schema the model receives lists the only values it may
+ *    return; `validateSchema()` sends a non-matching answer back to the model once, with the error;
+ *  - an answer that still cannot be read — malformed JSON, a value outside the enum (both are a
+ *    `JacksonException` from the converter), an empty answer, a refusal, a `null` category the
+ *    prompt allows for "none fits" — becomes `Undecided`. It is an outcome the provider DID
+ *    deliver: never an integration exception, never retried;
+ *  - a failure of the provider itself — 429, 5xx, a timeout, a 4xx — is translated by
+ *    `AiFailureTranslator` (`AiClientConfig.java.example`) into the three integration families.
+ *    The SDK exception never leaves the adapter;
+ *  - the prompts are resources (`prompts/ticket-classifier-system.st`,
+ *    `prompts/ticket-classifier-user.st`), the ticket text enters only as the `ticket` variable,
+ *    and the system prompt tells the model the delimited block is data, not instructions;
+ *  - ONLY the text goes out. The ticket's author, e-mail and account are at hand in the aggregate
+ *    and are not sent: `29-ia.md` § 4 records, per field, what crosses to the provider;
+ *  - the `ChatClient` is injected by qualifier — one bean per port, built from the
+ *    auto-configured builder in `AiClientConfig`, so the call is observed and its model and
+ *    options are this port's.
+ *
+ * OTHER ARCHITECTURES: the adapter goes in the `.ai` entry of the active blueprint's
+ * `packages.map`; layered has no outbound port — there the class is a `<Noun>Classifier` component
+ * in the `ai` package the service calls, with the same body.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- TicketText.java (domain.model.ticket — declared by domain-modeling)
+package com.exemplo.minhaapi.domain.model.ticket;
+
+import java.util.Objects;
+
+/** What the customer wrote. Bounded, so no prompt grows past what the port was sized for. */
+public record TicketText(String value) {
+
+    public static final int MAX_LENGTH = 4_000;
+
+    public TicketText {
+        Objects.requireNonNull(value, "value");
+        if (value.isBlank() || value.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("ticket text must hold 1 to " + MAX_LENGTH + " characters");
+        }
+    }
+}
+
+// --- TicketCategory.java (domain.model.ticket)
+package com.exemplo.minhaapi.domain.model.ticket;
+
+public enum TicketCategory { BILLING, TECHNICAL_ISSUE, ACCOUNT_ACCESS }
+
+// --- TicketPriority.java (domain.model.ticket)
+package com.exemplo.minhaapi.domain.model.ticket;
+
+/** `CRITICAL` exists in the domain, and is set by a domain rule only — the answer type below omits it. */
+public enum TicketPriority { LOW, NORMAL, HIGH, CRITICAL }
+
+// --- ClassificationSuggestion.java (domain.model.ticket)
+package com.exemplo.minhaapi.domain.model.ticket;
+
+import java.util.Objects;
+
+/** What the classifier proposes. The aggregate decides what to do with it. */
+public sealed interface ClassificationSuggestion {
+
+    record Suggested(TicketCategory category, TicketPriority priority) implements ClassificationSuggestion {
+        public Suggested {
+            Objects.requireNonNull(category, "category");
+            Objects.requireNonNull(priority, "priority");
+            if (priority == TicketPriority.CRITICAL) {
+                throw new IllegalArgumentException("CRITICAL is a domain decision, never a suggestion");
+            }
+        }
+    }
+
+    /** No usable answer: the ticket goes to manual triage. `reason` is for the review queue, not for logs. */
+    record Undecided(String reason) implements ClassificationSuggestion {}
+}
+
+// --- TicketClassifier.java (application.port.out — declared by domain-modeling, kind LLM)
+package com.exemplo.minhaapi.application.port.out;
+
+import com.exemplo.minhaapi.domain.model.ticket.ClassificationSuggestion;
+import com.exemplo.minhaapi.domain.model.ticket.TicketText;
+
+public interface TicketClassifier {
+
+    /**
+     * Suggests a category and a priority. Never throws for an answer it cannot use — that is
+     * {@link ClassificationSuggestion.Undecided}. Throws an integration family when the model
+     * could not be reached or did not answer.
+     */
+    ClassificationSuggestion suggest(TicketText text);
+}
+
+// --- ChatTicketClassifier.java (adapter.out.ai)
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import com.exemplo.minhaapi.application.port.out.TicketClassifier;
+import com.exemplo.minhaapi.domain.model.ticket.ClassificationSuggestion;
+import com.exemplo.minhaapi.domain.model.ticket.TicketText;
+import com.openai.errors.OpenAIException;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+
+@Component
+class ChatTicketClassifier implements TicketClassifier {
+
+    static final String DEPENDENCY = "ticket-classifier-model";
+
+    private final ChatClient chatClient;
+    private final Resource systemPrompt;
+    private final Resource userPrompt;
+    private final AiFailureTranslator failures;
+
+    ChatTicketClassifier(
+            @Qualifier(AiClientConfig.TICKET_CLASSIFIER) ChatClient chatClient,
+            @Value("classpath:/prompts/ticket-classifier-system.st") Resource systemPrompt,
+            @Value("classpath:/prompts/ticket-classifier-user.st") Resource userPrompt,
+            AiFailureTranslator failures) {
+        this.chatClient = chatClient;
+        this.systemPrompt = systemPrompt;
+        this.userPrompt = userPrompt;
+        this.failures = failures;
+    }
+
+    @Override
+    public ClassificationSuggestion suggest(TicketText text) {
+        TicketClassificationAnswer answer;
+        try {
+            answer = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(user -> user.text(userPrompt).param("ticket", text.value()))
+                    .call()
+                    .entity(TicketClassificationAnswer.class, spec -> spec.validateSchema());
+        } catch (JacksonException unreadable) {
+            return new ClassificationSuggestion.Undecided("unreadable answer");
+        } catch (OpenAIException failure) {
+            throw failures.translate(DEPENDENCY, failure);
+        }
+        return answer == null ? new ClassificationSuggestion.Undecided("empty answer") : answer.toSuggestion();
+    }
+}
+
+// --- TicketClassificationAnswer.java (adapter.out.ai — the schema the model receives)
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import com.exemplo.minhaapi.domain.model.ticket.ClassificationSuggestion;
+import com.exemplo.minhaapi.domain.model.ticket.TicketCategory;
+import com.exemplo.minhaapi.domain.model.ticket.TicketPriority;
+
+/**
+ * The structured answer. A `null` category is the model saying none fits — the system prompt
+ * asks for it instead of a guess. A `CRITICAL` priority is refused by `Suggested` itself.
+ */
+record TicketClassificationAnswer(TicketCategory category, TicketPriority priority) {
+
+    ClassificationSuggestion toSuggestion() {
+        if (category == null || priority == null) {
+            return new ClassificationSuggestion.Undecided("no category fits");
+        }
+        if (priority == TicketPriority.CRITICAL) {
+            return new ClassificationSuggestion.Undecided("critical priority needs a domain rule");
+        }
+        return new ClassificationSuggestion.Suggested(category, priority);
+    }
+}

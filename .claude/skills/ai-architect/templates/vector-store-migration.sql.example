@@ -1,0 +1,27 @@
+-- EXEMPLAR — the pgvector store's schema, as a versioned migration. The final name, number and
+-- placement are 20-persistencia.md's (the requirement comes from 29-ia.md § 9); this is the shape
+-- Spring AI's PgVectorStore reads, so `schema-validation: true` passes against it.
+-- Form reference for the executor agent; not a file to copy verbatim.
+-- Rules: `.claude/rules/ai.md` § Semantic search · `.claude/rules/persistence.md`
+--
+-- WHAT THIS EXEMPLAR SHOWS:
+--  - the three extensions the store needs, created here and not by the library
+--    (`initialize-schema: false`): `vector`, `hstore`, `uuid-ossp`. The database image must ship
+--    pgvector — `pgvector/pgvector`, in the compose file and in the IT alike;
+--  - `vector(1536)` is the embedding model's dimension count, the same number as
+--    `spring.ai.vectorstore.pgvector.dimensions`. HNSW indexes at most 2000 dimensions;
+--  - the id is the id of the record the item was made from, so a new embedding replaces the old.
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS hstore;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS vector_store (
+    id        uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    content   text,
+    metadata  json,
+    embedding vector(1536)
+);
+
+CREATE INDEX IF NOT EXISTS vector_store_embedding_idx
+    ON vector_store USING hnsw (embedding vector_cosine_ops);

@@ -1,0 +1,75 @@
+# EXEMPLAR — the AI configuration a project gets with its first port of kind `LLM` or
+# `vector store`, merged into `src/main/resources/application.yml`.
+# Form reference for the executor agent; not a file to copy verbatim.
+# Rules: `.claude/rules/ai.md` (§ Wiring, § Data sent, § Semantic search, § Failure and retry)
+#        `.claude/rules/secrets.md` · `.claude/rules/http-client.md` § Timeouts
+#
+# WHAT THIS EXEMPLAR SHOWS:
+#  - the key is a placeholder with NO default: a missing key fails the startup naming
+#    OPENAI_API_KEY, instead of calling the provider unauthenticated;
+#  - the base URL is a property, so the WireMock IT points the real starter at a stub server;
+#  - the timeout is a number with its reason next to it, never the SDK's 60s left in place;
+#  - `max-retries` is THE retrying layer (the OpenAI SDK's own: 408, 409, 429, 5xx, I/O). Spring
+#    AI 2.0's OpenAI models do not read `spring.ai.retry.*` — writing it here would look like a
+#    setting and do nothing. A port whose trigger already retries (a listener, a job) runs on 0:
+#    `29-ia.md` § 6 says which;
+#  - models and options are per port, under `app.ai.ports` — read by `AiClientConfig`. The
+#    starter's `spring.ai.openai.chat.model` is left unset on purpose: no port runs on it;
+#  - every content-logging flag is written as false, so a reviewer sees it was decided;
+#  - the store's schema comes from a migration: `initialize-schema: false`, and
+#    `schema-validation: true` fails the startup when table and configuration disagree;
+#  - `dimensions` is the embedding model's, written next to it: changing either is a migration
+#    that re-embeds every item (`ai.md` § Semantic search).
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      # The client-wide timeout. A chat call does NOT use it: the OpenAI model sends each port's
+      # own `app.ai.ports.<port>.timeout` with the request, and a port without one would get a
+      # 60 s default that wins over this line. Kept equal to the longest port timeout.
+      timeout: 4s
+      max-retries: 1
+      embedding:
+        model: text-embedding-3-small
+    chat:
+      client:
+        observations:
+          log-prompt: false
+          log-completion: false
+      observations:
+        log-prompt: false
+        log-completion: false
+        include-error-logging: false
+    vectorstore:
+      pgvector:
+        initialize-schema: false
+        schema-validation: true
+        table-name: vector_store
+        index-type: hnsw
+        distance-type: cosine-distance
+        # text-embedding-3-small. A new embedding model is a new migration, never an edit here.
+        dimensions: 1536
+      observations:
+        log-query-response: false
+
+app:
+  ai:
+    ports:
+      ticket-classifier:
+        # Chosen in 29-ia.md § 2 from the provider's list that day. A reasoning model rejects
+        # temperature: drop the line for one, never leave it to fail at the first call.
+        model: gpt-4.1-mini
+        # A classification wants the most likely label, not variety.
+        temperature: 0.0
+        # The answer is two enum values; anything longer is a model going off script.
+        max-tokens: 200
+        # p99.9 of the classification call measured at <n> s, plus margin; below the 5 s deadline
+        # of the request that waits for it (30-rest.md). Per attempt: with max-retries 1, the
+        # caller waits at most twice this plus the SDK's backoff.
+        timeout: 4s
+    search:
+      product-search:
+        # Measured on the labelled sample of 29-ia.md § 3: below it, unrelated products appear.
+        similarity-threshold: 0.75
+        max-results: 20

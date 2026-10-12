@@ -1,0 +1,163 @@
+/*
+ * EXEMPLAR — contract test of an outbound port answered by a language model, for the answer cases
+ * `29-ia.md` § 8 lists. No model, no network, no Spring context: a stub `ChatModel` returns a fixed
+ * text, and the adapter runs with the production `ChatClient` wiring around it. Shape owned here;
+ * the cases are `ai-architect`'s.
+ *
+ * WHY THIS TEST DECIDES THE DOMAIN'S SAFETY: every row below is an answer a real model gives
+ * sooner or later. The port must turn each into `Suggested` or `Undecided` — the domain never sees
+ * an unchecked answer, and an answer the provider did deliver never becomes an exception.
+ *
+ * THE MANDATORY CASES (`.claude/rules/ai.md` § Tests), one test each:
+ *   valid answer             — `Suggested`, with the enum values the JSON named
+ *   value outside the enum   — `Undecided` (schema validation retried it, the converter refused it)
+ *   malformed answer         — `Undecided`
+ *   "none fits" (null)       — `Undecided`
+ *   a value the domain keeps — `Undecided` (`CRITICAL` is a domain rule, never a suggestion)
+ *   the prompt               — the request carries the ticket inside its markers, and nothing else
+ *                              of the aggregate
+ *   provider failure         — the SDK exception becomes the integration family, by type AND code
+ *
+ * THE STUB IS SCRIPTED, NOT MOCKED: `ScriptedChatModel` returns the same text for every call and
+ * records every prompt it received. A Mockito mock of `ChatModel` would answer `null` to the calls
+ * nobody stubbed — the schema-validation retry among them — and the test would prove the mock.
+ *
+ * THE WIRING IS PRODUCTION'S: the `ChatClient` comes from `AiClientConfig`'s own bean method, fed a
+ * builder around the stub — so the template delimiters and the options are the ones the adapter
+ * runs with. Whether the starter, the properties and the HTTP layer hold is `AiProviderIT`'s job.
+ */
+package com.exemplo.minhaapi.adapter.out.ai;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.exemplo.minhaapi.domain.exception.DependencyUnavailableException;
+import com.exemplo.minhaapi.domain.model.ticket.ClassificationSuggestion;
+import com.exemplo.minhaapi.domain.model.ticket.TicketCategory;
+import com.exemplo.minhaapi.domain.model.ticket.TicketPriority;
+import com.exemplo.minhaapi.domain.model.ticket.TicketText;
+import com.openai.errors.RateLimitException;
+import com.openai.core.http.Headers;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.io.ClassPathResource;
+
+class ChatTicketClassifierTest {
+
+    private static final TicketText TICKET = new TicketText("I was charged twice for March.");
+
+    @Test
+    @DisplayName("a valid answer becomes a suggestion with the values it named")
+    void validAnswer() {
+        ScriptedChatModel model = answering("{\"category\": \"BILLING\", \"priority\": \"NORMAL\"}");
+
+        assertThat(classifier(model).suggest(TICKET))
+                .isEqualTo(new ClassificationSuggestion.Suggested(TicketCategory.BILLING, TicketPriority.NORMAL));
+    }
+
+    @Test
+    @DisplayName("a category outside the enum is undecided, after the schema validation retried it")
+    void outsideTheEnum() {
+        ScriptedChatModel model = answering("{\"category\": \"SHIPPING\", \"priority\": \"NORMAL\"}");
+
+        assertThat(classifier(model).suggest(TICKET)).isInstanceOf(ClassificationSuggestion.Undecided.class);
+        assertThat(model.prompts).hasSizeGreaterThan(1);
+    }
+
+    @Test
+    @DisplayName("a malformed answer is undecided, never an exception")
+    void malformed() {
+        assertThat(classifier(answering("I think this is about billing.")).suggest(TICKET))
+                .isInstanceOf(ClassificationSuggestion.Undecided.class);
+    }
+
+    @Test
+    @DisplayName("a null category — none fits — is undecided")
+    void noneFits() {
+        assertThat(classifier(answering("{\"category\": null, \"priority\": \"LOW\"}")).suggest(TICKET))
+                .isInstanceOf(ClassificationSuggestion.Undecided.class);
+    }
+
+    @Test
+    @DisplayName("a CRITICAL priority from the model is undecided: only a domain rule sets it")
+    void criticalIsNotTheModelsCall() {
+        assertThat(classifier(answering("{\"category\": \"TECHNICAL_ISSUE\", \"priority\": \"CRITICAL\"}")).suggest(TICKET))
+                .isInstanceOf(ClassificationSuggestion.Undecided.class);
+    }
+
+    @Test
+    @DisplayName("the ticket text goes inside its markers, rendered with the < > delimiters")
+    void promptCarriesOnlyTheTicket() {
+        ScriptedChatModel model = answering("{\"category\": \"BILLING\", \"priority\": \"NORMAL\"}");
+
+        classifier(model).suggest(TICKET);
+
+        String sent = model.prompts.getFirst().getContents();
+        assertThat(sent).contains("TICKET START\n" + TICKET.value() + "\nTICKET END");
+        assertThat(sent).doesNotContain("<ticket>");
+    }
+
+    @Test
+    @DisplayName("a provider rate limit becomes dependency unavailable, with its code")
+    void rateLimited() {
+        ScriptedChatModel model = failingWith(() -> RateLimitException.builder()
+                .headers(Headers.builder().put("retry-after", "7").build())
+                .build());
+
+        assertThatThrownBy(() -> classifier(model).suggest(TICKET))
+                .isInstanceOfSatisfying(DependencyUnavailableException.class, failure -> {
+                    assertThat(failure.errorCode()).isEqualTo("TICKET_CLASSIFIER_MODEL_UNAVAILABLE");
+                    assertThat(failure.retryAfter()).hasValueSatisfying(wait -> assertThat(wait).hasSeconds(7));
+                });
+    }
+
+    private static ChatTicketClassifier classifier(ChatModel model) {
+        AiProperties properties = new AiProperties(
+                Map.of(AiClientConfig.TICKET_CLASSIFIER, new AiProperties.PortSettings("stub-model", 0.0, 200, Duration.ofSeconds(1))),
+                Map.of());
+        ChatClient chatClient = new AiClientConfig().ticketClassifierChatClient(ChatClient.builder(model), properties);
+        return new ChatTicketClassifier(chatClient,
+                new ClassPathResource("prompts/ticket-classifier-system.st"),
+                new ClassPathResource("prompts/ticket-classifier-user.st"),
+                new AiFailureTranslator());
+    }
+
+    private static ScriptedChatModel answering(String text) {
+        return new ScriptedChatModel(() -> new ChatResponse(
+                List.of(new Generation(AssistantMessage.builder().content(text).build()))));
+    }
+
+    private static ScriptedChatModel failingWith(Supplier<RuntimeException> failure) {
+        return new ScriptedChatModel(() -> {
+            throw failure.get();
+        });
+    }
+
+    /** Answers every call the same way, and keeps every prompt it was sent. */
+    static final class ScriptedChatModel implements ChatModel {
+
+        final List<Prompt> prompts = new ArrayList<>();
+        private final Supplier<ChatResponse> answer;
+
+        ScriptedChatModel(Supplier<ChatResponse> answer) {
+            this.answer = answer;
+        }
+
+        @Override
+        public ChatResponse call(Prompt prompt) {
+            prompts.add(prompt);
+            return answer.get();
+        }
+    }
+}

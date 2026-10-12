@@ -47,6 +47,8 @@ packages:
     app.http: "app.http"
     # Example: cache decorators of outbound ports and the cache wiring — decision 0144.
     app.cache: "app.cache"
+    # Example: outbound AI adapters and the AI wiring — decision 0145.
+    app.ai: "app.ai"
 
 dependency_rules:
   direction: inward             # inward | explicit

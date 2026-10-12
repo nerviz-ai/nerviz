@@ -136,7 +136,7 @@ arquivo Java testado em três sistemas operacionais, em vez de bash com `jq`.
 
 O `/new-feature` desenha um caso de uso por execução: `use-case-design` →
 `domain-modeling` → `rest-api-architect` → `security-architect` (condicional) →
-`http-client-architect` (condicional) → `messaging-architect` (condicional) →
+`http-client-architect` (condicional) → `ai-architect` (condicional) → `messaging-architect` (condicional) →
 `jobs-architect` (condicional) → `persistence-architect` → `cache-architect` (condicional) →
 `test-architect`. Cada skill é
 dona de um parcial e decide os

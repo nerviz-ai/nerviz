@@ -4,7 +4,7 @@ Fonte primária: `.claude/skills/new-feature/SKILL.md`,
 `.claude/agents/java-spring-boot-developer.md`, as skills de design (`use-case-design`,
 `domain-modeling`, `rest-api-architect`, `security-architect`, `http-client-architect`,
 `messaging-architect`, `jobs-architect`, `persistence-architect`, `cache-architect`,
-`test-architect`) e o modo
+`ai-architect`, `test-architect`) e o modo
 `guard` de `.claude/hooks/ArchHook.java`.
 
 ## O que faz
@@ -105,6 +105,7 @@ sequenceDiagram
     participant REST as skill: rest-api-architect
     participant SEC as skill: security-architect
     participant HTTP as skill: http-client-architect
+    participant AI as skill: ai-architect
     participant MSG as skill: messaging-architect
     participant JOBS as skill: jobs-architect
     participant PER as skill: persistence-architect
@@ -117,7 +118,7 @@ sequenceDiagram
     NF->>UC: descrição, como está
     UC-->>U: vários casos de uso? uma pergunta: qual agora
     UC-->>NF: 00-caso-de-uso.md (demais → BACKLOG.md)
-    alt caminho curto (5 critérios atendidos)
+    alt caminho curto (6 critérios atendidos)
         NF->>NF: UC-NNN-spec.md a partir de feature-spec-short
     else caminho completo
         NF->>DOM: 10-dominio.md
@@ -127,6 +128,9 @@ sequenceDiagram
         end
         opt 10-dominio.md declara port do tipo external HTTP
             NF->>HTTP: 28-cliente-http.md
+        end
+        opt 10-dominio.md declara port do tipo LLM ou vector store
+            NF->>AI: 29-ia.md
         end
         opt entrega externa do evento
             NF->>MSG: 25-mensageria.md
@@ -192,11 +196,12 @@ sequenceDiagram
 | 3 | `rest-api-architect` | 1, 2 | `30-rest.md` — inclusive os requisitos de schema que o transporte cria |
 | opcional | `security-architect` | 1, 2, 3, e a linha `Access` de `00-caso-de-uso.md` | `32-seguranca.md` — mecanismo, acesso por endpoint, lista de `permitAll`, ownership, 401/403, exposição de CORS/Actuator/OpenAPI |
 | opcional | `http-client-architect` | 2, quando `10-dominio.md` declara um port do tipo `external HTTP` | `28-cliente-http.md` — client e engine, timeouts, camada de retry e resiliência, autenticação de saída, a tabela de falhas de integração por operação, dependências declaradas e os casos de teste com WireMock |
+| opcional | `ai-architect` | 2, quando `10-dominio.md` declara um port do tipo `LLM` ou `vector store` | `29-ia.md` — provedor e modelo por port, os prompts como resources em `classpath:/prompts/`, o tipo da resposta com campos fechados e no que vira uma resposta inutilizável, quais campos vão ao provedor, o vector store e quem o reindexa, timeout e a única camada de retry, a tabela de falhas, métricas, a variante de imagem `pgvector` da linha `postgres` do compose. O bloco da spec é `## 3.7 AI`, implementado pelo Block A do executor, logo depois do Block H |
 | opcional | `messaging-architect` | 2, se houver entrega externa | `25-mensageria.md` |
 | opcional | `jobs-architect` | 1 (trigger agendado), Form B da mensageria, uma reconciliação que `28-cliente-http.md` § 10 pede, ou um job adiado | `35-jobs.md` — tecnologia, trigger/cadência, coordenação entre instâncias, overlap/misfire, propriedade de liga-desliga, métricas de job; dona do schedule do relay de outbox e do job de prune |
 | 4 | `persistence-architect` | 1, 2, 3, segurança, http-client e mensageria/jobs quando rodaram | `20-persistencia.md` — SQL da migration dentro; lê `32-seguranca.md` § 7 (tabela de credenciais ou de API key) quando security-architect rodou, `28-cliente-http.md` § 10 (chave de idempotência armazenada ou coluna de resultado desconhecido) quando http-client-architect rodou, e as tabelas de ferramenta de `35-jobs.md` (`shedlock`, `QRTZ_*`, `BATCH_*`) como requisito de schema e a contagem de réplicas para a estratégia de claim do outbox, quando jobs-architect rodou |
 | opcional | `cache-architect` | 1, 2, 4, quando a linha `Freshness` de `00-caso-de-uso.md` declara uma tolerância | `22-cache.md` — quais leituras vão para o cache e a chave de cada uma, Caffeine ou Redis, expiração e tamanho por cache ao lado da tolerância, todo escritor que precisa invalidar, falha e carga sem o cache, serialização, métricas, a linha `redis` do compose |
-| 5 | `test-architect` | 1–4, e cache quando rodou | `40-testes.md` — três casos por leitura em cache quando `22-cache.md` existe |
+| 5 | `test-architect` | 1–4, e cache e IA quando rodaram | `40-testes.md` — três casos por leitura em cache quando `22-cache.md` existe; o teste de contrato do adapter, o IT do provedor e, com um store, o IT do vector store quando `29-ia.md` existe |
 | — | `new-feature` (consolidação) | todas acima | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | spec `approved` | código e migrations em `src/**` |
 | 7 | `compose-service-installer` (agent) | código `implemented` e uma linha `materialize` no `## Infrastructure` | o bloco do serviço no `docker-compose.yml`, escrito pelo `docker-architect` |
@@ -239,7 +244,7 @@ do `## Infrastructure` com o que o run fez com ela
 
 **Os design patterns também são decididos nessa fase.** `domain-modeling`,
 `persistence-architect`, `rest-api-architect`, `security-architect`, `http-client-architect`,
-`messaging-architect`, `jobs-architect` e `cache-architect`
+`messaging-architect`, `jobs-architect`, `cache-architect` e `ai-architect`
 leem `gof-design-patterns` § Design-time use — lida, nunca invocada: é uma skill `build` — e
 escrevem uma seção `## Design patterns` na própria parcial: a linha da spec ou o `file:line`
 que força o padrão, o padrão, as classes e interfaces que ele cria, o "When not" conferido. A
@@ -307,6 +312,7 @@ escreve um spec único em que cada linha cita a fonte — um spec aprovado ou um
 | Tabela outbox, suas colunas, query de claim, teto de tentativas/backoff e janela de retenção | `20-persistencia.md` — a mensageria **declara** que o caso precisa de outbox e qual garantia o relay tem de honrar, e nunca um nome de coluna. Uma linha de § 6 nomeando colunas é divergência, e uma decisão de coluna que derrubaria a garantia declarada **para** o pipeline em vez de ser resolvida por precedência |
 | Tecnologia de scheduling, trigger e cadência, coordenação entre instâncias, tratamento de overlap/misfire, métricas de job, job de prune | `35-jobs.md` — inclusive o poll interval e a coordenação do próprio relay de outbox, que não moram mais em `20-persistencia.md` |
 | Quais leituras vão para o cache, a chave de cada uma, Caffeine ou Redis, expiração e tamanho por cache, os escritores que precisam invalidar, serialização e métricas do cache | `22-cache.md` — a tolerância a dado velho continua sendo de `00-caso-de-uso.md`, e uma expiração maior que ela **para** o pipeline em vez de ser resolvida por precedência |
+| Provedor, modelo, resources de prompt, tipo da resposta e seus campos fechados, quais campos chegam ao provedor, timeout e a camada de retry | `29-ia.md` — o port, o valor "não consegui decidir" e o estado de revisão continuam sendo de `10-dominio.md`; a migration do vector store é de `20-persistencia.md` (`29-ia.md` § 9 só pede); um gatilho de reindexação ou um job de ingestão é de `25-mensageria.md` ou `35-jobs.md` |
 | Nome do agregado, value object, port, evento | `10-dominio.md` |
 | Classe de exceção e `errorCode` | `10-dominio.md` |
 | Fronteira do caso de uso, invariantes, situações de erro | `00-caso-de-uso.md` |

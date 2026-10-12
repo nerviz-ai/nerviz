@@ -354,6 +354,14 @@ jobs:
       - name: cache exemplars decide every library default, and only they cache
         run: java .claude/.ci/CacheTemplateTest.java
 
+      # Every default of Spring AI is a silent choice — a model nobody pinned, a 60 s per-request
+      # timeout that overrides the configured one, a threshold that accepts every item, a
+      # prompt-logging flag, a retry block the OpenAI model never reads — and the executor copies
+      # an exemplar's shape. Holds the AI exemplars to ai.md, keeps every other exemplar off the AI
+      # library, and every blueprint's application layer off it too (0145).
+      - name: AI exemplars decide every library default, and only they reach the library
+        run: java .claude/.ci/AiTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
@@ -696,7 +704,7 @@ jobs:
           curl -sS --fail --retry 3 --retry-all-errors --retry-delay 5 --max-time 120 \
             https://start.spring.io/starter.tgz \
             -d type=maven-project -d language=java -d javaVersion=21 \
-            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis \
+            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis,spring-ai-openai,spring-ai-vectordb-pgvector \
             -o /tmp/starter.tgz
           mkdir -p /tmp/ref && tar xzf /tmp/starter.tgz -C /tmp/ref
           # micrometer-tracing-bridge-otel is managed by the Boot BOM: no version here,
@@ -741,7 +749,10 @@ jobs:
           # `cache` and `data-redis`, plus Caffeine added to the pom above (managed by the Boot parent),
           # are there because cache-architect's exemplars and test-architect's CachedAdapterIT
           # import them (0144).
-          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes)\.'
+          # `spring-ai-openai` and `spring-ai-vectordb-pgvector` are there because ai-architect's
+          # exemplars and test-architect's three AI tests import Spring AI, the OpenAI SDK and Jackson 3
+          # (0145) — the Initializr offers them for Boot 4 only, which is the line those exemplars are.
+          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson)\.'
           IMPORTS=$(grep -rhoE '^ *import (static )?[a-z][a-zA-Z0-9_.]+;' \
                       .claude/skills/*/templates/*.java.example \
                     | sed -E 's/^ *import (static )?//; s/;$//' | sort -u)

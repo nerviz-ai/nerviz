@@ -103,6 +103,16 @@ Block J, after Block M.
 
 ---
 
+## 3.7 AI — conditional, implement after 2 and 3.3
+
+none — `10-dominio.md` declares no port of kind `LLM` or `vector store`. When present: the
+provider, one line per AI port (model, answer type, "could not decide" value, timeout, retrying
+layer), the fields sent to the provider, the store and its embedding model, and the dependencies
+of `29-ia.md` § 10 — detail in `29-ia.md`. Implemented by the executor's Block A, right after
+Block H.
+
+---
+
 ## 4. REST API — implement after 2
 
 Detail: `30-rest.md` § 1-5.

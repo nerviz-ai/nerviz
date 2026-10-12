@@ -194,6 +194,25 @@ mother spec, it also isn't this skill.
      `http-client-architect`.
 
    Client, timeouts and retries are not this partial's: `http-client-architect` reads this port.
+
+4e. **A model or a semantic search becomes a port of kind `LLM` or `vector store`.** When the case
+   asks a language model for a decision-shaped answer — classify, extract, moderate — the port is
+   kind `LLM`; when it asks for the items nearest in meaning to a text, kind `vector store`
+   (embedding is not a kind of its own: a similarity search needs the vectors stored). The partial
+   carries:
+
+   - **the outbound port**, in domain types only, named for the capability (`TicketClassifier`,
+     `ProductSemanticSearch`), never for the model or the vendor;
+   - **for an `LLM` port, a return type with a "could not decide" value** — a sealed
+     `Suggested | Undecided`, never a bare enum — **and the review state it leads to**
+     (`AWAITING_TRIAGE`, `PENDING_REVIEW`) with the transition out of it. The model suggests; the
+     aggregate decides, and a value the domain keeps for itself (a `CRITICAL` priority) is set by a
+     domain rule, never accepted from the suggestion (`@.claude/rules/ai.md` § Boundary);
+   - **for a `vector store` port, identifiers as the result**, never the aggregate, and the write
+     side (`index`, `remove`) as a port of the same kind when this case changes what the store
+     mirrors.
+
+   Model, prompt, store and timeouts are not this partial's: `ai-architect` reads this port.
 5. **Map each invariant to its exception.** Typed family from
    `@.claude/rules/error-handling.md` and `errorCode` in `UPPER_SNAKE_CASE`. An invariant
    without a named exception is an invariant nobody will implement.
@@ -249,7 +268,7 @@ question nobody asked.
 |---|---|---|
 | Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` |
 | Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example` and the four typed ones · `@.claude/rules/error-handling.md` |
-| Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP`) | `UseCasePort.java.example` · `Command.java.example` |
+| Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP` · `LLM` · `vector store`) | `UseCasePort.java.example` · `Command.java.example` |
 | Events | Which event, which payload, which UC consumes it | `DomainEvent.java.example` |
 | Design patterns | Each pattern the domain or application adopts: the spec line or `file:line` that forces it, the classes it creates, the "When not" checked — step 5b | `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use |
 

@@ -55,6 +55,8 @@ use case number or slug — `use-case-design` does.
   already give (step 3b)
 - `docs/use-cases/UC-NNN-<slug>/28-cliente-http.md` — via `http-client-architect`, only if
   `10-dominio.md` § Ports declares a port of kind `external HTTP` (step 3c)
+- `docs/use-cases/UC-NNN-<slug>/29-ia.md` — via `ai-architect`, only if `10-dominio.md` § Ports
+  declares a port of kind `LLM` or `vector store` (step 3d)
 - `docs/use-cases/UC-NNN-<slug>/22-cache.md` — via `cache-architect`, only if
   `00-caso-de-uso.md`'s `Freshness` row states a tolerance (step 5b)
 - `docs/use-cases/UC-NNN-<slug>/40-testes.md` — via `test-architect`
@@ -94,17 +96,21 @@ below. No end of this flow is left without an explicit git instruction.
 3c. `http-client-architect` — invoked if `10-dominio.md` § Ports declares a port of kind
    `external HTTP` and `28-cliente-http.md` is missing (depends on 1, 2; reads 3 and 3b when
    present). Skipped when the case calls no other system over HTTP
+3d. `ai-architect` — invoked if `10-dominio.md` § Ports declares a port of kind `LLM` or
+   `vector store` and `29-ia.md` is missing (depends on 1, 2; reads 3, 3b and 3c when present).
+   Skipped when the case asks no model and searches no store
 4. `messaging-architect` — invoked if `10-dominio.md`'s Events block names external
    (Kafka) delivery and `25-mensageria.md` is missing (depends on 2). Skipped entirely
    when the event, if any, stays in-process — not every use case needs it
 5. `jobs-architect` — invoked if `25-mensageria.md` chose Form B, the trigger is a
-   schedule, or `28-cliente-http.md` § 10 asks for a reconciliation pass, and `35-jobs.md` is
-   missing (depends on 1, 3c, 4). Skipped otherwise
-6. `persistence-architect` — invoked if `20-persistencia.md` is missing (depends on 2, 3, 3b, 3c, 4, 5)
+   schedule, `28-cliente-http.md` § 10 asks for a reconciliation pass, or `29-ia.md` § 9 asks
+   for an ingestion or re-index job, and `35-jobs.md` is missing (depends on 1, 3c, 3d, 4).
+   Skipped otherwise
+6. `persistence-architect` — invoked if `20-persistencia.md` is missing (depends on 2, 3, 3b, 3c, 3d, 4, 5)
 6b. `cache-architect` — invoked if `00-caso-de-uso.md`'s `Freshness` row states a tolerance and
    `22-cache.md` is missing (depends on 1, 2, 6; reads 3c and 5 when present). Skipped when the
    row reads `none` — every case that only writes, and every read that must see the last write
-7. `test-architect` — invoked if `40-testes.md` is missing (depends on 2,3,3b,3c,4,5,6,6b)
+7. `test-architect` — invoked if `40-testes.md` is missing (depends on 2,3,3b,3c,3d,4,5,6,6b)
 
 **Why REST and messaging both run before persistence.** The order follows who generates
 requirements for whom. REST generates schema requirements — `Idempotency-Key` on a
@@ -142,6 +148,13 @@ reconciliation pass — a column persistence cannot see and a job scheduling can
 filter chain exists from `32-seguranca.md`, so it waits for both
 (`@.claude/decisions/0121-http-client-architect-skill.md`).
 
+The AI ports run right after the HTTP client and before messaging, for the same reason: a vector
+store needs its table and extensions created by a migration, and the records it mirrors need a
+re-index on every change and a first fill — a schema fact for persistence and a trigger for
+messaging or jobs, invisible to all three until `29-ia.md` § 9 exists. It reads the trigger's
+deadline from `30-rest.md`, so it waits for REST, and it needs nothing messaging, jobs or
+persistence decide (`@.claude/decisions/0145-ai-architect-skill.md`).
+
 The cache runs after persistence, the one step here that generates no requirement for anyone
 before it: a cache adds no table and no column. It wraps an outbound port, so it waits for the
 adapters behind it — `20-persistencia.md`'s query and `28-cliente-http.md`'s call — and it
@@ -155,7 +168,8 @@ still runs between REST and Tests. Jobs is block 7, implemented by the condition
 right after Block M — a trigger compiles against the inbound port it calls, so it comes last
 among the production blocks. Outbound HTTP is block 3.3, implemented by the conditional Block H
 right after Block 2 — an adapter compiles against the outbound port and the domain types, and
-nothing upstream compiles against it. Security is block 4.5, implemented by the conditional Block S
+nothing upstream compiles against it. AI is block 3.7, implemented by the conditional Block A
+right after Block H, for the same reason. Security is block 4.5, implemented by the conditional Block S
 right after Block 3 — its annotations and the actor resolution go on the controllers Block 3
 just wrote. Cache is block 3.4, implemented by the conditional Block C last among the production
 blocks, after Block J — a decorator compiles against the port and needs its delegate, and every
@@ -325,7 +339,7 @@ created — never with the others.
 
 ### Short path — checked right after step 1
 
-A trivial case doesn't need five partials. Check all five against `00-caso-de-uso.md`
+A trivial case doesn't need five partials. Check all six against `00-caso-de-uso.md`
 and the approved specs:
 
 | Criterion | Unmet when |
@@ -335,8 +349,9 @@ and the approved specs:
 | No new exception | an error situation has no exception already named in an approved spec |
 | No question asked to the user | `use-case-design` needed `AskUserQuestion` |
 | No freshness tolerance | the `Freshness` row states a duration — a cache to design |
+| No model and no semantic search | the case asks a model to classify, extract or moderate, or finds items by meaning — an AI port to design |
 
-All five met → skip steps 2–6 and write `UC-NNN-spec.md` from
+All six met → skip steps 2–6 and write `UC-NNN-spec.md` from
 `templates/feature-spec-short.md.example`: every row names its source, an approved spec or
 a rule. A row that needs judgment to fill means the case isn't trivial — discard the
 short spec and take steps 2–6. One criterion unmet → steps 2–6.
@@ -398,6 +413,23 @@ add a client, engine or resilience dependency to `pom.xml`; § 9 is what step 6 
 
 **Output:** "✅ Outbound HTTP ready", "— skipped (no external HTTP port)", or gaps.
 
+### Step 3d: AI (depends on 1, 2, conditional)
+
+Read `10-dominio.md` § Ports. If it declares a port of kind `LLM` or `vector store` and
+`29-ia.md` is missing: **invoke** `/ai-architect UC-NNN`. No such port → skip this step. A port
+of kind `LLM` whose return type has no "could not decide" value, or no review state it leads to,
+is not a skip: stop and ask `domain-modeling` for it — the adapter would have nowhere to put an
+answer it cannot use. If `29-ia.md` exists: read, validate (twelve blocks: AI ports, provider and
+models, prompts and output, data sent, vector store, failure and retry, observability, test
+cases, requirements to other partials, declared dependencies, configuration, deferred).
+
+Every timeout in § 6 is below the trigger's deadline, and every field of § 4 sent in clear names
+its receiver. § 9 is what steps 4, 4b and 5 read — the store's migration, a re-index trigger, an
+ingestion job; § 10 is the only list that entitles the executor to add a Spring AI dependency to
+`pom.xml`; § 8 is what step 6 turns into tests.
+
+**Output:** "✅ AI ready", "— skipped (no AI port)", or gaps.
+
 ### Step 4: Messaging (depends on 2, conditional)
 
 Read `10-dominio.md`'s Events block. If it names external (Kafka) delivery for the
@@ -417,12 +449,12 @@ approved anyway, so consolidation gates the same thing for every path.
 
 **Output:** "✅ Messaging ready", "— skipped (no external delivery)", or gaps.
 
-### Step 4b: Jobs (depends on 1, 4, conditional)
+### Step 4b: Jobs (depends on 1, 3d, 4, conditional)
 
 Invoke `/jobs-architect UC-NNN` if `35-jobs.md` is missing and at least one holds:
 `25-mensageria.md` § 2 chose **Form B**, `00-caso-de-uso.md`'s trigger is a schedule, a
 recurring run, a batch or a background job, `28-cliente-http.md` § 10 asks for a reconciliation
-pass, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
+pass, `29-ia.md` § 9 asks for an ingestion or re-index job, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
 technology, coordination, execution guarantees, observability, schema requirements, declared
 dependencies, configuration, deferred).
 
@@ -433,12 +465,13 @@ add a scheduling dependency to `pom.xml`.
 
 **Output:** "✅ Jobs ready", "— skipped (no scheduled work)", or gaps.
 
-### Step 5: Persistence (depends on 1,2,3,3b,3c,4,4b)
+### Step 5: Persistence (depends on 1,2,3,3b,3c,3d,4,4b)
 
 If `20-persistencia.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
 every schema requirement list in the same pass — `30-rest.md` block 4 (the idempotency
 table among them), when step 3b ran `32-seguranca.md` § 7 (a credentials or API-key store),
 when step 3c ran `28-cliente-http.md` § 10 (a stored idempotency key, an unknown-outcome state),
+when step 3d ran `29-ia.md` § 9 (a vector store's table, its extensions and its index),
 when step 4 ran `25-mensageria.md` § 6 (the shared outbox table, the
 dedupe table), and when step 4b ran `35-jobs.md` § 3 and § 6 (the replica count its claim
 strategy must meet, the scheduling tables, the prune's bounded delete). If it exists: read, validate (seven blocks: schema, mapping, adapter and
@@ -465,12 +498,14 @@ has a § 4 row — a writer named in another approved case's Components table an
 
 **Output:** "✅ Cache ready", "— skipped (no freshness tolerance)", or gaps.
 
-### Step 6: Tests (depends on 1,2,3,3b,3c,4,5,5b)
+### Step 6: Tests (depends on 1,2,3,3b,3c,3d,4,5,5b)
 
 If `40-testes.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
 If it exists: read, validate (five blocks: pyramid, cases, fixtures, coverage, test dependencies).
 When step 3b ran, every case of `32-seguranca.md` § 10 has a test row — a missing one is a gap.
 When step 3c ran, every case of `28-cliente-http.md` § 9 has a test row — a missing one is a gap.
+When step 3d ran, every case of `29-ia.md` § 8 has a test row at the level it names — a missing
+one is a gap, and so is any row that calls a real model.
 When step 5b ran, every cached read of `22-cache.md` § 1 has three test rows — a second read
 not reaching the source, an eviction by every writer of § 4 that goes through the port, and
 two callers never sharing an entry when the key names the caller (`@.claude/rules/caching.md`
@@ -478,10 +513,10 @@ two callers never sharing an entry when the key names the caller (`@.claude/rule
 
 **Output:** "✅ Tests ready" or gaps.
 
-### Consolidation (after 1,2,3,5,6 ✅ — steps 3b, 3c, 4, 4b and 5b conditional)
+### Consolidation (after 1,2,3,5,6 ✅ — steps 3b, 3c, 3d, 4, 4b and 5b conditional)
 
 If all specs that apply exist and validate (security only when step 3b wasn't skipped,
-outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs only when step
+outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging only when step 4 wasn't, jobs only when step
 4b wasn't, cache only when step 5b wasn't):
 
 1. **Resolve divergences before consolidating.** The partials are written by different
@@ -503,6 +538,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
    | Outbox table, its columns, the claim query, and the values the columns encode (batch size, backoff, attempt ceiling, retention window, the prune's statement) | `20-persistencia.md` — the whole table is its territory. `25-mensageria.md` declares the **guarantee** those values have to deliver, never the columns; a § 6 row naming columns is reported as a divergence and the guarantee is what carries over |
    | Client, engine and pool, timeouts, the retrying layer and its policy, breaker and bulkhead, outbound authentication, the failure table of each remote operation | `28-cliente-http.md`. The outbound port, its domain types, the idempotency key field and the unknown-outcome state stay `10-dominio.md`'s; the column and the reconciliation schedule are persistence's and jobs's, as for every requirement |
    | Scheduling technology, a job's trigger and cadence (the relay's poll interval included), coordination across instances and the replica count, overlap and missed-run policy, on/off property, job metrics, the prune job | `35-jobs.md`. A claim strategy in `20-persistencia.md` that does not meet `35-jobs.md` § 3's replica count is not settled by precedence — it is a guarantee dropped by a shape decision: **stop and ask** |
+   | Provider and model of each AI port, its prompt resources and answer type, what each unusable answer becomes, the fields sent to the provider, the store and its embedding model, the timeout and retrying layer of each AI port | `29-ia.md`. The port, its "could not decide" value and the review state stay `10-dominio.md`'s; a timeout above the trigger's deadline, or a personal-data field sent in clear without a named receiver, is not settled by precedence: **stop and ask** |
    | Which reads are cached, each cache key, the cache provider, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md`. The freshness tolerance stays `00-caso-de-uso.md`'s; an expiry longer than it is not settled by precedence — it serves answers older than the business allowed: **stop and ask** |
    | Aggregate name, value object, port, event | `10-dominio.md` |
    | Exception class and `errorCode` | `10-dominio.md` |
@@ -547,6 +583,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      fact and not a missing block
    - The outbound HTTP block (`## 3.3 Outbound HTTP`) only when step 3c ran; `none` otherwise
    - The cache block (`## 3.4 Cache`) only when step 5b ran; `none` otherwise
+   - The AI block (`## 3.7 AI`) only when step 3d ran; `none` otherwise
    - `## Impact on approved use cases`: every row from the same section of each partial —
      "none" when all are empty
    - `## Design patterns`: every row from the same section of each partial, with the partial
@@ -568,7 +605,7 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      (lessons-learned-013 § 5)
    - **A partial that applies must carry its declared-dependency section, or consolidation
      stops.** `20-persistencia.md` § 6 always; `32-seguranca.md` § 8 whenever step 3b ran;
-     `28-cliente-http.md` § 8 whenever step 3c ran;
+     `28-cliente-http.md` § 8 whenever step 3c ran; `29-ia.md` § 10 whenever step 3d ran;
      `25-mensageria.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-testes.md` § 5 always. The
      value `none` is legitimate and common — most cases need no new dependency — but **absence
      is not `none`**: one says the design skill decided nothing was needed, the other says
@@ -580,13 +617,13 @@ outbound HTTP only when step 3c wasn't, messaging only when step 4 wasn't, jobs 
      every run passes, which is why the check belongs here as well, exactly like `Satisfied by`
      above
    - **A partial that needs a container must carry `## Compose services`, or consolidation
-     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran. `none` is
+     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran; `29-ia.md` whenever step 3d ran. `none` is
      valid (H2, no broker) and absence is not. Every row goes into the spec's
      `## Infrastructure` with the partial that decided it, shaped by
      `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
      this one's report, has nothing to add and nothing to name — the broker of issue #119
    - **A personal-data field crossing the process boundary in clear carries a recorded
-     decision, or consolidation stops.** `25-mensageria.md` § 8 and `30-rest.md` § 6 each list
+     decision, or consolidation stops.** `25-mensageria.md` § 8, `30-rest.md` § 6 and `29-ia.md` § 4 each list
      the fields of the payload and the response body that match
      `@.claude/rules/logging.md` § Masking candidates, with the form chosen. A `full value` row
      without a named receiver and a reason is not consolidated: the pipeline stops and asks, and

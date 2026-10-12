@@ -99,6 +99,9 @@ packages:
     # adapter by bean name; they compile into `app`, the composition root, like `app.http` —
     # decision 0144.
     app.cache: "app.cache"
+    # Outbound AI adapters implement a `domain.gateway` Gateway answered by a language model or a
+    # vector store; they compile into `app`, the composition root, like `app.http` — decision 0145.
+    app.ai: "app.ai"
     commons.logging: "commons.logging"
 
 # Naming convention for this blueprint (specific to onion, not universal — see
