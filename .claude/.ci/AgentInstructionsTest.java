@@ -27,7 +27,7 @@ public class AgentInstructionsTest {
     static int failures = 0;
     static final Path HOOK = Paths.get(".claude/hooks/ArchHook.jar").toAbsolutePath();
     static final String DOMAIN_PREFIXES = "- `org.springframework..`\n- `jakarta.persistence..`\n"
-            + "- `jakarta.validation..`\n- `com.fasterxml.jackson..`\n- `tools.jackson..`\n";
+            + "- `jakarta.validation..`\n- `com.fasterxml.jackson..`\n- `tools.jackson..`\n- `graphql..`\n";
 
     public static void main(String[] args) throws Exception {
         expect(doctor(complete()), "Agent instructions . ✅ 4 file(s) · 2 module(s) match blueprint hexagonal",
@@ -110,7 +110,8 @@ public class AgentInstructionsTest {
                 + "\nFull rule: `.claude/rules/architecture-ddd.md`\n");
         f.put("domain/CLAUDE.md", "@AGENTS.md\n");
         f.put("application/AGENTS.md", "# `application` module\n\n- `jakarta.persistence..`\n"
-                + "- `org.springframework.web..`\n- `org.springframework.ai..`\n");
+                + "- `org.springframework.web..`\n- `org.springframework.ai..`\n"
+                + "- `org.springframework.graphql..`\n- `graphql..`\n");
         f.put("application/CLAUDE.md", "@AGENTS.md\n");
         return f;
     }

@@ -102,6 +102,9 @@ packages:
     # store, like the HTTP clients — but in their own top-level package, so the HTTP norm does not
     # load on them nor the AI norm on the clients. A slice depends on the port there — decision 0145.
     ai.ai: "ai"
+    # GraphQL wiring — limits, the exception resolver — shared by every slice, like the scheduling and
+    # cache wiring; a slice's own GraphQL controller lives in the slice, next to its endpoint — decision 0146.
+    bootstrap.graphql: "config.graphql"
 
 # Naming convention for this blueprint (specific to vertical-slice, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and

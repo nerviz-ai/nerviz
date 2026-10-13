@@ -1,0 +1,124 @@
+/*
+ * EXEMPLAR — the project-wide GraphQL setup, written once, by the first use case whose
+ * `31-graphql.md` § 6 decided it. Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/api-graphql.md` (§ Demand limits, § Batching, § Schema)
+ *
+ * WHAT THIS EXEMPLAR SHOWS — every limit Spring for GraphQL and graphql-java leave OFF:
+ *  - `GraphQlLimits` holds every number § 6 decided, with no default in Java: a value missing
+ *    from `application.yml` fails the startup by name instead of running unlimited;
+ *  - depth: `MaxQueryDepthInstrumentation` rejects a query nested deeper than the ceiling before a
+ *    single field runs;
+ *  - complexity: `MaxQueryComplexityInstrumentation`, with a calculator that multiplies the children
+ *    of a field DECLARING `first` by the page it asks for (or the default page when it asks for
+ *    none) — `myOrders(first: 100) { … }` costs a hundred times its children. Every other field
+ *    costs one plus its children: multiplying a plain list by the default page priced a two-order
+ *    page at 344421 when this exemplar was run. An alias repeating a field costs it again, which is
+ *    what bounds the alias attack;
+ *  - time: `TimeoutWebGraphQlInterceptor` bounds the whole request. Without it a slow port holds a
+ *    servlet thread for as long as the port takes;
+ *  - batch size: every `@BatchMapping` and every registered batch loader calls its port with at
+ *    most `maxBatchSize` keys — java-dataloader's default is `-1`, no limit, and an `IN` list with
+ *    ten thousand ids is the query the batch was bought to avoid;
+ *  - schema inspection fails the startup: Spring Boot logs the report at INFO and starts anyway,
+ *    so a schema field no controller and no record component answers returns `null` in production.
+ *    The customizer replaces that logger with a check that throws, naming each unmapped field.
+ *
+ * Introspection and GraphiQL are properties, not beans — `application-graphql.yml.example`. CORS
+ * is the same file's `spring.graphql.cors.*`: the endpoint is POST only, so `allowed-methods` names
+ * POST, never `*`.
+ *
+ * OTHER ARCHITECTURES: the `.graphql` entry of the active blueprint's `packages.map` (vertical-slice:
+ * `config.graphql`).
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- GraphQlLimits.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+/** `app.graphql.*` — the demand limits `31-graphql.md` § 6 decided. Every one is required. */
+@Validated
+@ConfigurationProperties("app.graphql")
+public record GraphQlLimits(
+        @Min(1) int maxDepth,
+        @Min(1) int maxComplexity,
+        @NotNull Duration requestTimeout,
+        @Min(1) int defaultPageSize,
+        @Min(1) int maxPageSize,
+        @Min(1) int maxBatchSize) {}
+
+// --- GraphQlConfig.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import graphql.analysis.FieldComplexityCalculator;
+import graphql.analysis.MaxQueryComplexityInstrumentation;
+import graphql.analysis.MaxQueryDepthInstrumentation;
+import java.util.stream.Collectors;
+import org.dataloader.DataLoaderOptions;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.graphql.autoconfigure.GraphQlSourceBuilderCustomizer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.graphql.execution.BatchLoaderRegistry;
+import org.springframework.graphql.execution.DefaultBatchLoaderRegistry;
+import org.springframework.graphql.execution.SchemaReport;
+import org.springframework.graphql.server.TimeoutWebGraphQlInterceptor;
+
+/** The limits every operation runs under. One per project. */
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(GraphQlLimits.class)
+class GraphQlConfig {
+
+    private static final String FIRST = "first";
+
+    @Bean
+    MaxQueryDepthInstrumentation maxQueryDepth(GraphQlLimits properties) {
+        return new MaxQueryDepthInstrumentation(properties.maxDepth());
+    }
+
+    @Bean
+    MaxQueryComplexityInstrumentation maxQueryComplexity(GraphQlLimits properties) {
+        return new MaxQueryComplexityInstrumentation(properties.maxComplexity(), firstMultipliesChildren(properties));
+    }
+
+    @Bean
+    TimeoutWebGraphQlInterceptor requestTimeout(GraphQlLimits properties) {
+        return new TimeoutWebGraphQlInterceptor(properties.requestTimeout());
+    }
+
+    @Bean
+    BatchLoaderRegistry batchLoaderRegistry(GraphQlLimits properties) {
+        return new DefaultBatchLoaderRegistry(
+                () -> DataLoaderOptions.newOptions().setMaxBatchSize(properties.maxBatchSize()).build());
+    }
+
+    @Bean
+    GraphQlSourceBuilderCustomizer failOnUnmappedSchema() {
+        return builder -> builder.inspectSchemaMappings(GraphQlConfig::failWhenIncomplete);
+    }
+
+    private static void failWhenIncomplete(SchemaReport report) {
+        if (!report.unmappedFields().isEmpty() || !report.skippedTypes().isEmpty()) {
+            throw new IllegalStateException("GraphQL schema has fields nothing answers: "
+                    + report.unmappedFields().stream().map(Object::toString).collect(Collectors.joining(", "))
+                    + " — skipped types: " + report.skippedTypes());
+        }
+    }
+
+    private static FieldComplexityCalculator firstMultipliesChildren(GraphQlLimits properties) {
+        return (environment, childComplexity) -> {
+            if (environment.getFieldDefinition().getArgument(FIRST) == null) {
+                return 1 + childComplexity;
+            }
+            Object first = environment.getArguments().get(FIRST);
+            int pageSize = first instanceof Integer requested ? requested : properties.defaultPageSize();
+            return 1 + childComplexity * Math.max(pageSize, 1);
+        };
+    }
+}

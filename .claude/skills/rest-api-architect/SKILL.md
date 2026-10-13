@@ -77,7 +77,8 @@ The split is by **moment and by artifact**:
 |---|---|---|
 | `use-case-design` | Before the domain exists | `00-caso-de-uso.md` — boundary and canonical names |
 | `domain-modeling` | After the parent spec | `10-dominio.md` — aggregate, invariants, ports |
-| **this skill** | After the domain partial | `30-rest.md` — including the schema requirements transport creates |
+| **this skill** | After the domain partial, unless the `Trigger` names `inbound GraphQL adapter` alone | `30-rest.md` — including the schema requirements transport creates |
+| `graphql-api-architect` | After this one, when the `Trigger` names a GraphQL adapter | `31-graphql.md` — the GraphQL shape of the same input ports |
 | `persistence-architect` | After this one | `20-persistencia.md` — schema, reading this partial's schema requirements |
 | `test-architect` | After all of them | `40-testes.md` — pyramid, slices, data |
 

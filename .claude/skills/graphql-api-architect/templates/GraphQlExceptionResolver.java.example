@@ -1,0 +1,114 @@
+/*
+ * EXEMPLAR — the one resolver that turns an exception raised inside a field into a GraphQL error.
+ * The GraphQL counterpart of REST's `ApiExceptionHandler`. Form reference for the executor agent;
+ * not a file to copy verbatim.
+ * Rules: `.claude/rules/api-graphql.md` § Errors
+ *        `.claude/rules/error-handling.md` (§ Taxonomy, § Integration families)
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - each family of the taxonomy has one classification and one `errorCode` in `extensions`, the
+ *    field a client branches on. `message` is the domain's own sentence; nothing else of the
+ *    exception reaches the body;
+ *  - errors as data come first: `BusinessRuleViolationException`, `ConflictException` and a
+ *    mutation's `NotFoundException` are caught by the mutation and returned in `userErrors`
+ *    (`GraphQlController.java.example`). What arrives here is what the client cannot correct in
+ *    the same request, or a query's not-found;
+ *  - bean validation on an `@Argument @Valid` input is `BAD_REQUEST` with one violation per field;
+ *  - the three integration families are `INTERNAL_ERROR` with the dependency's `errorCode` —
+ *    `retryable` true only for `DependencyUnavailableException`, with the wait the dependency
+ *    announced when it announced one;
+ *  - a `GraphqlErrorException` an adapter raised on purpose (the page-size check) keeps its own
+ *    classification and extensions;
+ *  - EVERYTHING ELSE RETURNS `null`. Spring Security's `AccessDeniedException` and
+ *    `AuthenticationException` reach the `SecurityDataFetcherExceptionResolver` Spring Boot
+ *    registers (`FORBIDDEN`, `UNAUTHORIZED`), and an unknown exception reaches Spring for GraphQL's
+ *    own fallback: `INTERNAL_ERROR` with the execution id as its only text, logged at ERROR with the
+ *    stack trace. A catch-all here would turn every access denial into an internal error and is the
+ *    one way this class can leak a message;
+ *  - parse and validation errors of the document itself (an unknown field, a wrong type, a query
+ *    deeper than the limit) never reach a resolver: graphql-java rejects them before any field
+ *    runs. Their shape is the library's, and the HTTP status is 400 only for a client that asked for
+ *    `application/graphql-response+json` — every other failure is HTTP 200 with `errors`.
+ *
+ * OTHER ARCHITECTURES: the `.graphql` entry of the active blueprint's `packages.map`
+ * (vertical-slice: `config.graphql`).
+ */
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.domain.exception.BusinessRuleViolationException;
+import com.exemplo.minhaapi.domain.exception.ConflictException;
+import com.exemplo.minhaapi.domain.exception.DependencyUnavailableException;
+import com.exemplo.minhaapi.domain.exception.DomainException;
+import com.exemplo.minhaapi.domain.exception.IntegrationException;
+import com.exemplo.minhaapi.domain.exception.NotFoundException;
+import com.exemplo.minhaapi.domain.exception.ValidationException;
+import graphql.GraphQLError;
+import graphql.GraphqlErrorBuilder;
+import graphql.GraphqlErrorException;
+import graphql.schema.DataFetchingEnvironment;
+import jakarta.validation.ConstraintViolationException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.graphql.execution.DataFetcherExceptionResolverAdapter;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.stereotype.Component;
+
+/** Exception family to GraphQL error. Returns `null` for anything it does not own. */
+@Component
+class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
+
+    private static final String ERROR_CODE = "errorCode";
+
+    @Override
+    protected GraphQLError resolveToSingleError(Throwable ex, DataFetchingEnvironment env) {
+        return switch (ex) {
+            case NotFoundException e -> domain(e, ErrorType.NOT_FOUND, env);
+            case ValidationException e -> domain(e, ErrorType.BAD_REQUEST, env);
+            case BusinessRuleViolationException e -> domain(e, ErrorType.BAD_REQUEST, env);
+            case ConflictException e -> domain(e, ErrorType.BAD_REQUEST, env);
+            case IntegrationException e -> integration(e, env);
+            case ConstraintViolationException e -> violations(e, env);
+            case GraphqlErrorException e -> GraphqlErrorBuilder.newError(env)
+                    .message(e.getMessage())
+                    .errorType(e.getErrorType())
+                    .extensions(e.getExtensions())
+                    .build();
+            default -> null;
+        };
+    }
+
+    private static GraphQLError domain(DomainException e, ErrorType type, DataFetchingEnvironment env) {
+        return GraphqlErrorBuilder.newError(env)
+                .message(e.getMessage())
+                .errorType(type)
+                .extensions(Map.of(ERROR_CODE, e.errorCode()))
+                .build();
+    }
+
+    private static GraphQLError integration(IntegrationException e, DataFetchingEnvironment env) {
+        Map<String, Object> extensions = new LinkedHashMap<>();
+        extensions.put(ERROR_CODE, e.errorCode());
+        extensions.put("retryable", e instanceof DependencyUnavailableException);
+        if (e instanceof DependencyUnavailableException unavailable) {
+            unavailable.retryAfter().ifPresent(wait -> extensions.put("retryAfterSeconds", wait.toSeconds()));
+        }
+        return GraphqlErrorBuilder.newError(env)
+                .message(e.dependency() + " did not answer")
+                .errorType(ErrorType.INTERNAL_ERROR)
+                .extensions(extensions)
+                .build();
+    }
+
+    private static GraphQLError violations(ConstraintViolationException e, DataFetchingEnvironment env) {
+        List<Map<String, String>> fields = e.getConstraintViolations().stream()
+                .map(violation -> Map.of("field", violation.getPropertyPath().toString(),
+                        "message", violation.getMessage()))
+                .toList();
+        return GraphqlErrorBuilder.newError(env)
+                .message("Invalid input")
+                .errorType(ErrorType.BAD_REQUEST)
+                .extensions(Map.of(ERROR_CODE, "INVALID_INPUT", "violations", fields))
+                .build();
+    }
+}

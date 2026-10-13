@@ -93,6 +93,9 @@ packages:
     # Outbound AI adapters, same rank as `adapter.http` — decision 0145. A real module gets its own
     # `<module>.internal.adapter.ai` later.
     adapter.ai: "shared.internal.adapter.ai"
+    # Inbound GraphQL adapter, same rank as `adapter.rest` — decision 0146. A real module gets its
+    # own `<module>.internal.adapter.graphql` later.
+    adapter.graphql: "shared.internal.adapter.graphql"
     bootstrap.config: "config"
     # Cross-cutting logging/masking annotations + AOP aspects (rules/logging.md) — not
     # a new bounded-context module. Placed under `shared` itself, one level OUT of

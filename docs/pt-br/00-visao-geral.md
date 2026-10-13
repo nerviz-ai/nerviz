@@ -32,6 +32,7 @@ flowchart TB
         SK_DOM["skill: domain-modeling"]:::skill
         SK_PERS["skill: persistence-architect"]:::skill
         SK_REST["skill: rest-api-architect"]:::skill
+        SK_GQL["skill: graphql-api-architect"]:::skill
         SK_SEC["skill: security-architect"]:::skill
         SK_HTTP["skill: http-client-architect"]:::skill
         SK_TEST["skill: test-architect"]:::skill
@@ -79,7 +80,7 @@ flowchart TB
     SK_BOOT -->|lê e copia para o projeto gerado| RULES
     SK_BOOT -->|instala, com guard + audit ligados| SETTINGS
     SK_BOOT -->|copia verbatim| HOOK
-    SK_BOOT -->|copia| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
+    SK_BOOT -->|copia| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
     SK_BOOT -.->|Skill tool, step 7.5| SK_TRANSPORT
     SK_BOOT -.->|Skill tool, step 8.4| SK_SONAR
     SK_ADOPT -.->|Skill tool, quando o build file não tem scanner| SK_SONAR
@@ -90,7 +91,7 @@ flowchart TB
     SK_BOOT -->|copia| AG_DEV & AG_ARCH & AG_LOG & AG_COMPOSE
     SK_DESIGNER -.->|propõe e escreve, após aprovação| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent no SubagentStart: o catálogo, só no projeto gerado| AG_DEV
-    SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
+    SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
     SK_NF -->|Agent tool, pre-flight, se commons vazio| AG_LOG
     SK_NF -->|"Agent tool, depois do grupo tests, para cada linha materialize"| AG_COMPOSE
     AG_COMPOSE -->|Skill tool, admitida porque quem chama é um agent com classe| SK_DOCKER
@@ -101,6 +102,8 @@ flowchart TB
     SK_UC --> SK_DOM
     SK_DOM --> SK_PERS
     SK_DOM --> SK_REST
+    SK_DOM -.->|se o Trigger nomeia um adapter GraphQL| SK_GQL
+    SK_REST -.-> SK_GQL
     SK_REST -.->|se Access pede algo que a filter chain ainda não dá| SK_SEC
     SK_DOM -.->|se o port é do tipo external HTTP| SK_HTTP
     SK_DOM -.->|se o port é do tipo LLM ou vector store| SK_AI
@@ -124,6 +127,9 @@ flowchart TB
     SK_SEC --> SK_TEST
     SK_HTTP --> SK_TEST
     SK_REST --> SK_TEST
+    SK_GQL --> SK_PERS
+    SK_GQL -.-> SK_SEC
+    SK_GQL --> SK_TEST
     SK_NF -->|Agent tool, opcional, após consolidar| AG_DEV
     AG_DEV -->|escreve| SRC["src/** do projeto gerado"]:::out
     AG_INITZR -.->|Skill tool, se build verde| SK_GIT
@@ -139,7 +145,7 @@ flowchart TB
     HOOK -->|bloqueia ou avisa sobre| SRC
     HOOK -->|audit: escreve, no projeto gerado| TRAIL[".claude/audit-usage/*.md + history.jsonl + nodes.jsonl"]:::out
 
-    RULES -.->|citadas por path, nunca copiadas| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE & SK_AI
+    RULES -.->|citadas por path, nunca copiadas| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE & SK_AI
     BLUEPRINTS -.->|citado por path| SK_BOOT
 
     classDef hook fill:#5c1a1a,stroke:#ff6b6b,color:#fff,stroke-width:2px

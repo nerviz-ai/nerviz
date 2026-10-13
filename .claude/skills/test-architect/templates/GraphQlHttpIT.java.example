@@ -1,0 +1,159 @@
+/*
+ * EXEMPLAR — inbound GraphQL adapter test over HTTP, through the real server and the real filter
+ * chain. Shape of the setup in `graphql-api-architect/templates/GraphQlConfig.java.example` and
+ * `application-graphql.yml.example`.
+ *
+ * LEVEL. Full context on a random port, `HttpGraphQlTester` sending real POSTs — the only level
+ * where the filter chain, method security, the instrumentations and the HTTP status all run. The
+ * input ports are doubles: what is proven here is the transport, not the use case.
+ *
+ * WHAT THIS LEVEL VERIFIES, one case per claim of `31-graphql.md` § 6 and § 7:
+ *   anonymous request          — 401 from the chain, before GraphQL parses anything
+ *   sensitive field, no role   — that field `null` with FORBIDDEN, the rest of the answer intact
+ *   sensitive field, with role — the value
+ *   query deeper than the max  — refused before any field runs: no port is called
+ *   introspection              — refused outside the `dev` profile
+ * Every case asserts the error's classification, never only that "there are errors": HTTP is 200
+ * for every one of them but the first.
+ *
+ * CREDENTIALS: the project's real chain (`JwtResourceServerConfig`), with the `JwtDecoder`
+ * replaced so a fixed bearer string decodes to a fixed token. The chain, the claims-to-authorities
+ * converter and method security are the production ones.
+ *
+ * CONTEXT: the project's full context, like every other `IT` — with the
+ * `TestcontainersConfiguration` import when the project has a database. The depth limit is lowered
+ * for this class only, so a four-level query exceeds it; every other limit is the project's.
+ */
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import com.exemplo.minhaapi.application.port.in.customer.CustomerView;
+import com.exemplo.minhaapi.application.port.in.customer.CustomersQuery;
+import com.exemplo.minhaapi.application.port.in.order.CancelOrderUseCase;
+import com.exemplo.minhaapi.application.port.in.order.FindOrderQuery;
+import com.exemplo.minhaapi.application.port.in.order.ListMyOrdersQuery;
+import com.exemplo.minhaapi.application.port.in.order.OrderLinesQuery;
+import com.exemplo.minhaapi.application.port.in.order.OrderView;
+import com.exemplo.minhaapi.domain.model.order.OrderStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.graphql.test.tester.HttpGraphQlTester;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.reactive.server.WebTestClient;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.graphql.max-depth=3")
+@AutoConfigureHttpGraphQlTester
+class GraphQlHttpIT {
+
+    private static final UUID ORDER_ID = UUID.fromString("6f1c2b3a-0d4e-4f5a-8b9c-1d2e3f4a5b6c");
+    private static final UUID CUSTOMER_ID = UUID.fromString("0b8f6a2e-3c1d-4e5f-9a7b-2c4d6e8f0a1b");
+    private static final String CUSTOMER_TOKEN = "customer-token";
+    private static final String SUPPORT_TOKEN = "support-token";
+    private static final String ORDER_WITH_TAX_ID =
+            "{ order(id: \"" + ORDER_ID + "\") { id customer { name taxId } } }";
+
+    @Autowired private HttpGraphQlTester graphQlTester;
+    @Autowired private WebTestClient webTestClient;
+
+    @MockitoBean private JwtDecoder jwtDecoder;
+    @MockitoBean private FindOrderQuery findOrder;
+    @MockitoBean private ListMyOrdersQuery listMyOrders;
+    @MockitoBean private OrderLinesQuery orderLines;
+    @MockitoBean private CustomersQuery customers;
+    @MockitoBean private CancelOrderUseCase cancelOrder;
+
+    @BeforeEach
+    void tokensAndData() {
+        given(jwtDecoder.decode(CUSTOMER_TOKEN)).willReturn(token(CUSTOMER_TOKEN, List.of()));
+        given(jwtDecoder.decode(SUPPORT_TOKEN)).willReturn(token(SUPPORT_TOKEN, List.of("SUPPORT")));
+        given(findOrder.find(any(), any())).willReturn(new OrderView(ORDER_ID, OrderStatus.PLACED,
+                Instant.parse("2026-10-13T12:00:00Z"), new BigDecimal("129.90"), "BRL", CUSTOMER_ID));
+        given(customers.byIds(anySet())).willReturn(Map.of(CUSTOMER_ID,
+                new CustomerView(CUSTOMER_ID, "Ana", "123.456.789-09")));
+    }
+
+    @Test
+    @DisplayName("no credential is 401 from the chain, with the Bearer challenge")
+    void anonymousIsRejectedByTheChain() {
+        webTestClient.post().uri("/graphql")
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .bodyValue(Map.of("query", ORDER_WITH_TAX_ID))
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
+                .expectHeader().valueMatches(HttpHeaders.WWW_AUTHENTICATE, "Bearer\\b.*");
+    }
+
+    @Test
+    @DisplayName("a customer reading taxId gets that field null with FORBIDDEN, and the order intact")
+    void sensitiveFieldDeniedAlone() {
+        as(CUSTOMER_TOKEN).document(ORDER_WITH_TAX_ID)
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).singleElement().satisfies(error -> {
+                    assertThat(error.getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+                    assertThat(error.getPath()).isEqualTo("order.customer.taxId");
+                }))
+                .path("order.customer.name").entity(String.class).isEqualTo("Ana")
+                .path("order.customer.taxId").valueIsNull();
+    }
+
+    @Test
+    @DisplayName("support reads taxId")
+    void sensitiveFieldAllowedWithRole() {
+        as(SUPPORT_TOKEN).document(ORDER_WITH_TAX_ID)
+                .execute()
+                .path("order.customer.taxId").entity(String.class).isEqualTo("123.456.789-09");
+    }
+
+    @Test
+    @DisplayName("a query nested deeper than app.graphql.max-depth is refused before any field runs")
+    void deepQueryIsRefused() {
+        as(CUSTOMER_TOKEN).document("{ order(id: \"" + ORDER_ID + "\") { lines { unitPrice { amount } } } }")
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).singleElement()
+                        .satisfies(error -> assertThat(error.getMessage()).containsIgnoringCase("depth")));
+        verify(findOrder, never()).find(any(), any());
+    }
+
+    @Test
+    @DisplayName("introspection is refused outside the dev profile")
+    void introspectionIsOff() {
+        as(CUSTOMER_TOKEN).document("{ __schema { queryType { name } } }")
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
+
+    private HttpGraphQlTester as(String bearer) {
+        return graphQlTester.mutate().header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer).build();
+    }
+
+    private static Jwt token(String value, List<String> roles) {
+        return Jwt.withTokenValue(value)
+                .header("alg", "none")
+                .subject(CUSTOMER_ID.toString())
+                .claim("roles", roles)
+                .build();
+    }
+}

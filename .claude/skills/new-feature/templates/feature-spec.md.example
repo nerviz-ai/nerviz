@@ -127,6 +127,18 @@ Detail: `30-rest.md` § 1-5.
 
 ---
 
+## 4.1 GraphQL — conditional, implement right after 4
+
+none — `00-caso-de-uso.md`'s `Trigger` names no GraphQL adapter. When present: one line per root
+field (kind, input port, return), the connections with their ceilings, the batch loads and the batch
+ports they asked for, where each failure lands (`userErrors` or top-level), the personal-data
+fields of the output types, the project setup NEW or inherited, and the dependencies of
+`31-graphql.md` § 11 — detail in `31-graphql.md`. When the `Trigger` names GraphQL alone, block 4
+reads `none — GraphQL only`. Implemented by the executor's Block G, right after Block 3 and before
+Block S.
+
+---
+
 ## 4.5 Security — conditional, implement right after 4
 
 Detail: `32-seguranca.md` § 1-10. When step 3b was skipped: `none` and the skip row — e.g.

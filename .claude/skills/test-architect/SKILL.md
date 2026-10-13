@@ -101,7 +101,7 @@ what's left to cover outside of transport.
 ## Procedure — design mode
 
 1. **Read the partials.** `00-caso-de-uso.md` and `10-dominio.md` are mandatory;
-   without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `28-cliente-http.md`,
+   without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `31-graphql.md`, `28-cliente-http.md`,
    `29-ia.md`, `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
    the HTTP contract's case table, and each job of `35-jobs.md` § 1 — a job is tested through
    the inbound port it calls, never by waiting for a scheduler, and the test profile's
@@ -117,6 +117,20 @@ what's left to cover outside of transport.
    build does not declare them yet — the ones the Initializr's `security` and
    `oauth2-resource-server` ids add for the project's Boot version; without them `jwt()` and
    `@WithMockUser` have no MockMvc integration.
+
+   **`31-graphql.md`, when it exists, fixes cases this partial must test — all of § 10, at the level
+   each row names** (`@.claude/rules/api-graphql.md` § Tests). The mapping, the errors, the page
+   ceiling, the cursor round trip and **one batch port call per request with every parent key**
+   in a `@GraphQlTest` slice with the input ports mocked and `@WithMockUser` — the slice has no
+   filter chain and no method security, so no access case goes there
+   (`templates/GraphQlControllerTest.java.example`). Access, the demand limits and introspection
+   over HTTP through the real server and chain, with `HttpGraphQlTester` and the `JwtDecoder`
+   replaced so fixed bearer strings decode to fixed tokens; a limit lowered for that class only when
+   the schema cannot reach it otherwise (`templates/GraphQlHttpIT.java.example`). The schema
+   compatibility test once per project, its snapshot at `src/test/graphql/` — outside the test
+   classpath (`templates/GraphQlSchemaCompatibilityTest.java.example`). Every case asserts the
+   error's classification, not only that there are errors. `spring-boot-starter-graphql-test` goes
+   into § 5 when the build does not declare it — managed by the Boot parent.
 
    **`28-cliente-http.md`, when it exists, fixes cases this partial must test — all of § 9.**
    Every outbound adapter is tested through its port against a real socket, never
@@ -272,7 +286,7 @@ question nobody asked.
 | Block | Fixes | Shape exemplar |
 |---|---|---|
 | Distribution by level | Each behavior, the level it's tested at, and why | `DomainTest.java.example` |
-| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ia.md` exists) · `PersistenceIT.java.example` · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
+| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ia.md` exists) · `PersistenceIT.java.example` · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
 | Data and doubles | Factories, meaningful fields, substituted ports, clock | `TestFixtures.java.example` |
 | Coverage and gaps | Invariants with no test, and what's deliberately left uncovered | `@.claude/rules/testing.md` § Coverage |
 | Test dependencies | Test-scoped libraries the build doesn't declare yet — the executor's only license to add them | `@.claude/rules/testing.md` § Asynchronous effects |
@@ -302,7 +316,7 @@ bypasses as an executor.
 
 **Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md`
 (mandatory in design mode — stops without the second), `20-persistencia.md`,
-`30-rest.md`, `32-seguranca.md`, `28-cliente-http.md`, `29-ia.md`, `35-jobs.md` and `22-cache.md` when they
+`30-rest.md`, `31-graphql.md`, `32-seguranca.md`, `28-cliente-http.md`, `29-ia.md`, `35-jobs.md` and `22-cache.md` when they
 exist, `@.claude/rules/ai.md` § Tests when `29-ia.md` does, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
 when `22-cache.md` does, `@.claude/rules/authorization.md` § Tests
 when `32-seguranca.md` does, `@.claude/rules/http-client.md` § Tests when `28-cliente-http.md` does,

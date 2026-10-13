@@ -67,6 +67,11 @@ both directions. See § Design patterns.
   `logging.md` stops at the log line. The design already decided what crosses and in what form;
   this agent implements that and reports a field crossing in clear that no line authorizes
 - `.claude/rules/api-rest.md`, `.claude/rules/observability.md` — Block 3
+- `.claude/rules/api-graphql.md`, `.claude/rules/authorization.md` § Boundary — Block G, only when
+  `31-graphql.md` exists: resolvers call input ports only, adapter records named as the schema
+  types, every child field with I/O batched, a ceiling on every page, errors as data on mutations,
+  a resolver that returns nothing for what it does not own, the demand limits on, introspection
+  and GraphiQL off outside development
 - `.claude/rules/authorization.md` — Block S, only when `32-seguranca.md` exists: deny by
   default, no security type in the domain or application, ownership decided in the use case,
   method-security denials kept out of the 500 fallback
@@ -111,6 +116,10 @@ from the destination map surveyed in the guardrail, never from a path written he
   aggregate, never the bare `[persistence]/` root — `.claude/rules/persistence.md`
   § Boundary
 - `[rest]/**` — controller, DTOs, mapper, exception handler
+- `[graphql]/**` — GraphQL controllers, the adapter records and mappers, cursor conversion,
+  `GraphQlLimits`, `GraphQlConfig`, the exception resolver — Block G only, when the spec carries the
+  GraphQL block; the schema files go to `src/main/resources/graphql/`, the schema snapshot to
+  `src/test/graphql/`
 - `[config]/**` (or `[rest]/security/**` where the blueprint has no configuration package) —
   filter chain, mechanism wiring, security handlers, role catalog — Block S only, when the spec
   carries the security block
@@ -324,7 +333,7 @@ reference, never invoked as a separate turn. This agent stays the single writer 
 (invariant 2), exactly as when it reads a `templates/*.example` exemplar from any of the
 design skills.
 
-**The spec decides; this agent implements.** Before Block 1, and again before Block H, Block A, Block 3,
+**The spec decides; this agent implements.** Before Block 1, and again before Block H, Block A, Block 3, Block G,
 Block M, Block J and Block C, read the spec's `## Design patterns` rows for the layer that block
 implements. Each row names the pattern, the force that justified it, and the classes it
 creates — those classes are already in the block's components. Shape them after the row's
@@ -353,14 +362,15 @@ that `subagent_context` lists before Block 1.
 
 ---
 
-## Procedure — 4 fixed blocks + 6 conditional
+## Procedure — 4 fixed blocks + 7 conditional
 
-Order: domain (1-7) → persistence (8-12) → REST (13-15) → security (S1-S3, only when the spec
+Order: domain (1-7) → persistence (8-12) → REST (13-15) → GraphQL (G1-G3, only when the spec
+carries the GraphQL block) → security (S1-S3, only when the spec
 carries the security block) → messaging (M1-M4, only when the
 spec carries the messaging block) → jobs (J1-J3, only when it carries the jobs block) → cache (C1-C3, only when it carries the
 cache block) → tests (16-19). Block H (H1-H3) runs right after Block 2 when the spec carries the
 outbound HTTP block, and Block A (A1-A3) right after it when the spec carries the AI block. **Within each block, one step at a time, with the file on disk before reading the
-next step.** Blocks H, A, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
+next step.** Blocks H, A, G, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
 not they run; a spec without any of them skips straight from Block 3 to Block 4, same as it always
 did.
 
@@ -387,7 +397,7 @@ later turn: one run reached a 427,889-token context and 531,362 billable tokens 
 | Group | Blocks | Ends with |
 |---|---|---|
 | `domain` | 1, 2 | ticking steps 1–12 |
-| `adapters` | H, 3, S, M, J, C — those the spec carries | ticking steps 13–15 |
+| `adapters` | H, A, 3, G, S, M, J, C — those the spec carries | ticking steps 13–15 |
 | `tests` | 4 | Block 4's *Close the spec* — steps 16–19, then the `status:` line |
 
 - **Run only the group named.** Earlier blocks are on disk: § Resume's survey finds them, and
@@ -597,7 +607,9 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [ai]>` in mult
 
 ### Block 3: REST (steps 13-15)
 
-Read § 4 of spec.md, then the partial it cites for the step at hand. Generates:
+§ 4 of spec.md reads `none — GraphQL only` → skip to Block G, and steps 13-15 are ticked `n/a —
+GraphQL only` at the end of the group. Otherwise read § 4 of spec.md, then the partial it cites for
+the step at hand. Generates:
 - `[Resource]Controller.java` — `@RestController`, `@PostMapping`, `@GetMapping`, `@PatchMapping`
 - Request DTOs — `record` with `@Valid` + `@NotBlank` etc
 - Response DTO — `record`
@@ -642,6 +654,57 @@ Compilation: `./mvnw -q -pl <rest-adapter-module> test-compile` in multi-module,
 - Exception handler: 5 error shapes (422 validation, 404, 409, 400, 500+traceId)
 - Interceptor: Idempotency-Key + If-Match
 - Files: 5 classes, 0 errors
+```
+
+### Block G: GraphQL (steps G1-G3, conditional)
+
+**Runs only when the spec carries the GraphQL block** — `grep -m1 -E '^## [0-9.]+ GraphQL' <spec>`,
+and the block is not `none`. No match, or `none` → skip to Block S. Read the GraphQL block of
+spec.md, then `31-graphql.md`, then `.claude/rules/api-graphql.md`. It runs right after Block 3
+because its resolvers call the same input ports the REST controllers call, and right before
+Block S because the security annotations go on both. The exemplars are in
+`.claude/skills/graphql-api-architect/templates/`: `schema.graphqls.example`,
+`GraphQlController.java.example`, `GraphQlConfig.java.example`,
+`GraphQlExceptionResolver.java.example`, `application-graphql.yml.example`.
+
+- **G1 · Shared setup** — when § 6 of `31-graphql.md` is NEW: in `[graphql]`, `GraphQlLimits`,
+  `GraphQlConfig` (depth, complexity with only `first`-declaring fields multiplying, timeout, the
+  batch registry's max size, the schema inspection that fails the startup) and
+  `GraphQlExceptionResolver` (the families of § 7, `null` for the rest — never a catch-all); the
+  properties of § 12 in `application.yml`; the dependencies of § 11 in `pom.xml`, version empty.
+  Inherited → nothing here but a new property § 12 adds
+- **G2 · Schema and resolvers** — the types of § 2 in `src/main/resources/graphql/<aggregate>.graphqls`,
+  extending an existing type additively, never redeclaring it. In `[graphql]`: one record per
+  schema type, named as the type; the mapper from the port's read model; the controller with one
+  method per root field of § 1, calling only input ports; every child field of § 5 as a
+  `@BatchMapping` over its batch port, answering every parent; every connection of § 4 through
+  `ScrollSubrange` and `Window`, the page checked against § 6's ceiling; every mutation catching
+  exactly the families § 7 lands in `userErrors`. Access annotations are Block S's
+- **G3 · Snapshot** — `src/test/graphql/schema.snapshot.graphqls` refreshed from the schema the
+  application serves: the schema test of Block 4 writes it to `target/graphql/` and fails until it
+  is copied. Never under `src/test/resources/`
+
+Rules: `.claude/rules/api-graphql.md`, `.claude/rules/error-handling.md`,
+`.claude/rules/architecture-ddd.md` § Adapters, `.claude/rules/personal-data.md` § In transit,
+`.claude/rules/logging.md`.
+
+Validation, each item checkable:
+
+- the greps of `.claude/rules/api-graphql.md` § How to verify return what that section says;
+- no class outside `[graphql]` imports `graphql.` or `org.springframework.graphql.`, and no
+  controller method calls anything but an input port;
+- every schema list that grows is a `Connection`, every child field of § 5 has a `@BatchMapping`,
+  and the context starts — the schema inspection fails it on a field nothing answers.
+
+Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [graphql]>` in multi-module) ✅
+
+**Line in the final report:**
+```
+✅ Block G: GraphQL complete (steps G1-G3)
+- Root fields: Query.order, Query.myOrders (connection, max 100), Mutation.cancelOrder (userErrors)
+- Batched: Order.lines, Order.customer
+- Shared: GraphQlLimits, GraphQlConfig, GraphQlExceptionResolver (NEW)
+- Files: 9 classes, 1 schema file, 0 errors
 ```
 
 ### Block S: Security (steps S1-S3, conditional)
@@ -956,6 +1019,12 @@ Read § 5 of spec.md, then the partial it cites for the step at hand. Generates:
   path. The broker-level test may be deferred by `40-testes.md`; these are not deferrable, and
   their absence is what left the class carrying the durability guarantee as the project's
   largest coverage hole (lessons-learned-013 § 8.1)
+- When Block G ran: every case of `31-graphql.md` § 10 at the level it names — mapping, errors,
+  `userErrors`, the page ceiling, the cursor round trip and one batch port call per request in the
+  GraphQL slice (`.claude/skills/test-architect/templates/GraphQlControllerTest.java.example`);
+  access, depth and introspection over HTTP through the real chain
+  (`GraphQlHttpIT.java.example`); the schema compatibility test against `src/test/graphql/`
+  (`GraphQlSchemaCompatibilityTest.java.example`), created by the project's first GraphQL case
 - When Block S ran: every case of `32-seguranca.md` § 10 — each protected endpoint without a
   credential (401), without the authority (403, or the 404 ownership chose) and with it; each
   public one with no credential; each ownership row at the use case with another actor — through

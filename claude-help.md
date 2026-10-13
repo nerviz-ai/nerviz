@@ -1527,6 +1527,7 @@ claude-help.md                     # this guide; cited from CLAUDE.md, not impor
 │   ├── use-case-design/                   # pipeline 1
 │   ├── domain-modeling/                   # pipeline 2
 │   ├── rest-api-architect/                # pipeline 3
+│   ├── graphql-api-architect/             # pipeline 3g, conditional — inbound GraphQL adapter (schema-first)
 │   ├── ai-architect/                      # pipeline, conditional — a language model or vector store behind a port
 │   ├── messaging-architect/               # pipeline 3b, conditional — Kafka producer/consumer
 │   ├── jobs-architect/                    # pipeline 3c, conditional — scheduled jobs, outbox relay

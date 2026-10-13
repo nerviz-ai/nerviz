@@ -442,6 +442,18 @@ continuam sendo de `10-dominio.md`; a migration do vector store é de `20-persis
 `org.springframework.ai..` num módulo `application` é violação de fronteira
 (`.claude/decisions/0145-ai-architect-skill.md`).
 
+**Uma operação GraphQL é um input port só, e quatro parciais são donas das suas peças.** O
+`graphql-api-architect` só roda quando a linha `Trigger` de `00-caso-de-uso.md` termina em
+`inbound GraphQL adapter` ou `inbound REST and GraphQL adapters`, e `31-graphql.md` é dono dos
+root fields, dos tipos, dos payloads, das connections e dos limites do projeto. Um port de batch
+que ele precisa chega como requisito de `31-graphql.md` § 9 e vira o port de `10-dominio.md` na
+consolidação; o statement de batch e o índice que a ordem de uma connection precisa são de
+`20-persistencia.md`; quem pode ler cada root field e cada campo sensível são as linhas de acesso
+de `32-seguranca.md`, nunca de `31-graphql.md`. O snapshot do schema do
+`GraphQlSchemaCompatibilityTest` fica em `src/test/graphql/`: em `src/test/resources` ele estaria
+no classpath de teste. O Spring for GraphQL mora só no pacote `.graphql`
+(`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
+
 **O bounded context é um fato do projeto, não uma resposta por caso de uso.** É o primeiro
 segmento de todo nome de tópico, perguntado junto com as coordenadas no `/init-project` e
 escrito no `CLAUDE.md` raiz do projeto gerado. Um prefixo escolhido dentro de um caso de uso

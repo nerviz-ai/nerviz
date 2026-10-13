@@ -2,6 +2,8 @@
 paths:
   - "**/adapter/in/rest/**"
   - "**/infrastructure/rest/**"
+  - "**/adapter/in/graphql/**"
+  - "**/infrastructure/graphql/**"
   - "**/infrastructure/config/**"
   - "**/adapter/out/messaging/**"
   - "**/infrastructure/messaging/**"
@@ -61,7 +63,9 @@ line's format.
 
 - What's measured is what's promised: latency and error rate per exposed operation. A
   counter with no associated alarm is noise with a storage cost.
-- Limited cardinality: no resource, user, or request identifier as a metric label.
+- Limited cardinality: no resource, user, or request identifier as a metric label — nor a
+  value the client chooses, such as a GraphQL operation name. A GraphQL operation is measured by
+  its type and outcome; its HTTP status says nothing (`@.claude/rules/api-graphql.md` § Errors).
 - The health endpoint is separate from the business endpoint, and neither is
   authenticated with the application's own credentials.
 - Vendor-specific annotation (Micrometer's `@Timed`, `@Counted`, a tracing SDK's own

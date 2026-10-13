@@ -268,7 +268,8 @@ would pay for that on every turn.
 ```
 /new-feature <feature description>     (or UC-NNN-slug to resume a draft, or empty to list)
      │
-     use-case-design → domain-modeling → rest-api-architect
+     use-case-design → domain-modeling → rest-api-architect (unless GraphQL only)
+        → graphql-api-architect (conditional)
         → security-architect (conditional) → http-client-architect (conditional)
         → ai-architect (conditional) → messaging-architect (conditional) → jobs-architect (conditional)
         → persistence-architect → cache-architect (conditional) → test-architect
@@ -380,14 +381,16 @@ proposed fix, before anything is commented or designed. Details:
 | Piece | Count | Where |
 |---|---|---|
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
-| Norms, loaded on demand through `paths` | 21 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 27 | `.claude/skills/` |
+| Norms, loaded on demand through `paths` | 22 | `.claude/rules/` |
+| Skills (design, orchestration, build, ops, meta…) | 28 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
 
 **Design skills of the `/new-feature` pipeline:** `use-case-design`, `domain-modeling`,
-`rest-api-architect`, `security-architect` (Spring Security on the servlet stack: who may
+`rest-api-architect`, `graphql-api-architect` (the inbound GraphQL adapter, schema-first
+on the servlet stack: root fields, `userErrors`, connections, `@BatchMapping`, field-level
+access — only when the use case's trigger names it), `security-architect` (Spring Security on the servlet stack: who may
 call each endpoint, JWT, opaque token, API key, 401/403, CORS), `http-client-architect`
 (outbound HTTP client and engine, timeouts, retry, circuit breaker, outbound
 authentication), `ai-architect` (a language model or vector store behind a port —

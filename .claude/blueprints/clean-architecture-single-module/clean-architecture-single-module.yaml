@@ -70,6 +70,8 @@ packages:
     infrastructure.cache: "infrastructure.cache"
     # Outbound AI adapters (a language model or a vector store behind a port) and the AI wiring — decision 0145.
     infrastructure.ai: "infrastructure.ai"
+    # Inbound GraphQL adapter (controllers, their records, the GraphQL wiring) — decision 0146.
+    infrastructure.graphql: "infrastructure.graphql"
     infrastructure.config: "infrastructure.config"
     commons.logging: "commons.logging"
 

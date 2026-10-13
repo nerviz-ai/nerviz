@@ -1,0 +1,167 @@
+# UC-014 · GraphQL adapter
+
+> Partial of `docs/use-cases/UC-014-cancel-order/`. Owner: `graphql-api-architect`.
+> Inherits the canonical names from `00-caso-de-uso.md`, the input ports and the exceptions from
+> `10-dominio.md`, and — this case's trigger being `inbound REST and GraphQL adapters` — the REST
+> operations over the same ports from `30-rest.md`. Doesn't redecide them. Contains no code. Form
+> references in `.claude/skills/graphql-api-architect/templates/`.
+> Rules applied, never reproduced: `@.claude/rules/api-graphql.md`.
+
+| Field | Value |
+|---|---|
+| Parent spec | `00-caso-de-uso.md` — Trigger: `inbound REST and GraphQL adapters` |
+| Domain partial | `10-dominio.md` |
+| GraphQL package | `adapter.in.graphql` (blueprint `packages.map`) |
+| Schema file | `src/main/resources/graphql/order.graphqls` |
+| Spring for GraphQL line | the one the Boot parent of `pom.xml` manages; the starter is the Initializr's `graphql`, version empty |
+| Divergences from other partials | none |
+
+## 1 · Operations
+
+One row per root field. Each calls an input port — the same one `30-rest.md` names for the same
+operation, when there is one.
+
+| Root field | Kind | Input port | Returns | REST counterpart |
+|---|---|---|---|---|
+| `Query.order(id)` | query | `FindOrderQuery.find` | `Order` (nullable) | `GET /api/v1/orders/{orderId}` |
+| `Query.myOrders(first, after)` | query | `ListMyOrdersQuery.list` | `OrderConnection!` | `GET /api/v1/orders` |
+| `Mutation.cancelOrder(input)` | mutation | `CancelOrderUseCase.handle`, then `FindOrderQuery.find` | `CancelOrderPayload!` | `POST /api/v1/orders/{orderId}/cancellation` |
+
+## 2 · Schema
+
+Types, fields and nullability, as written in the schema file. Every type has an adapter record of the
+same name, mapped by hand from the port's read model.
+
+| Type | Field | Type | Nullable — why | Source |
+|---|---|---|---|---|
+| `Order` | `id`, `status`, `placedAt`, `total` | `ID!`, `OrderStatus!`, `String!` (ISO-8601 UTC), `Money!` | no | `OrderView` |
+| `Order` | `lines` | `[OrderLine!]!` | no — empty, never null | batch, § 5 |
+| `Order` | `customer` | `Customer!` | no — an order always has one | batch, § 5 |
+| `Customer` | `taxId` | `String` | yes — denied without `SUPPORT` (§ 8, `32-seguranca.md`) | `CustomerView`, its own guarded mapping |
+| `Money` | `amount`, `currency` | `String!`, `String!` | no | decimal as text |
+
+## 3 · Inputs and payloads
+
+| Mutation | Input fields and shape validation | Payload | `userErrors` codes |
+|---|---|---|---|
+| `cancelOrder` | `orderId: ID!` `@NotNull`; `reason: String` `@Size(max = 500)` | `CancelOrderPayload { order, userErrors }` | `ORDER_NOT_FOUND` (field `["input","orderId"]`), `ORDER_ALREADY_SHIPPED`, `ORDER_ALREADY_CANCELLED` |
+
+A partial update: none in this case — no input distinguishes "absent" from "null".
+
+## 4 · Pagination
+
+| Connection | Directions | Order (unique key last) | Default / max page | Cursor carries |
+|---|---|---|---|---|
+| `myOrders` | forward (`first`, `after`) | `placedAt` desc, `id` desc | project setup § 6: 20 / 100; above 100 is `BAD_REQUEST` `PAGE_SIZE_OUT_OF_RANGE` | `placedAt`, `id` → `ListMyOrdersQuery.OrderCursor` |
+
+## 5 · Batch loads
+
+Every child field that costs I/O. The batch port is a **requirement**: `10-dominio.md` did not declare
+it, and consolidation carries it to the domain block with this partial as who asked.
+
+| Field | Batch port (requirement) | Key | Missing key answers | Max batch |
+|---|---|---|---|---|
+| `Order.lines` | `OrderLinesQuery.linesOf(Set<UUID>) → Map<UUID, List<OrderLineView>>` | `Order.id` | empty list | project setup § 6 |
+| `Order.customer` | `CustomersQuery.byIds(Set<UUID>) → Map<UUID, CustomerView>` | `Order.customerId` | — an order always has a customer | project setup § 6 |
+
+## 6 · Project setup
+
+First GraphQL case of the project: decided here, written once by the executor, inherited by every
+later case. A later partial writes `inherited from UC-014` and changes a value only with a reason and
+an impact row.
+
+| Limit | Value | Why |
+|---|---|---|
+| Max depth | 8 | the deepest legitimate document is 4 (`order.lines.unitPrice.amount`); twice that leaves room for new types |
+| Max complexity | 2000 | a full page of 100 orders with lines and customer costs about 1 000 |
+| Request timeout | 5 s | the slowest port is measured at 900 ms p99 |
+| Default / max page | 20 / 100 | the same contract as REST (`@.claude/rules/api-rest.md` § Pagination) |
+| Max batch | 100 | equal to the max page: one page, one `IN` list |
+| Introspection | off; on in `dev` | `@.claude/rules/api-graphql.md` § Demand limits |
+| GraphiQL | `dev` only | same |
+| CORS | `POST`, origins from `GRAPHQL_ALLOWED_ORIGINS`, none by default | asked: the web client is served from another origin |
+| Schema inspection | fails the startup | same |
+| Endpoint in the filter chain | `POST /graphql` authenticated | `32-seguranca.md` § 1 |
+
+## 7 · Error map
+
+| Situation | Where it lands | Classification | `errorCode` |
+|---|---|---|---|
+| Order missing or not the caller's — query | top-level, `order` null | `NOT_FOUND` | `ORDER_NOT_FOUND` |
+| Order missing or not the caller's — mutation | `userErrors` | — | `ORDER_NOT_FOUND` |
+| Already shipped / already cancelled | `userErrors` | — | `ORDER_ALREADY_SHIPPED` / `ORDER_ALREADY_CANCELLED` |
+| `reason` above 500 characters | top-level | `BAD_REQUEST` | `INVALID_INPUT` |
+| `first` above 100 | top-level | `BAD_REQUEST` | `PAGE_SIZE_OUT_OF_RANGE` |
+| `taxId` without `SUPPORT` | top-level, field null | `FORBIDDEN` | — |
+| Anything else | top-level | `INTERNAL_ERROR` | — |
+
+Project-wide pieces: `GraphQlExceptionResolver`, `GraphQlConfig`, `GraphQlLimits` — NEW.
+
+## 8 · Personal data
+
+Every output field walked through `@.claude/rules/logging.md` § Masking candidates.
+
+| Field | Form | Receiver and reason |
+|---|---|---|
+| `Customer.name` | full value | the customer seeing their own order, and support — the screen shows it |
+| `Customer.taxId` | full value, `SUPPORT` only | support verifies identity on a cancellation dispute — recorded by the user on 2026-10-13; guarded on the field |
+
+## 9 · Requirements to other partials
+
+| To | Requirement |
+|---|---|
+| `10-dominio.md` | the batch ports of § 5 |
+| `20-persistencia.md` | one statement per batch port (`IN` over the keys, bounded by § 6's max batch); an index serving `customer_id, placed_at desc, id desc` for § 4's order |
+| `32-seguranca.md` | one row per root field of § 1 and one for `Customer.taxId` |
+
+## 10 · Contract test cases
+
+| Level | Case |
+|---|---|
+| GraphQL slice | `order` mapped field by field; `order` not found → `NOT_FOUND` + `ORDER_NOT_FOUND`, field null; `cancelOrder` refused → `userErrors[0].code`, `order` null; `reason` above 500 → `BAD_REQUEST`, port never called; a page of two orders → one `linesOf` and one `byIds` call with both keys; an edge's cursor sent back as `after` → the port receives that order's `OrderCursor`; `first: 101` → `BAD_REQUEST` |
+| HTTP, real chain | anonymous → 401 from the chain; `taxId` without `SUPPORT` → null + `FORBIDDEN`, the rest intact; with `SUPPORT` → the value; depth above the limit → refused, no port called; introspection → refused |
+| Schema | the served schema against `src/test/graphql/schema.snapshot.graphqls` — created by this case |
+
+## 11 · Declared dependencies
+
+| Dependency | Version | Why |
+|---|---|---|
+| `org.springframework.boot:spring-boot-starter-graphql` | managed by the Boot parent | the Initializr's `graphql` |
+| `org.springframework.boot:spring-boot-starter-graphql-test` (test) | managed by the Boot parent | `GraphQlTester`, `HttpGraphQlTester` |
+
+## 12 · Configuration
+
+| Property | Value | Owner of the value |
+|---|---|---|
+| `spring.graphql.schema.introspection.enabled` / `spring.graphql.graphiql.enabled` | `false` / `false`; `true` / `true` in `dev` | § 6 |
+| `spring.graphql.cors.allowed-origins` / `allowed-methods` | `${GRAPHQL_ALLOWED_ORIGINS:}` / `POST` | § 6 |
+| `app.graphql.*` | § 6's values | § 6 |
+
+Full shape in `templates/application-graphql.yml.example`.
+
+## 13 · Deferred
+
+none
+
+## Design patterns
+
+| Force or symptom | Pattern | Classes and interfaces it creates | "When not" checked |
+|---|---|---|---|
+| none | — | — | — |
+
+One row per pattern this layer adopts, decided through
+`@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use. Consolidation collects this
+section into `UC-NNN-spec.md`.
+
+## Impact on approved use cases
+
+none
+
+## Implementation order
+
+1. The dependencies of § 11
+2. `GraphQlLimits`, `GraphQlConfig`, `GraphQlExceptionResolver` in the GraphQL package — once per project
+3. The schema file of § 2
+4. The adapter records, `OrderGraphQlMapper`, `OrderCursors`, `OrderGraphQlController` — after the ports of § 1 and § 5 exist
+5. Properties in `application.yml`
+6. Tests — `40-testes.md`: every row of § 10, and the schema snapshot

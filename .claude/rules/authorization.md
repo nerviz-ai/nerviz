@@ -1,6 +1,7 @@
 ---
 paths:
   - "**/adapter/in/rest/**"
+  - "**/adapter/in/graphql/**"
   - "**/infrastructure/config/**"
 # --- below: repo convention, ignored by the runtime ---
 # Who verifies this rule: see `@.claude/rules/00-index.md`
@@ -42,6 +43,13 @@ correct.
   annotations — the REST contract interface carries documentation alone,
   `@.claude/rules/api-rest.md` § OpenAPI. An expression repeated on more than one endpoint
   becomes a named meta-annotation, so a role is spelled once
+- **On a single-endpoint protocol the request rules cannot tell operations apart.** For GraphQL
+  the chain only authenticates the endpoint, and every role, group or scope is method security on
+  the resolver method — per operation, and per field when a field is narrower than its operation
+  (`@.claude/rules/api-graphql.md` § Access)
+- **Two inbound adapters over the same input port check the same rule with the same
+  meta-annotation**, declared once where the wiring lives; neither adapter keeps its own copy of
+  a role. The check runs in each adapter, and each adapter's tests prove it
 
 ## Default access
 

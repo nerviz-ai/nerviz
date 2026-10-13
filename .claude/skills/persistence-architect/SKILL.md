@@ -41,8 +41,9 @@ form, not the business.
 
 **Two more partials stop it, each under its own condition**, for the same reason: both
 carry schema requirements this pass has to honor, and a schema designed without them is a
-schema that gets revised. An HTTP-triggered case with no `30-rest.md` → run
-`/rest-api-architect` first. A case whose `10-dominio.md` Events block names external
+schema that gets revised. A REST-triggered case with no `30-rest.md` → run
+`/rest-api-architect` first; a GraphQL-triggered case with no `31-graphql.md` → run
+`/graphql-api-architect` first — the `Trigger` row's closing phrase says which. A case whose `10-dominio.md` Events block names external
 (Kafka) delivery with no `25-mensageria.md` → run `/messaging-architect` first. And a third,
 under the same logic: a case whose `25-mensageria.md` chose Form B, or whose trigger is a
 schedule, with no `35-jobs.md` → run `/jobs-architect` first. And a fourth: a case whose `10-dominio.md` declares a
@@ -107,7 +108,15 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    always exists by now, because REST runs first. Its block 4 `Schema requirements` list
    is input to this pass: the shared idempotency table (step 4a) and anything else there
    gets designed now, not in a second pass. An HTTP-triggered case whose `30-rest.md`
-   doesn't exist yet → stop and tell the caller to run `/rest-api-architect` first.
+   doesn't exist yet → stop and tell the caller to run `/rest-api-architect` first — unless the
+   `Trigger` names `inbound GraphQL adapter` alone, where there is no REST partial to read.
+
+   Also read `31-graphql.md` when the `Trigger` names a GraphQL adapter, **mandatory on the same
+   terms**: its § 9 lists one statement per batch port — a single `IN` over the keys, bounded by
+   § 6's max batch, never one query per key — and the index each connection's order needs (the
+   order's columns ending in its unique key, `@.claude/rules/api-graphql.md` § Pagination). Both are
+   designed in this pass; the batch statement's name and placement are this partial's, as for any
+   requirement.
 
    Also read `25-mensageria.md`, **mandatory on the same terms as `30-rest.md`**: when
    `10-dominio.md`'s Events block names external (Kafka) delivery and the messaging partial
@@ -369,8 +378,9 @@ both refused with exit 2.
 `@.claude/rules/api-rest.md` § Idempotency (only when step 4a applies),
 `@.claude/rules/messaging.md` § Publication timing (only when step 4b applies), and the
 active blueprint's `packages.map`. Also reads two partials whose schema requirements are
-this pass's input, each mandatory under its own condition: `30-rest.md` for an
-HTTP-triggered case (block 4), and `25-mensageria.md` whenever `10-dominio.md`'s Events
+this pass's input, each mandatory under its own condition: `30-rest.md` for a
+REST-triggered case (block 4), `31-graphql.md` for a GraphQL-triggered one (§ 9 — batch statements
+and the connection order's index), and `25-mensageria.md` whenever `10-dominio.md`'s Events
 block names external delivery (§ 6 — the shared outbox table under Form B, a dedupe table
 for a consumer). And `35-jobs.md` under Form B or a scheduled trigger (§ 3 replica count,
 § 6 tool tables, claim requirement and prune operation). And `28-cliente-http.md` whenever `10-dominio.md`

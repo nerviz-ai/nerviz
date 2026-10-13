@@ -28,7 +28,7 @@ modules:
   - id: core
     path: core
     depends_on: []
-    forbidden_imports: ["org.springframework.."]
+    forbidden_imports: ["org.springframework..", "graphql.."]
   - id: app
     path: app
     depends_on: [core]
@@ -49,6 +49,8 @@ packages:
     app.cache: "app.cache"
     # Example: outbound AI adapters and the AI wiring — decision 0145.
     app.ai: "app.ai"
+    # Example: inbound GraphQL adapter and the GraphQL wiring — decision 0146.
+    app.graphql: "app.graphql"
 
 dependency_rules:
   direction: inward             # inward | explicit
