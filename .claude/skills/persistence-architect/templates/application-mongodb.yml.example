@@ -1,0 +1,39 @@
+# EXEMPLAR — MongoDB properties. Form reference, not a file to copy.
+# Rules: `.claude/rules/persistence.md` (§ Document (MongoDB) · Configuration, Transactions)
+#        `.claude/rules/secrets.md`
+#
+# Values marked RULE are mandatory. Values marked SIZE are decided in the partial's § 5, with the
+# reason written next to them. An implicit default value in production is a bug.
+#
+# `spring.mongodb.*`, never `spring.data.mongodb.uri`: Spring Boot 4 reads the connection only
+# from the first prefix, and an application that sets only the old one connects to
+# `localhost/test` without an error. `spring.data.mongodb.*` keeps the mapping settings.
+#
+# Same variable names as the compose service (MONGO_USERNAME, MONGO_PASSWORD, MONGO_DATABASE,
+# MONGO_PORT). The password has no default: it lives in the unversioned `.env`. A password with
+# a reserved URI character (`@ : / ? # [ ] %`) is percent-encoded in MONGO_PASSWORD.
+#
+# `directConnection=true`, never `replicaSet=rs0`, in the host URI: the replica set's member is
+# advertised under its compose name (`mongo:27017`), and a URI naming the set makes the driver
+# discover the member by that name, which the host cannot resolve — every call times out. A direct
+# connection talks to the one member it was given, and transactions still work on it. A
+# multi-member production cluster sets MONGO_URI with its own replica set name.
+
+spring:
+  mongodb:
+    uri: ${MONGO_URI:mongodb://${MONGO_USERNAME:minha_api}:${MONGO_PASSWORD}@localhost:${MONGO_PORT:27017}/${MONGO_DATABASE:minha_api}?authSource=admin&directConnection=true}
+    representation:
+      uuid: standard                 # RULE — unset, the driver refuses to encode a UUID
+  data:
+    mongodb:
+      auto-index-creation: false     # RULE — indexes are declared and created at startup, by code
+      representation:
+        big-decimal: decimal128      # RULE — money compares and sorts as a number, not a string
+
+app:
+  mongodb:
+    server-selection-timeout: 5s     # SIZE — the driver's default is 30s, a request waits that long for a dead cluster
+    connect-timeout: 3s              # SIZE
+    read-timeout: 10s                # RULE to set, SIZE the value — the driver's default is never
+    max-pool-size: 50                # SIZE — the driver's default is 100 per client, per instance
+    max-pool-wait: 2s                # SIZE

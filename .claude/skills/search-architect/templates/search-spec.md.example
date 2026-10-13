@@ -1,0 +1,152 @@
+# UC-012 · Search
+
+> Partial of `docs/use-cases/UC-012-search-orders/`. Owner: `search-architect`.
+> Inherits the engine and the freshness tolerance from `00-caso-de-uso.md` and the port from
+> `10-dominio.md` — doesn't redecide them. Contains no code; the mapping file is the one block
+> written in full. Form references in `.claude/skills/search-architect/templates/`.
+> Rules applied, never reproduced: `@.claude/rules/search.md`.
+
+| Field | Value |
+|---|---|
+| Mother spec | `00-caso-de-uso.md` |
+| Kind of case | read — `Trigger`: inbound REST adapter |
+| Why this partial exists | `00-caso-de-uso.md` § Search index: "Order → Elasticsearch projection" |
+| Source of truth | `Order`, `Storage`: relational (UC-003, `20-persistencia.md`) |
+| Search package | `adapter.out.search` (blueprint `packages.map`) |
+| Divergences from other partials | none |
+
+## 1 · Projection
+
+First case of the `orders` projection: this block fixes it, and later cases inherit it.
+
+| Source field | Search field | Type | Use |
+|---|---|---|---|
+| `Order.id` | `id` (document id) and `orderId` | `keyword` | the unique sort tiebreaker; returned |
+| `Order.number` | `orderNumber` | `keyword` | exact filter; returned |
+| `Customer.name` (carried by the event) | `customerName` | `text` + `keyword` sub-field | searched by words; returned |
+| `Order.status` | `status` | `keyword` | filter |
+| `Order.total` | `totalMinor` | `long` (minor units) | range filter |
+| `Order.placedAt` | `placedAt` | `date`, `date_time` | sort; returned |
+| `Order.lines[].sku`, `.quantity` | `lines` | `nested` (`sku` `keyword`, `quantity` `integer`) | "contains SKU X" filter |
+| — | `deleted` | `boolean` | tombstone filter |
+
+Not projected: shipping address, payment data — nothing searches or shows them
+(`@.claude/rules/personal-data.md`).
+
+## 2 · Index
+
+| Fact | Value |
+|---|---|
+| Alias | `orders` |
+| Version | 1 → index `orders-v1` |
+| Primary shards | 1 |
+| Replicas | `app.search.replicas`: 0 local and test, 1 in production |
+| Refresh interval | `1s` |
+
+`src/main/resources/search/orders-v1.json`:
+
+```json
+{
+  "settings": { "number_of_shards": 1, "refresh_interval": "1s" },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "orderId": { "type": "keyword" },
+      "orderNumber": { "type": "keyword" },
+      "customerName": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+      "status": { "type": "keyword" },
+      "totalMinor": { "type": "long" },
+      "placedAt": { "type": "date", "format": "date_time" },
+      "lines": { "type": "nested", "properties": { "sku": { "type": "keyword" }, "quantity": { "type": "integer" } } },
+      "deleted": { "type": "boolean" }
+    }
+  }
+}
+```
+
+## 3 · Queries
+
+| Port method | Match | Filters | Sort | Page | Returns |
+|---|---|---|---|---|---|
+| `SearchOrdersPort.search(query, after, size)` | `customerName` (`match`, the reader's words) | `deleted = false`; `status` when given | `placedAt` desc, `orderId` desc | ceiling 100; cursor = the last hit's sort values | `OrderSearchPage.Item(orderId, orderNumber, customerName, status, placedAt)` — never the aggregate |
+
+A reader who acts on an order loads it through `LoadOrderPort` — the search result is a copy.
+
+## 4 · Writes
+
+none — the read case. The indexer is UC-013-index-order.
+
+## 5 · Rebuild
+
+none — the rebuild is UC-014-rebuild-orders-index.
+
+## 6 · Lag
+
+| Part | Duration |
+|---|---|
+| Outbox poll (`35-jobs.md` of UC-003) | up to 1 s |
+| Consumer (UC-013) | under 1 s at the expected rate |
+| Refresh interval | 1 s |
+| **Lag consumed** | **3 s** |
+| `Freshness` of this case | 10 s — "a new order may take a few seconds to appear in the search" |
+| Remainder for a cache over `SearchOrdersPort` | 7 s |
+
+## 7 · Failure
+
+| Port method | Engine unreachable or alias missing | The read |
+|---|---|---|
+| `search` | `DependencyUnavailableException` (`ORDER_SEARCH_UNAVAILABLE`) | fails — `00-caso-de-uso.md` § Errors: "search temporarily unavailable"; no fallback to the database |
+
+## 8 · Requirements to other partials
+
+| Partial | Requirement |
+|---|---|
+| `10-dominio.md` | Port `SearchOrdersPort`, kind `search index`, returning `OrderSearchPage`; event `OrderChanged` carrying the order snapshot and the source version (UC-013 consumes it) |
+| `20-persistencia.md` (UC-003) | `Order` keeps a version that grows on every write, and `OrderChanged` is appended to the outbox in the same transaction |
+| `22-cache.md` | none in this case; a cache would be bounded by § 6's remainder |
+
+## 9 · Declared dependencies
+
+| Dependency | Version | Why |
+|---|---|---|
+| `org.springframework.boot:spring-boot-starter-data-elasticsearch` | (managed by the Boot parent) | `ElasticsearchOperations`, the Elasticsearch client |
+
+## 10 · Configuration
+
+| Property | Value | Why |
+|---|---|---|
+| `spring.elasticsearch.uris` | `${SEARCH_URIS:http://localhost:${SEARCH_PORT:9200}}` | local runs over HTTP; production sets HTTPS and the bundle |
+| `spring.elasticsearch.username` / `password` | `${SEARCH_USERNAME:elastic}` / `${SEARCH_PASSWORD}` — no default | `@.claude/rules/secrets.md` |
+| `spring.elasticsearch.connection-timeout` / `socket-timeout` | `2s` / `5s` | a search slower than 5 s is a failure for this screen |
+| `app.search.replicas` | `0` local, `1` production | § 2 |
+
+Full shape in `templates/application-search.yml.example`.
+
+## 11 · Deferred
+
+none
+
+## Compose services
+
+| Service | Image | Decision | Detail |
+|---|---|---|---|
+| `elasticsearch` | `docker.elastic.co/elasticsearch/elasticsearch:<tag>` | `materialize` | added by `/new-feature-implement` |
+
+## Design patterns
+
+none — one adapter per port, no repeated skeleton yet.
+
+## Impact on approved use cases
+
+| Approved case | Change | Why | Satisfied by |
+|---|---|---|---|
+| UC-003-place-order | appends `OrderChanged` to the outbox with the order's version | the projection is fed by events only — `@.claude/rules/search.md` § Boundary | this change, through UC-003's impact row |
+
+## Implementation order
+
+1. The dependency of § 9
+2. `SearchIndexDefinition`, `SearchIndexBootstrap` in the search package — once per project
+3. `orders-v1.json`, `OrderSearchDocument`, `OrderSearchIndex`
+4. `OrderSearchAdapter` — after `SearchOrdersPort` exists
+5. Properties in `application.yml`
+6. Tests — `40-testes.md`: the alias exists at startup, a word finds the order, a tombstoned order is never returned, the cursor reads the next page

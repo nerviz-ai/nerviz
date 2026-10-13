@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | payment method availability check, over HTTP — inbound REST adapter |
 | Side effects | **0** — the actual authorization is **UC-105**; this use case only resolves which gateway client would handle a given method |
+| Storage | none — the case reads and writes no stored aggregate |
+| Search index | none |
 | Transaction | read-only |
 | Idempotency | yes |
 | Concurrency | not applicable |

@@ -58,6 +58,7 @@ architecture_paths:
   - "**/config/**/*.java"
   - "**/integration/**/*.java"
   - "**/ai/**/*.java"
+  - "**/search/**/*.java"
 
 # A single element — layout: single-module — rule 5 of `_schema.md`. The slice
 # boundary (this blueprint's actual reason to exist) is not a Maven module at all —
@@ -102,6 +103,9 @@ packages:
     # store, like the HTTP clients — but in their own top-level package, so the HTTP norm does not
     # load on them nor the AI norm on the clients. A slice depends on the port there — decision 0145.
     ai.ai: "ai"
+    # Outbound search adapters, shared by every slice that searches the same projection, in their own
+    # top-level package like `ai` — decision 0147.
+    search.search: "search"
     # GraphQL wiring — limits, the exception resolver — shared by every slice, like the scheduling and
     # cache wiring; a slice's own GraphQL controller lives in the slice, next to its endpoint — decision 0146.
     bootstrap.graphql: "config.graphql"
@@ -162,14 +166,17 @@ dependency_rules:
   direction: inward
   forbidden:
     - from: domain
-      to: [features, integration, ai]
-      reason: "The shared kernel does not know about any feature that uses it, nor about the outbound HTTP clients or AI adapters — same universal rule as every other blueprint's domain module, architecture-ddd.md § Domain"
+      to: [features, integration, ai, search]
+      reason: "The shared kernel does not know about any feature that uses it, nor about the outbound HTTP clients, AI or search adapters — same universal rule as every other blueprint's domain module, architecture-ddd.md § Domain"
     - from: integration
       to: [features]
       reason: "An outbound HTTP client is called by slices and never calls back into one — it translates a remote system into the shared kernel's types (decision 0121)"
     - from: ai
       to: [features, integration]
       reason: "An AI adapter is called by slices and never calls back into one, nor sideways into an HTTP client — it answers a slice's port with the shared kernel's types (decision 0145)"
+    - from: search
+      to: [features, integration, ai]
+      reason: "A search adapter is called by slices and never calls back into one, nor sideways into another adapter — it answers a slice's port with read projections (decision 0147)"
 
 # Real, compilable exemplars (not templates to swap mechanically).
 # The project base comes from Spring Initializr; these files provide the SHAPE.

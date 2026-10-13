@@ -213,6 +213,24 @@ mother spec, it also isn't this skill.
      mirrors.
 
    Model, prompt, store and timeouts are not this partial's: `ai-architect` reads this port.
+
+4f. **A search over words, filters or facets becomes a port of kind `search index`.** Only when
+   `00-caso-de-uso.md`'s `Search index` row names a projection — never inferred here. The partial
+   carries:
+
+   - **for the read case, the outbound port** named for the capability (`OrderSearch`), taking the
+     query in domain terms and a cursor, returning a **read projection** — a record of what the
+     result shows — and never the aggregate, which a caller that acts on it loads from its own
+     repository;
+   - **for the indexer case, the write side** (`upsert`, `remove`, each with the source's version)
+     as a port of the same kind, and the outcome "the index already holds a newer copy" as a value
+     of its result, not an exception;
+   - **the change event the projection is fed by** — the snapshot it carries and the source
+     aggregate's version — in the Events block, for every case that changes the source.
+
+   A search by meaning stays `vector store` (4e). The mapping, the engine and the indexer's rules
+   are not this partial's: `search-architect` reads this port
+   (`@.claude/rules/search.md` § Boundary).
 5. **Map each invariant to its exception.** Typed family from
    `@.claude/rules/error-handling.md` and `errorCode` in `UPPER_SNAKE_CASE`. An invariant
    without a named exception is an invariant nobody will implement.
@@ -268,7 +286,7 @@ question nobody asked.
 |---|---|---|
 | Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` |
 | Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example` and the four typed ones · `@.claude/rules/error-handling.md` |
-| Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP` · `LLM` · `vector store`) | `UseCasePort.java.example` · `Command.java.example` |
+| Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP` · `LLM` · `vector store` · `search index`) | `UseCasePort.java.example` · `Command.java.example` |
 | Events | Which event, which payload, which UC consumes it | `DomainEvent.java.example` |
 | Design patterns | Each pattern the domain or application adopts: the spec line or `file:line` that forces it, the classes it creates, the "When not" checked — step 5b | `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use |
 

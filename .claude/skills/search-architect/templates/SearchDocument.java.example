@@ -1,0 +1,128 @@
+/*
+ * EXEMPLAR — search document: the projection of one aggregate kept in a search engine index.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/search.md` (§ Boundary, § Index lifecycle, § Mapping, § Writes)
+ *
+ * THE SAME CLASS FOR BOTH ENGINES. Spring Data OpenSearch implements Spring Data Elasticsearch's
+ * mapping and operations, so the annotations and `ElasticsearchOperations` below serve
+ * Elasticsearch and OpenSearch alike; only the dependency and the connection properties differ
+ * (`application-search.yml.example`).
+ *
+ * WHY `createIndex = false`: with the default `true` the repository creates the index at startup
+ * and pushes a mapping derived from this class, and that index then occupies the name the alias
+ * needs. The index and its mapping come from `src/main/resources/search/orders-v1.json`, created by
+ * `SearchIndexBootstrap` behind the alias `orders`.
+ *
+ * WHY `writeTypeHint = WriteTypeHint.FALSE`, `storeIdInSource = false` AND `storeVersionInSource =
+ * false`: by default Spring Data writes a `_class` type hint, the id and the version into every
+ * document's `_source`, as fields the strict mapping — which names every field — refuses with
+ * `strict_dynamic_mapping_exception`. The id and the version already travel as `_id` and `_version`.
+ *
+ * WHY `versionType = EXTERNAL` AND `@Version`: the version is the SOURCE's — the aggregate's
+ * `@Version` that produced this copy — sent with every write. The engine keeps the higher one, so
+ * an event that arrives late or twice can never overwrite a newer copy.
+ *
+ * WHY `orderId` BESIDE `@Id`: `_id` cannot be sorted on, and the search_after sort needs a unique
+ * tiebreaker; `orderId` is the same value as a `keyword`.
+ *
+ * WHY `deleted`: a delete is a tombstone with the source's version, so a late update cannot bring
+ * the document back; every query filters it out, and the rebuild leaves it out.
+ *
+ * PACKAGE: the projected aggregate's subpackage of the search package, `…search.order`.
+ * Package-private. Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderSearchDocument.java
+package com.example.demo.adapter.out.search.order;
+
+import java.time.Instant;
+import java.util.List;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
+import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.InnerField;
+import org.springframework.data.elasticsearch.annotations.MultiField;
+import org.springframework.data.elasticsearch.annotations.WriteTypeHint;
+
+@Document(indexName = "orders", createIndex = false, versionType = Document.VersionType.EXTERNAL,
+        writeTypeHint = WriteTypeHint.FALSE, storeIdInSource = false, storeVersionInSource = false)
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+class OrderSearchDocument {
+
+    @Id
+    String id;
+
+    @Field(type = FieldType.Keyword, name = "orderId")
+    String orderId;
+
+    @Field(type = FieldType.Keyword, name = "orderNumber")
+    String orderNumber;
+
+    /** Searched by words, sorted by its exact value: {@code text} with a {@code keyword} sub-field. */
+    @MultiField(mainField = @Field(type = FieldType.Text, name = "customerName"),
+            otherFields = @InnerField(suffix = "keyword", type = FieldType.Keyword))
+    String customerName;
+
+    @Field(type = FieldType.Keyword, name = "status")
+    String status;
+
+    /** Minor units: a {@code BigDecimal} has no exact numeric type in the engine. */
+    @Field(type = FieldType.Long, name = "totalMinor")
+    long totalMinor;
+
+    @Field(type = FieldType.Date, format = DateFormat.date_time, name = "placedAt")
+    Instant placedAt;
+
+    /** {@code nested}: "sku X with quantity ≥ 2" must match within one line, never across two. */
+    @Field(type = FieldType.Nested, name = "lines")
+    List<OrderSearchLine> lines;
+
+    @Field(type = FieldType.Boolean, name = "deleted")
+    boolean deleted;
+
+    /** The source aggregate's version, sent as the external version. */
+    @Version
+    Long version;
+
+    OrderSearchDocument(String id, String orderNumber, String customerName, String status, long totalMinor,
+                        Instant placedAt, List<OrderSearchLine> lines, long sourceVersion) {
+        this.id = id;
+        this.orderId = id;
+        this.orderNumber = orderNumber;
+        this.customerName = customerName;
+        this.status = status;
+        this.totalMinor = totalMinor;
+        this.placedAt = placedAt;
+        this.lines = List.copyOf(lines);
+        this.version = sourceVersion;
+    }
+
+    static OrderSearchDocument tombstone(String id, long sourceVersion) {
+        OrderSearchDocument tombstone = new OrderSearchDocument();
+        tombstone.id = id;
+        tombstone.orderId = id;
+        tombstone.lines = List.of();
+        tombstone.deleted = true;
+        tombstone.version = sourceVersion;
+        return tombstone;
+    }
+}
+
+// --- order/OrderSearchLine.java
+package com.example.demo.adapter.out.search.order;
+
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
+
+record OrderSearchLine(
+        @Field(type = FieldType.Keyword, name = "sku") String sku,
+        @Field(type = FieldType.Integer, name = "quantity") int quantity) {}

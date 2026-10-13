@@ -105,6 +105,12 @@ still transport.
    consuming use case, and whether that consumer is external (another service, another
    deployable) — that's what makes this skill apply at all.
 
+   When the consuming case is a search projection's indexer — its `23-busca.md` exists — read its
+   **§ 8** too: the consumer it requires is fixed there, by guarantee — one partition key per
+   aggregate, at-least-once, a stale write acknowledged and never retried, a bounded retry and a
+   dead letter. The search document and its write rules are `search-architect`'s; this skill
+   designs the consumer around them.
+
 2. **Survey what already exists.** A topic or consumer group already wired gets reused, not
    duplicated. **The bounded context comes from here too — read it, never ask.** The topic
    name's first segment (`@.claude/rules/messaging.md` § Topics and serialization) is a
@@ -258,7 +264,8 @@ still transport.
 
    The receiving end models the table once from
    `persistence-architect/templates/OutboxEventTable.sql.example` and
-   `templates/OutboxEventStore.java.example` — the mirror of its own step 4a for
+   `templates/OutboxEventStore.java.example` (for an aggregate of the document family,
+   `MongoSharedCollections.java.example`, the outbox written inside the MongoDB transaction) — the mirror of its own step 4a for
    `idempotency_keys`. Name the step in the partial, so the requirement has an addressee
    instead of a hope.
 

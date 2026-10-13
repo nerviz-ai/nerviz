@@ -1,0 +1,87 @@
+/*
+ * EXEMPLAR — application side of a document-store transaction: opened here, retried whole.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/persistence.md` (§ Translation, § Document (MongoDB) · Transactions)
+ *        `.claude/rules/architecture-ddd.md` (§ Application — the transaction opens and closes here)
+ *
+ * WHY NOT `@Transactional` ALONE: Spring's MongoDB transaction manager does not retry. A write
+ * conflict between two concurrent transactions, or a commit whose result never came back, ends the
+ * transaction with a transient error, and the server's answer to it is "run the whole transaction
+ * again". A retry around the repository call would rerun half of it; a retry around
+ * `@Transactional` on the same method depends on proxy order. This component makes the shape
+ * explicit: retry outside, transaction inside, the work as a callback.
+ *
+ * WHAT THE WORK MAY DO: read and write documents, append the outbox record. Nothing with an effect
+ * outside the transaction — no HTTP call, no broker send — because it can run more than once.
+ *
+ * NO MONGODB TYPE HERE: the retry keys on `TransientDataAccessException` (Spring's own hierarchy),
+ * and the transaction manager is reached by its bean name. `org.springframework.data.mongodb..` is
+ * forbidden in this layer.
+ *
+ * WHO CALLS IT: the use case, around the part of its flow that loads and saves the aggregate:
+ *
+ *     return transactions.inTransaction(() -> {
+ *         Order order = loadOrder.byId(id).orElseThrow(...);
+ *         order.confirm(clock.instant());
+ *         saveOrder.save(order);
+ *         publishOrderConfirmed.publish(OrderConfirmed.of(order));
+ *         return order;
+ *     });
+ *
+ * Package per the active blueprint's `packages.map` (application layer).
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- DocumentTransactions.java
+package com.example.demo.application.service;
+
+import com.example.demo.domain.exception.ConflictException;
+import java.time.Duration;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.retry.RetryException;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@Component
+public class DocumentTransactions {
+
+    /** Attempts after the first. A conflict that survives three reruns is real contention. */
+    private static final long MAX_RETRIES = 3;
+
+    private final TransactionTemplate transaction;
+    private final RetryTemplate retry;
+
+    /** The MongoDB manager, by the name both shapes of `MongoConfig.java.example` give it. */
+    public DocumentTransactions(@Qualifier("mongoTransactionManager") PlatformTransactionManager manager) {
+        this.transaction = new TransactionTemplate(manager);
+        this.retry = new RetryTemplate(RetryPolicy.builder()
+                .includes(TransientDataAccessException.class)
+                .maxRetries(MAX_RETRIES)
+                .delay(Duration.ofMillis(20))
+                .multiplier(2)
+                .jitter(Duration.ofMillis(10))
+                .build());
+    }
+
+    /**
+     * Runs the work in one transaction, and the whole transaction again on a transient error.
+     * Exhausted, the conflict is reported as concurrency — never as a duplicate.
+     */
+    public <T> T inTransaction(Supplier<T> work) {
+        try {
+            return retry.execute(() -> transaction.execute(status -> work.get()));
+        } catch (RetryException exhausted) {
+            if (exhausted.getCause() instanceof TransientDataAccessException conflict) {
+                throw new ConflictException("CONCURRENT_UPDATE", "The write conflicted with another one; retry later", conflict);
+            }
+            throw exhausted.getCause() instanceof RuntimeException failure
+                    ? failure
+                    : new IllegalStateException(exhausted.getCause());
+        }
+    }
+}

@@ -243,7 +243,7 @@
         "skills": [
           "use-case-design", "domain-modeling", "persistence-architect",
           "rest-api-architect", "graphql-api-architect", "security-architect", "http-client-architect", "messaging-architect",
-          "jobs-architect", "cache-architect", "ai-architect", "test-architect"
+          "jobs-architect", "cache-architect", "ai-architect", "search-architect", "test-architect"
         ]
       },
       "orchestrator": {
@@ -426,26 +426,44 @@
       "**/src/main/resources/application*.yaml"
     ],
     "app_service_key": "build",
-    "datasource_pairs": {
-      "$comment": "Login half of question 5 of `compose`, a WARNING that never blocks: `compose` and `doctor` print it, `compose gate` never reads it. When the datasource URL reaches a compose service whose image repository (last path segment, tag dropped) is in an engine's `images`, the database in the JDBC URL is compared with `database_env` and the user with `username_env`, every `${VAR:default}` / `${VAR:-default}` read as its default, on the host run (base `application.yml`) and in the application service. The password is never compared or printed: only whether the service sets `password_env` and the application side has none. A new engine is a new entry here, never a condition in the Java (invariant 10). Generated `application.yml` defaulted to `bankingapp`/`bankingapp`/empty while the `postgres` service created `appdb`/`app`/`app`, and question 5 reported the pair healthy because host and port matched: lessons-learned-021. Design: .claude/decisions/0124-datasource-defaults-one-convention-checked-by-compose.md",
-      "url_property": "spring.datasource.url",
-      "username_property": "spring.datasource.username",
-      "password_property": "spring.datasource.password",
-      "engines": [
-        {
-          "images": ["postgres"],
-          "database_env": "POSTGRES_DB",
-          "username_env": "POSTGRES_USER",
-          "password_env": "POSTGRES_PASSWORD"
-        },
-        {
-          "images": ["mysql"],
-          "database_env": "MYSQL_DATABASE",
-          "username_env": "MYSQL_USER",
-          "password_env": "MYSQL_PASSWORD"
-        }
-      ]
-    }
+    "datasource_pairs": [
+      {
+        "$comment": "Login half of question 5 of `compose`, a WARNING that never blocks: `compose` and `doctor` print it, `compose gate` never reads it. One entry per connection property set — a JDBC datasource, a MongoDB URI (decision 0147). When the URL reaches a compose service whose image repository (last path segment, tag dropped) is in an engine's `images`, the database the URL names (`database_pattern`, group 1) is compared with `database_env` and the user with `username_env`, every `${VAR:default}` / `${VAR:-default}` read as its default, on the host run (base `application.yml`) and in the application service. The user comes from `username_property`, else from the URL through `username_pattern`; whether a password is set, from `password_property`, else from `password_pattern` — a placeholder with no default inside the URL counts as set. The password is never compared or printed. `variables` names, in each warning, the variable both sides should read. A new engine or a new property set is a new entry here, never a condition in the Java (invariant 10). Generated `application.yml` defaulted to `bankingapp`/`bankingapp`/empty while the `postgres` service created `appdb`/`app`/`app`, and question 5 reported the pair healthy because host and port matched: lessons-learned-021. Design: .claude/decisions/0124-datasource-defaults-one-convention-checked-by-compose.md",
+        "url_property": "spring.datasource.url",
+        "username_property": "spring.datasource.username",
+        "password_property": "spring.datasource.password",
+        "database_pattern": "^jdbc:[a-z0-9]+://[^/]+/([^?;/]+)",
+        "variables": { "database": "DB_NAME", "username": "DB_USERNAME", "password": "DB_PASSWORD" },
+        "engines": [
+          {
+            "images": ["postgres"],
+            "database_env": "POSTGRES_DB",
+            "username_env": "POSTGRES_USER",
+            "password_env": "POSTGRES_PASSWORD"
+          },
+          {
+            "images": ["mysql"],
+            "database_env": "MYSQL_DATABASE",
+            "username_env": "MYSQL_USER",
+            "password_env": "MYSQL_PASSWORD"
+          }
+        ]
+      },
+      {
+        "$comment": "MongoDB: one URI carries host, user, password and database. The image creates only the root user of `admin` and no database (MongoDB creates one on first write), so there is no `database_env` and the database is never compared — only the user and whether a password is set. Decision 0147.",
+        "url_property": "spring.mongodb.uri",
+        "username_pattern": "^mongodb(?:\\+srv)?://([^:@/]+)(?::[^@/]*)?@",
+        "password_pattern": "^mongodb(?:\\+srv)?://[^:@/]+:([^@/]+)@",
+        "variables": { "database": "MONGO_DATABASE", "username": "MONGO_USERNAME", "password": "MONGO_PASSWORD" },
+        "engines": [
+          {
+            "images": ["mongo"],
+            "username_env": "MONGO_INITDB_ROOT_USERNAME",
+            "password_env": "MONGO_INITDB_ROOT_PASSWORD"
+          }
+        ]
+      }
+    ]
   },
 
   "guard": {
@@ -643,6 +661,18 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "modular-monolith", "layered", "vertical-slice", "onion"],
         "note": "SonarQube no longer fails the security gate on the CSRF line of SecurityConfig. That class turns CSRF off on purpose: no cookie authenticates a request, the condition in .claude/rules/authorization.md § Transport hardening. SonarJava reports it as java:S4502, a HIGH vulnerability, which drops the security rating to D. sonarqube-setup now adds an exemption scoped to java:S4502 and **/SecurityConfig.java, next to the existing S2326 and S112 entries. It configures a project once and never runs again on a project that already has the scanner, and /arch-adopt writes no build file. So a project set up with Sonar before this change keeps the finding until it adds the entry. Only matters if the root build file has the SonarQube scanner and the project has a SecurityConfig.",
         "prompt": "Add this project's Sonar exemption for the CSRF line of SecurityConfig, as .claude/skills/sonarqube-setup/templates/pom-sonar.xml.example now carries it. First, if the root pom.xml has no sonar-maven-plugin (Gradle: the root build.gradle has no org.sonarqube plugin), tell me there is nothing to do and stop. If no SecurityConfig.java exists under src/main, or it does not call .csrf(AbstractHttpConfigurer::disable) after SessionCreationPolicy.STATELESS, tell me so and stop: the exemption covers only that case. If sonar.issue.ignore.multicriteria already lists s4502, show me its two keys and stop. Otherwise show me the change and wait for my go-ahead. With Maven, in the root pom.xml's <properties>: append ,s4502 to <sonar.issue.ignore.multicriteria>, or create it with the value s4502 if it is missing, and add <sonar.issue.ignore.multicriteria.s4502.ruleKey>java:S4502</sonar.issue.ignore.multicriteria.s4502.ruleKey> and <sonar.issue.ignore.multicriteria.s4502.resourceKey>**/SecurityConfig.java</sonar.issue.ignore.multicriteria.s4502.resourceKey>. With Gradle, do the same inside the root sonar { properties { } } block, with property 'sonar.issue.ignore.multicriteria.s4502.ruleKey', 'java:S4502' and property 'sonar.issue.ignore.multicriteria.s4502.resourceKey', '**/SecurityConfig.java'. Do not turn the rule off project-wide, and change nothing else. Then run ./mvnw -B verify (Gradle: ./gradlew build)."
+      },
+      {
+        "id": "nosql-adapter-boundary",
+        "blueprints": [
+          "hexagonal",
+          "clean-architecture-multi-module",
+          "onion",
+          "layered",
+          "vertical-slice"
+        ],
+        "note": "An aggregate may now live in MongoDB (the document family of `persistence-architect`), and a search engine index — Elasticsearch or OpenSearch, a projection designed by `search-architect` — has its own package (`.search` in packages.map). The blueprint keeps their libraries out of the layers above the adapters: `org.springframework.data.mongodb..`, `com.mongodb..`, `org.bson..`, `org.springframework.data.elasticsearch..`, `co.elastic..` and `org.opensearch..` are forbidden in the `application` module (hexagonal, clean-architecture-multi-module), the driver, BSON and search-client prefixes in `domain` (hexagonal, clean-architecture-multi-module, onion), and layered and vertical-slice gained dependency rules for the `search` package. `.claude/forbidden-imports.txt` and each module AGENTS.md are written once, when the project is generated, so a project generated before this change does not refuse the new imports, and `doctor`'s `Agent instructions` line warns that an AGENTS.md does not list them. Nothing breaks if they stay; until they are updated, nothing stops a MongoDB or search type from being imported into the application or domain layer.",
+        "prompt": "Bring this project's boundary map and module instructions up to the active blueprint's import rules. Read the active blueprint's YAML — the one whose id .claude/.arch-provenance.json names, which the export keeps in this project — and the generation rule in Nerviz's project-bootstrap references/project-files.md § 5 — never from memory: if /arch-adopt just ran it is under $SRC/.claude/skills/project-bootstrap/references/ (SRC defaults to /tmp/arch-src); otherwise download the tarball named by `source.base_url` in .claude/schemas/extensions.json, with {ref} set to the `ref` of .claude/.arch-provenance.json. (1) Add to .claude/forbidden-imports.txt every `<module-path>|<prefix>` line that rule derives from the blueprint and the file does not hold yet — for a module layout, `application|org.springframework.data.mongodb.`, `application|com.mongodb.`, `application|org.bson.`, `application|org.springframework.data.elasticsearch.`, `application|co.elastic.`, `application|org.opensearch.`, `domain|com.mongodb.`, `domain|org.bson.`, `domain|co.elastic.` and `domain|org.opensearch.` with each module's real path; for a single-module layout, the lines the new `search` dependency rules derive. Never remove a line. (2) In every module AGENTS.md that lists forbidden imports, add the prefixes now missing, in the same list format. Change nothing else. Finish with `java .claude/hooks/ArchHook.java doctor` and show me its `Boundaries`, `Boundary violations` and `Agent instructions` lines."
       }
     ]
   },
@@ -762,6 +792,7 @@
         "persistence-architect",
         "report-issue",
         "rest-api-architect",
+        "search-architect",
         "security-architect",
         "sonar-lessons",
         "sonarqube-setup",
@@ -781,7 +812,7 @@
 
     "derived_paths": {
       "$comment_exempt": "Globs that are valid in any architecture and so need no derivation: they name no package. A rule whose `paths` holds only these is not expected here. Java is `**/src/**/*.java`, never `**/*.java`, which also matches .claude/hooks/ArchHook.java and loads every Java norm on each read of the hook (0082). One that names a package and is missing from this map would travel with the glob of whichever blueprint happened to be written into the file — gap 8 of lessons-learned-001. `schema` checks both directions.",
-      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**", "**/src/main/resources/prompts/**", "**/src/main/resources/graphql/**"],
+      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**", "**/src/main/resources/prompts/**", "**/src/main/resources/graphql/**", "**/src/main/resources/search/**"],
       "$comment": "A rule with a territory auto-loads by `paths`, and a glob naming a package the active blueprint does not use leaves it silently unloaded. The glob is therefore derived from the blueprint's packages.map — the VALUE, not the key, with `.` becoming `/` — and never copied from the original file. `suffix` selects the packages.map entry whose key ends with it; `key` names candidates in order of preference, first hit wins. A selector that matches nothing and is `optional` keeps the master example globs, inert in that architecture — never strips them, since a rule without `paths` loads at launch in every session (.claude/decisions/0082-rules-without-paths-load-at-launch.md); one that matches nothing and is not optional is a failure of the export, not of the project. No defensive union: this blueprint's glob and no other.",
       "api-rest.md": {
         "suffix": [".rest"],
@@ -802,6 +833,7 @@
       "caching.md": { "suffix": [".cache"], "glob": "**/{}/**", "optional": true },
       "ai.md": { "suffix": [".ai"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/prompts/**"] },
       "api-graphql.md": { "suffix": [".graphql"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/graphql/**"] },
+      "search.md": { "suffix": [".search"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/search/**"] },
       "authorization.md": {
         "$comment": "Wiring lives in the `.config` package; hexagonal, onion and custom-template have none, so it lives in a `security` subpackage of the REST adapter and the `.rest` glob already covers it. vertical-slice has `.config` and no `.rest`, so the fallback never fires there and the rule loads on `config/**` only — a slice's controller does not pull it, and the executor cites it inline anyway (decision 0112). `.graphql` too: a GraphQL resolver carries the method-security check on every operation and sensitive field, since the filter chain sees one endpoint (decision 0146).",
         "suffix": [".rest", ".graphql", ".config"],

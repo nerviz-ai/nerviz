@@ -61,7 +61,9 @@ both directions. See § Design patterns.
 - `.claude/rules/naming.md`, `.claude/rules/code-quality.md`, `.claude/rules/lombok.md` —
   every block, every class
 - `.claude/rules/value-objects.md`, `.claude/rules/error-handling.md` — Block 1
-- `.claude/rules/persistence.md` — Block 2
+- `.claude/rules/persistence.md` — Block 2, its common sections plus the section of the family
+  each aggregate's `Storage` names (Relational (JPA) or Document (MongoDB))
+- `.claude/rules/search.md` — Block I, only when the spec carries the search block
 - `.claude/rules/personal-data.md` — Block 2 and Block M, whenever the spec's personal-data lines
   say a field is stored or published: it owns personal data at rest and in transit, where
   `logging.md` stops at the log line. The design already decided what crosses and in what form;
@@ -112,9 +114,11 @@ The paths below use `[role]` because the real package depends on the blueprint �
 from the destination map surveyed in the guardrail, never from a path written here:
 
 - `[domain]/**` — domain classes (aggregate, VOs, events, ports)
-- `[persistence]/<aggregate>/**` — JPA entities, repository adapter. One subpackage per
-  aggregate, never the bare `[persistence]/` root — `.claude/rules/persistence.md`
-  § Boundary
+- `[persistence]/<aggregate>/**` — JPA entities or MongoDB documents, repository adapter, the
+  collection's schema declaration. One subpackage per aggregate, never the bare `[persistence]/`
+  root — `.claude/rules/persistence.md` § Boundary
+- `[search]/**` and `src/main/resources/search/` — search documents, adapters, the index
+  bootstrap and the mapping files — Block I only, when the spec carries the search block
 - `[rest]/**` — controller, DTOs, mapper, exception handler
 - `[graphql]/**` — GraphQL controllers, the adapter records and mappers, cursor conversion,
   `GraphQlLimits`, `GraphQlConfig`, the exception resolver — Block G only, when the spec carries the
@@ -362,15 +366,16 @@ that `subagent_context` lists before Block 1.
 
 ---
 
-## Procedure — 4 fixed blocks + 7 conditional
+## Procedure — 4 fixed blocks + 8 conditional
 
 Order: domain (1-7) → persistence (8-12) → REST (13-15) → GraphQL (G1-G3, only when the spec
 carries the GraphQL block) → security (S1-S3, only when the spec
 carries the security block) → messaging (M1-M4, only when the
 spec carries the messaging block) → jobs (J1-J3, only when it carries the jobs block) → cache (C1-C3, only when it carries the
 cache block) → tests (16-19). Block H (H1-H3) runs right after Block 2 when the spec carries the
-outbound HTTP block, and Block A (A1-A3) right after it when the spec carries the AI block. **Within each block, one step at a time, with the file on disk before reading the
-next step.** Blocks H, A, G, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
+outbound HTTP block, Block A (A1-A3) right after it when the spec carries the AI block, and
+Block I (I1-I3) right after that when the spec carries the search block. **Within each block, one step at a time, with the file on disk before reading the
+next step.** Blocks H, A, I, G, S, M, J and C don't renumber the fixed checklist — it stays 19 items whether or
 not they run; a spec without any of them skips straight from Block 3 to Block 4, same as it always
 did.
 
@@ -397,7 +402,7 @@ later turn: one run reached a 427,889-token context and 531,362 billable tokens 
 | Group | Blocks | Ends with |
 |---|---|---|
 | `domain` | 1, 2 | ticking steps 1–12 |
-| `adapters` | H, A, 3, G, S, M, J, C — those the spec carries | ticking steps 13–15 |
+| `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | ticking steps 13–15 |
 | `tests` | 4 | Block 4's *Close the spec* — steps 16–19, then the `status:` line |
 
 - **Run only the group named.** Earlier blocks are on disk: § Resume's survey finds them, and
@@ -476,6 +481,26 @@ Every class of the aggregate goes in its own subpackage of the persistence adapt
 stays package-private (§ Boundary); the test tree mirrors it. A cross-aggregate fixture
 depends on the other aggregate's outbound port — widening a class to `public` to make a
 test compile is the wrong fix.
+
+**Document family** — an aggregate whose `Storage` is `document (MongoDB)`, read from § 3 and
+`20-persistencia.md`. The exemplars are `.claude/skills/persistence-architect/templates/Mongo*.java.example`,
+`DocumentTransactions.java.example` and `application-mongodb.yml.example`, in place of the JPA ones:
+- `[Aggregate]Document.java` with `@Document("<collection>")`, `@TypeAlias`, `@Version Long` and
+  `schemaVersion`; the embedded children as records; `[Aggregate]MongoRepository`; the adapter with
+  the two write paths (`create` inserts, `save` loads-mutates-saves) and the mapper with its upcast
+- `[Aggregate]Collection` — the schema declaration of § 4, verbatim: named indexes and the
+  validator. Once per project, from the exemplars: `MongoCollectionSchema`, `MongoSchemaInitializer`
+  (public), `MongoClientConfig`, the transaction manager — `MongoTransactionConfig`, or
+  `TransactionManagersConfig` when the project also has JPA, never both — and, in the application
+  layer, `DocumentTransactions`, which every use case writing a document opens its transaction
+  through, instead of `@Transactional`
+- No migration file, no `ddl-auto`. Properties of § 5 (`spring.mongodb.*`, the UUID and
+  `Decimal128` representations, `app.mongodb.*`)
+
+Validation, document family: no `@DBRef`/`@DocumentReference` across aggregates, no derived
+`Containing`/`IgnoreCase`, no `Page` on a listing (keyset `Window`), no `MongoClientSettings` or
+`MongoCustomConversions` bean, no `spring.data.mongodb.uri`, the `outbox_events` and
+`idempotency_keys` of this family from `MongoSharedCollections.java.example`.
 
 Compilation: `./mvnw -q -pl <persistence-module> test-compile` in multi-module, `./mvnw -q test-compile` in single-module ✅
 
@@ -603,6 +628,45 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [ai]>` in mult
 - Sent to the provider: Ticket.text only
 - Shared: AiProperties, AiClientConfig, AiFailureTranslator (NEW); integration families (REUSE)
 - Files: 6 classes, 2 prompts, 0 errors
+```
+
+### Block I: Search (steps I1-I3, conditional)
+
+**Runs only when the spec carries the search block** — `grep -m1 -E '^## [0-9.]+ Search' <spec>`,
+and the block is not `none`. No match, or `none` → skip to Block 3. Read the search block of
+spec.md, then `23-busca.md`, then `.claude/rules/search.md`. It runs after Block A because a search
+adapter compiles against the `search index` port and the integration families, and nothing upstream
+compiles against it. The exemplars are in `.claude/skills/search-architect/templates/`; the adapter
+code is the same for Elasticsearch and OpenSearch — only the dependency and the properties differ.
+
+- **I1 · Index** — the mapping file of `23-busca.md` § 2 at its path under
+  `src/main/resources/search/`, verbatim; once per project, in `[search]/shared/`,
+  `SearchIndexDefinition` and the public `SearchIndexBootstrap`
+  (`SearchIndexBootstrap.java.example`); per projection, the search document
+  (`SearchDocument.java.example`: `createIndex = false`, no type hint, id and version kept out of
+  `_source`, external version) and its index definition. The dependencies of § 9 in `pom.xml` —
+  Elasticsearch's with no version, OpenSearch's with the versions § 9 recorded
+- **I2 · Adapters** — per the kind of case: the query adapter implementing the `search index` port
+  (`CriteriaQuery`, the tombstone filter, the sort ending in the unique field, the page ceiling, the
+  cursor from the last item's fields); the indexer adapter (external version, a stale write returned
+  as a value, the tombstone on delete, the `-next` alias written during a rebuild); the rebuild
+  adapter (`SearchRebuild.java.example`: begin, bulk with `withVersion`, one alias action). Never an
+  `ElasticsearchRepository`, never a `NativeQuery`
+- **I3 · Configuration** — the properties of § 10 (`application-search.yml.example`): the engine's
+  connection with the password as a placeholder with no default, explicit timeouts,
+  `app.search.replicas`, the SSL bundle outside `local`, `docker` and `test`
+
+Validation: no search client outside `[search]`, no `FieldType.Auto`, every mapping file
+`"dynamic": "strict"`, no refresh on a write path.
+
+Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [search]>` in multi-module) ✅
+
+**Line in the final report:**
+```
+✅ Block I: Search complete (steps I1-I3)
+- Projection: orders-v1 behind alias orders (Elasticsearch), 8 fields, strict
+- Adapters: OrderSearchAdapter (query, cursor), OrderIndexerAdapter (external version, tombstone)
+- Files: 7 classes, 1 mapping file, 0 errors
 ```
 
 ### Block 3: REST (steps 13-15)

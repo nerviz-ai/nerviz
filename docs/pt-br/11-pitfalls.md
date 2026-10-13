@@ -454,6 +454,27 @@ de `32-seguranca.md`, nunca de `31-graphql.md`. O snapshot do schema do
 no classpath de teste. O Spring for GraphQL mora só no pacote `.graphql`
 (`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
 
+**A família de storage é um dado do caso de uso, e nenhum passo do pipeline a pondera.** O
+`use-case-design` a registra na linha `Storage` de `00-caso-de-uso.md` — por agregado,
+`relational` ou `document (MongoDB)` — a partir do pedido, ou de uma única pergunta factual
+("SQL ou NoSQL?"), e nunca defende uma das duas; essa entrevista de decisão é de uma skill de
+solution-design planejada. O `persistence-architect` para sem a linha. O MongoDB precisa de
+replica set em todo lugar, inclusive no serviço de compose e no teste de integração, porque um
+servidor standalone recusa toda transação; e declarar um `MongoTransactionManager` remove o
+transaction manager JPA do Spring Boot, então o formato que mantém o JPA ao lado do MongoDB
+declara os dois (`.claude/rules/persistence.md` § Document (MongoDB),
+`.claude/decisions/0147-document-storage-and-search-architect.md`).
+
+**Um índice de busca é uma projeção, e cinco parciais são donas das suas peças.** O
+`search-architect` só roda quando a linha `Search index` de `00-caso-de-uso.md` nomeia uma
+projeção, e `23-busca.md` é dono do documento, do mapping, do alias, da consulta, das regras de
+escrita do indexer, do adapter de rebuild e do lag. A versão da fonte e o evento de outbox são de
+`20-persistencia.md`; o consumer do indexer é de `25-mensageria.md`; o job de rebuild é de
+`35-jobs.md`. Um cache sobre um port de busca recebe o `Freshness` do caso menos o lag, nunca ele
+inteiro. O Spring Data Elasticsearch e o OpenSearch moram só no pacote `.search`, então seus
+imports num módulo `application` são violação de fronteira (`.claude/rules/search.md`,
+`.claude/decisions/0147-document-storage-and-search-architect.md`).
+
 **O bounded context é um fato do projeto, não uma resposta por caso de uso.** É o primeiro
 segmento de todo nome de tópico, perguntado junto com as coordenadas no `/init-project` e
 escrito no `CLAUDE.md` raiz do projeto gerado. Um prefixo escolhido dentro de um caso de uso

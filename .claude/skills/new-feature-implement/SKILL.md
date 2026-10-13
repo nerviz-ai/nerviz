@@ -158,7 +158,7 @@ pre-existing changes travel to `git-publish` at the end of the run.
    | Group | Blocks | Checklist steps it ticks |
    |---|---|---|
    | `domain` | 1, 2 | 1–12 |
-   | `adapters` | H, A, 3, G, S, M, J, C — those the spec carries | 13–15 |
+   | `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | 13–15 |
    | `tests` | 4 | 16–19, then the `status:` line |
 
    - **Where the chain starts.** At the first group with a checklist step neither ticked nor

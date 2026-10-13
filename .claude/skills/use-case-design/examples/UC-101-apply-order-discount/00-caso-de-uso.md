@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | recompute and apply a discount to an existing order, over HTTP — inbound REST adapter |
 | Side effects | **1** — `UPDATE` on `orders` (`discount_percentage`, `total`) |
+| Storage | `Order` → relational — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | opens in the use case, closes before the response |
 | Idempotency | no while the order isn't `PAID` — reapplying yields the same result for the same tier; once `PAID`, reapplying is a conflict, not a repeat |
 | Concurrency | optimistic lock (`version` column) on `orders` |

@@ -370,6 +370,22 @@ jobs:
       - name: GraphQL exemplars decide every limit and batch every child list
         run: java .claude/.ci/GraphQlTemplateTest.java
 
+      # MongoDB's defaults are silent: `save` without `@Version` upserts the whole document, a class
+      # without `@Document("…")` names its own collection, `@Indexed` with index creation off is a
+      # unique key that does not exist, a standalone container refuses every transaction. The
+      # executor copies an exemplar's shape. This keeps the document family's exemplars, the
+      # MongoDB IT and compose service, and every blueprint's inner layers decided (0147).
+      - name: document-family exemplars name collection, alias and version, and run a replica set
+        run: java .claude/.ci/PersistenceTemplateTest.java
+
+      # Spring Data Elasticsearch's defaults create the index at startup, infer field types, write a
+      # type hint and the id into `_source` that a strict mapping refuses, and refresh on every
+      # repository save; a bulk without the source's version overwrites a newer copy. This keeps the
+      # search exemplars, the search IT and compose services, and every blueprint's package and
+      # inner layers decided (0147).
+      - name: search exemplars keep the index a strict, versioned projection
+        run: java .claude/.ci/SearchTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
@@ -421,6 +437,8 @@ jobs:
           DB_PASSWORD: ci-only
           DB_ROOT_PASSWORD: ci-only
           REDIS_PASSWORD: ci-only
+          MONGO_PASSWORD: ci-only
+          SEARCH_PASSWORD: ci-only
         run: |
           set -euo pipefail
           T=.claude/skills/docker-architect/templates
@@ -712,7 +730,7 @@ jobs:
           curl -sS --fail --retry 3 --retry-all-errors --retry-delay 5 --max-time 120 \
             https://start.spring.io/starter.tgz \
             -d type=maven-project -d language=java -d javaVersion=21 \
-            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis,spring-ai-openai,spring-ai-vectordb-pgvector,graphql \
+            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis,spring-ai-openai,spring-ai-vectordb-pgvector,graphql,data-mongodb,data-elasticsearch \
             -o /tmp/starter.tgz
           mkdir -p /tmp/ref && tar xzf /tmp/starter.tgz -C /tmp/ref
           # micrometer-tracing-bridge-otel is managed by the Boot BOM: no version here,
@@ -763,7 +781,12 @@ jobs:
           # `graphql` is there because graphql-api-architect's exemplars and test-architect's three
           # GraphQL tests import Spring for GraphQL, graphql-java and the GraphQL test support (0146);
           # the `graphql` and `org.dataloader` prefixes below are graphql-java's and java-dataloader's roots.
-          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader)\.'
+          # `data-mongodb` and `data-elasticsearch` are there because persistence-architect's document
+          # exemplars, search-architect's exemplars and test-architect's MongoPersistenceIT and
+          # SearchIndexIT import Spring Data MongoDB and Elasticsearch, the MongoDB driver, BSON and the
+          # Elasticsearch client (0147); `com.mongodb`, `org.bson` and `co.elastic` are their roots.
+          # Spring Data OpenSearch is not an Initializr dependency: no exemplar imports it.
+          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader|com\.mongodb|org\.bson|co\.elastic)\.'
           IMPORTS=$(grep -rhoE '^ *import (static )?[a-z][a-zA-Z0-9_.]+;' \
                       .claude/skills/*/templates/*.java.example \
                     | sed -E 's/^ *import (static )?//; s/;$//' | sort -u)
@@ -793,6 +816,7 @@ jobs:
           org.springframework.boot.test.autoconfigure.orm.jpa=Boot 3 package; in Boot 4 it's org.springframework.boot.data.jpa.test.autoconfigure
           org.springframework.boot.test.autoconfigure.web.servlet=Boot 3 package; in Boot 4 it's org.springframework.boot.webmvc.test.autoconfigure
           org.testcontainers.containers.PostgreSQLContainer=Testcontainers 1.x package; in 2.x it's org.testcontainers.postgresql
+          org.testcontainers.containers.MongoDBContainer=Testcontainers 1.x package; in 2.x it's org.testcontainers.mongodb (decision 0147)
           org.springframework.kafka.support.serializer.JsonSerializer=deprecated for removal since spring-kafka 4.0, and a JSON value serializer double-encodes the outbox relay's text; the wire contract is StringSerializer (decision 0106)
           org.springframework.kafka.support.serializer.JsonDeserializer=deprecated for removal since spring-kafka 4.0; the wire contract is StringDeserializer plus a StringJacksonJsonMessageConverter bean (decision 0106)
           requiresChannel(=deprecated in the Spring Security generation Boot 4 manages; redirectToHttps() replaces it (decision 0122)

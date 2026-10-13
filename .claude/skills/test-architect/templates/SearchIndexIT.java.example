@@ -1,0 +1,187 @@
+/*
+ * EXEMPLAR — integration test of a search projection: the index lifecycle, the indexer's external
+ * version, the tombstone, the query cursor and the rebuild with the alias swap. Compilable against
+ * the search exemplars it names (`search-architect/templates/*.java.example`).
+ * Rules: `.claude/rules/search.md` (§ Index lifecycle, § Writes, § Queries, § Tests) ·
+ *        `.claude/rules/testing.md`
+ *
+ * AGAINST THE REAL ENGINE, the same image and tag the compose service runs, through
+ * `DockerImageName.parse(…)` — the call the compose × `src/test` tag comparison reads.
+ * Elasticsearch's image serves HTTPS with a generated certificate and a password: `@Ssl` makes the
+ * service connection trust that certificate; without it the client speaks HTTP and every call fails.
+ *
+ * OPENSEARCH VARIANT: the same test body, with `org.opensearch.testcontainers.OpenSearchContainer`
+ * (artifact `org.opensearch:opensearch-testcontainers`) and `@ServiceConnection` from
+ * `spring-data-opensearch-testcontainers`, the slice `@DataOpenSearchTest` from
+ * `spring-data-opensearch-test-autoconfigure` — which has no `properties` attribute, so
+ * `app.search.replicas=0` goes through `@TestPropertySource` — and neither `@Ssl` nor the
+ * authenticated wait: that container runs without the security plugin unless asked. Versions from
+ * the partial's § Declared dependencies. Run on both engines with the same adapters, 2026-10-13.
+ *
+ * WHY THE AUTHENTICATED WAIT: the search bootstrap calls the engine while the context starts, and
+ * Elasticsearch answers 401 for a moment after the container is reported ready, until the
+ * `elastic` password is set up. The wait asks for an authenticated `_cluster/health` on 9200 —
+ * the default strategy may probe the transport port.
+ *
+ * REFRESH ONLY HERE. Production code never refreshes; a test that writes and then reads refreshes
+ * in its own fixture (`refresh()` below), or it reads an index that has not caught up yet.
+ *
+ * `search/orders-v2.json` exists only under `src/test/resources`: the rebuild test needs a next
+ * version to build, and production has none yet. Every test writes its own ids and words, so no
+ * test cleans up after another; the rebuild runs last because it moves the alias.
+ */
+package com.example.demo.adapter.out.search.order;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.example.demo.adapter.out.search.shared.SearchIndexBootstrap;
+import com.example.demo.adapter.out.search.shared.SearchIndexDefinition;
+import com.example.demo.application.port.out.IndexWrite;
+import com.example.demo.application.port.out.OrderSearchPage;
+import com.example.demo.application.port.out.OrderSearchQuery;
+import com.example.demo.application.port.out.OrderSnapshot;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.elasticsearch.test.autoconfigure.DataElasticsearchTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.testcontainers.service.connection.Ssl;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+@DataElasticsearchTest(properties = "app.search.replicas=0")
+@Testcontainers
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Import({OrderSearchIndex.class, SearchIndexBootstrap.class,
+        OrderSearchAdapter.class, OrderIndexerAdapter.class, OrderSearchRebuildAdapter.class})
+class SearchIndexIT {
+
+    private static final String PASSWORD = "test-only-password";
+
+    @Container
+    @ServiceConnection
+    @Ssl
+    static final ElasticsearchContainer SEARCH = new ElasticsearchContainer(
+            DockerImageName.parse("docker.elastic.co/elasticsearch/elasticsearch:9.4.8"))
+            .withPassword(PASSWORD)
+            .waitingFor(Wait.forHttps("/_cluster/health?wait_for_status=yellow")
+                    .forPort(9200)
+                    .allowInsecure()
+                    .withBasicCredentials("elastic", PASSWORD)
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(2)));
+
+    @Autowired private OrderSearchAdapter search;
+    @Autowired private OrderIndexerAdapter indexer;
+    @Autowired private OrderSearchRebuildAdapter rebuild;
+    @Autowired private ElasticsearchOperations operations;
+
+    @Test
+    @DisplayName("the startup created the versioned index behind its alias")
+    void aliasPointsAtVersionOne() {
+        assertThat(operations.indexOps(IndexCoordinates.of(OrderSearchIndex.ALIAS)).getAliases(OrderSearchIndex.ALIAS))
+                .containsOnlyKeys(new SearchIndexDefinition(OrderSearchIndex.ALIAS, 1).indexName());
+    }
+
+    @Test
+    @DisplayName("an indexed order is found by a word of the customer's name")
+    void findsByWord() {
+        indexer.upsert(snapshot("o-1", "Ana Maria Souza", 1));
+        refresh();
+
+        OrderSearchPage page = search.search(query("souza"), Optional.empty(), 10);
+
+        assertThat(page.items()).extracting(OrderSearchPage.Item::orderId).containsExactly("o-1");
+    }
+
+    @Test
+    @DisplayName("an event older than the indexed copy is acknowledged as stale and changes nothing")
+    void olderEventIsStale() {
+        indexer.upsert(snapshot("o-2", "Bruno Lima", 5));
+
+        IndexWrite late = indexer.upsert(snapshot("o-2", "Stale Name", 4));
+        refresh();
+
+        assertThat(late).isEqualTo(IndexWrite.STALE);
+        assertThat(search.search(query("bruno"), Optional.empty(), 10).items()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a delete followed by a late update keeps the order out of the results")
+    void tombstoneWins() {
+        indexer.upsert(snapshot("o-3", "Carla Dias", 1));
+        indexer.remove("o-3", 3);
+
+        IndexWrite late = indexer.upsert(snapshot("o-3", "Carla Dias", 2));
+        refresh();
+
+        assertThat(late).isEqualTo(IndexWrite.STALE);
+        assertThat(search.search(query("carla"), Optional.empty(), 10).items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the cursor of a page reads the next one, with no repeat and no gap")
+    void cursorPages() {
+        for (int i = 0; i < 3; i++) {
+            indexer.upsert(snapshot("o-p" + i, "Diego Paging", 1));
+        }
+        refresh();
+
+        OrderSearchPage first = search.search(query("paging"), Optional.empty(), 2);
+        OrderSearchPage second = search.search(query("paging"), first.next(), 2);
+
+        assertThat(first.items()).hasSize(2);
+        assertThat(second.items()).hasSize(1);
+        assertThat(second.items().getFirst().orderId())
+                .isNotIn(first.items().stream().map(OrderSearchPage.Item::orderId).toList());
+    }
+
+    @Test
+    @Order(Integer.MAX_VALUE)
+    @DisplayName("a rebuild fills the next version, keeps the events written meanwhile, and swaps the alias")
+    void rebuildSwapsAlias() {
+        indexer.upsert(snapshot("o-r1", "Eva Rebuild", 1));
+        rebuild.begin(2);
+        indexer.upsert(snapshot("o-r2", "Eva Rebuild Late", 7));
+
+        rebuild.write(2, List.of(snapshot("o-r1", "Eva Rebuild", 1), snapshot("o-r2", "Eva Rebuild", 6)));
+        rebuild.publish(2);
+        refresh();
+
+        assertThat(operations.indexOps(IndexCoordinates.of(OrderSearchIndex.ALIAS)).getAliases(OrderSearchIndex.ALIAS))
+                .containsOnlyKeys(new SearchIndexDefinition(OrderSearchIndex.ALIAS, 2).indexName());
+        assertThat(search.search(query("rebuild"), Optional.empty(), 10).items())
+                .extracting(OrderSearchPage.Item::orderId, OrderSearchPage.Item::customerName)
+                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple("o-r1", "Eva Rebuild"),
+                        org.assertj.core.groups.Tuple.tuple("o-r2", "Eva Rebuild Late"));
+    }
+
+    private void refresh() {
+        operations.indexOps(IndexCoordinates.of(OrderSearchIndex.ALIAS)).refresh();
+    }
+
+    private static OrderSearchQuery query(String text) {
+        return new OrderSearchQuery(Optional.of(text), Optional.empty());
+    }
+
+    private static OrderSnapshot snapshot(String id, String customer, long version) {
+        return new OrderSnapshot(id, "N-" + UUID.randomUUID(), customer, "PLACED", new BigDecimal("10.00"),
+                Instant.now().truncatedTo(ChronoUnit.MILLIS), List.of(new OrderSnapshot.Line("SKU-1", 1)), version);
+    }
+}

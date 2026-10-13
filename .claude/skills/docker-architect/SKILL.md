@@ -130,7 +130,8 @@ that project: read `<path>/docker-compose.yml` instead.
 2. **Find out what's needed.**
    - If the target above names a `UC-NNN-<slug>` folder: read `20-persistencia.md` for the
      engine and version, `25-mensageria.md` for the broker and topic, `22-cache.md` for a `redis`
-     row, `29-ia.md` for a `postgres` row whose image is `pgvector/pgvector`, and `40-testes.md`
+     row, `29-ia.md` for a `postgres` row whose image is `pgvector/pgvector`, `23-busca.md` for an
+     `elasticsearch` or `opensearch` row, and `40-testes.md`
      for whether `testcontainers` is active and which image tag `test-architect` already
      pinned in `TestcontainersConfiguration.java`
      (`grep -rn "DockerImageName.parse" src/test`).
@@ -360,6 +361,9 @@ that project: read `<path>/docker-compose.yml` instead.
 | PostgreSQL | `templates/postgres-service.yml.example` | Engine chosen in `20-persistencia.md` isn't Postgres — or, at bootstrap time, when `persistence-jpa` isn't active in the blueprint |
 | PostgreSQL with pgvector | `templates/postgres-service.yml.example`, its `VARIANT — a vector store` | `29-ia.md` declares no vector store. Same `postgres` service, variables and volume; only the image is `pgvector/pgvector`. On a project whose `postgres` already exists, the change is that block's `image:` line — never a second database service. The extension itself is created by the project's migration, not here |
 | MySQL | `templates/mysql-service.yml.example` | Engine chosen in `20-persistencia.md` isn't MySQL |
+| MongoDB | `templates/mongo-service.yml.example` | No aggregate of the document family in `20-persistencia.md`. Always a single-node replica set with a keyfile — never a standalone server, which refuses the transactions the outbox and idempotency need; the healthcheck initiates the set once. Needs `MONGO_PASSWORD` in `.env` (step 4.5). An `external` MongoDB must be a replica set too |
+| Elasticsearch | `templates/elasticsearch-service.yml.example` | `23-busca.md` names no Elasticsearch projection. Single node, authentication on, HTTP TLS off locally; the tag's major matches the client's. Needs `SEARCH_PASSWORD` in `.env` |
+| OpenSearch | `templates/opensearch-service.yml.example` | `23-busca.md` names no OpenSearch projection. Single node, security plugin on, HTTP TLS off locally; the admin password must be strong or the container exits. Needs `SEARCH_PASSWORD` in `.env` |
 | Kafka | `templates/kafka-service.yml.example` | Broker chosen in `25-mensageria.md` isn't Kafka, or there is none |
 | Redis (cache) | `templates/redis-service.yml.example` | `22-cache.md` § 2 chose Caffeine, or the cache is `external`. No volume and no persistence on purpose — a cache is recomputed from its source — and `allkeys-lru` under a memory limit, so a full cache evicts instead of refusing writes. Needs `REDIS_PASSWORD` in `.env` (step 4.5) |
 | Schema Registry (Confluent) | `templates/schema-registry-service.yml.example` | `25-mensageria.md` kept the JSON default — which is the rule's default, so this is the common case. Only when the partial recorded the Avro/Protobuf upgrade **and** its trigger. Needs `kafka` in the file, has no volume on purpose (state lives in the `_schemas` topic), and its tag has to match the `kafka-avro-serializer` the POM resolves — verified in the registry, per step 4 |

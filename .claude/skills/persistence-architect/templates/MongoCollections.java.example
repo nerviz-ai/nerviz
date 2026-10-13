@@ -1,0 +1,166 @@
+/*
+ * EXEMPLAR — the document family's schema: every collection, its `$jsonSchema` validator and its
+ * indexes declared in code and applied at startup. Form reference for the executor agent.
+ * Rules: `.claude/rules/persistence.md` (§ Document (MongoDB) · Indexes and schema evolution)
+ *
+ * WHY NOT `@Indexed`: `spring.data.mongodb.auto-index-creation` is `false` by default, and an
+ * `@Indexed(unique = true)` that was never applied is a unique key that does not exist — duplicates
+ * go in, and no test that runs against an empty collection notices.
+ *
+ * WHY AT STARTUP, AND WHY `SmartInitializingSingleton`: `createIndex` with the same name and
+ * options is a no-op, so every replica running it at once is harmless. It runs once every singleton
+ * exists and before the web server starts, so no request reaches a collection without its indexes.
+ * A unique index that cannot be built — duplicates already stored — throws, and the startup fails:
+ * this is the document family's `ddl-auto: validate`.
+ *
+ * WHY THE COLLECTION IS CREATED HERE: a transaction that writes a collection which does not exist
+ * yet creates it implicitly, and that is not safe under concurrency. Created here, with its
+ * validator, every transaction finds it.
+ *
+ * CHANGING AN INDEX: never in place. A different key, option or uniqueness is a new entry with a
+ * new name (`ux_orders_order_number_v2`) beside the old one; the old entry moves to `retired()` in
+ * the release after the one that stopped using it, and is dropped then.
+ *
+ * PACKAGE: the shared mechanism in `…persistence.shared` (public: every aggregate's subpackage
+ * implements its interface); each aggregate's declaration in its own subpackage, package-private.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- shared/MongoCollectionSchema.java
+package com.example.demo.adapter.out.persistence.shared;
+
+import java.util.List;
+import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.schema.MongoJsonSchema;
+
+/** One per collection the project owns. Declared next to the document it describes. */
+public interface MongoCollectionSchema {
+
+    Class<?> documentType();
+
+    /** The fields every stored shape must carry, checked by the server on every write. */
+    MongoJsonSchema validator();
+
+    /** Every index the collection's queries need, each with an explicit name. */
+    List<Index> indexes();
+
+    /** Names of indexes a previous release used and this one no longer does. */
+    default List<String> retired() {
+        return List.of();
+    }
+}
+
+// --- shared/MongoSchemaInitializer.java
+package com.example.demo.adapter.out.persistence.shared;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.data.mongodb.core.CollectionOptions;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.IndexInfo;
+import org.springframework.data.mongodb.core.index.IndexOperations;
+import org.springframework.stereotype.Component;
+
+/**
+ * Applies every {@link MongoCollectionSchema} once the context is built: creates a missing
+ * collection with its validator, refreshes the validator of an existing one, creates every
+ * declared index and drops every retired one. Any failure aborts the startup. Public, like
+ * {@code AssignedIdEntity}: every aggregate's persistence test imports it, or its slice runs with no
+ * index at all.
+ */
+@Component
+public class MongoSchemaInitializer implements SmartInitializingSingleton {
+
+    private final MongoTemplate template;
+    private final List<MongoCollectionSchema> schemas;
+
+    MongoSchemaInitializer(MongoTemplate template, List<MongoCollectionSchema> schemas) {
+        this.template = template;
+        this.schemas = schemas;
+    }
+
+    @Override
+    public void afterSingletonsInstantiated() {
+        schemas.forEach(this::apply);
+    }
+
+    private void apply(MongoCollectionSchema schema) {
+        String collection = template.getCollectionName(schema.documentType());
+        if (template.collectionExists(collection)) {
+            template.getDb().runCommand(new org.bson.Document("collMod", collection)
+                    .append("validator", schema.validator().toDocument())
+                    .append("validationLevel", "strict")
+                    .append("validationAction", "error"));
+        } else {
+            template.createCollection(collection,
+                    CollectionOptions.empty().schema(schema.validator()).strictValidation().failOnValidationError());
+        }
+        IndexOperations indexes = template.indexOps(collection);
+        schema.indexes().forEach(indexes::createIndex);
+        Set<String> present = indexes.getIndexInfo().stream().map(IndexInfo::getName).collect(Collectors.toSet());
+        schema.retired().stream().filter(present::contains).forEach(indexes::dropIndex);
+    }
+}
+
+// --- order/OrderCollection.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.adapter.out.persistence.shared.MongoCollectionSchema;
+import java.util.List;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.schema.JsonSchemaProperty;
+import org.springframework.data.mongodb.core.schema.MongoJsonSchema;
+import org.springframework.stereotype.Component;
+
+/**
+ * The {@code orders} collection. Field names are the stored ones ({@code @Field}), not the
+ * Java ones. {@code total} is not required: shape-1 documents never stored it, and the mapper
+ * upcasts them.
+ */
+@Component
+class OrderCollection implements MongoCollectionSchema {
+
+    @Override
+    public Class<?> documentType() {
+        return OrderDocument.class;
+    }
+
+    @Override
+    public MongoJsonSchema validator() {
+        return MongoJsonSchema.builder()
+                .required("orderNumber", "customerId", "status", "lines", "placedAt", "schemaVersion")
+                .properties(
+                        JsonSchemaProperty.string("orderNumber"),
+                        JsonSchemaProperty.string("status").possibleValues("PLACED", "CONFIRMED", "CANCELLED"),
+                        JsonSchemaProperty.array("lines").maxItems(OrderLimits.MAX_LINES),
+                        JsonSchemaProperty.date("placedAt"),
+                        JsonSchemaProperty.int32("schemaVersion"))
+                .build();
+    }
+
+    @Override
+    public List<Index> indexes() {
+        return List.of(
+                new Index().on("orderNumber", Sort.Direction.ASC).unique().named("ux_orders_order_number"),
+                new Index().on("customerId", Sort.Direction.ASC)
+                        .on("placedAt", Sort.Direction.DESC)
+                        .on("_id", Sort.Direction.DESC)
+                        .named("ix_orders_customer_placed"));
+    }
+}
+
+// --- order/OrderLimits.java
+package com.example.demo.adapter.out.persistence.order;
+
+/** The embedded array's bound, the same number the aggregate enforces. */
+final class OrderLimits {
+
+    static final int MAX_LINES = 200;
+
+    private OrderLimits() {
+    }
+}

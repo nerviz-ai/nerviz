@@ -442,6 +442,27 @@ consolidation; the batch statement and the index a connection's order needs are
 would sit on the test classpath. Spring for GraphQL lives in the `.graphql` package alone
 (`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
 
+**The storage family is a datum of the use case, and no step of the pipeline weighs it.**
+`use-case-design` records it in `00-caso-de-uso.md`'s `Storage` row — per aggregate,
+`relational` or `document (MongoDB)` — from the request, or from one bare factual question
+("SQL or NoSQL?"), and never argues for either; that decision interview belongs to a planned
+solution-design skill. `persistence-architect` stops without the row. MongoDB needs a replica set
+everywhere, the compose service and the integration test included, because a standalone server
+refuses every transaction; and declaring a `MongoTransactionManager` removes Spring Boot's JPA
+transaction manager, so the shape that keeps JPA beside MongoDB declares both
+(`.claude/rules/persistence.md` § Document (MongoDB),
+`.claude/decisions/0147-document-storage-and-search-architect.md`).
+
+**A search index is a projection, and five partials own its pieces.** `search-architect` runs only
+when `00-caso-de-uso.md`'s `Search index` row names a projection, and `23-busca.md` owns the
+document, the mapping, the alias, the query, the indexer's write rules, the rebuild adapter and
+the lag. The source's version and the outbox event are `20-persistencia.md`'s; the indexer's
+consumer is `25-mensageria.md`'s; the rebuild job is `35-jobs.md`'s. A cache over a search port
+gets the case's `Freshness` minus the lag, never the whole of it. Spring Data Elasticsearch and
+OpenSearch live in the `.search` package alone, so their imports in an `application` module are a
+boundary violation (`.claude/rules/search.md`,
+`.claude/decisions/0147-document-storage-and-search-architect.md`).
+
 **The bounded context is a project fact, not a per-use-case answer.** First segment of every
 topic name, asked with the coordinates in `/init-project` and written into the generated
 project's root `CLAUDE.md`. A prefix chosen inside one use case gives one system two

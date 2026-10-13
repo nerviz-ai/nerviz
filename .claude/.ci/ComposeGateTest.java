@@ -220,6 +220,38 @@ public class ComposeGateTest {
                         "postgres:5432/other"), newYml, "service `app` connects to database `other`",
                 true, "app service points at another database than the service creates — warned");
 
+        // The MongoDB pair (decision 0147): one URI carries user and password, and the password
+        // placeholder has no default — the URI must still be read, not discarded. The template's
+        // convention is quiet; a host default naming another user is warned; a URI with no
+        // password against a service that requires one is warned; never in the gate.
+        String mongoYml = """
+                spring:
+                  mongodb:
+                    uri: ${MONGO_URI:mongodb://${MONGO_USERNAME:shop_app}:${MONGO_PASSWORD}@localhost:${MONGO_PORT:27017}/${MONGO_DATABASE:shop_app}?authSource=admin&directConnection=true}
+                """;
+        String mongoService = """
+                  mongo:
+                    image: mongo:8.0
+                    environment:
+                      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-shop_app}
+                      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+                    ports:
+                      - "${MONGO_PORT:-27017}:27017"
+                """;
+        String mongoApp = withApp("""
+                      MONGO_URI: mongodb://${MONGO_USERNAME:-shop_app}:${MONGO_PASSWORD}@mongo:27017/${MONGO_DATABASE:-shop_app}?authSource=admin
+                """, mongoService);
+        failures += expectReport(hook, mongoApp, mongoYml, "login:|" + HOST_RUN + "|" + CONTAINER, false,
+                "MongoDB: the template's MONGO_* convention on both sides — no warning, no placeholder line");
+        failures += expectReport(hook, mongoApp, mongoYml.replace("${MONGO_USERNAME:shop_app}", "${MONGO_USERNAME:other_app}"),
+                "the host run (defaults in src/main/resources/application.yml) logs in as `other_app`", true,
+                "MongoDB: a host default naming another user than the service creates — warned");
+        failures += expectReport(hook, mongoApp, mongoYml.replace(":${MONGO_PASSWORD}@", "@"),
+                "requires a password", true,
+                "MongoDB: a URI with no password against a service that requires one — warned");
+        failures += expect(hook, mongoApp, mongoYml.replace("${MONGO_USERNAME:shop_app}", "${MONGO_USERNAME:other_app}"),
+                "login:", "{}", -1, false, "MongoDB: a login warning never reaches the gate");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `compose gate` did not"
                     + " block or stay quiet where it should.");

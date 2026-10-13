@@ -1529,9 +1529,10 @@ claude-help.md                     # this guide; cited from CLAUDE.md, not impor
 │   ├── rest-api-architect/                # pipeline 3
 │   ├── graphql-api-architect/             # pipeline 3g, conditional — inbound GraphQL adapter (schema-first)
 │   ├── ai-architect/                      # pipeline, conditional — a language model or vector store behind a port
+│   ├── search-architect/                   # pipeline 3e, conditional — Elasticsearch/OpenSearch index as a projection
 │   ├── messaging-architect/               # pipeline 3b, conditional — Kafka producer/consumer
 │   ├── jobs-architect/                    # pipeline 3c, conditional — scheduled jobs, outbox relay
-│   ├── persistence-architect/             # pipeline 4
+│   ├── persistence-architect/             # pipeline 4 — relational (JPA) or document (MongoDB)
 │   ├── cache-architect/                   # pipeline 4b, conditional — Caffeine or Redis behind a port
 │   ├── test-architect/                    # pipeline 5
 │   ├── new-feature/                       # orchestrates the pipeline above
