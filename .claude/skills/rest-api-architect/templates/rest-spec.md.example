@@ -176,6 +176,35 @@ breaking writes one row per change, and the executor CHANGEs `ApiVersioningConfi
 - *Sunset* — the version leaves the supported list and its mappings are deleted, in the same
   change. Never before the `Sunset` date recorded when it was deprecated.
 
+## 8 · Admission
+
+none — `00-caso-de-uso.md`'s `Admission` row is `none`: the request states no quota and no cap.
+
+`@.claude/rules/inbound-admission.md`. A case whose row states a limit fills two parts. The
+**project setup** is written once, by the first case with a limit (NEW); every later case writes
+`inherited from UC-NNN` in its place, or the row it adds as a CHANGE:
+
+| Setting | Value — shape |
+|---|---|
+| Quota enforced | `application` — `AdmissionConfig` registers the interceptor · or `edge: <ingress or gateway>` — no limiter written; the number and the key below are what the edge enforces, and no test here proves them |
+| Replicas | `3` in production — each quota below is divided by it, rounded up |
+| Caller's key | from `Access`: the principal's name · the API key's id · the client address (public endpoint; forwarded headers only with the trusted proxies of the root `CLAUDE.md`'s `**Transport:` paragraph) |
+| Wait on 503 | `1 s` — `app.admission.busy-retry-after`; why: the slowest call the cap guards answers in ~800 ms p99 |
+| Limiter cache | `app.admission.max-clients: 10000` callers, expiry after access = the longest window |
+
+**Limits of this case** — the executor writes `@InboundQuota` and `@Bulkhead` on the handler
+method, and their entries in `application.yml`:
+
+`| Limit | Name | Stated | Per replica | Window or size | Reason |`
+
+- *Quota* — name `uc-104-search-orders` (the case slug), stated `100 per minute per client`,
+  per replica `34`, window `1m`. Block 3 gains `quota spent → 429 RATE_LIMITED, Retry-After 60`;
+  block 5 the case that spends it and the case of another caller who keeps theirs
+- *Cap* — name `inbound-uc-104-search-orders`, stated `20 at the same time`, size `20`, no wait;
+  reason: below the 200 request threads, with the provider call it holds measured at ~800 ms.
+  Block 3 gains `cap full → 503 SERVICE_BUSY, Retry-After` and `traceId`; block 5 the case that
+  fills it and asserts no idempotency key was claimed
+
 ## Design patterns
 
 none — no force in the spec, no symptom on disk

@@ -858,6 +858,7 @@
       "ai.md": { "suffix": [".ai"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/prompts/**"] },
       "api-graphql.md": { "suffix": [".graphql"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/graphql/**"] },
       "search.md": { "suffix": [".search"], "glob": "**/{}/**", "optional": true, "extra": ["**/src/main/resources/search/**"] },
+      "inbound-admission.md": { "suffix": [".rest"], "glob": "**/{}/**", "fallback_architecture_paths_containing": ["features", "slice"], "extra": ["**/graphql/**"] },
       "authorization.md": {
         "$comment": "Wiring lives in the `.config` package; hexagonal, onion and custom-template have none, so it lives in a `security` subpackage of the REST adapter and the `.rest` glob already covers it. vertical-slice has `.config` and no `.rest`, so the fallback never fires there and the rule loads on `config/**` only — a slice's controller does not pull it, and the executor cites it inline anyway (decision 0112). `.graphql` too: a GraphQL resolver carries the method-security check on every operation and sensitive field, since the filter chain sees one endpoint (decision 0146).",
         "suffix": [".rest", ".graphql", ".config"],

@@ -73,6 +73,11 @@ A business answer of the other system — a not-found, a duplicate, a refusal on
 is **not** an integration family: the adapter maps it to the domain family the operation defines.
 Named subclasses follow the same entry bar as the domain families.
 
+A request refused at the entry boundary — a caller's quota spent, a concurrency cap full — is
+neither a domain family nor an integration family: nothing failed in the domain and nothing was
+called. It belongs to the inbound adapter and never crosses into the application
+(`@.claude/rules/inbound-admission.md` § Rejection).
+
 ## Prohibition — never generic
 
 Forbidden to throw `RuntimeException`, `Exception`, `IllegalArgumentException`, or any

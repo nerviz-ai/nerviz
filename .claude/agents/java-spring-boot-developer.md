@@ -706,6 +706,18 @@ the step at hand. Generates:
   or sunset that section lists. Every handler method carries the `version` the partial's endpoint
   table gives (`1+`), and no class mapping spells `/api/v1` — the prefix is the config's
   (`.claude/rules/api-rest.md` § Versioning)
+- Admission, only when `30-rest.md` § 8 (or `31-graphql.md` § 6's `Admission` rows) is not `none`
+  — exemplars `.claude/skills/rest-api-architect/templates/AdmissionConfig.java.example` and
+  `application-admission.yml.example`. When the setup is NEW: the `admission` subpackage
+  (`InboundQuota`, `QuotaExceededException`, `AdmissionProperties`, `InboundQuotaInterceptor`,
+  `AdmissionConfig`), `app.admission` in `application.yml`, and the two admission handlers of
+  `ApiExceptionHandler` (the `SERVICE_BUSY` case of `GraphQlExceptionResolver` too, when the
+  project has GraphQL). Then the case's limits: `@InboundQuota("<slug>")` on the handler and its
+  `app.admission.quotas` entry with the **stated** quota (the interceptor divides it), and
+  `@Bulkhead(name = "inbound-<slug>")` with its instance, `max-wait-duration: 0`. Never a
+  `RateLimiterRegistry`, never an `@Order` on `IdempotencyAspect`, never `bulkhead-aspect-order`
+  (`.claude/rules/inbound-admission.md`). With `Quota enforced: edge`, no quota entry and no
+  `@InboundQuota`
 - `IdempotencyKeyInterceptor.java` (if needed) — and, the first time, the transactional half the
   partial cites: `IdempotencyKeyStore`, `IdempotentExecution`. The controller calls
   `IdempotentExecution`; the command never carries the key (`.claude/rules/api-rest.md`
@@ -763,7 +775,11 @@ Block S because the security annotations go on both. The exemplars are in
   batch registry's max size, the schema inspection that fails the startup) and
   `GraphQlExceptionResolver` (the families of § 7, `null` for the rest — never a catch-all); the
   properties of § 12 in `application.yml`; the dependencies of § 11 in `pom.xml`, version empty.
-  Inherited → nothing here but a new property § 12 adds
+  Inherited → nothing here but a new property § 12 adds. § 6's `Admission` rows not `none` → the
+  admission pieces Block 3 lists, in `[graphql]`'s `admission` subpackage when the project has no
+  REST adapter (Block 3 skipped): the `graphql` quota entry, `@Bulkhead(name = "inbound-<slug>")`
+  on the root field's method, `SERVICE_BUSY` in `GraphQlExceptionResolver`, and the 429 handler in
+  an `ApiExceptionHandler` — the quota is refused before GraphQL runs
 - **G2 · Schema and resolvers** — the types of § 2 in `src/main/resources/graphql/<aggregate>.graphqls`,
   extending an existing type additively, never redeclaring it. In `[graphql]`: one record per
   schema type, named as the type; the mapper from the port's read model; the controller with one

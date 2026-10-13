@@ -402,6 +402,14 @@ jobs:
       - name: REST exemplars version every handler from one configuration
         run: java .claude/.ci/ApiVersionTemplateTest.java
 
+      # Every inbound admission trap is silent: a limiter registry per caller never forgets one and
+      # names each in a metric, a limiter or cap that waits holds the thread it protects, a quota
+      # not divided per replica multiplies by the replica count, a bulkhead named like an outbound one
+      # shares its permits, an @Order on IdempotencyAspect lets a rejected call claim the key, and a
+      # slice test of the cap passes with the cap absent. Keeps the admission exemplars honest (0151).
+      - name: admission exemplars keep one bounded limiter per caller and an inbound cap ahead of idempotency
+        run: java .claude/.ci/AdmissionTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
