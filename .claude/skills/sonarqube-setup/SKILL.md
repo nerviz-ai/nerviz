@@ -121,7 +121,8 @@ write no property and say so in the report.
 
 The `sonar.issue.ignore.multicriteria` entries go in as written, whether or not the files
 they name exist yet: each is scoped to one rule and one file, a file absent from the project
-matches nothing, and the idempotency templates that produce those files point back at them.
+matches nothing, and the templates that produce those files — idempotency, and
+`security-architect`'s `SecurityConfig` — point back at them.
 Don't add an entry of your own here — a finding in the project's code is fixed, not muted.
 
 ### 4 · Local server — only when step 2 answered *None*

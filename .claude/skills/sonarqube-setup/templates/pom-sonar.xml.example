@@ -33,12 +33,17 @@
                sealed type; the interface body never names it.
        s112  · IdempotencyAspect#aroundIdempotent declares `throws Throwable` because
                ProceedingJoinPoint#proceed() does — the Checkstyle IllegalThrows
-               suppression in checkstyle.xml covers the same line. -->
-<sonar.issue.ignore.multicriteria>s2326,s112</sonar.issue.ignore.multicriteria>
+               suppression in checkstyle.xml covers the same line.
+       s4502 · SecurityConfig disables CSRF because no cookie authenticates a request —
+               the condition .claude/rules/authorization.md § Transport hardening owns.
+               The day a cookie does, CSRF goes back on and this entry goes with it. -->
+<sonar.issue.ignore.multicriteria>s2326,s112,s4502</sonar.issue.ignore.multicriteria>
 <sonar.issue.ignore.multicriteria.s2326.ruleKey>java:S2326</sonar.issue.ignore.multicriteria.s2326.ruleKey>
 <sonar.issue.ignore.multicriteria.s2326.resourceKey>**/IdempotentOutcome.java</sonar.issue.ignore.multicriteria.s2326.resourceKey>
 <sonar.issue.ignore.multicriteria.s112.ruleKey>java:S112</sonar.issue.ignore.multicriteria.s112.ruleKey>
 <sonar.issue.ignore.multicriteria.s112.resourceKey>**/IdempotencyAspect.java</sonar.issue.ignore.multicriteria.s112.resourceKey>
+<sonar.issue.ignore.multicriteria.s4502.ruleKey>java:S4502</sonar.issue.ignore.multicriteria.s4502.ruleKey>
+<sonar.issue.ignore.multicriteria.s4502.resourceKey>**/SecurityConfig.java</sonar.issue.ignore.multicriteria.s4502.resourceKey>
 
 <!-- 2 · Into <build><pluginManagement><plugins> -->
 <!-- In pluginManagement, not <plugins>: it binds to no phase, so `verify` never

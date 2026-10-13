@@ -32,10 +32,12 @@ sonar {
         // Findings accepted by design in code the framework's own templates ship, scoped by
         // rule AND file — reasons in pom-sonar.xml.example, the Maven twin of this block.
         // Remove an entry together with the code it covers.
-        property 'sonar.issue.ignore.multicriteria', 's2326,s112'
+        property 'sonar.issue.ignore.multicriteria', 's2326,s112,s4502'
         property 'sonar.issue.ignore.multicriteria.s2326.ruleKey', 'java:S2326'
         property 'sonar.issue.ignore.multicriteria.s2326.resourceKey', '**/IdempotentOutcome.java'
         property 'sonar.issue.ignore.multicriteria.s112.ruleKey', 'java:S112'
         property 'sonar.issue.ignore.multicriteria.s112.resourceKey', '**/IdempotencyAspect.java'
+        property 'sonar.issue.ignore.multicriteria.s4502.ruleKey', 'java:S4502'
+        property 'sonar.issue.ignore.multicriteria.s4502.resourceKey', '**/SecurityConfig.java'
     }
 }
