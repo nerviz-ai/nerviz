@@ -15,6 +15,10 @@
  *     request.
  *   - csrf disabled: only because no cookie authenticates a request. The day a cookie does
  *     (form login, a session), CSRF goes back on — `authorization.md` § Transport hardening.
+ *     Sonar's `java:S4502` on this line is suppressed for this file only by
+ *     `sonar.issue.ignore.multicriteria` in
+ *     `@.claude/skills/sonarqube-setup/templates/pom-sonar.xml.example`; when CSRF goes back
+ *     on, the entry goes with it.
  *   - cors: the explicit `UrlBasedCorsConfigurationSource` below, never a wildcard origin.
  *     An empty origin list registers no CORS mapping at all.
  *   - headers: the framework defaults (nosniff, frame DENY, HSTS on HTTPS responses, cache
