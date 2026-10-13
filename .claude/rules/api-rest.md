@@ -97,7 +97,7 @@ domain — it's 400. A valid body that the aggregate rejects is 422.
 | Unsupported `Content-Type` | 415 |
 | Well-formed input, violates a business rule | 422 |
 | Write that requires `If-Match` and arrived without it | 428 |
-| Request rate limit exceeded | 429 + `Retry-After` |
+| Request rate limit exceeded — the caller's quota for the operation is spent (`@.claude/rules/inbound-admission.md`) | 429 + `Retry-After` |
 
 Prefer 404 over 403 when the resource's existence is sensitive information. The choice
 applies to the whole resource, not to the request — alternating between the two reveals
@@ -109,7 +109,7 @@ the existence all the same.
 |---|---|
 | Unmapped exception — our bug | 500 |
 | Downstream dependency responded, response invalid or incomprehensible | 502 |
-| Dependency unavailable, circuit breaker open, shutdown in progress | 503 + `Retry-After` |
+| Dependency unavailable, circuit breaker open, shutdown in progress, the operation's concurrency cap full (`@.claude/rules/inbound-admission.md`) | 503 + `Retry-After` |
 | Timeout waiting for a dependency | 504 |
 
 - A business rejection is never 5xx. If a 5xx is expected in the flow, the mapping is
@@ -155,7 +155,9 @@ plus three extensions, and no others:
 
 Bean validation is structural, it doesn't come from the domain — so it carries
 `violations` and **never** `errorCode`. So do a missing `Idempotency-Key` (the header
-name as `field`) and an unsupported API version (`version` as `field`).
+name as `field`) and an unsupported API version (`version` as `field`). An admission rejection
+is not structural — the request was well formed and refused for load — and carries `errorCode`
+`RATE_LIMITED` or `SERVICE_BUSY` (`@.claude/rules/inbound-admission.md` § Rejection).
 
 ## Versioning
 

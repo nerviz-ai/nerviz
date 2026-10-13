@@ -1,0 +1,246 @@
+/*
+ * EXEMPLAR — inbound admission test: a quota per caller and a concurrency cap, through the real
+ * server, the real filter chain and the real aspects (`.claude/rules/inbound-admission.md` §
+ * Tests). Shape of the setup in `rest-api-architect/templates/AdmissionConfig.java.example` and
+ * `application-admission.yml.example`; the cases come from `30-rest.md` § 8 / `31-graphql.md` § 6.
+ *
+ * LEVEL. Full context on a random port, real HTTP requests. Never a web slice: Resilience4j's
+ * bulkhead aspect and registry are not part of `@WebMvcTest` (zero beans there — proven in
+ * `.claude/decisions/0151-inbound-admission-in-rest-and-graphql.md` § Verified), so a slice test of
+ * the cap passes with the cap absent. The input ports are doubles; what is proven is admission.
+ *
+ * WHAT THIS LEVEL VERIFIES, one case per claim:
+ *   quota spent            — 429, `Retry-After` the window, `errorCode` RATE_LIMITED
+ *   another caller         — keeps its own quota
+ *   anonymous request      — 401 from the chain, and spends nothing
+ *   cap full               — 503, `Retry-After`, SERVICE_BUSY, `traceId`
+ *   cap full, idempotent   — the rejected call never reached the idempotent execution
+ *                            (only when the capped handler is `@Idempotent`)
+ *   GraphQL quota spent    — HTTP 429 before execution: the port is never called
+ *   GraphQL cap full       — the root field null, SERVICE_BUSY, `retryable`, HTTP 200
+ * Drop the GraphQL cases in a project with no GraphQL adapter, and the quota or cap cases when the
+ * case states only the other.
+ *
+ * NUMBERS. The limits are lowered for this class only — one replica, a quota of 2, a cap of 1 — so
+ * each case needs three requests at most; the window stays a minute, so nothing refills mid-test.
+ * Each case uses its own callers, since the quota cache lives for the whole context.
+ *
+ * HOLDING A PERMIT. The first call blocks inside the port double on a latch, the second arrives
+ * while it is held. The latch is released in `finally`: a failed assertion must not leave a
+ * request thread parked for the next case.
+ *
+ * CREDENTIALS: the project's real chain with the `JwtDecoder` replaced, as in
+ * `GraphQlHttpIT.java.example`: a bearer string decodes to a token whose subject is that string, so
+ * `alice` and `bob` are two principals — two quota keys.
+ */
+package com.exemplo.minhaapi.adapter.in.rest;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import com.exemplo.minhaapi.application.port.in.order.PlaceOrderUseCase;
+import com.exemplo.minhaapi.application.port.in.order.SearchOrdersQuery;
+import com.exemplo.minhaapi.application.service.IdempotentExecution;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+        "app.admission.replicas=1",
+        "app.admission.quotas.uc-104-search-orders.limit=2",
+        "app.admission.quotas.uc-104-search-orders.period=1m",
+        "app.admission.quotas.graphql.limit=2",
+        "app.admission.quotas.graphql.period=1m",
+        "resilience4j.bulkhead.instances.inbound-uc-104-search-orders.max-concurrent-calls=1",
+        "resilience4j.bulkhead.instances.inbound-uc-105-place-order.max-concurrent-calls=1"})
+class AdmissionIT {
+
+    private static final String ORDERS = "/api/v1/orders";
+    private static final String SEARCH = ORDERS + "?text=lamp";
+    private static final String GRAPHQL = "/graphql";
+    private static final String TYPENAME = "{\"query\":\"{ __typename }\"}";
+    private static final String ORDER_SEARCH = "{\"query\":\"{ orderSearch(text: \\\"lamp\\\") { id } }\"}";
+    private static final String NEW_ORDER = "{\"sku\":\"LAMP-1\",\"quantity\":1}";
+    private static final String KEY = "0f2b6c1e-4d3a-4f5b-9c8d-7e6f5a4b3c2d";
+
+    @LocalServerPort private int port;
+
+    @MockitoBean private JwtDecoder jwtDecoder;
+    @MockitoBean private SearchOrdersQuery searchOrders;
+    @MockitoBean private PlaceOrderUseCase placeOrder;
+    @MockitoSpyBean private IdempotentExecution idempotentSpy;
+
+    private final HttpClient http = HttpClient.newHttpClient();
+
+    /** Counted down by the first request once it is inside the port; one per case, JUnit makes a new instance. */
+    private final CountDownLatch held = new CountDownLatch(1);
+
+    @Test
+    @DisplayName("quota spent → 429 with Retry-After and RATE_LIMITED; another caller keeps theirs")
+    void quotaPerCaller() throws Exception {
+        trustBearers();
+        given(searchOrders.search(anyString())).willReturn(List.of());
+
+        assertThat(get(SEARCH, "alice").statusCode()).isEqualTo(200);
+        assertThat(get(SEARCH, "alice").statusCode()).isEqualTo(200);
+        HttpResponse<String> spent = get(SEARCH, "alice");
+
+        assertThat(spent.statusCode()).isEqualTo(429);
+        assertThat(spent.headers().firstValue("Retry-After")).contains("60");
+        assertThat(spent.body()).contains("\"errorCode\":\"RATE_LIMITED\"");
+        assertThat(get(SEARCH, "bob").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("anonymous request → 401 from the chain, and the quota is untouched")
+    void anonymousSpendsNothing() throws Exception {
+        trustBearers();
+        given(searchOrders.search(anyString())).willReturn(List.of());
+
+        for (int i = 0; i < 3; i++) {
+            assertThat(get(SEARCH, null).statusCode()).isEqualTo(401);
+        }
+        assertThat(get(SEARCH, "carol").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("cap full → 503 with Retry-After, SERVICE_BUSY and traceId")
+    void capFull() throws Exception {
+        trustBearers();
+        CountDownLatch release = new CountDownLatch(1);
+        given(searchOrders.search(anyString())).willAnswer(call -> hold(release, List.of()));
+        try {
+            CompletableFuture<HttpResponse<String>> holder = send(request(SEARCH, "dave").GET());
+            awaitHeld();
+            HttpResponse<String> busy = get(SEARCH, "erin");
+
+            assertThat(busy.statusCode()).isEqualTo(503);
+            assertThat(busy.headers().firstValue("Retry-After")).isPresent();
+            assertThat(busy.body()).contains("\"errorCode\":\"SERVICE_BUSY\"").contains("\"traceId\"");
+            release.countDown();
+            assertThat(holder.get(5, TimeUnit.SECONDS).statusCode()).isEqualTo(200);
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    @DisplayName("cap full on an @Idempotent handler → the rejected call claims no key")
+    void capRunsBeforeIdempotency() throws Exception {
+        trustBearers();
+        CountDownLatch release = new CountDownLatch(1);
+        given(placeOrder.place(any())).willAnswer(call -> hold(release, null));
+        try {
+            CompletableFuture<HttpResponse<String>> holder = send(postRequest(ORDERS, "frank", NEW_ORDER, KEY));
+            awaitHeld();
+            int executionsBefore = mockingDetails(idempotentSpy).getInvocations().size();
+
+            assertThat(post(ORDERS, "grace", NEW_ORDER, "1e2d3c4b-5a69-4f87-9e6d-5c4b3a291807").statusCode()).isEqualTo(503);
+            assertThat(mockingDetails(idempotentSpy).getInvocations()).hasSize(executionsBefore);
+            release.countDown();
+            assertThat(holder.get(5, TimeUnit.SECONDS).statusCode()).isEqualTo(201);
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    @DisplayName("GraphQL quota spent → HTTP 429 before execution")
+    void graphqlQuotaBeforeExecution() throws Exception {
+        trustBearers();
+
+        assertThat(post(GRAPHQL, "heidi", TYPENAME, null).statusCode()).isEqualTo(200);
+        assertThat(post(GRAPHQL, "heidi", TYPENAME, null).statusCode()).isEqualTo(200);
+        HttpResponse<String> spent = post(GRAPHQL, "heidi", ORDER_SEARCH, null);
+
+        assertThat(spent.statusCode()).isEqualTo(429);
+        assertThat(spent.headers().firstValue("Retry-After")).contains("60");
+        verify(searchOrders, never()).search(anyString());
+    }
+
+    @Test
+    @DisplayName("GraphQL cap full → the root field null with SERVICE_BUSY, HTTP 200")
+    void graphqlCapFull() throws Exception {
+        trustBearers();
+        CountDownLatch release = new CountDownLatch(1);
+        given(searchOrders.search(anyString())).willAnswer(call -> hold(release, List.of()));
+        try {
+            CompletableFuture<HttpResponse<String>> holder = send(postRequest(GRAPHQL, "ivan", ORDER_SEARCH, null));
+            awaitHeld();
+            HttpResponse<String> busy = post(GRAPHQL, "judy", ORDER_SEARCH, null);
+
+            assertThat(busy.statusCode()).isEqualTo(200);
+            assertThat(busy.body()).contains("\"errorCode\":\"SERVICE_BUSY\"").contains("\"retryable\":true");
+            release.countDown();
+            assertThat(holder.get(5, TimeUnit.SECONDS).statusCode()).isEqualTo(200);
+        } finally {
+            release.countDown();
+        }
+    }
+
+    /** A bearer string decodes to a token whose subject is that string: one principal per name. */
+    private void trustBearers() {
+        given(jwtDecoder.decode(anyString())).willAnswer(call -> Jwt.withTokenValue(call.getArgument(0))
+                .header("alg", "none")
+                .subject(call.getArgument(0))
+                .build());
+    }
+
+    private <T> T hold(CountDownLatch release, T answer) throws InterruptedException {
+        held.countDown();
+        release.await(5, TimeUnit.SECONDS);
+        return answer;
+    }
+
+    /** Waits until the first request is inside the port, holding the cap's only permit. */
+    private void awaitHeld() throws InterruptedException {
+        assertThat(held.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    private HttpResponse<String> get(String path, String caller) throws Exception {
+        return http.send(request(path, caller).GET().build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> post(String path, String caller, String body, String idempotencyKey) throws Exception {
+        return http.send(postRequest(path, caller, body, idempotencyKey).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpRequest.Builder postRequest(String path, String caller, String body, String idempotencyKey) {
+        HttpRequest.Builder request = request(path, caller)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (idempotencyKey != null) {
+            request.header("Idempotency-Key", idempotencyKey);
+        }
+        return request;
+    }
+
+    /** The request that will hold the permit, sent without waiting for its answer. */
+    private CompletableFuture<HttpResponse<String>> send(HttpRequest.Builder request) {
+        return http.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpRequest.Builder request(String path, String caller) {
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
+        return caller == null ? request : request.header("Authorization", "Bearer " + caller);
+    }
+
+}

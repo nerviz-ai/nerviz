@@ -1,0 +1,36 @@
+# EXEMPLAR — the admission entries of `application.yml` (`.claude/rules/inbound-admission.md`).
+# Every value comes from `30-rest.md` § 8 (or `31-graphql.md` § 6), and a change of one changes
+# the other. Merged into the existing `application.yml`, never a second file.
+#
+# `app.admission` exists once any case states a limit (`AdmissionConfig.java.example`): a cap
+# reads `busy-retry-after` from it. `quotas` holds only the quotas enforced in the application —
+# none when the setup records `Quota enforced: edge`.
+#
+# `limit` is the stated quota, never the per-replica number: the interceptor divides it by
+# `replicas`. Changing the replica count in production without changing it here hands every
+# caller a share of a quota that no longer adds up.
+app:
+  admission:
+    replicas: 3
+    busy-retry-after: 1s
+    max-clients: 10000
+    quotas:
+      uc-104-search-orders:
+        limit: 100
+        period: 1m
+      # The GraphQL endpoint as a whole, one quota per caller — only when a GraphQL case states one.
+      graphql:
+        limit: 600
+        period: 1m
+
+# A cap per use case, in the inbound namespace: never the name of an outbound instance, which is
+# the dependency's. No wait — a waiting request holds the thread the cap protects. The bulkhead
+# aspect's default order (`Integer.MAX_VALUE - 1`) runs it ahead of `IdempotencyAspect`, which
+# declares none and so sorts last: a rejected call claims no key. `bulkhead-aspect-order` stays
+# unset, and `IdempotencyAspect` gets no `@Order` — either one flips the two (`0151` § Verified).
+resilience4j:
+  bulkhead:
+    instances:
+      inbound-uc-104-search-orders:
+        max-concurrent-calls: 20
+        max-wait-duration: 0

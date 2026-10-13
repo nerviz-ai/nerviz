@@ -83,6 +83,17 @@ an impact row.
 | Schema inspection | fails the startup | same |
 | Endpoint in the filter chain | `POST /graphql` authenticated | `32-seguranca.md` § 1 |
 
+**Admission** — none: `00-caso-de-uso.md`'s `Admission` row is `none`.
+
+A case whose row states a limit writes the admission setup the way `30-rest.md` § 8 does, or
+`inherited from UC-NNN` when a REST or GraphQL case wrote it first, and then its limits
+(`@.claude/rules/inbound-admission.md`):
+
+| Limit | Name | Stated | Per replica | Window or size | Reason |
+|---|---|---|---|---|---|
+| Quota — the whole endpoint, per caller | `graphql` | 600 per minute per client | 200 (3 replicas) | 1m | the partner contract caps calls per client; every operation shares it |
+| Cap — `orderSearch` | `inbound-uc-014-order-search` | 20 at the same time | 20 | no wait | below the 200 request threads; the search port answers in ~900 ms p99 |
+
 ## 7 · Error map
 
 | Situation | Where it lands | Classification | `errorCode` |
@@ -93,6 +104,8 @@ an impact row.
 | `reason` above 500 characters | top-level | `BAD_REQUEST` | `INVALID_INPUT` |
 | `first` above 100 | top-level | `BAD_REQUEST` | `PAGE_SIZE_OUT_OF_RANGE` |
 | `taxId` without `SUPPORT` | top-level, field null | `FORBIDDEN` | — |
+| Caller's quota spent (only with an `Admission` quota) | HTTP 429, Problem Details, before execution — no GraphQL response | — | `RATE_LIMITED` |
+| Cap of the root field full (only with an `Admission` cap) | top-level, field null, `retryable`, `retryAfterSeconds` | `INTERNAL_ERROR` | `SERVICE_BUSY` |
 | Anything else | top-level | `INTERNAL_ERROR` | — |
 
 Project-wide pieces: `GraphQlExceptionResolver`, `GraphQlConfig`, `GraphQlLimits` — NEW.

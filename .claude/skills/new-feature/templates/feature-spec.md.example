@@ -127,7 +127,7 @@ in `23-busca.md`. Implemented by the executor's Block I, after Block A.
 
 ## 4. REST API — implement after 2
 
-Detail: `30-rest.md` § 1-5 and § 7.
+Detail: `30-rest.md` § 1-5, § 7 and § 8.
 
 | Decision | Value |
 |---|---|
@@ -137,6 +137,7 @@ Detail: `30-rest.md` § 1-5 and § 7.
 | Pagination | none — no collection |
 | Dependencies | springdoc (version already in `pom.xml`), tracing bridge, validation |
 | Versioning | project setup NEW — `ApiVersioningConfig` (prefix `/api/v{version}`, supported `1`) + `ApiVersionObservationConvention`; later cases: `inherited from UC-NNN` or the version, deprecation or sunset § 7 lists |
+| Admission | none — `00-caso-de-uso.md` has no `Admission` row. Otherwise `30-rest.md` § 8: the setup (NEW `AdmissionConfig` + `app.admission`, or `inherited from UC-NNN`), each `@InboundQuota` and `@Bulkhead` with its numbers, the 429/503 rows |
 
 ---
 

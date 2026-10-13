@@ -7,9 +7,10 @@ description: >
   payloads with `userErrors`, Relay connections with a page ceiling, `@BatchMapping` child fields and
   the batch ports they ask for, the error map, field-level access, personal data per output field,
   and — on the project's first GraphQL case — the depth, complexity, timeout, batch-size,
-  introspection, GraphiQL and CORS setup. Use when the request involves GraphQL, a schema or
-  `.graphqls` file, a query or mutation, a resolver, `@QueryMapping`, `@BatchMapping`, DataLoader,
-  N+1 in GraphQL, a connection or cursor, or GraphQL errors. Piece of the `/new-feature` pipeline:
+  introspection, GraphiQL and CORS setup, plus a quota per caller or a concurrency cap when the use
+  case states one. Use when the request involves GraphQL, a schema or `.graphqls` file, a query or
+  mutation, a resolver, `@QueryMapping`, `@BatchMapping`, DataLoader, N+1 in GraphQL, a connection or
+  cursor, GraphQL errors, or a rate limit on the GraphQL endpoint. Piece of the `/new-feature` pipeline:
   requires `10-dominio.md` and a `00-caso-de-uso.md` whose `Trigger` names a GraphQL adapter in the
   given folder — and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
@@ -125,6 +126,8 @@ shapes the GraphQL layer of the case being designed (step 12b).
    find src/main/resources/graphql -name '*.graphqls' 2>/dev/null
    # Decisions earlier use cases recorded — the project setup lives in the first one's § 6
    find docs/use-cases -name '31-graphql.md' 2>/dev/null
+   # The project's admission setup — a REST case may have written it before any GraphQL case
+   grep -rln "AdmissionProperties" --include='*.java' src/ 2>/dev/null
    ```
 
    And the active blueprint's `packages.map` entry ending in `.graphql` — the package every
@@ -176,6 +179,22 @@ shapes the GraphQL layer of the case being designed (step 12b).
    cases: `inherited from UC-NNN`, and a change only with a reason and a row in
    `## Impact on approved use cases`.
 
+8b. **Admission — § 6's `Admission` rows.** Only when `00-caso-de-uso.md`'s `Admission` row is not
+   `none`; no row, the rows read `none`. A limit is never proposed (`@.claude/rules/inbound-admission.md`
+   § When a limit exists). The project's admission setup — where the quota is enforced, replicas, the
+   caller's key, the 503 wait — is asked exactly as `@.claude/skills/rest-api-architect/SKILL.md`
+   step 7c asks it, when step 2 found no `AdmissionProperties`; found, or written by a REST case's
+   `30-rest.md` § 8, it is `inherited from UC-NNN`. Then the case's limits:
+
+   | Limit | Where | Written |
+   |---|---|---|
+   | Quota | The whole GraphQL endpoint, per caller, before the document runs — never per field or per cost | The `graphql` entry of `app.admission.quotas`, stated and per-replica. The first case to state one sets it; a later case's different number is a CHANGE with a reason, since every operation shares it. The 429 is HTTP, Problem Details, before any GraphQL response — a row in § 7 and a case in § 10 |
+   | Cap | The root field's controller method, `@Bulkhead(name = "inbound-<slug>")` | Size below the request thread pool, and why; the `SERVICE_BUSY` row in § 7 and its case in § 10 |
+
+   The pieces are `@.claude/skills/rest-api-architect/templates/AdmissionConfig.java.example` and
+   `application-admission.yml.example`, in the GraphQL package's `admission` subpackage when the
+   project has no REST adapter.
+
 9. **Fix the error map — § 7.** Each exception of `10-dominio.md` the operations can raise, where it
    lands (`userErrors` or top-level), its classification and `errorCode`, per
    `@.claude/rules/api-graphql.md` § Errors. Form: `templates/GraphQlExceptionResolver.java.example`.
@@ -226,7 +245,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
 | 3 · Inputs and payloads | Input fields and shape validation, payload, `userErrors` codes |
 | 4 · Pagination | Per connection: directions, order with its unique key, default and maximum page, the cursor's keys |
 | 5 · Batch loads | Per child field: the batch port (a requirement when new), key, missing-key answer |
-| 6 · Project setup | Every limit with its value and reason — or `inherited from UC-NNN` |
+| 6 · Project setup | Every limit with its value and reason — or `inherited from UC-NNN` — and the `Admission` rows: `none`, or the setup and this case's quota and cap (step 8b) |
 | 7 · Error map | Situation, where it lands, classification, `errorCode` |
 | 8 · Personal data | Per matching output field: form, receiver and reason |
 | 9 · Requirements to other partials | Batch ports, statements and indexes, access rows |
@@ -264,14 +283,16 @@ case folder and nothing else.
 files under `src/main/resources/graphql/`, the active blueprint's `packages.map`, the Initializr's
 metadata, `@.claude/rules/api-graphql.md`, `@.claude/rules/authorization.md`,
 `@.claude/rules/error-handling.md`, `@.claude/rules/personal-data.md`, `@.claude/rules/logging.md`,
-`@.claude/rules/naming.md`, `@.claude/rules/architecture-ddd.md`, and this skill's `references/`.
+`@.claude/rules/naming.md`, `@.claude/rules/architecture-ddd.md`, and this skill's `references/` —
+plus, with an `Admission` row, `@.claude/rules/inbound-admission.md` and the partial that wrote the
+admission setup.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/31-graphql.md`. Nothing else.
 
 **Owns** the root fields and the port each calls, the schema's types and nullability, inputs,
 payloads and `userErrors`, connections and their ceilings, batch loads and the batch ports they ask
 for, the GraphQL error map, the personal-data decision per output field, the project's GraphQL setup,
-and GraphQL dependencies and configuration.
+the GraphQL endpoint's quota and each root field's cap, and GraphQL dependencies and configuration.
 
 **Does not decide** the input ports, their read models or the exceptions (`10-dominio.md`), the
 trigger or the `Access` row (`00-caso-de-uso.md`), the REST operations (`30-rest.md`), the access

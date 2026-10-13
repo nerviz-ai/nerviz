@@ -531,6 +531,18 @@ operação só na versão em que o mapping começa — uma operação que chega 
 aparece de novo lá (`.claude/rules/api-rest.md` § Versioning,
 `.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
 
+**Um limite de admissão só existe quando o caso de uso o declara, e a cota é por réplica.** Sem
+a linha `Admission` em `00-caso-de-uso.md`, nenhum designer propõe cota nem bulkhead — e o
+`use-case-design` nunca pergunta. O `RateLimiter` do Resilience4j guarda estado na JVM: cada
+réplica aplica a cota dividida pelo número de réplicas, e com um balanceador desigual o limite é
+aproximado; cota exata entre réplicas é da borda. Três armadilhas silenciosas: um
+`RateLimiterRegistry` por cliente nunca esquece ninguém e publica uma série de métrica por
+cliente; o aspect do `@Bulkhead` só roda antes do `IdempotencyAspect` porque este não declara
+`@Order` — dar um `@Order` a ele, ou mexer em `bulkhead-aspect-order`, faz a chamada rejeitada
+reservar a chave de idempotência; e o aspect não existe num `@WebMvcTest`, então um teste de slice
+do bulkhead passa com o bulkhead ausente (`.claude/rules/inbound-admission.md`,
+`.claude/decisions/0151-inbound-admission-in-rest-and-graphql.md`).
+
 ### Mods
 
 **Abaixo do Claude Code 2.1.287 nenhum mod carrega, e nada na sessão avisa.** A faixa e o

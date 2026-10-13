@@ -7,7 +7,7 @@
  * Compilable as-is — not pseudo-code.
  *
  * Three extension fields, and no others (`.claude/rules/api-rest.md` § Error body):
- *   errorCode  — every error coming from the domain
+ *   errorCode  — every error coming from the domain, and an admission rejection
  *   traceId    — every 5xx, the same identifier that went into the log
  *   violations — bean validation in the adapter, and never with errorCode
  *
@@ -45,6 +45,9 @@
  *        // no dependencies
  *    }
  *
+ *    (With `30-rest.md` § 8 not `none`, it takes `AdmissionProperties admission` as its one
+ *    parameter, like the class below.)
+ *
  *    private String currentTraceId() {
  *        return UUID.randomUUID().toString();
  *    }
@@ -64,11 +67,15 @@ import com.exemplo.minhaapi.domain.exception.NotFoundException;
 import com.exemplo.minhaapi.domain.exception.OutcomeUnknownException;
 import com.exemplo.minhaapi.domain.exception.ValidationException;
 import com.exemplo.minhaapi.adapter.in.rest.idempotent.IdempotencyKeyInterceptor;
+import com.exemplo.minhaapi.adapter.in.rest.admission.AdmissionProperties;
+import com.exemplo.minhaapi.adapter.in.rest.admission.QuotaExceededException;
 import com.exemplo.minhaapi.adapter.in.rest.idempotent.MissingIdempotencyKeyException;
 import io.micrometer.tracing.Span;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,9 +97,11 @@ public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     private final Tracer tracer;
+    private final AdmissionProperties admission;
 
-    public ApiExceptionHandler(Tracer tracer) {
+    public ApiExceptionHandler(Tracer tracer, AdmissionProperties admission) {
         this.tracer = tracer;
+        this.admission = admission;
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -145,6 +154,44 @@ public class ApiExceptionHandler {
     @ExceptionHandler(OutcomeUnknownException.class)
     public ProblemDetail handleOutcomeUnknown(OutcomeUnknownException e, HttpServletRequest request) {
         return integrationProblem(HttpStatus.GATEWAY_TIMEOUT, e, request);
+    }
+
+    /**
+     * Inbound admission (`.claude/rules/inbound-admission.md` § Rejection): the request was refused
+     * before the use case ran, so it is neither a domain nor an integration family. Present once
+     * `30-rest.md` § 8 is not `none`; until then these two handlers, the `admission` field and
+     * their imports stay out. The caller's quota is spent: 429, `Retry-After` the window. Thrown
+     * by the quota interceptor in `preHandle` — for a controller and for the GraphQL route alike.
+     */
+    @ExceptionHandler(QuotaExceededException.class)
+    public ResponseEntity<ProblemDetail> handleQuotaExceeded(QuotaExceededException e, HttpServletRequest request) {
+        log.debug("Quota {} spent at {}", e.limiter(), request.getRequestURI());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "RATE_LIMITED");
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, retryAfterSeconds(e.retryAfter()))
+                .body(problem);
+    }
+
+    /**
+     * The case's concurrency cap is full: 503 `SERVICE_BUSY`, `Retry-After` the recorded wait, and
+     * `traceId` like every 5xx. Resilience4j's own exception, mapped as it arrives: every one that
+     * reaches this advice is inbound, since an outbound adapter translates its own full bulkhead
+     * into `DependencyUnavailableException` (`.claude/rules/http-client.md` § Failures). Raised by
+     * the `@Bulkhead` aspect, which runs ahead of `IdempotencyAspect`: no key was claimed.
+     */
+    @ExceptionHandler(BulkheadFullException.class)
+    public ResponseEntity<ProblemDetail> handleBusy(BulkheadFullException e, HttpServletRequest request) {
+        String traceId = currentTraceId();
+        log.warn("Cap {} full at {} [traceId={}]", e.getBulkheadName(), request.getRequestURI(), traceId);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "Service busy");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "SERVICE_BUSY");
+        problem.setProperty("traceId", traceId);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, retryAfterSeconds(admission.busyRetryAfter()))
+                .body(problem);
     }
 
     /**
@@ -278,6 +325,11 @@ public class ApiExceptionHandler {
     private String currentTraceId() {
         Span span = tracer.currentSpan();
         return span == null ? "unavailable" : span.context().traceId();
+    }
+
+    /** Whole seconds, rounded up: a wait shorter than announced makes the retry fail again. */
+    private static String retryAfterSeconds(Duration wait) {
+        return Long.toString(Math.ceilDiv(wait.toMillis(), 1000L));
     }
 
     private static Violation toViolation(FieldError error) {

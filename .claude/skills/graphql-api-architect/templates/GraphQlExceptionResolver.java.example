@@ -17,6 +17,13 @@
  *  - the three integration families are `INTERNAL_ERROR` with the dependency's `errorCode` —
  *    `retryable` true only for `DependencyUnavailableException`, with the wait the dependency
  *    announced when it announced one;
+ *  - a full concurrency cap (`.claude/rules/inbound-admission.md`) is `INTERNAL_ERROR` with
+ *    `errorCode: SERVICE_BUSY`, `retryable` and the recorded wait — the shape of an unavailable
+ *    dependency, since the client does the same thing: wait and retry. Resilience4j's exception is
+ *    mapped as it arrives: an outbound adapter translates its own full bulkhead, so every one that
+ *    reaches here is the root field's `@Bulkhead`. Present once § 6 has an `Admission` cap; until
+ *    then the case, the constructor and their imports stay out. A spent quota never reaches a
+ *    resolver: it is HTTP 429 before execution, from `ApiExceptionHandler`;
  *  - a `GraphqlErrorException` an adapter raised on purpose (the page-size check) keeps its own
  *    classification and extensions;
  *  - EVERYTHING ELSE RETURNS `null`. Spring Security's `AccessDeniedException` and
@@ -35,6 +42,7 @@
  */
 package com.exemplo.minhaapi.adapter.in.graphql;
 
+import com.exemplo.minhaapi.adapter.in.rest.admission.AdmissionProperties;
 import com.exemplo.minhaapi.domain.exception.BusinessRuleViolationException;
 import com.exemplo.minhaapi.domain.exception.ConflictException;
 import com.exemplo.minhaapi.domain.exception.DependencyUnavailableException;
@@ -46,6 +54,7 @@ import graphql.GraphQLError;
 import graphql.GraphqlErrorBuilder;
 import graphql.GraphqlErrorException;
 import graphql.schema.DataFetchingEnvironment;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +69,12 @@ class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
 
     private static final String ERROR_CODE = "errorCode";
 
+    private final AdmissionProperties admission;
+
+    GraphQlExceptionResolver(AdmissionProperties admission) {
+        this.admission = admission;
+    }
+
     @Override
     protected GraphQLError resolveToSingleError(Throwable ex, DataFetchingEnvironment env) {
         return switch (ex) {
@@ -68,6 +83,7 @@ class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
             case BusinessRuleViolationException e -> domain(e, ErrorType.BAD_REQUEST, env);
             case ConflictException e -> domain(e, ErrorType.BAD_REQUEST, env);
             case IntegrationException e -> integration(e, env);
+            case BulkheadFullException e -> busy(env);
             case ConstraintViolationException e -> violations(e, env);
             case GraphqlErrorException e -> GraphqlErrorBuilder.newError(env)
                     .message(e.getMessage())
@@ -97,6 +113,15 @@ class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
                 .message(e.dependency() + " did not answer")
                 .errorType(ErrorType.INTERNAL_ERROR)
                 .extensions(extensions)
+                .build();
+    }
+
+    private GraphQLError busy(DataFetchingEnvironment env) {
+        return GraphqlErrorBuilder.newError(env)
+                .message("Service busy")
+                .errorType(ErrorType.INTERNAL_ERROR)
+                .extensions(Map.of(ERROR_CODE, "SERVICE_BUSY", "retryable", true,
+                        "retryAfterSeconds", Math.ceilDiv(admission.busyRetryAfter().toMillis(), 1000L)))
                 .build();
     }
 

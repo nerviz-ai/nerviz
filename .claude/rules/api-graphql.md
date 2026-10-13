@@ -180,6 +180,9 @@ only with a recorded reason. None is on by default.
   in the development profile. Turning introspection off is JVM-wide in graphql-java: a test context
   that starts with it off leaves it off for every later context in the same JVM
 - **CORS** allows `POST` and the origins the environment names — never `*`, and none by default
+- **A quota per caller and a concurrency cap** exist only when the use case states them; the quota
+  covers the whole endpoint and is checked before the document is executed —
+  `@.claude/rules/inbound-admission.md`
 - The parser's own limits (tokens, characters) stay at their defaults unless a document legitimately
   exceeds them
 

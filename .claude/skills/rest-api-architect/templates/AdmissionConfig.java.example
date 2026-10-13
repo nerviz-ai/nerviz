@@ -1,0 +1,225 @@
+/*
+ * EXEMPLAR — the project's inbound admission (`.claude/rules/inbound-admission.md`). Written by
+ * the first use case whose `Admission` row states a limit, from its `30-rest.md` § 8 (or
+ * `31-graphql.md` § 6); every later case adds only its `@InboundQuota` and its
+ * `app.admission.quotas.<name>` entry, or its `@Bulkhead` and instance. The cap itself is
+ * Resilience4j's `@Bulkhead` on the handler (`application-admission.yml.example`); what it needs
+ * from here is `busyRetryAfter`, read by `ApiExceptionHandler` and the GraphQL resolver. A setup
+ * with no quota yet has an empty `quotas` map, and the interceptor passes every request. With
+ * `Quota enforced: edge` the quota entries stay out: the edge enforces them.
+ * Compilable as-is — not pseudo-code.
+ *
+ * Each `// --- <File>.java` block is its own file, in the `admission` subpackage of the inbound
+ * adapter the first limited case exposes: the REST adapter's, or the GraphQL adapter's in a
+ * project with no REST adapter. Package per the active blueprint's `packages.map`.
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - one Resilience4j `RateLimiter` per (limiter, caller), created with `RateLimiter.of` and kept
+ *    in a Caffeine cache bounded by size, with an expiry after access no shorter than the longest
+ *    window. Never a `RateLimiterRegistry`: its default store keeps every entry forever, and the
+ *    metric binding would publish one series per client;
+ *  - `timeoutDuration` zero: over quota is rejected at once, never a waiting request thread;
+ *  - the per-replica number, `ceil(limit / replicas)` — Resilience4j keeps its state in the JVM,
+ *    so a quota is per instance and approximate behind an uneven balancer;
+ *  - the caller's key from the authenticated principal, or the client address when there is
+ *    none. `getRemoteAddr()` reads `X-Forwarded-For` only when the transport setup configured
+ *    the forwarded headers and their trusted proxies; a raw header is never the key. An endpoint
+ *    authenticated by API key keys on the client the key belongs to: the API key authentication
+ *    (`security-architect`'s `ApiKeyAuthenticationConfig.java.example`) makes it the principal;
+ *  - a `HandlerInterceptor`: it runs after the Spring Security filter chain, so an
+ *    unauthenticated request answers 401 and spends nothing, and before the controller and its
+ *    aspects, so a rejected call never claims an idempotency key.
+ *
+ * Proven against Boot 4.1.1 / Resilience4j 2.4.0 under a real server
+ * (`.claude/decisions/0151-inbound-admission-in-rest-and-graphql.md` § Verified):
+ *  - the interceptor also runs for the GraphQL endpoint — Boot's GraphQL route is a
+ *    `RouterFunction`, and its mapping receives the `WebMvcConfigurer`'s interceptors. There the
+ *    handler is no `HandlerMethod`, so the whole endpoint shares one quota per caller, the
+ *    reserved `graphql` entry;
+ *  - `QuotaExceededException` thrown in `preHandle` reaches `ApiExceptionHandler` for a
+ *    controller and for the GraphQL route alike: 429 Problem Details, before any field runs.
+ */
+
+// --- InboundQuota.java
+package com.exemplo.minhaapi.adapter.in.rest.admission;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * Names the quota a handler method spends: the key of its `app.admission.quotas` entry, the
+ * use case's slug. A handler without it spends none.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface InboundQuota {
+
+    String value();
+}
+
+// --- QuotaExceededException.java
+package com.exemplo.minhaapi.adapter.in.rest.admission;
+
+import java.time.Duration;
+
+/**
+ * The caller spent its quota. The inbound adapter's own, neither a domain nor an integration
+ * family (`.claude/rules/error-handling.md`): nothing failed and nothing was called, and it never
+ * reaches the application.
+ */
+public class QuotaExceededException extends RuntimeException {
+
+    private final transient String limiter;
+    private final transient Duration retryAfter;
+
+    public QuotaExceededException(String limiter, Duration retryAfter) {
+        super("Quota " + limiter + " spent for this caller");
+        this.limiter = limiter;
+        this.retryAfter = retryAfter;
+    }
+
+    public String limiter() {
+        return limiter;
+    }
+
+    public Duration retryAfter() {
+        return retryAfter;
+    }
+}
+
+// --- AdmissionProperties.java
+package com.exemplo.minhaapi.adapter.in.rest.admission;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
+import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
+
+/**
+ * The values `30-rest.md` § 8 records, and nowhere else. `limit` is the stated quota; the
+ * interceptor divides it by `replicas`. Validated at startup: a quota with no window fails the
+ * context, not the first request.
+ */
+@Validated
+@ConfigurationProperties("app.admission")
+public record AdmissionProperties(
+        @Min(1) int replicas,
+        @NotNull Duration busyRetryAfter,
+        @Min(1) long maxClients,
+        @DefaultValue("/graphql") String graphqlPath,
+        @DefaultValue Map<String, @Valid Quota> quotas) {
+
+    /** The entry that limits the GraphQL endpoint as a whole. */
+    public static final String GRAPHQL_LIMITER = "graphql";
+
+    public record Quota(@Min(1) int limit, @NotNull Duration period) {}
+}
+
+// --- InboundQuotaInterceptor.java
+package com.exemplo.minhaapi.adapter.in.rest.admission;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
+import java.util.Optional;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+/** Spends one permit of the caller's quota before the handler runs, or rejects at once. */
+class InboundQuotaInterceptor implements HandlerInterceptor {
+
+    private final AdmissionProperties properties;
+    private final Cache<String, RateLimiter> limiters;
+
+    InboundQuotaInterceptor(AdmissionProperties properties) {
+        this.properties = properties;
+        Duration longestPeriod = properties.quotas().values().stream()
+                .map(AdmissionProperties.Quota::period)
+                .max(Duration::compareTo)
+                .orElse(Duration.ofMinutes(1));
+        this.limiters = Caffeine.newBuilder()
+                .maximumSize(properties.maxClients())
+                .expireAfterAccess(longestPeriod)
+                .build();
+    }
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        Optional<String> limiter = limiterOf(request, handler);
+        if (limiter.isEmpty()) {
+            return true;
+        }
+        AdmissionProperties.Quota quota = properties.quotas().get(limiter.get());
+        RateLimiter rateLimiter = limiters.get(limiter.get() + '|' + callerOf(request),
+                key -> RateLimiter.of(limiter.get(), perReplica(quota)));
+        if (!rateLimiter.acquirePermission()) {
+            throw new QuotaExceededException(limiter.get(), quota.period());
+        }
+        return true;
+    }
+
+    private Optional<String> limiterOf(HttpServletRequest request, Object handler) {
+        if (handler instanceof HandlerMethod method) {
+            return Optional.ofNullable(method.getMethodAnnotation(InboundQuota.class)).map(InboundQuota::value);
+        }
+        boolean graphql = request.getRequestURI().equals(request.getContextPath() + properties.graphqlPath());
+        return graphql && properties.quotas().containsKey(AdmissionProperties.GRAPHQL_LIMITER)
+                ? Optional.of(AdmissionProperties.GRAPHQL_LIMITER)
+                : Optional.empty();
+    }
+
+    private RateLimiterConfig perReplica(AdmissionProperties.Quota quota) {
+        return RateLimiterConfig.custom()
+                .limitForPeriod(Math.ceilDiv(quota.limit(), properties.replicas()))
+                .limitRefreshPeriod(quota.period())
+                .timeoutDuration(Duration.ZERO)
+                .build();
+    }
+
+    private static String callerOf(HttpServletRequest request) {
+        Authentication caller = SecurityContextHolder.getContext().getAuthentication();
+        boolean known = caller != null && caller.isAuthenticated() && !(caller instanceof AnonymousAuthenticationToken);
+        return known ? "principal:" + caller.getName() : "address:" + request.getRemoteAddr();
+    }
+}
+
+// --- AdmissionConfig.java
+package com.exemplo.minhaapi.adapter.in.rest.admission;
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+/**
+ * Registers the quota interceptor for every handler; a handler with no `@InboundQuota` (and no
+ * `graphql` entry for the GraphQL route) passes untouched.
+ */
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(AdmissionProperties.class)
+public class AdmissionConfig implements WebMvcConfigurer {
+
+    private final AdmissionProperties properties;
+
+    public AdmissionConfig(AdmissionProperties properties) {
+        this.properties = properties;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new InboundQuotaInterceptor(properties));
+    }
+}
