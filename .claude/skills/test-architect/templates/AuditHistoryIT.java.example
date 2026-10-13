@@ -1,0 +1,159 @@
+/*
+ * EXEMPLAR — integration test of an audited aggregate: the stamps, the history read through its
+ * port, the actor of each kind of caller, the bulk write that leaves no revision, and the prune.
+ * Compilable shape; the aggregate's names come from `20-persistencia.md` § Audit.
+ * Rules: `.claude/rules/persistence.md` (§ Auditing) · `.claude/rules/testing.md` (§ Database in
+ *        integration tests)
+ *
+ * WHY `@SpringBootTest` AND NOT `@DataJpaTest`: the history is written at commit. `@DataJpaTest`
+ * wraps each test in a transaction that rolls back, so it would see no revision at all — and pass
+ * for the wrong reason on a `hasSize(0)`. Every write here commits, through `TransactionTemplate`,
+ * the way the application layer's transaction does. The full context also loads what the slice
+ * would leave out: the auditing configuration, the actor resolver, the revision listener.
+ *
+ * WHY THE REAL ENGINE: the `_aud` tables come from the migrations and `ddl-auto: validate` checks
+ * them at startup — a context that starts is the first assertion. In-memory engines run neither
+ * the same DDL nor the same native prune.
+ *
+ * THE ACTOR is set on the test thread exactly as the filter chain or `SystemActor` sets it, and
+ * cleared after each test: a context left behind makes the next test's "no authentication" case
+ * pass for the wrong reason.
+ *
+ * CASES, from `20-persistencia.md` § Audit — drop the ones the case does not have (no read port,
+ * no bulk write, retention "forever"):
+ *   - create, update, delete → three changes, newest first, each with its actor and kind;
+ *   - the stamps on the live row, created kept on update;
+ *   - a pass with no caller → `system:<name>`; no authentication at all → the write fails;
+ *   - a bulk update → the rows change and no revision is added (documents the known gap);
+ *   - the prune → the ended versions and an old delete go, the current version stays.
+ */
+package com.exemplo.minhaapi.adapter.out.persistence.order;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.exemplo.minhaapi.application.port.out.AuditHistoryRetentionGateway;
+import com.exemplo.minhaapi.application.port.out.LoadOrderHistoryPort;
+import com.exemplo.minhaapi.application.port.out.OrderChange;
+import com.exemplo.minhaapi.commons.audit.SystemActor;
+import com.exemplo.minhaapi.domain.model.OrderId;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+
+@SpringBootTest
+@Testcontainers
+class OrderAuditIT {
+
+    @Container @ServiceConnection
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:17"));
+
+    @Autowired OrderSpringDataRepository repository;
+    @Autowired LoadOrderHistoryPort historyPort;
+    @Autowired AuditHistoryRetentionGateway retention;
+    @Autowired TransactionTemplate tx;
+    @Autowired JdbcTemplate jdbc;
+
+    @AfterEach
+    void clearActor() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("create, update and delete leave three changes, newest first, each with its actor")
+    void historyThroughThePort() {
+        authenticatedAs("alice");
+        UUID id = createOrder();
+        authenticatedAs("bob");
+        tx.executeWithoutResult(status -> repository.findById(id).orElseThrow().applyStatus(OrderStatus.PAID));
+        SystemActor.run("order-expiry", () -> tx.executeWithoutResult(status -> repository.deleteById(id)));
+
+        var changes = historyPort.history(new OrderId(id), 0, 10).changes();
+
+        assertThat(changes).hasSize(3);
+        assertThat(changes.get(0)).isInstanceOf(OrderChange.Deleted.class);
+        assertThat(changes.get(0).actor()).isEqualTo("system:order-expiry");
+        assertThat(changes.get(1)).isInstanceOfSatisfying(OrderChange.Written.class, updated -> {
+            assertThat(updated.kind()).isEqualTo(OrderChange.Kind.UPDATED);
+            assertThat(updated.actor()).isEqualTo("bob");
+        });
+        assertThat(changes.get(2)).isInstanceOfSatisfying(OrderChange.Written.class,
+                created -> assertThat(created.kind()).isEqualTo(OrderChange.Kind.CREATED));
+    }
+
+    @Test
+    @DisplayName("the stamps name who created and who last changed the row")
+    void stampsOnTheLiveRow() {
+        authenticatedAs("alice");
+        UUID id = createOrder();
+        authenticatedAs("bob");
+        tx.executeWithoutResult(status -> repository.findById(id).orElseThrow().applyStatus(OrderStatus.PAID));
+
+        var stamps = repository.findById(id).orElseThrow().getStamps();
+
+        assertThat(stamps.getCreatedBy()).isEqualTo("alice");
+        assertThat(stamps.getLastModifiedBy()).isEqualTo("bob");
+    }
+
+    @Test
+    @DisplayName("an audited write with no authentication fails instead of recording no actor")
+    void noAuthenticationFails() {
+        assertThatThrownBy(this::createOrder).hasRootCauseInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("a bulk update changes the rows and adds no revision — the known gap")
+    void bulkUpdateLeavesNoRevision() {
+        authenticatedAs("alice");
+        UUID id = createOrder();
+
+        tx.executeWithoutResult(status -> jdbc.update("update orders set status = 'CANCELLED' where id = ?", id));
+
+        assertThat(historyPort.history(new OrderId(id), 0, 10).changes()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("the prune removes ended versions and old deletes, never the current version")
+    void pruneKeepsTheCurrentVersion() {
+        authenticatedAs("alice");
+        UUID kept = createOrder();
+        tx.executeWithoutResult(status -> repository.findById(kept).orElseThrow().applyStatus(OrderStatus.PAID));
+        UUID gone = createOrder();
+        tx.executeWithoutResult(status -> repository.deleteById(gone));
+
+        int deleted = retention.deleteEndedBefore(Instant.now().plusSeconds(1), 1000);
+
+        assertThat(deleted).isPositive();
+        assertThat(historyPort.history(new OrderId(kept), 0, 10).changes()).hasSize(1);
+        assertThat(historyPort.history(new OrderId(gone), 0, 10).changes()).isEmpty();
+    }
+
+    private UUID createOrder() {
+        UUID id = UUID.randomUUID();
+        tx.executeWithoutResult(status -> {
+            OrderEntity order = new OrderEntity(id, OrderStatus.NEW, "customer@example.com");
+            order.addLine(UUID.randomUUID(), "SKU-1", 2);
+            repository.saveAndFlush(order);
+        });
+        return id;
+    }
+
+    private static void authenticatedAs(String principal) {
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
+    }
+}

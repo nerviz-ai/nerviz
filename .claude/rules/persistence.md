@@ -20,14 +20,15 @@ It's a declarative fact with an identifiable territory — the globs in `paths` 
 and not a universal fact about the repository. It auto-loads when someone touches
 persistence, and costs zero context in sessions that don't touch it. Decision recorded
 in `@.claude/decisions/0005-persistence-rule-and-design.md`; the document family in
-`@.claude/decisions/0147-document-storage-and-search-architect.md`.
+`@.claude/decisions/0147-document-storage-and-search-architect.md`; auditing in
+`@.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
 ## Boundary
 
 - The persistence entity (`@Entity`) or document (`@Document`) lives in the outbound adapter.
   Never in the domain
-- Zero `jakarta.persistence`, `org.springframework.data.mongodb`, `com.mongodb` and `org.bson`
-  outside the persistence adapter
+- Zero `jakarta.persistence`, `org.springframework.data.mongodb`, `com.mongodb`, `org.bson`,
+  `org.hibernate.envers` and `org.springframework.data.history` outside the persistence adapter
 - No persistence entity or document crosses the boundary, inward or outward: the domain ↔
   persistence mapping is explicit and lives in the adapter
 - A framework repository interface (Spring Data) is an internal adapter detail. What the
@@ -187,7 +188,8 @@ before the write; the translation above is the backstop for the race the check c
   and reads the whole table. Use two queries or `@BatchSize`
 - `LIMIT` without a deterministic `ORDER BY` returns an unstable result between runs
 - A batch write query (`UPDATE`/`DELETE` in JPQL) bypasses the first-level cache: clear
-  the persistence context afterward, or don't use it
+  the persistence context afterward, or don't use it. It bypasses the audit history too
+  (§ Auditing): on an audited entity it changes rows and leaves no revision, with no error
 
 ### Configuration
 
@@ -311,6 +313,67 @@ before the write; the translation above is the backstop for the race the check c
   driver's defaults are 30 seconds, 10 seconds and **never**: a stuck query holds its
   connection forever
 
+## Auditing
+
+What an aggregate keeps about its own changes is a fact of the use case, per aggregate: `none`,
+`stamps` (when and by whom the stored row was created and last changed) or `history` (every
+earlier version readable, with its actor and instant — the stamps included). Nothing in this
+file chooses the level.
+
+### Common
+
+- **Audit data lives on the persistence entity or document, never on the aggregate.** A
+  business rule that reads who or when created gets the value mapped into the aggregate on
+  load; the aggregate never writes a stamp
+- The four stamps (`createdAt`, `createdBy`, `lastModifiedAt`, `lastModifiedBy`) are one
+  embeddable type per project, embedded in each audited entity or document — never fields on
+  the shared assigned-id superclass, and never a second superclass. The two `created` fields are
+  not updatable, none has a public setter, instants are `Instant` in UTC from the application's
+  clock
+- **The actor is never `null` and never guessed.** It is the authenticated principal's name; an
+  anonymous caller is recorded as `anonymous`; a pass with no caller — a scheduled job, a message
+  consumer — runs under a named system actor, `system:<name>`, set where the pass starts. A
+  write with no authentication at all fails: a missing actor is a lost security context, not a
+  default
+- Auditing is enabled in its own configuration class, never on the application class: a test
+  slice without the store loads the application class and fails on the missing store
+- The shared technical tables — `outbox_events`, `idempotency_keys`, the scheduling tables — are
+  never audited
+
+### Relational — Envers
+
+- Every entity of an audited aggregate is audited with it, children included. A relation to a
+  non-audited entity is marked as such, and a historic read of it returns the target's
+  **current** state
+- A collection of an audited aggregate is a `Set` or carries an order column. A `List` without
+  one is a bag: a duplicate element is written once in the history, with no error
+- A field holding personal data stays out of the history (`@NotAudited`) unless the design
+  records why the history needs it and for how long (`@.claude/rules/personal-data.md` § At rest)
+- **The revision table and every `_aud` table come from a versioned migration** (§ Migrations),
+  never from schema generation; `ddl-auto: validate` refuses to start on a missing table or
+  column. Every non-key column of an `_aud` table is nullable: a delete revision keeps only the
+  id, and a `NOT NULL` there passes validation and fails the first delete
+- One revision entity per project: a `long` revision number, a `long` timestamp — the validity
+  strategy below casts it to `Long` and fails every update's commit on an `Instant` — and the
+  actor. Its sequence's increment equals the mapping's allocation size
+- The audit strategy is the validity strategy with the revision-end timestamp stored, for the
+  whole persistence unit. Each `_aud` table indexes its revision-end and revision-end timestamp
+  columns
+- The history is written at commit, in the same transaction: a rolled-back write leaves none,
+  and a test that never commits sees none
+- A bulk `UPDATE`/`DELETE` (JPQL, Criteria, native) on an audited entity leaves no revision. The
+  write goes through the managed entity, or the gap is recorded where it is designed
+- Retention is part of the design (`@.claude/rules/personal-data.md` § At rest): "forever" with
+  its reason, or a window enforced by a job that deletes the versions whose revision-end
+  timestamp is older than the window — never the current version, whose revision end is empty
+  — and then the revisions no `_aud` row references
+
+### Document — MongoDB
+
+- `stamps` only, filled by the store's auditing on the document's `@Version` (§ Document ·
+  Identity and versioning). A document store keeps no history of its own here; `history` on a
+  document aggregate is not designed
+
 ## Admitted exception
 
 The pure read query described in `@.claude/rules/architecture-ddd.md` may return a
@@ -335,6 +398,16 @@ grep -rL "@TypeAlias\|@Version" $(grep -rl "data.mongodb.core.mapping.Document" 
 
 # The Spring Boot 4 connection prefix. Zero lines is the expected result.
 grep -rn "spring.data.mongodb.uri" src/main/resources/
+
+# Audit types stay in the persistence adapter. Zero lines is the expected result.
+grep -rnE "org.hibernate.envers|org.springframework.data.history|org.springframework.data.annotation.(Created|LastModified)" --include=*.java src/main/java | grep -v "/persistence/"
+
+# A bulk write on an audited entity leaves no history. Review every hit against the audited entities.
+grep -rn "@Modifying\|CriteriaUpdate\|CriteriaDelete" --include=*.java src/main/java
+grep -rln "@Audited" --include=*.java src/main/java
+
+# Auditing enabled on the application class breaks every slice without the store. Zero lines is the expected result.
+grep -lE "@Enable(Jpa|Mongo)Auditing" $(grep -rl "@SpringBootApplication" --include=*.java src/main/java)
 
 # Assigned ids without Persistable, and @Lob on String, are also architecture-test rules.
 

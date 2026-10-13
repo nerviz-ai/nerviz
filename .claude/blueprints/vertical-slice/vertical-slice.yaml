@@ -109,6 +109,8 @@ packages:
     # GraphQL wiring — limits, the exception resolver — shared by every slice, like the scheduling and
     # cache wiring; a slice's own GraphQL controller lives in the slice, next to its endpoint — decision 0146.
     bootstrap.graphql: "config.graphql"
+    # The system actor a job or a consumer runs its pass under, shared by both — decision 0149.
+    commons.audit: "config.audit"
 
 # Naming convention for this blueprint (specific to vertical-slice, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and

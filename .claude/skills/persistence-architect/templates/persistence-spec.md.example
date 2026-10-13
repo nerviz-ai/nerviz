@@ -12,6 +12,7 @@
 | Domain partial | `10-dominio.md` |
 | Aggregate | `User` |
 | Storage family | relational — `00-caso-de-uso.md` § Storage |
+| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`) |
 | Engine | PostgreSQL 16 |
 | Expected volume at 12 months | ~200,000 rows |
 | Divergences from `10-dominio.md` | none |
@@ -169,6 +170,30 @@ Version column stays empty whenever the Boot parent manages it — never a versi
 | Dependency | Version | Why |
 |---|---|---|
 | — | — | Postgres driver and `spring-boot-starter-data-jpa` already came from the blueprint |
+
+## Audit
+
+none — `00-caso-de-uso.md`'s `Audit` row is `none` for `User`.
+
+When the row says `stamps` or `history` (step 4c), this block holds, per aggregate:
+
+| Item | Decision |
+|---|---|
+| Level | `history` — `00-caso-de-uso.md` § Audit, chosen by: request ("we need to see who changed an order and what it was") |
+| Stamps | `AuditStamps` embedded in `OrderEntity`; four columns in `orders`, in `V7__create_orders.sql` |
+| Actor | HTTP: `sub` of `32-seguranca.md` § 2. Job `order-expiry` (`35-jobs.md`): `system:order-expiry`, the trigger runs under `SystemActor` — requirement on `35-jobs.md` in § 1 |
+| Audited entities | `OrderEntity`, `OrderLineEntity` (the child, `@OrderColumn line_index`) |
+| Kept out of the history | `customer_email` — `@NotAudited`: personal data the history does not need |
+| Personal data kept in the history | none |
+| Tables | `orders_aud`, `order_lines_aud` in `V8__create_order_audit_tables.sql`; `revinfo` + `revinfo_seq` already exist (`V5`) |
+| Bulk writes over audited entities | none |
+| Read port | `LoadOrderHistoryPort` (`10-dominio.md` § 3) — `OrderHistoryAdapter` over `RevisionRepository`, newest first, paginated |
+| Retention | 365 days (`app.audit.history.retain-for: P365D`) — the dispute window; `AuditHistoryRetentionGateway` gains the two tables |
+
+Exemplars: `AuditedEntity.java.example` · `AuditingConfig.java.example` ·
+`AuditRevision.java.example` · `V1__create_audit_tables.sql.example` ·
+`application-audit.yml.example` · `AuditHistoryAdapter.java.example` · `SystemActor.java.example`;
+pitfalls in `references/pitfalls-audit.md`.
 
 ## Compose services
 

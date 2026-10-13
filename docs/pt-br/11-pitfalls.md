@@ -509,6 +509,15 @@ um worktree sujo sem exceção para essa pasta — limpar o worktree para atuali
 relatório e as linhas do run. Visto na issue #111. Design:
 `.claude/decisions/0132-audit-per-piece-cache-and-context-growth.md`.
 
+**Um bulk write num agregado auditado não deixa revisão, e nada avisa.** Um `UPDATE`/`DELETE` em
+JPQL (`@Modifying`), `CriteriaUpdate`, `CriteriaDelete` ou SQL nativo muda as linhas e não passa
+pelos listeners do Envers: o histórico fica sem a mudança, sem erro, sem teste vermelho. Nenhum
+hook cobre isso — não houve falha observada que justifique um. O que existe é o `grep` de
+`.claude/rules/persistence.md` § How to verify e a lista de bulk writes que o § Audit do
+`20-persistencia.md` registra. O mesmo vale para o ator: uma passada de job ou consumer sem
+`SystemActor` falha na escrita, por desenho — o ator nunca é `null`. Design:
+`.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
+
 ### Mods
 
 **Abaixo do Claude Code 2.1.287 nenhum mod carrega, e nada na sessão avisa.** A faixa e o

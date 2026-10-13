@@ -1,0 +1,32 @@
+# EXEMPLAR — the Envers properties of a project with a `history`, merged into the persistence
+# properties once, by the first case that audits a history.
+# Rules: .claude/rules/persistence.md (§ Auditing · Relational — Envers)
+#
+# GLOBAL: these hold for the whole persistence unit. A project whose first history chose the
+# validity strategy keeps it; switching later leaves every existing `_aud` row without the
+# revision end the queries now read.
+#
+# NAMES: written out, so the migration and the mapping agree on every column by name, and
+# `ddl-auto: validate` (already mandatory) refuses to start on any `_aud` table that disagrees.
+#
+# store_data_at_delete stays false (the default): the version before the delete already holds
+# the data, the revision holds the actor, and a second copy of personal data buys nothing.
+#
+# app.audit.history.retain-for — the retention window persistence-architect asked, read by the
+# history prune job (35-jobs.md). "Forever" removes the key and turns the job's switch off,
+# both with the reason in 20-persistencia.md § 1.
+spring:
+  jpa:
+    properties:
+      org.hibernate.envers.audit_strategy: org.hibernate.envers.strategy.internal.ValidityAuditStrategy
+      org.hibernate.envers.audit_strategy_validity_store_revend_timestamp: true
+      org.hibernate.envers.audit_strategy_validity_end_rev_field_name: revend
+      org.hibernate.envers.audit_strategy_validity_revend_timestamp_field_name: revend_tstmp
+      org.hibernate.envers.audit_table_suffix: _aud
+      org.hibernate.envers.revision_field_name: rev
+      org.hibernate.envers.revision_type_field_name: revtype
+
+app:
+  audit:
+    history:
+      retain-for: P365D

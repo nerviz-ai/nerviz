@@ -11,7 +11,8 @@ description: >
   the `/new-feature` pipeline: requires `00-caso-de-uso.md` in the given folder plus a
   schedule trigger, a Form B outbox in `25-mensageria.md`, a reconciliation pass asked by
   `28-cliente-http.md`, a search index rebuild asked by `23-busca.md`, a document backfill asked
-  by `20-persistencia.md`, or a deferred scheduled job — and stops without one of them.
+  by `20-persistencia.md`, an audit history to prune (an `Audit` row naming `history`), or a
+  deferred scheduled job — and stops without one of them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
 model: opus
@@ -48,6 +49,7 @@ to.
 | `25-mensageria.md` | § 2 chose **Form B** (transactional outbox + relay) | The relay's schedule and the prune job — once per project, reused by every later case |
 | `28-cliente-http.md` | § 10 asks for a reconciliation pass over writes whose outcome is unknown | That pass, calling the inbound port that reads the provider and settles the state — `10-dominio.md` is required too |
 | `23-busca.md` | § 8 asks for a rebuild of a search projection | The rebuild job: on demand and after a version change, never two at once, paging the source through its port and writing through the rebuild port, ending in the alias swap — `search-architect`'s `SearchRebuild.java.example` is the adapter half |
+| `00-caso-de-uso.md` | The `Audit` row names `history` for an aggregate, and the project has no history prune job yet | `AuditHistoryPruneJob` — once per project, reused by every later history; read from the row because this skill runs before `persistence-architect` |
 | `20-persistencia.md` (document family) | § 4 asks for a backfill — a field a query filters or sorts on, or a new unique key, over documents older than the current `schemaVersion` | That bounded pass, idempotent per document, run once per shape change |
 | Any partial's `Deferred` block | A row names a scheduled job as the missing piece | That job |
 
@@ -206,6 +208,21 @@ Two facts cross that line, one in each direction, and each has one owner:
      `OutboxRetentionGateway.deletePublishedBefore(cutoff, limit)`, declared in this skill's
      exemplar and implemented by persistence — named in § 6 as a requirement, never as SQL.
 
+   **The audit history's prune** is the outbox prune's shape, `templates/OutboxPruneJob.java.example`,
+   with its own names: `AuditHistoryPruneJob` calling `PruneAuditHistory`, whose service loops
+   over `AuditHistoryRetentionGateway.deleteEndedBefore(cutoff, limit)` — the port's declaration is
+   in `persistence-architect/templates/AuditHistoryAdapter.java.example`, its statement is
+   persistence's. Reads `app.audit.history.retain-for` with no default in the placeholder, and its
+   switch `app.audit.history.prune.enabled`, which persistence turns off in the same change when
+   the window is "forever". It deletes from the `_aud` tables directly, so it writes no audited
+   aggregate and needs no system actor.
+
+   **A job that writes an audited aggregate** — any `Audit` row other than `none` among the
+   aggregates its inbound port writes — runs its pass under `SystemActor.run("<job-name>", …)`
+   around the call to the port, in the trigger: there is no caller, and an audited write with no
+   authentication fails (`@.claude/rules/persistence.md` § Auditing ·
+   `persistence-architect/templates/SystemActor.java.example`). The name is the job's.
+
    Every other job takes its shape from the template of the chosen technology:
 
    | Technology | Exemplar |
@@ -237,7 +254,9 @@ Two facts cross that line, one in each direction, and each has one owner:
    - under Form B, the **claim requirement** derived from § 3 (documented single instance, or
      locked/leased) — persistence picks between lease and `SKIP LOCKED` and writes it as its
      `Claim strategy`;
-   - under Form B, the prune's bounded delete operation.
+   - under Form B, the prune's bounded delete operation;
+   - with a `history` in the project, the history prune's bounded delete operation
+     (`AuditHistoryRetentionGateway.deleteEndedBefore`) and its two properties.
 
    Never a column name, never DDL — the same discipline `messaging-architect` step 4a keeps
    for the outbox.

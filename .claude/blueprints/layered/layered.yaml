@@ -76,6 +76,9 @@ packages:
     mapper: "mapper"
     bootstrap.config: "config"
     commons.logging: "commons"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
     # Scheduling triggers (a driving adapter calling the service, same rank as
     # `controller`) — decision 0087.
     scheduler.scheduling: "scheduler"

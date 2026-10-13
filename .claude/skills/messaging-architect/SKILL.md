@@ -272,7 +272,11 @@ still transport.
 5. **Design the consumer adapter.** Translates the inbound payload into a call on the target
    use case's inbound port. Dedupe on the event's own identity before calling it; manual
    acknowledgment, offset commits only after the use case returns.
-   Shape: `templates/KafkaConsumerAdapter.java.example`.
+   Shape: `templates/KafkaConsumerAdapter.java.example`. When the use case it calls writes an
+   audited aggregate — an `Audit` row other than `none` — the call runs under
+   `SystemActor.run("<consumer-name>", …)`: a listener thread has no caller, and an audited write
+   with no authentication fails (`@.claude/rules/persistence.md` § Auditing ·
+   `persistence-architect/templates/SystemActor.java.example`). The name is the consumer's.
 
    **5a. Dedupe table, when step 2 found none yet.** Not per-consumer: one table
    (`processed_events` or equivalent), shared by every listener in the project, modeled once.

@@ -15,6 +15,7 @@
 | Side effects | **0** — read + format, nothing persisted |
 | Storage | `Invoice` → relational (read) — chosen by: request (the aggregate already lives in a table) |
 | Search index | none |
+| Audit | none |
 | Transaction | read-only |
 | Idempotency | yes — same invoice and format always produce the same file |
 | Concurrency | not applicable |

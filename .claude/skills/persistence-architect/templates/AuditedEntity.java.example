@@ -1,0 +1,254 @@
+/*
+ * EXEMPLAR — an audited aggregate's persistence entities, and the stamps every audited entity
+ * or document embeds. Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/persistence.md` (§ Auditing, § Mapping, § Identity and keys)
+ *        `.claude/rules/personal-data.md` (§ At rest — what the history copies)
+ *        `.claude/rules/lombok.md` (`@Getter` only with an immutable return)
+ *
+ * TWO LEVELS, ONE SHAPE: `stamps` is the `AuditStamps` embeddable and the entity listener;
+ * `history` adds `@Audited` on every entity of the aggregate. The stamps never go on
+ * `AssignedIdEntity` (its Javadoc says why) and never on a second superclass: an entity has
+ * one superclass, and the assigned-id one already holds the slot.
+ *
+ * WHAT THE HISTORY KEEPS: every audited column, in `<table>_aud`, per revision. Not `@Version`
+ * (Envers leaves the optimistic-lock field out by default) and not a `@NotAudited` field — the
+ * personal data the design did not justify keeping (`customerEmail` here). A delete revision
+ * keeps the id only, so every other `_aud` column is nullable
+ * (`templates/V1__create_audit_tables.sql.example`).
+ *
+ * THE CHILD COLLECTION: a `List` without an order column is a bag, and Envers writes a
+ * duplicate element of a bag once in the history, with no error — observed (decision 0149).
+ * A `Set`, or a `List` with `@OrderColumn`, as here.
+ *
+ * `history` ON A DOCUMENT: not designed (`.claude/rules/persistence.md` § Auditing). The last
+ * block is the document family's stamps — a nested object the MongoDB auditing fills, keyed on
+ * the document's `@Version`.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderEntity.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.adapter.out.persistence.shared.AssignedIdEntity;
+import com.example.demo.adapter.out.persistence.shared.audit.AuditStamps;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+/**
+ * {@code @Audited} for `history`; a `stamps` aggregate drops it and keeps the listener and
+ * the embeddable. The listener fills the stamps on persist and on update, whatever
+ * {@code isNew()} says.
+ */
+@Entity
+@Table(name = "orders")
+@Audited
+@EntityListeners(AuditingEntityListener.class)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+class OrderEntity extends AssignedIdEntity<UUID> {
+
+    @Id
+    @Column(name = "id", nullable = false, updatable = false)
+    UUID id;
+
+    @Getter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    OrderStatus status;
+
+    /**
+     * Personal data the history does not need: the design recorded no reason to keep it, so
+     * it stays out of `orders_aud` (`.claude/rules/personal-data.md` § At rest).
+     */
+    @NotAudited
+    @Column(name = "customer_email", nullable = false, length = 254)
+    String customerEmail;
+
+    /** A child of the aggregate is audited with it; the order column keeps it out of a bag. */
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderColumn(name = "line_index")
+    List<OrderLineEntity> lines = new ArrayList<>();
+
+    @Getter
+    @Embedded
+    AuditStamps stamps = new AuditStamps();
+
+    @Version
+    @Column(name = "version", nullable = false)
+    long version;
+
+    OrderEntity(UUID id, OrderStatus status, String customerEmail) {
+        this.id = id;
+        this.status = status;
+        this.customerEmail = customerEmail;
+    }
+
+    void applyStatus(OrderStatus newStatus) {
+        this.status = newStatus;
+    }
+
+    void addLine(UUID lineId, String sku, int quantity) {
+        lines.add(new OrderLineEntity(lineId, this, sku, quantity));
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+}
+
+// --- order/OrderLineEntity.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.adapter.out.persistence.shared.AssignedIdEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.envers.Audited;
+
+/** Audited because its root is: a history that skips a child is a history of half the aggregate. */
+@Entity
+@Table(name = "order_lines")
+@Audited
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+class OrderLineEntity extends AssignedIdEntity<UUID> {
+
+    @Id
+    @Column(name = "id", nullable = false, updatable = false)
+    UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    OrderEntity order;
+
+    @Column(name = "sku", nullable = false, length = 40)
+    String sku;
+
+    @Column(name = "quantity", nullable = false)
+    int quantity;
+
+    OrderLineEntity(UUID id, OrderEntity order, String sku, int quantity) {
+        this.id = id;
+        this.order = order;
+        this.sku = sku;
+        this.quantity = quantity;
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+}
+
+// --- order/OrderStatus.java
+package com.example.demo.adapter.out.persistence.order;
+
+/** Persistence-side enum. Mirrors the domain's; not the same type. */
+enum OrderStatus { NEW, PAID, SHIPPED, CANCELLED }
+
+// --- shared/audit/AuditStamps.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+
+/**
+ * The four stamps, once per project, embedded in every audited entity. {@code public}
+ * because every aggregate subpackage embeds it. No setter: the auditing listener writes the
+ * fields by reflection, and the two {@code created} columns are not updatable, so a merge can
+ * never overwrite them. The actor's type matches {@code AuditorAware<String>}.
+ */
+@Embeddable
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class AuditStamps {
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    Instant createdAt;
+
+    @CreatedBy
+    @Column(name = "created_by", nullable = false, updatable = false, length = 100)
+    String createdBy;
+
+    @LastModifiedDate
+    @Column(name = "last_modified_at", nullable = false)
+    Instant lastModifiedAt;
+
+    @LastModifiedBy
+    @Column(name = "last_modified_by", nullable = false, length = 100)
+    String lastModifiedBy;
+}
+
+// --- shared/audit/DocumentAuditStamps.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+
+/**
+ * Document family: the same four stamps as a nested object, a field of the document
+ * ({@code DocumentAuditStamps stamps = new DocumentAuditStamps();}). The MongoDB auditing tells
+ * a create from an update by the document's {@code @Version Long} — {@code null} while new —
+ * so the version the norm already requires is what keeps {@code createdBy} on the second save.
+ */
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class DocumentAuditStamps {
+
+    @CreatedDate
+    Instant createdAt;
+
+    @CreatedBy
+    String createdBy;
+
+    @LastModifiedDate
+    Instant lastModifiedAt;
+
+    @LastModifiedBy
+    String lastModifiedBy;
+}

@@ -1,0 +1,72 @@
+-- EXEMPLAR — the audit history's tables, from a migration, never from schema generation.
+-- Form reference: persistence-architect writes the real SQL inside 20-persistencia.md block 4,
+-- and the executor materializes it under db/migration/ with the next free <N>.
+-- Rules: .claude/rules/persistence.md (§ Auditing · Relational — Envers, § Migrations)
+--
+-- ORDER: after the migration that creates the audited tables. The revision table and its
+-- sequence once per project — the first case with a `history`; one `_aud` table per audited
+-- table, in the migration of the case that audits it.
+--
+-- STAMPS: a `stamps` or `history` aggregate's own table carries four NOT NULL columns
+-- (created_at, created_by, last_modified_at, last_modified_by) in the migration that creates
+-- or alters it. They are copied into `_aud` below, nullable like every non-key column there.
+--
+-- THE `_aud` SHAPE — what Hibernate's schema export produced for the mapping, checked by
+-- `ddl-auto: validate` at startup:
+--   - every audited column of the table, with its type, NULLABLE: a delete revision keeps the
+--     id only, and a NOT NULL here passes validation and fails the first delete;
+--   - no `version` column (Envers leaves the optimistic-lock field out) and no column of a
+--     @NotAudited field;
+--   - a child mapped by `mappedBy` with @OrderColumn needs no join audit table: its order
+--     column goes in the child's `_aud`;
+--   - rev and revtype, plus revend and revend_tstmp for the validity strategy; the primary key
+--     is (id, rev).
+-- INDEXES: revend and revend_tstmp on every `_aud` table — the validity strategy updates the
+-- previous row by revend on every write, and the prune reads by revend_tstmp. Neither is
+-- created by Hibernate.
+--
+-- ENGINE: Postgres below. The types follow the engine persistence-architect asked
+-- (MySQL: datetime(6) and binary(16)/char(36) for the instants and uuids).
+
+CREATE SEQUENCE revinfo_seq START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE revinfo (
+    rev      bigint       PRIMARY KEY,
+    revtstmp bigint       NOT NULL,
+    actor    varchar(100) NOT NULL
+);
+
+COMMENT ON COLUMN revinfo.actor IS 'Principal name, anonymous, or system:<name> — never null';
+
+CREATE TABLE orders_aud (
+    id               uuid         NOT NULL,
+    rev              bigint       NOT NULL REFERENCES revinfo (rev),
+    revtype          smallint,
+    revend           bigint       REFERENCES revinfo (rev),
+    revend_tstmp     timestamp(6) with time zone,
+    status           varchar(20),
+    created_at       timestamp(6) with time zone,
+    created_by       varchar(100),
+    last_modified_at timestamp(6) with time zone,
+    last_modified_by varchar(100),
+    PRIMARY KEY (id, rev)
+);
+
+CREATE INDEX orders_aud_revend_idx ON orders_aud (revend);
+CREATE INDEX orders_aud_revend_tstmp_idx ON orders_aud (revend_tstmp);
+
+CREATE TABLE order_lines_aud (
+    id           uuid         NOT NULL,
+    rev          bigint       NOT NULL REFERENCES revinfo (rev),
+    revtype      smallint,
+    revend       bigint       REFERENCES revinfo (rev),
+    revend_tstmp timestamp(6) with time zone,
+    order_id     uuid,
+    line_index   integer,
+    sku          varchar(40),
+    quantity     integer,
+    PRIMARY KEY (id, rev)
+);
+
+CREATE INDEX order_lines_aud_revend_idx ON order_lines_aud (revend);
+CREATE INDEX order_lines_aud_revend_tstmp_idx ON order_lines_aud (revend_tstmp);

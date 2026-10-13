@@ -19,6 +19,7 @@
 | Side effects | **0** — read-only |
 | Storage | `Order` → relational (read) — chosen by: request (the aggregate already lives in a table) |
 | Search index | none |
+| Audit | none |
 | Transaction | read-only, no explicit transaction boundary needed |
 | Idempotency | yes — a query, safe to repeat |
 | Concurrency | not applicable |

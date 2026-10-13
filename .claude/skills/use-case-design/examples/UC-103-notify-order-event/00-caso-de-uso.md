@@ -15,6 +15,7 @@
 | Side effects | **1** — sends a message through the customer's preferred channel (email, SMS, or push) |
 | Storage | `NotificationLog` (the audit record) → relational — chosen by: request (it names the `notification_log` table) |
 | Search index | none |
+| Audit | none |
 | Transaction | none open across the send — the send is not transactional with anything else |
 | Idempotency | yes — same `orderId` + channel sent twice must not double-notify the customer |
 | Concurrency | dedup key `(orderId, channel)` is the arbiter |

@@ -42,6 +42,7 @@ modules:
       - "org.bson.."
       - "co.elastic.."
       - "org.opensearch.."
+      - "org.hibernate.."  # Hibernate and Envers stay in the persistence adapter; Spring Data auditing is already under org.springframework — decision 0149
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -65,6 +66,11 @@ modules:
       - "org.springframework.data.elasticsearch.."
       - "co.elastic.."
       - "org.opensearch.."
+      - "org.hibernate.envers.."  # the history is read through a port; Envers, Spring Data history and the auditing annotations stay in the persistence adapter — decision 0149
+      - "org.hibernate.annotations.."
+      - "org.springframework.data.history.."
+      - "org.springframework.data.envers.."
+      - "org.springframework.data.annotation.."
   - id: adapter-in-rest
     path: adapters/adapter-in-rest
     depends_on: [application, domain, commons]
@@ -100,6 +106,9 @@ packages:
     adapter.in.messaging: "adapter.in.messaging"
     adapter.out.messaging: "adapter.out.messaging"
     commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
     # Scheduling triggers compile into `bootstrap` (already depends on every module and
     # is the composition root) until a project needs build isolation for them, at which
     # point an `adapters/adapter-in-scheduling` module is added — decision 0087.

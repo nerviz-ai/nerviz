@@ -28,7 +28,7 @@ modules:
   - id: core
     path: core
     depends_on: []
-    forbidden_imports: ["org.springframework..", "graphql..", "com.mongodb..", "org.bson..", "co.elastic..", "org.opensearch.."]
+    forbidden_imports: ["org.springframework..", "graphql..", "com.mongodb..", "org.bson..", "co.elastic..", "org.opensearch..", "org.hibernate.."]  # org.hibernate.. — decision 0149
   - id: app
     path: app
     depends_on: [core]
@@ -53,6 +53,8 @@ packages:
     app.search: "app.search"
     # Example: inbound GraphQL adapter and the GraphQL wiring — decision 0146.
     app.graphql: "app.graphql"
+    # The system actor a job or a consumer runs its pass under, shared by both — decision 0149.
+    commons.audit: "app.audit"
 
 dependency_rules:
   direction: inward             # inward | explicit

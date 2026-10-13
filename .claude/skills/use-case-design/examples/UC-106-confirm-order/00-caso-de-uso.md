@@ -15,6 +15,7 @@
 | Side effects | **1** direct — `UPDATE` on `orders`; **2** reactive, out of this boundary — inventory reservation and customer notification |
 | Storage | `Order` → relational — chosen by: request (the aggregate already lives in a table) |
 | Search index | none |
+| Audit | none |
 | Transaction | opens in the use case, closes before the response; the reactive consumers run in their own transactions, after this one commits |
 | Idempotency | yes — confirming an already-confirmed order is a no-op, not an error |
 | Concurrency | optimistic lock (`version`) on `orders` |

@@ -14,6 +14,7 @@
 | Domain partial | `10-dominio.md` |
 | Aggregate | `Order` |
 | Storage family | document (MongoDB) — `00-caso-de-uso.md` § Storage |
+| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`) |
 | Expected volume at 12 months | ~2,000,000 documents |
 | Divergences from `10-dominio.md` | none |
 
@@ -113,6 +114,20 @@ Full shape in `templates/application-mongodb.yml.example`; client and transactio
 |---|---|---|
 | `org.springframework.boot:spring-boot-starter-data-mongodb` | (managed by the Boot parent) | the MongoDB driver and Spring Data MongoDB |
 | `org.testcontainers:testcontainers-mongodb` (test) | (managed by the Boot parent) | `MongoPersistenceIT` against a replica set |
+
+## Audit
+
+none — `00-caso-de-uso.md`'s `Audit` row is `none` for this aggregate.
+
+The document family takes `stamps` only (`@.claude/rules/persistence.md` § Auditing · Document):
+a `DocumentAuditStamps stamps` field on the document, filled by `@EnableMongoAuditing` keyed on
+its `@Version` — `AuditedEntity.java.example` (last block) and `AuditingConfig.java.example`. A
+`history` row stops the pass before this block is written.
+
+| Item | Decision |
+|---|---|
+| Level | `stamps` — `00-caso-de-uso.md` § Audit |
+| Actor | as the relational shape: the principal, `anonymous`, or `system:<name>` under `SystemActor` |
 
 ## Compose services
 

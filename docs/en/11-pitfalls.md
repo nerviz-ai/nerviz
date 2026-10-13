@@ -497,6 +497,15 @@ exception for that folder — cleaning the worktree to update deletes the earlie
 rows. Seen in issue #111. Design:
 `.claude/decisions/0132-audit-per-piece-cache-and-context-growth.md`.
 
+**A bulk write on an audited aggregate leaves no revision, and nothing says so.** A JPQL
+`UPDATE`/`DELETE` (`@Modifying`), `CriteriaUpdate`, `CriteriaDelete` or native SQL changes the rows
+without passing through Envers' listeners: the history misses the change, with no error and no red
+test. No hook covers it — no observed failure justifies one. What exists is the `grep` of
+`.claude/rules/persistence.md` § How to verify and the list of bulk writes `20-persistencia.md`'s
+§ Audit records. The same goes for the actor: a job or consumer pass without `SystemActor` fails the
+write, by design — the actor is never `null`. Design:
+`.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
+
 ### Mods
 
 **Below Claude Code 2.1.287 no mod loads, and nothing says so in the session.** The band

@@ -4,10 +4,12 @@ description: >
   Designs the persistence layer of an already-modeled use case, in the storage family its
   use case records — relational (tables, JPA mapping, Flyway migrations, datasource) or
   document (MongoDB collections, embedded and referenced data, indexes and validators ensured
-  at startup, `@Version`, transactions on a replica set) — into the `20-persistencia.md`
-  partial. Use when the request involves modeling the database, mapping an aggregate to JPA or
-  to a MongoDB document, writing or reviewing migrations, deciding indexes and keys, diagnosing
-  N+1 or slow queries, or tuning the pool, datasource or MongoDB client properties. Piece of
+  at startup, `@Version`, transactions on a replica set) — plus the audit level its use case
+  records (created/modified stamps, or an Envers history with actor and revision) — into the
+  `20-persistencia.md` partial. Use when the request involves modeling the database, mapping an
+  aggregate to JPA or to a MongoDB document, writing or reviewing migrations, deciding indexes
+  and keys, auditing who changed a record and its earlier values, diagnosing N+1 or slow
+  queries, or tuning the pool, datasource or MongoDB client properties. Piece of
   the `/new-feature` pipeline: requires `00-caso-de-uso.md` with a `Storage` row and
   `10-dominio.md` in the given folder, and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
@@ -44,6 +46,18 @@ that is a fact of the project, not a family. A `Storage` row missing → stop an
 to run `/use-case-design`, exactly as a missing `10-dominio.md` stops it. An aggregate the code
 already stores keeps its family; a row that contradicts the code is a divergence to report.
 Design: `@.claude/decisions/0147-document-storage-and-search-architect.md`.
+
+**Audit rule: the audit level is read, never chosen, the same way.** `00-caso-de-uso.md`'s
+`Audit` row says, per aggregate, `none`, `stamps` or `history` — recorded only when the request
+asks who changed the data, when, or what it was before. A missing row is `none`, never a stop:
+cases designed before the row existed stay valid. This skill never proposes auditing a case
+did not ask for. An aggregate the code already audits keeps its level (`@Audited` → `history`,
+the stamps embeddable → `stamps`); a row asking for less is a divergence to report, since a
+history cannot be switched off without losing it. Two combinations stop the pass and go back to
+`/use-case-design` with the reason: `history` on a `document (MongoDB)` aggregate — the document
+family keeps stamps only — and an audited write reached by HTTP in a project with no Spring
+Security filter chain, where no caller has an identity to record (`32-seguranca.md` absent and
+no `SecurityFilterChain` in the code). Design: `@.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
 **Entry rule: without `10-dominio.md`, there's nothing to persist.** This skill reads
 `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` and treats them as a
@@ -119,7 +133,8 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 
 1. **Read the specs.** `00-caso-de-uso.md` and `10-dominio.md` from the folder in
    the target above. Without the second, or without `00-caso-de-uso.md`'s `Storage` row, stop.
-   Extract: the storage family of each aggregate, aggregate root, fields and types, value
+   Extract: the storage family and the audit level of each aggregate (`Audit` row, `none` when
+   absent), aggregate root, fields and types, value
    objects, declared output ports, and the component table with NEW/CHANGE/REUSE state. The
    family decides which half of this procedure applies — every step below names what changes
    for `document (MongoDB)`; a step that names nothing holds for both. Also read `30-rest.md` when the use case has an HTTP trigger — in `/new-feature` it
@@ -185,6 +200,10 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    grep -rln "data.mongodb.core.mapping.Document" --include='*.java' src/ 2>/dev/null
    grep -rln "implements MongoCollectionSchema\|MongoTransactionManager" --include='*.java' src/ 2>/dev/null
    grep -rln '"outbox_events"\|"idempotency_keys"' --include='*.java' src/ 2>/dev/null
+   # Auditing: what is already audited, the shared revision entity and stamps, the security chain
+   grep -rln "envers.Audited\|@RevisionEntity\|AuditStamps\|EnableJpaAuditing\|EnableMongoAuditing" --include='*.java' src/ 2>/dev/null
+   grep -rl "revinfo" db/migration/ src/main/resources/db/migration/ 2>/dev/null
+   grep -rln "SecurityFilterChain" --include='*.java' src/ 2>/dev/null
    ```
 
    The survey also settles the store an existing aggregate already lives in: a `REUSE` or
@@ -214,6 +233,8 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    | Concurrency on the same aggregate | Optimistic lock (`@Version`) or none |
    | Retention and deletion | Physical `DELETE` or a status column |
    | Table or collection already exists in production | Mandatory expand/contract — a destructive migration, or an index changed in place, deferred |
+   | **`history` only** — how long earlier versions are kept: a window, or forever with its reason | The prune requirement on `35-jobs.md`, or none (step 4c) |
+   | **`history` only** — which personal-data fields the history must keep, and why | `@NotAudited` on every other personal field (`@.claude/rules/personal-data.md` § At rest) |
 
 4. **Design the schema.** One table per aggregate root; child entities of the same
    aggregate go into their own tables with a foreign key to the root. A simple value
@@ -343,6 +364,47 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    § 9, `@.claude/rules/personal-data.md` § At rest). "Keep forever" is still an answer —
    recorded in § 1 with its reason, and then `35-jobs.md` has no prune job.
 
+   **4c. Auditing, when the `Audit` row is not `none` for an aggregate of this case.** The norm
+   is `@.claude/rules/persistence.md` § Auditing; this step fixes the case's shape, in the
+   partial's `Audit` block:
+
+   - **Stamps** (`stamps` and `history`). The project's one `AuditStamps` embeddable, created by
+     the first audited case and reused — `templates/AuditedEntity.java.example`, whose last
+     block is the document family's nested stamps object. Four columns in the aggregate's table,
+     in the same migration that creates or alters it; four fields in a document, no migration. The auditing configuration (`templates/AuditingConfig.java.example`)
+     and the actor resolver are once per project; step 2 says whether they exist
+   - **The actor.** Read, not asked: the principal of `32-seguranca.md` for an HTTP trigger, an
+     explicit `system:<name>` for a job (`35-jobs.md`) or a consumer (`25-mensageria.md`) — the
+     pass runs under `templates/SystemActor.java.example`, and that requirement goes to § 1 for
+     the partial that owns the pass. The anonymous caller of a public endpoint is `anonymous`
+   - **History** (`history`, relational only). Every entity of the aggregate `@Audited`, each
+     child collection a `Set` or with an order column; `@NotAudited` on every personal field
+     step 3 did not keep, with the reason for each one kept. The `_aud` tables, and — once per
+     project — the revision table and its sequence, from `templates/AuditRevision.java.example`
+     and `templates/V1__create_audit_tables.sql.example`, migrated after the table they audit.
+     The Envers properties of `templates/application-audit.yml.example`, once per project: the
+     validity strategy is global, so a project whose first history chose it keeps it
+   - **Reading the history**, only when `10-dominio.md` declares a port that returns it: the
+     aggregate's Spring Data repository extends `RevisionRepository`, and the adapter maps each
+     revision to the port's read projection — `templates/AuditHistoryAdapter.java.example`
+   - **Bulk writes.** Every `@Modifying` query, `CriteriaUpdate` or `CriteriaDelete` this case
+     designs over an audited entity is either rewritten through the managed entity or recorded
+     in the block as leaving no revision, with the reason
+   - **Retention — the exact mirror of the outbox's (4b).** `jobs-architect` reads the same
+     `Audit` row before this skill runs, designs `AuditHistoryPruneJob` the first time a
+     project has a `history`, and hands this step one operation in `35-jobs.md` § 6:
+     `AuditHistoryRetentionGateway.deleteEndedBefore(cutoff, limit)`. This step implements it
+     (`templates/AuditHistoryAdapter.java.example`, last block): per audited table, the versions
+     whose revision-end timestamp is older than the cutoff and the delete rows older than it,
+     bounded by `limit`, then the revisions no `_aud` row references — never a current version,
+     whose revision end is empty. Each case adding a `history` adds its tables to that adapter.
+     The window is step 3's answer, `app.audit.history.retain-for`, recorded in § 1 with its
+     reason; "forever" turns the job's switch off in the same change, with its reason — the
+     property and its reader ship together, never through a `Deferred` row
+
+   Never audited: `outbox_events`, `idempotency_keys`, scheduling tables. Pitfalls with their
+   evidence: `references/pitfalls-audit.md`.
+
 5. **Fix the migration in the partial.** **Document family:** there is no migration file.
    Block 4 holds the collection's schema declaration — the `MongoCollectionSchema`
    implementation's indexes and validator, as a fenced `java` block headed by its target path —
@@ -368,7 +430,9 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 7. **Fix the configuration.** The datasource and JPA properties for this project, from
    `templates/application-persistence.yml.example`. The mandatory values are the rule
    (`@.claude/rules/persistence.md` § Configuration); what this skill decides is sizing
-   — pool size, timeouts, `batch_size` — based on the volume answered in step 3. Document
+   — pool size, timeouts, `batch_size` — based on the volume answered in step 3. A first
+   `history` adds the Envers properties of `templates/application-audit.yml.example` once; a
+   later one finds them and changes nothing. Document
    family: `templates/application-mongodb.yml.example` (`spring.mongodb.*`, UUID and `Decimal128`
    representation, `app.mongodb.*` timeouts and pool), `templates/MongoConfig.java.example` (the
    client customizer and the transaction manager — the JPA-coexisting shape when the project
@@ -385,8 +449,12 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/20-persistencia.md`, from
    `templates/persistence-spec.md.example` — or `templates/persistence-spec-document.md.example`
    for a document aggregate; a case touching aggregates of both families writes one partial with
-   a block per aggregate, each in its family's shape. Six numbered blocks plus `## Compose services` and `## Design patterns`, all mandatory — § 6 · Declared
-   dependencies written as `none` when this layer needs nothing the project lacks.
+   a block per aggregate, each in its family's shape. Six numbered blocks plus `## Audit`, `## Compose services` and `## Design patterns`, all mandatory — § 6 · Declared
+   dependencies written as `none` when this layer needs nothing the project lacks, `## Audit` as
+   `none` when no aggregate of the case is audited. A first `history` declares
+   `spring-data-envers` in § 6 (version managed by the Boot parent); a first audited case in a
+   project with no Spring Security at all declares `spring-security-core` — never the starter,
+   which secures every endpoint.
 
 9. **Check the engine has a container.** List the keys inside the `services:` block and
    look for the engine chosen in step 3 — never `grep -A2 "^services:"`, which reads two
@@ -428,6 +496,7 @@ asked.
 | Configuration | Datasource and JPA properties, with the decided value and why | `application-persistence.yml.example` |
 | Idempotency (only when `30-rest.md` requires `Idempotency-Key`) | The shared table, entity, repository, adapter, and application component — modeled once, reused by every later use case | `IdempotencyKeyTable.sql.example` · `IdempotencyKeyStore.java.example` · `IdempotentExecution.java.example` |
 | Outbox (only when `25-mensageria.md` fixes publication Form B) | The shared `outbox_events` table, its mapping, the adapter implementing `OutboxRelayGateway` and `OutboxRetentionGateway`, the **claim strategy** that meets `35-jobs.md` § 3, the retention window and the prune's statement — modeled once, reused by every later event | `OutboxEventTable.sql.example` · `OutboxEventStore.java.example` |
+| Audit (`none` when the `Audit` row is `none` or absent) | Step 4c: the level per aggregate, the stamps, the actor of each trigger, the audited entities and what stays out of the history, the `_aud` tables, the bulk writes left unaudited, the read port, the retention window | `AuditedEntity.java.example` · `AuditingConfig.java.example` · `AuditRevision.java.example` · `V1__create_audit_tables.sql.example` · `application-audit.yml.example` · `AuditHistoryAdapter.java.example` · `SystemActor.java.example` |
 | Declared dependencies | Build dependencies this layer needs and the project does not declare — the only list the executor may act on when it writes `pom.xml` | — |
 | Design patterns | Each pattern the adapters, mappers or queries adopt, with its force, its classes and the "When not" checked — step 7b. `none` when none | `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use |
 | Deferred | One row per item this partial decided **not** to do in this run: what was decided, what is missing, the norm that requires it (by path), and the intended owner — `checklist` (this run does it) or `backlog` (a later one does). `none` when nothing was deferred, and absence is not `none`. Consolidation resolves each row to a real owner and is what writes the `BACKLOG.md` line | — |
@@ -451,7 +520,8 @@ executor agent that reads them when generating code.
 use case folder and nothing else: no migration under `src/`, no service in the compose file,
 both refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (its `Storage` row mandatory) and
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (its `Storage` row mandatory, its
+`Audit` row when present) and
 `10-dominio.md` (mandatory — stops without either), `@.claude/rules/persistence.md`,
 `@.claude/rules/architecture-ddd.md` (Adapters and Composition sections),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
@@ -467,7 +537,8 @@ for a consumer). And `35-jobs.md` under Form B or a scheduled trigger (§ 3 repl
 § 6 tool tables, claim requirement and prune operation). And `28-cliente-http.md` whenever `10-dominio.md`
 declares a port of kind `external HTTP` (§ 10 — a stored idempotency key, an unknown-outcome
 column). And `23-busca.md` when `Search index` is not `none` (§ 8 — the source's version and its
-change event). Missing any of them where it's
+change event). And `32-seguranca.md` when an audited aggregate is written through HTTP (the
+principal recorded as the actor). Missing any of them where it's
 required stops this skill instead of starting a design that a later pass would have to
 revise.
 
@@ -488,7 +559,8 @@ halves: the file is outside this class's territory, and a `build`-class skill is
 from inside a design run.
 
 **Does not decide** the storage family of an aggregate, nor weigh one family against another
-(`00-caso-de-uso.md`'s `Storage` row), the use case boundary (`00-caso-de-uso.md`), the domain model
+(`00-caso-de-uso.md`'s `Storage` row), nor whether an aggregate is audited and at which level
+(its `Audit` row), the use case boundary (`00-caso-de-uso.md`), the domain model
 (`10-dominio.md`), the transport (`30-rest.md`), or the tests (`40-testes.md`). Doesn't
 touch `.claude/rules/**`.
 
@@ -501,7 +573,10 @@ contradicts `25-mensageria.md` is a divergence to report.
 **Does not collide with `jobs-architect`**: that one decides when things run — the relay's
 poll interval, the switch, coordination across instances, the prune's cadence — and declares
 `OutboxRetentionGateway`. This one implements that port, owns the statement it runs, the
-retention window, and the final form of every scheduling table `35-jobs.md` § 6 asks for.
+retention window, and the final form of every scheduling table `35-jobs.md` § 6 asks for. The
+audit history's prune splits the same way: `AuditHistoryPruneJob` and
+`AuditHistoryRetentionGateway` are that skill's, the statement and `app.audit.history.retain-for`
+are this one's.
 
 **Does not collide with `domain-modeling`**: that one declares the output port, this one
 says how it's served. The port's signature belongs to the other; if it needs to change,
