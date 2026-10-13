@@ -20,7 +20,7 @@ comando: `.claude/skills/arch-doctor/SKILL.md` cria `/arch-doctor`.
 **Propósito:** empacotar um procedimento — uma checklist ou um fluxo que, de outra
 forma, seria colado repetidamente no chat. Neste repositório, cada skill de design
 (`use-case-design`, `domain-modeling`, `persistence-architect`, `rest-api-architect`,
-`security-architect`, `http-client-architect`, `messaging-architect`, `jobs-architect`,
+`graphql-api-architect`, `security-architect`, `http-client-architect`, `messaging-architect`, `jobs-architect`,
 `cache-architect`, `ai-architect`, `test-architect`) é dona de uma única camada da spec de uma feature; `project-bootstrap`
 é dona do procedimento de 8 passos que gera um projeto do zero.
 

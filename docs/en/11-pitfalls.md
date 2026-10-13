@@ -430,6 +430,18 @@ asks); a re-index trigger or an ingestion job is `25-mensageria.md`'s or `35-job
 AI lives in the `.ai` package alone, so `org.springframework.ai..` in an `application` module
 is a boundary violation (`.claude/decisions/0145-ai-architect-skill.md`).
 
+**A GraphQL operation is one input port, and four partials own its pieces.**
+`graphql-api-architect` runs only when `00-caso-de-uso.md`'s `Trigger` row ends in `inbound
+GraphQL adapter` or `inbound REST and GraphQL adapters`, and `31-graphql.md` owns the root
+fields, the types, the payloads, the connections and the project's limits. A batch port it
+needs arrives as a requirement from `31-graphql.md` § 9 and becomes `10-dominio.md`'s port at
+consolidation; the batch statement and the index a connection's order needs are
+`20-persistencia.md`'s; who may read each root field and each sensitive field is
+`32-seguranca.md`'s access rows, never `31-graphql.md`'s. The schema snapshot of
+`GraphQlSchemaCompatibilityTest` lives in `src/test/graphql/`: under `src/test/resources` it
+would sit on the test classpath. Spring for GraphQL lives in the `.graphql` package alone
+(`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
+
 **The bounded context is a project fact, not a per-use-case answer.** First segment of every
 topic name, asked with the coordinates in `/init-project` and written into the generated
 project's root `CLAUDE.md`. A prefix chosen inside one use case gives one system two

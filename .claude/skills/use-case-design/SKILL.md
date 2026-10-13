@@ -67,7 +67,7 @@ Pinned to `opus`: the partial is what the executor implements verbatim. A pinned
 
 | Doesn't decide | Why | Who decides |
 |---|---|---|
-| REST or GraphQL, SQL or NoSQL, Kafka or SQS | Technology is an architecture choice, fixed earlier: the blueprint's `packages.map` and `features` | The user, in `/init-project` |
+| SQL or NoSQL, Kafka or SQS | Technology is an architecture choice, fixed earlier: the blueprint's `packages.map` and `features` | The user, in `/init-project` |
 | Which design pattern to apply | A pattern shapes the classes of one layer, and this spec fixes no class | Each layer's partial, through `gof-design-patterns` § Design-time use |
 | Writing classes, tests, or migrations | The spec describes what to create; creating is a different phase | The layer skills and, eventually, the executor agent |
 | Per-layer detail (annotations, columns, exact HTTP status) | Each layer has its own rule and owner | The partial specs — see § Structure |
@@ -112,8 +112,8 @@ the decision.
 
    | Block | Fixes |
    |---|---|
-   | Trigger, payload, response | Who initiates, what data comes in, what goes out and in what shape |
-   | Access — **always asked when the trigger is HTTP** | Who may execute it: anyone, any authenticated caller, named roles or groups, only the owner of the resource — and whether someone (a support or admin role) may act on another's resource. The answer is the `Access` row; it is what decides whether `security-architect` runs |
+   | Trigger, payload, response | Who initiates, what data comes in, what goes out and in what shape. **For an HTTP trigger, also over which protocol** — REST, GraphQL, or both over the same input port — asked with the criteria of `@.claude/rules/api-graphql.md` § Choosing the inbound protocol, REST by default; the answer ends the `Trigger` row in its closed phrase (`inbound REST adapter` · `inbound GraphQL adapter` · `inbound REST and GraphQL adapters`), and a choice already written there by an earlier design step is kept, never re-asked. The protocol is per use case, not per project |
+   | Access — **always asked when the trigger is HTTP**, REST or GraphQL | Who may execute it: anyone, any authenticated caller, named roles or groups, only the owner of the resource — and whether someone (a support or admin role) may act on another's resource. The answer is the `Access` row; it is what decides whether `security-architect` runs |
    | Side effects | Writes, external calls, publications — the boundary already counted in step 2, now confirmed |
    | External calls — **always asked when a side effect reaches a system this service does not own** | Per system: what it is and what the case asks of it (read, or a write with an effect over there); its documentation link and whether it publishes an OpenAPI document; **how it authenticates this service** — as this service itself (an authorization server issues it a token), on behalf of the user who made the request, a static key, a username and password, a client certificate, a signature over each request, or none — and the credential's owner; whether it accepts an idempotency key on writes; what the business wants when it is down (fail now, or degrade to a named alternative); and, for a write, what happens when its result is unknown (stop, or reconcile later). The answers are the `External calls` row; a port of kind `external HTTP` in `10-dominio.md` is what then decides whether `http-client-architect` runs. Never asked as library, timeout or retry questions |
    | Invariants and errors | Rules the domain guarantees, and the situation each violation produces — described, never named as an exception |
@@ -254,6 +254,7 @@ use case folder and the backlog, nothing else; a write anywhere outside is refus
 **Reads** `@.claude/rules/architecture-ddd.md` (Application section — where the
 transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md`,
 `@.claude/rules/error-handling.md` (the four kinds only — names belong to `domain-modeling`),
+`@.claude/rules/api-graphql.md` (§ Choosing the inbound protocol only, for an HTTP trigger),
 `@.claude/rules/spec-diagrams.md` (the sequence diagram and the flowchart) with
 `references/mermaid-use-case-diagrams.md`,
 the active blueprint's `packages.map` and naming convention, and this

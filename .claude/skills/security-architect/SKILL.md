@@ -1,15 +1,16 @@
 ---
 name: security-architect
 description: >
-  Designs the security of an already-exposed servlet REST use case with Spring Security — who
-  may call each endpoint (public, authenticated, role, group, scope, or only the resource's
+  Designs the security of an already-exposed servlet REST or GraphQL use case with Spring Security —
+  who may call each endpoint or GraphQL field (public, authenticated, role, group, scope, or only the resource's
   owner), how the caller authenticates (OAuth2 resource server with JWT, opaque-token
   introspection, users owned by the application, API key), the project-wide filter chain, 401
   and 403 bodies, CORS, Actuator and Swagger exposure — into the `32-seguranca.md` partial. Use
   when the request involves securing an endpoint, roles, groups, permissions, "only admins",
   "only the owner can", "the user can only see their own", JWT, Keycloak, Auth0, Cognito,
   OAuth2, API key, 401/403, CORS, or protecting Actuator. Servlet only — not WebFlux. Piece of
-  the `/new-feature` pipeline: requires `30-rest.md` in the given folder and stops without it.
+  the `/new-feature` pipeline: requires `30-rest.md` or `31-graphql.md` in the given folder and stops
+  without both.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*)
 model: opus
@@ -41,10 +42,11 @@ right door.
 application (WebFlux, `SecurityWebFilterChain`) has another filter model and is out of scope
 here — say so and stop when the project's web starter is the reactive one.
 
-**Entry rule: without `30-rest.md` there is nothing to protect.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md` and `30-rest.md` and treats
-them as a contract. Without the REST partial it stops and tells the caller to run
-`/rest-api-architect` — access rules written before the endpoints exist protect a guess.
+**Entry rule: without `30-rest.md` or `31-graphql.md` there is nothing to protect.** This skill reads
+`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md` and whichever inbound partials the
+`Trigger` names — `30-rest.md`, `31-graphql.md`, or both — and treats them as a contract. Without the
+partial its trigger names it stops and tells the caller to run `/rest-api-architect` or
+`/graphql-api-architect` — access rules written before the operations exist protect a guess.
 
 It runs when at least one holds, and only then:
 
@@ -71,7 +73,7 @@ applies and cites them; it doesn't reproduce them.
 
 ## How it's invoked
 
-Two paths: `/security-architect` by hand, or chained by `/new-feature` right after REST and
+Two paths: `/security-architect` by hand, or chained by `/new-feature` right after REST and GraphQL and
 before messaging, jobs and persistence. That's why it does **not** carry
 `disable-model-invocation` — a skill the model can't see is a skill the orchestrator can't call
 (`@.claude/decisions/0007-pipeline-skills-invocation.md`). The guard against firing out of
@@ -114,8 +116,9 @@ Two facts cross that line, and each has one owner:
 
 1. **Read the specs.** `00-caso-de-uso.md` (its `Access` row and trigger), `10-dominio.md`
    (command fields, the ownership invariant when there is one), `30-rest.md` (endpoints,
-   `operationId`s, error map, the OpenAPI block). Without `30-rest.md`, stop. Apply the entry
-   rule.
+   `operationId`s, error map, the OpenAPI block) and `31-graphql.md` (root fields, § 8's sensitive
+   fields, § 9's access rows) — each when the trigger names it. Without the one it names, stop. Apply
+   the entry rule.
 
 2. **Survey — every answer the project already gave is inherited, never re-asked.**
 
@@ -190,6 +193,17 @@ Two facts cross that line, and each has one owner:
    Ownership rows say "authenticated in the chain, owner in the use case" — never a SpEL bean
    call (`@.claude/rules/authorization.md` § Boundary).
 
+   **GraphQL rows** (`@.claude/rules/api-graphql.md` § Access). One row per root field of
+   `31-graphql.md` § 1 (`Query.order`, `Mutation.cancelOrder`) and one per sensitive field § 9
+   asks for (`Customer.taxId`), each listing every path through the graph that reaches it. The chain
+   only says `POST /graphql` authenticated; a role, group or scope is always method security on the
+   resolver method — the same meta-annotation the REST row over the same port uses, so the role is
+   spelled once and checked in each adapter. A denial is a `FORBIDDEN` / `UNAUTHORIZED` GraphQL
+   error with HTTP 200 (Spring Boot's `SecurityDataFetcherExceptionResolver`), which § 6 records per
+   row. An operation callable without authentication stops the design: opening `/graphql` is not
+   this case's decision. When the meta-annotations live in the REST adapter's `security`
+   subpackage, the GraphQL adapter imports them from there — never a second copy of a role.
+
    **Where the actor comes from.** For every endpoint whose command carries an actor, name the
    principal attribute the controller reads (the token's subject, a claim, the username) and the
    value object it becomes — shape in `templates/CurrentActorResolution.java.example`. The
@@ -218,7 +232,9 @@ Two facts cross that line, and each has one owner:
    `10-dominio.md` → a requirement to `domain-modeling` in § 11, and the report says the folder
    is not consistent until that partial is updated.
 
-8. **Fix failure responses — § 6.** 401 and 403 per endpoint, the `WWW-Authenticate` header,
+8. **Fix failure responses — § 6.** 401 and 403 per endpoint — and for a GraphQL row, 401 from the
+   chain for an anonymous request and `FORBIDDEN` / `UNAUTHORIZED` errors with HTTP 200 for a denied
+   field — the `WWW-Authenticate` header,
    the body shape (`@.claude/rules/api-rest.md` § Error body), and the 404 that replaces 403 for
    ownership. These rows are merged into the error map at consolidation, and this partial wins
    on them.
@@ -244,7 +260,8 @@ Two facts cross that line, and each has one owner:
     (`@.claude/rules/authorization.md` § Credentials and logs). Shape in
     `templates/application-security.yml.example`.
 
-12. **List the contract test cases — § 10.** Per endpoint, the three outcomes of step 5, plus
+12. **List the contract test cases — § 10.** Per endpoint and per GraphQL row, the three outcomes of
+    step 5 — a GraphQL row's at the HTTP level through the real chain, never in the GraphQL slice — plus
     the other-actor case at the use case for every ownership row. `test-architect` turns them
     into tests with its own exemplar; this skill only fixes which cases exist.
 
@@ -267,7 +284,7 @@ Two facts cross that line, and each has one owner:
 
 | Block | Fixes |
 |---|---|
-| 1 · Access per endpoint | Method, path, `operationId`, rule, where enforced, meta-annotation, the three outcomes; a reason on every public row |
+| 1 · Access per endpoint | Method, path, `operationId`, rule, where enforced, meta-annotation, the three outcomes; a reason on every public row. GraphQL: one row per root field and per sensitive field, with every path that reaches it |
 | 2 · Mechanism | The mechanism, the matrix row that chose it, the rejected ones, inherited or not, exemplars |
 | 3 · Authorities | Where roles, groups and scopes sit in the credential, the prefixes, the audience, the role and group catalog (NEW or REUSE constants) |
 | 4 · Project-wide setup | Each component of step 6 with NEW / REUSE / CHANGE; default access; OpenAPI and Actuator exposure; CORS origins; CSRF and headers with their reasons |
@@ -292,10 +309,11 @@ links they follow are in `references/servlet-reference-links.md`.
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else; a `SecurityConfig` written under `src/` is refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md` and `30-rest.md`
-(mandatory — stops without the third), earlier cases' `32-seguranca.md`, `pom.xml` (or the Gradle
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md`, and `30-rest.md` or
+`31-graphql.md` (mandatory — stops without the one the trigger names), earlier cases' `32-seguranca.md`, `pom.xml` (or the Gradle
 build), `src/main/resources/application*.yml`, the security wiring on disk, the active
 blueprint's `packages.map`, `@.claude/rules/authorization.md`, `@.claude/rules/api-rest.md`,
+`@.claude/rules/api-graphql.md` (§ Access, when the trigger names GraphQL),
 `@.claude/rules/architecture-ddd.md`, `@.claude/rules/logging.md`,
 `@.claude/rules/observability.md`, and `references/`.
 

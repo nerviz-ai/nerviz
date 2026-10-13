@@ -1,0 +1,86 @@
+# EXEMPLAR — the schema of the order operations `GraphQlController.java.example` answers. Lives at
+# `src/main/resources/graphql/<aggregate>.graphqls`, one file per aggregate; Spring Boot merges every
+# file under `classpath:graphql/**`. Form reference for the executor agent; not a file to copy.
+# Rules: `.claude/rules/api-graphql.md` (§ Schema, § Pagination, § Errors, § Evolution)
+#
+# WHAT THIS EXEMPLAR SHOWS:
+#  - schema first: this file is the contract, written before the controller, and the schema
+#    inspection fails the startup when a field here has nothing answering it;
+#  - every field that may be denied, or may fail on its own, is nullable (`order`, `taxId`): a
+#    `null` on a non-null field climbs to the nearest nullable parent and erases its siblings;
+#  - lists of a parent are non-null lists of non-null items (`[OrderLine!]!`): empty, never `null`;
+#  - a list that grows is a connection: `OrderConnection` is not declared — Spring for GraphQL
+#    generates it, with `OrderEdge` and `PageInfo`, from the `Connection` suffix. Forward only,
+#    because `first`/`after` is all the client asked for;
+#  - a mutation takes one `input` and returns one payload carrying `userErrors`;
+#  - money is a decimal as `String`, an instant is an ISO-8601 `String` — no `Float`, no epoch;
+#  - a field leaves through `@deprecated(reason:)` first and is removed only after the policy in
+#    `api-graphql.md` § Evolution; the schema snapshot test fails on a removal that skipped it.
+
+type Query {
+    "An order by id. `null`, with a NOT_FOUND error, when it does not exist or is not the caller's."
+    order(id: ID!): Order
+    "The caller's orders, newest first. `first` defaults to app.graphql.default-page-size and may not exceed app.graphql.max-page-size."
+    myOrders(first: Int, after: String): OrderConnection!
+}
+
+type Mutation {
+    "Cancels an order. A rule that forbids it comes back in userErrors, never as a top-level error."
+    cancelOrder(input: CancelOrderInput!): CancelOrderPayload!
+}
+
+type Order {
+    id: ID!
+    status: OrderStatus!
+    "When the order was placed, ISO-8601 in UTC."
+    placedAt: String!
+    total: Money!
+    lines: [OrderLine!]!
+    customer: Customer!
+}
+
+type OrderLine {
+    sku: String!
+    quantity: Int!
+    unitPrice: Money!
+}
+
+type Money {
+    "A decimal number written as text, e.g. \"129.90\"."
+    amount: String!
+    "ISO-4217 code."
+    currency: String!
+}
+
+type Customer {
+    id: ID!
+    name: String!
+    "Personal data. Readable by the SUPPORT role only; `null`, with a FORBIDDEN error, for anyone else."
+    taxId: String
+}
+
+enum OrderStatus {
+    PLACED
+    SHIPPED
+    CANCELLED
+}
+
+input CancelOrderInput {
+    orderId: ID!
+    "Free text, at most 500 characters."
+    reason: String
+}
+
+type CancelOrderPayload {
+    "The order after the cancellation; `null` when userErrors is not empty."
+    order: Order
+    userErrors: [UserError!]!
+}
+
+type UserError {
+    "Path to the input field the error concerns, e.g. [\"input\", \"orderId\"]; empty when it concerns none."
+    field: [String!]!
+    "The domain errorCode — stable, what a client branches on."
+    code: String!
+    message: String!
+}

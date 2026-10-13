@@ -2,7 +2,7 @@
 
 Primary source: `.claude/skills/new-feature/SKILL.md`,
 `.claude/agents/java-spring-boot-developer.md`, the design skills (`use-case-design`,
-`domain-modeling`, `rest-api-architect`, `security-architect`, `http-client-architect`,
+`domain-modeling`, `rest-api-architect`, `graphql-api-architect`, `security-architect`, `http-client-architect`,
 `messaging-architect`, `jobs-architect`, `persistence-architect`, `cache-architect`,
 `ai-architect`, `test-architect`), and the
 `guard` mode of `.claude/hooks/ArchHook.java`.
@@ -103,6 +103,7 @@ sequenceDiagram
     participant UC as skill: use-case-design
     participant DOM as skill: domain-modeling
     participant REST as skill: rest-api-architect
+    participant GQL as skill: graphql-api-architect
     participant SEC as skill: security-architect
     participant HTTP as skill: http-client-architect
     participant AI as skill: ai-architect
@@ -118,11 +119,14 @@ sequenceDiagram
     NF->>UC: description, as is
     UC-->>U: several use cases? one question: which one now
     UC-->>NF: 00-caso-de-uso.md (others → BACKLOG.md)
-    alt short path (6 criteria met)
+    alt short path (7 criteria met)
         NF->>NF: UC-NNN-spec.md from feature-spec-short
     else full path
         NF->>DOM: 10-dominio.md
-        NF->>REST: 30-rest.md (+ schema requirements)
+        NF->>REST: 30-rest.md (+ schema requirements), skipped when the Trigger names a GraphQL adapter alone
+        opt Trigger names an inbound GraphQL adapter
+            NF->>GQL: 31-graphql.md
+        end
         opt Access asks for something the filter chain doesn't already give
             NF->>SEC: 32-seguranca.md
         end
@@ -193,7 +197,8 @@ sequenceDiagram
 |---|---|---|---|
 | 1 | `use-case-design` | — | `00-caso-de-uso.md`, `BACKLOG.md` entries — owns number and slug |
 | 2 | `domain-modeling` | 1 | `10-dominio.md` — owns exception names |
-| 3 | `rest-api-architect` | 1, 2 | `30-rest.md` — including the schema requirements transport creates |
+| 3 | `rest-api-architect` | 1, 2 | `30-rest.md` — including the schema requirements transport creates; skipped when the `Trigger` names an inbound GraphQL adapter alone |
+| optional | `graphql-api-architect` | 1, 2, and 3 when present, when `00-caso-de-uso.md`'s `Trigger` row ends in `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` (step 3 is skipped when it names the GraphQL adapter alone) | `31-graphql.md` — root fields and the input port each calls, types and nullability, mutation inputs and payloads with `userErrors`, connections with a page ceiling, `@BatchMapping` child fields and the batch ports they ask for, the error map, field-level access, personal data per output field, and on the project's first GraphQL case the demand limits and setup. Its spec block is `## 4.1 GraphQL`, implemented by the executor's Block G (G1-G3), right after Block 3 and before Block S. The protocol itself is chosen by `use-case-design` with the criteria of `.claude/rules/api-graphql.md` § Choosing the inbound protocol |
 | optional | `security-architect` | 1, 2, 3, and `00-caso-de-uso.md`'s `Access` row | `32-seguranca.md` — mechanism, access per endpoint, the `permitAll` list, ownership, 401/403, CORS/Actuator/OpenAPI exposure |
 | optional | `http-client-architect` | 2, when `10-dominio.md` declares a port of kind `external HTTP` | `28-cliente-http.md` — client and engine, timeouts, retrying layer and resilience, outbound authentication, the integration failure table per operation, declared dependencies, and the WireMock test cases |
 | optional | `ai-architect` | 2, when `10-dominio.md` declares a port of kind `LLM` or `vector store` | `29-ia.md` — provider and model per port, the prompts as `classpath:/prompts/` resources, the answer type with closed fields and what an unusable answer becomes, which fields go to the provider, the vector store and who re-indexes it, timeout and the one retrying layer, the failure table, metrics, the `pgvector` image variant of the `postgres` compose row. Its spec block is `## 3.7 AI`, implemented by the executor's Block A, right after Block H |
@@ -201,7 +206,7 @@ sequenceDiagram
 | optional | `jobs-architect` | 1 (schedule trigger), messaging's Form B, a reconciliation pass `28-cliente-http.md` § 10 asks for, or a deferred job | `35-jobs.md` — tool, trigger/cadence, cluster coordination, overlap/misfire, gate property, job metrics; owns the outbox relay's schedule and the prune job |
 | 4 | `persistence-architect` | 1, 2, 3, security, http-client, and messaging/jobs when they ran | `20-persistencia.md` — migration SQL inside it; reads `32-seguranca.md` § 7 (a credentials or API-key store) when security-architect ran, `28-cliente-http.md` § 10 (a stored idempotency key or an unknown-outcome column) when http-client-architect ran, and `35-jobs.md`'s tool tables (`shedlock`, `QRTZ_*`, `BATCH_*`) as schema requirements and its replica count for the outbox claim strategy, when jobs-architect ran |
 | optional | `cache-architect` | 1, 2, 4, when `00-caso-de-uso.md`'s `Freshness` row states a tolerance | `22-cache.md` — which reads are cached and the key of each, Caffeine or Redis, expiry and size per cache next to the tolerance, every writer that must evict, failure and load without the cache, serialization, metrics, the `redis` compose row |
-| 5 | `test-architect` | 1–4, and cache and AI when they ran | `40-testes.md` — three cases per cached read when `22-cache.md` exists; the adapter contract test, the provider IT and, with a store, the vector store IT when `29-ia.md` exists |
+| 5 | `test-architect` | 1–4, and cache, GraphQL and AI when they ran | `40-testes.md` — three cases per cached read when `22-cache.md` exists; the controller slice test, the HTTP IT and the schema snapshot test when `31-graphql.md` exists; the adapter contract test, the provider IT and, with a store, the vector store IT when `29-ia.md` exists |
 | — | `new-feature` (consolidation) | all above | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | `approved` spec | code and migrations in `src/**` |
 | 7 | `compose-service-installer` (agent) | `implemented` code, and a `materialize` row in `## Infrastructure` | the service block in `docker-compose.yml`, written by `docker-architect` |
@@ -244,7 +249,7 @@ every `## Infrastructure` row with what the run did to it
 (`.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
 
 **Design patterns are decided inside that phase too.** `domain-modeling`,
-`persistence-architect`, `rest-api-architect`, `security-architect`, `http-client-architect`,
+`persistence-architect`, `rest-api-architect`, `graphql-api-architect`, `security-architect`, `http-client-architect`,
 `messaging-architect`, `jobs-architect`, `cache-architect` and `ai-architect`
 each read `gof-design-patterns` § Design-time use — read, never invoked: it is a `build`
 skill — and write a `## Design patterns` section into their own partial: the spec line or
@@ -311,6 +316,7 @@ writes one spec where every row names its source — an approved spec or a rule.
 |---|---|
 | HTTP path, verb, status, body shape | `30-rest.md` |
 | Client, engine and pool, timeouts, retrying layer, breaker and bulkhead, outbound authentication | `28-cliente-http.md` |
+| GraphQL root fields and the port each calls, types, nullability, inputs, payloads and `userErrors`, connections and ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field (`32-seguranca.md`'s). A batch port it asked for becomes `10-dominio.md`'s port at consolidation; the batch statement and the index a connection's order needs are `20-persistencia.md`'s |
 | Table, column, key, index, migration | `20-persistencia.md` |
 | Topic, serialization, delivery guarantee, consumer retry/DLQ | `25-mensageria.md` |
 | The outbox table, its columns, the claim query, attempt ceiling/backoff, and retention window | `20-persistencia.md` — messaging **declares** that the case needs an outbox and which guarantee the relay must honour, and never a column name. A § 6 row naming columns is a divergence, and a column decision that would drop the declared guarantee **stops** the pipeline instead of being settled by precedence |

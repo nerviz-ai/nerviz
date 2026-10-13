@@ -1,0 +1,216 @@
+/*
+ * EXEMPLAR — inbound GraphQL adapter test, GraphQL slice.
+ * Shape of the controller in `graphql-api-architect/templates/GraphQlController.java.example`.
+ *
+ * LEVEL. `@GraphQlTest`: the controllers, the exception resolvers, the instrumentations and the
+ * schema, through `ExecutionGraphQlService` — no HTTP, no filter chain, no method security, no
+ * database. Does not carry the `IT` suffix: it runs under surefire (`.claude/rules/testing.md`).
+ *
+ * WHAT THIS LEVEL VERIFIES: the schema mapping and the errors. A view becomes the schema type
+ * field by field; a query's not-found is `NOT_FOUND` with its `errorCode` and a `null` field; a
+ * mutation's business rule comes back in `userErrors`; invalid input never reaches the port; a page
+ * above the ceiling is refused. And the N+1 proof of THIS layer: one batch port call per request,
+ * with every parent's key — the statement count of that call is the persistence IT's.
+ *
+ * `@WithMockUser` only puts an authentication where the controller's `Authentication` parameter
+ * reads it — without one that parameter fails as an internal error; the actor itself is the mocked
+ * `CurrentActorResolver`'s.
+ *
+ * WHAT IT DOES NOT VERIFY: who may call. The slice has no filter chain and no method security, so
+ * `@HasRole` is inert here — access, depth, introspection and the transport are
+ * `GraphQlHttpIT.java.example`'s. A test here passing a denied field proves nothing.
+ *
+ * WHERE THE CASES COME FROM: `31-graphql.md` § 10, fixed by `graphql-api-architect`.
+ */
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import com.exemplo.minhaapi.adapter.in.rest.security.CurrentActorResolver;
+import com.exemplo.minhaapi.application.port.in.customer.CustomerView;
+import com.exemplo.minhaapi.application.port.in.customer.CustomersQuery;
+import com.exemplo.minhaapi.application.port.in.order.Actor;
+import com.exemplo.minhaapi.application.port.in.order.CancelOrderUseCase;
+import com.exemplo.minhaapi.application.port.in.order.FindOrderQuery;
+import com.exemplo.minhaapi.application.port.in.order.ListMyOrdersQuery;
+import com.exemplo.minhaapi.application.port.in.order.OrderLineView;
+import com.exemplo.minhaapi.application.port.in.order.OrderLinesQuery;
+import com.exemplo.minhaapi.application.port.in.order.OrderView;
+import com.exemplo.minhaapi.domain.exception.BusinessRuleViolationException;
+import com.exemplo.minhaapi.domain.exception.NotFoundException;
+import com.exemplo.minhaapi.domain.model.order.OrderStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.graphql.test.autoconfigure.GraphQlTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.graphql.test.tester.GraphQlTester;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+@GraphQlTest(OrderGraphQlController.class)
+@Import({GraphQlConfig.class, OrderCursors.class})
+@WithMockUser
+class OrderGraphQlControllerTest {
+
+    private static final UUID ORDER_ID = UUID.fromString("6f1c2b3a-0d4e-4f5a-8b9c-1d2e3f4a5b6c");
+    private static final UUID SECOND_ORDER_ID = UUID.fromString("7a2d3c4b-1e5f-4a6b-9c0d-2e3f4a5b6c7d");
+    private static final UUID CUSTOMER_ID = UUID.fromString("0b8f6a2e-3c1d-4e5f-9a7b-2c4d6e8f0a1b");
+    private static final Actor OWNER = new Actor(CUSTOMER_ID, false);
+
+    @Autowired private GraphQlTester graphQlTester;
+
+    @MockitoBean private FindOrderQuery findOrder;
+    @MockitoBean private ListMyOrdersQuery listMyOrders;
+    @MockitoBean private OrderLinesQuery orderLines;
+    @MockitoBean private CustomersQuery customers;
+    @MockitoBean private CancelOrderUseCase cancelOrder;
+    /** The principal is the transport's concern; the slice has none, so the actor is fixed. */
+    @MockitoBean private CurrentActorResolver actors;
+
+    @Test
+    @DisplayName("an order is mapped field by field: status by name, money as text, instant in ISO-8601")
+    void mapsOrder() {
+        given(actors.resolve(any())).willReturn(OWNER);
+        given(findOrder.find(ORDER_ID, OWNER)).willReturn(view(ORDER_ID));
+
+        graphQlTester.document("{ order(id: \"" + ORDER_ID + "\") { id status placedAt total { amount currency } } }")
+                .execute()
+                .path("order.status").entity(String.class).isEqualTo("PLACED")
+                .path("order.placedAt").entity(String.class).isEqualTo("2026-10-13T12:00:00Z")
+                .path("order.total.amount").entity(String.class).isEqualTo("129.90")
+                .path("order.total.currency").entity(String.class).isEqualTo("BRL");
+    }
+
+    @Test
+    @DisplayName("an order the caller cannot see is NOT_FOUND with its errorCode, and the field is null")
+    void orderNotFound() {
+        given(actors.resolve(any())).willReturn(OWNER);
+        willThrow(new NotFoundException("ORDER_NOT_FOUND", "Order doesn't exist")).given(findOrder).find(ORDER_ID, OWNER);
+
+        graphQlTester.document("{ order(id: \"" + ORDER_ID + "\") { id } }")
+                .execute()
+                .errors()
+                .satisfy(errors -> {
+                    assertThat(errors).singleElement().satisfies(error -> {
+                        assertThat(error.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                        assertThat(error.getExtensions()).containsEntry("errorCode", "ORDER_NOT_FOUND");
+                    });
+                })
+                .path("order").valueIsNull();
+    }
+
+    @Test
+    @DisplayName("a rule that forbids the cancellation comes back in userErrors, with no top-level error")
+    void cancellationRefusedAsData() {
+        given(actors.resolve(any())).willReturn(OWNER);
+        willThrow(new BusinessRuleViolationException("ORDER_ALREADY_SHIPPED", "A shipped order cannot be cancelled"))
+                .given(cancelOrder).handle(any());
+
+        graphQlTester.document("mutation { cancelOrder(input: { orderId: \"" + ORDER_ID + "\" }) "
+                        + "{ order { id } userErrors { field code message } } }")
+                .execute()
+                .errors().verify()
+                .path("cancelOrder.order").valueIsNull()
+                .path("cancelOrder.userErrors[0].code").entity(String.class).isEqualTo("ORDER_ALREADY_SHIPPED");
+    }
+
+    @Test
+    @DisplayName("an input above its size limit is BAD_REQUEST and never reaches the use case")
+    void invalidInputNeverReachesThePort() {
+        given(actors.resolve(any())).willReturn(OWNER);
+
+        graphQlTester.document("mutation { cancelOrder(input: { orderId: \"" + ORDER_ID + "\", reason: \""
+                        + "x".repeat(501) + "\" }) { userErrors { code } } }")
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).singleElement().satisfies(error -> {
+                    assertThat(error.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                    assertThat(error.getExtensions()).containsEntry("errorCode", "INVALID_INPUT");
+                }));
+
+        verify(cancelOrder, never()).handle(any());
+    }
+
+    @Test
+    @DisplayName("lines and customers of a whole page are loaded with one batch call each, never one per order")
+    void childFieldsAreBatched() {
+        given(actors.resolve(any())).willReturn(OWNER);
+        given(listMyOrders.list(OWNER, Optional.empty(), 20)).willReturn(
+                new ListMyOrdersQuery.OrderPage(List.of(view(ORDER_ID), view(SECOND_ORDER_ID)), false));
+        given(orderLines.linesOf(anySet())).willReturn(Map.of(ORDER_ID,
+                List.of(new OrderLineView("SKU-1", 2, new BigDecimal("64.95"), "BRL"))));
+        given(customers.byIds(anySet())).willReturn(Map.of(CUSTOMER_ID,
+                new CustomerView(CUSTOMER_ID, "Ana", "123.456.789-09")));
+
+        graphQlTester.document("{ myOrders { edges { node { id lines { sku } customer { name } } } } }")
+                .execute()
+                .path("myOrders.edges[0].node.lines[0].sku").entity(String.class).isEqualTo("SKU-1")
+                .path("myOrders.edges[1].node.lines").entityList(Object.class).hasSize(0)
+                .path("myOrders.edges[1].node.customer.name").entity(String.class).isEqualTo("Ana");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<UUID>> keys = ArgumentCaptor.forClass(Set.class);
+        verify(orderLines, times(1)).linesOf(keys.capture());
+        assertThat(keys.getValue()).containsExactlyInAnyOrder(ORDER_ID, SECOND_ORDER_ID);
+        verify(customers, times(1)).byIds(Set.of(CUSTOMER_ID));
+    }
+
+    @Test
+    @DisplayName("an edge's cursor, sent back as after, reaches the port as the ordering key of that order")
+    void cursorCarriesTheOrderingKey() {
+        given(actors.resolve(any())).willReturn(OWNER);
+        given(listMyOrders.list(OWNER, Optional.empty(), 2)).willReturn(
+                new ListMyOrdersQuery.OrderPage(List.of(view(ORDER_ID), view(SECOND_ORDER_ID)), true));
+        String cursor = graphQlTester.document("{ myOrders(first: 2) { edges { cursor } pageInfo { hasNextPage } } }")
+                .execute()
+                .path("myOrders.pageInfo.hasNextPage").entity(Boolean.class).isEqualTo(true)
+                .path("myOrders.edges[1].cursor").entity(String.class).get();
+        given(listMyOrders.list(any(), any(), anyInt())).willReturn(new ListMyOrdersQuery.OrderPage(List.of(), false));
+
+        graphQlTester.document("{ myOrders(first: 2, after: \"" + cursor + "\") { edges { cursor } } }")
+                .execute()
+                .path("myOrders.edges").entityList(Object.class).hasSize(0);
+
+        verify(listMyOrders).list(OWNER, Optional.of(new ListMyOrdersQuery.OrderCursor(
+                Instant.parse("2026-10-13T12:00:00Z"), SECOND_ORDER_ID)), 2);
+    }
+
+    @Test
+    @DisplayName("first above the page ceiling is BAD_REQUEST, never a silently shorter page")
+    void pageAboveCeilingIsRefused() {
+        given(actors.resolve(any())).willReturn(OWNER);
+
+        graphQlTester.document("{ myOrders(first: 101) { edges { cursor } } }")
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).singleElement().satisfies(error -> {
+                    assertThat(error.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                    assertThat(error.getExtensions()).containsEntry("errorCode", "PAGE_SIZE_OUT_OF_RANGE");
+                }));
+
+        verify(listMyOrders, never()).list(any(), any(), anyInt());
+    }
+
+    private static OrderView view(UUID id) {
+        return new OrderView(id, OrderStatus.PLACED, Instant.parse("2026-10-13T12:00:00Z"),
+                new BigDecimal("129.90"), "BRL", CUSTOMER_ID);
+    }
+}

@@ -134,7 +134,7 @@ Java file tested on three operating systems instead of bash plus `jq`.
 ### 4 · A spec pipeline with one owner per layer, and a frozen approved spec
 
 `/new-feature` designs one use case per run: `use-case-design` → `domain-modeling` →
-`rest-api-architect` → `security-architect` (conditional) → `http-client-architect`
+`rest-api-architect` → `graphql-api-architect` (conditional) → `security-architect` (conditional) → `http-client-architect`
 (conditional) → `ai-architect` (conditional) → `messaging-architect` (conditional) → `jobs-architect` (conditional) →
 `persistence-architect` → `cache-architect` (conditional) → `test-architect`. Each skill owns one partial and decides the design patterns of its
 layer. The partials are consolidated into `UC-NNN-spec.md`, whose status goes `draft →

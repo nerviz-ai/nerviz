@@ -1,0 +1,426 @@
+/*
+ * EXEMPLAR — the inbound GraphQL adapter of an order: a query by id, a paginated query, a mutation
+ * with errors as data, two child fields loaded in batches and one sensitive field guarded on its own.
+ * The shape every `@Controller` of `31-graphql.md` § 1 takes. Form reference for the executor agent;
+ * not a file to copy verbatim.
+ * Rules: `.claude/rules/api-graphql.md` (§ Boundary, § Schema, § Batching, § Pagination,
+ *        § Errors, § Access)
+ *        `.claude/rules/authorization.md` § Boundary — method security on the resolver
+ *        `.claude/rules/architecture-ddd.md` § Adapters — the ports are the application's
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - the controller calls INPUT PORTS — the same ones a REST controller over this order calls. No
+ *    repository, no `@GraphQlRepository`, no `@Transactional`: each port call is its own
+ *    transaction, and what crosses back is a complete read model (`OrderView`), never an entity a
+ *    later field would load lazily after the transaction closed;
+ *  - the Java types the schema reads are the ADAPTER's records, named exactly as the schema types
+ *    (`Order`, `OrderLine`, `Customer`, `Money`) and mapped by hand from the views. A view gaining a
+ *    field exposes nothing; a renamed component fails startup through the schema inspection
+ *    (`GraphQlConfig.java.example`) instead of answering `null`;
+ *  - every child field that costs I/O is a `@BatchMapping`: `Order.lines` and `Order.customer`
+ *    call one batch port per request with every parent's key, never one call per parent. The
+ *    parents are records, so the map they key has a working `equals`/`hashCode`, and a parent with
+ *    no lines gets an empty list — a missing key would answer `null` on a non-null field;
+ *  - `Customer.taxId` is personal data: it has its own `@SchemaMapping` only to carry
+ *    `@HasRole(Roles.SUPPORT)`, the same meta-annotation the REST controller uses. Whichever path
+ *    reaches a `Customer` — `order.customer`, or any type added later — passes through it. The
+ *    field is nullable: a denied read answers `null` plus a `FORBIDDEN` error, and the rest of the
+ *    response survives;
+ *  - "only the owner" is the use case's rule, not an annotation: the actor goes in the query or
+ *    command, resolved from the authenticated principal, and an order the caller does not own is a
+ *    `NotFoundException` — `NOT_FOUND`, the same 404-for-403 policy as REST;
+ *  - `myOrders` is a Relay connection: `ScrollSubrange` in, `Window` out, forward only (the schema
+ *    declares `first`/`after`, nothing else). `first` above the project ceiling is a
+ *    `BAD_REQUEST`, never silently cut; the order is the port's, ending in a unique key;
+ *  - `cancelOrder` returns a payload. A business rule, a conflict or an unknown order — what the
+ *    client can correct — comes back in `userErrors` with the domain `errorCode`, and `order` is
+ *    `null`. Shape validation (`@Valid` on the input) and every other failure are top-level errors,
+ *    translated by `GraphQlExceptionResolver.java.example`.
+ *
+ * OTHER ARCHITECTURES: the controller and its records go in the `.graphql` entry of the active
+ * blueprint's `packages.map` (vertical-slice: the slice of the use case, with the wiring in
+ * `config.graphql`); layered has no input port — there the controller calls the service directly
+ * below it, with the same body.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- OrderView.java (application.port.in.order — read model, declared by domain-modeling)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import com.exemplo.minhaapi.domain.model.order.OrderStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+/** Everything a caller may read about an order, complete when it leaves the port. */
+public record OrderView(
+        UUID id, OrderStatus status, Instant placedAt, BigDecimal total, String currency, UUID customerId) {}
+
+// --- OrderLineView.java (application.port.in.order)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import java.math.BigDecimal;
+
+/** One line of an order. */
+public record OrderLineView(String sku, int quantity, BigDecimal unitPrice, String currency) {}
+
+// --- CustomerView.java (application.port.in.customer)
+package com.exemplo.minhaapi.application.port.in.customer;
+
+import java.util.UUID;
+
+/** A customer as an order shows it. `taxId` is personal data (`31-graphql.md` § 8). */
+public record CustomerView(UUID id, String name, String taxId) {}
+
+// --- FindOrderQuery.java (application.port.in.order — the port REST's GET calls too)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import java.util.UUID;
+
+/** One order, seen by an actor. Throws `NotFoundException` when it is missing or not the actor's. */
+public interface FindOrderQuery {
+
+    OrderView find(UUID orderId, Actor actor);
+}
+
+// --- ListMyOrdersQuery.java (application.port.in.order)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/** The actor's orders, newest first, ordered by `placedAt` and then `id` — a unique tiebreaker. */
+public interface ListMyOrdersQuery {
+
+    OrderPage list(Actor actor, Optional<OrderCursor> after, int limit);
+
+    /** The position of the last order already seen: the ordering key, never an offset. */
+    record OrderCursor(Instant placedAt, UUID id) {}
+
+    /** One page and whether another follows. No total: counting is not cheap on a cursor. */
+    record OrderPage(List<OrderView> items, boolean hasNext) {}
+}
+
+// --- OrderLinesQuery.java (application.port.in.order — batch read asked by 31-graphql.md § 5)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/** The lines of many orders in one call. An order with no lines is absent from the map. */
+public interface OrderLinesQuery {
+
+    Map<UUID, List<OrderLineView>> linesOf(Set<UUID> orderIds);
+}
+
+// --- CustomersQuery.java (application.port.in.customer — batch read asked by 31-graphql.md § 5)
+package com.exemplo.minhaapi.application.port.in.customer;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/** Many customers in one call, keyed by id. */
+public interface CustomersQuery {
+
+    Map<UUID, CustomerView> byIds(Set<UUID> customerIds);
+}
+
+// --- CancelOrderUseCase.java (application.port.in.order — the port REST's cancellation calls too)
+package com.exemplo.minhaapi.application.port.in.order;
+
+/** Cancels an order the actor owns, or any order for support. */
+public interface CancelOrderUseCase {
+
+    void handle(CancelOrderCommand command);
+}
+
+// --- CancelOrderCommand.java (application.port.in.order)
+package com.exemplo.minhaapi.application.port.in.order;
+
+import java.util.UUID;
+
+/** What a cancellation needs. The reason is optional free text. */
+public record CancelOrderCommand(UUID orderId, String reason, Actor actor) {}
+
+// --- Order.java (adapter.in.graphql — named as the schema type)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import java.util.UUID;
+
+/** The `Order` type. `lines` and `customer` are not components: they are batch-loaded fields. */
+record Order(UUID id, String status, String placedAt, Money total, UUID customerId) {}
+
+// --- OrderLine.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+/** The `OrderLine` type. */
+record OrderLine(String sku, int quantity, Money unitPrice) {}
+
+// --- Money.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+/** The `Money` type: a decimal as text, never a float. */
+record Money(String amount, String currency) {}
+
+// --- Customer.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import java.util.UUID;
+
+/** The `Customer` type. `taxId` is read through its own guarded mapping. */
+record Customer(UUID id, String name, String taxId) {}
+
+// --- CancelOrderInput.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.util.UUID;
+
+/** The `CancelOrderInput` input. Shape only — the business rules stay in the aggregate. */
+record CancelOrderInput(@NotNull UUID orderId, @Size(max = 500) String reason) {}
+
+// --- UserError.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.domain.exception.DomainException;
+import java.util.List;
+
+/** A failure the client can correct, returned as data. `code` is the domain `errorCode`. */
+record UserError(List<String> field, String code, String message) {
+
+    static UserError of(DomainException exception, List<String> field) {
+        return new UserError(field, exception.errorCode(), exception.getMessage());
+    }
+}
+
+// --- CancelOrderPayload.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import java.util.List;
+
+/** The `CancelOrderPayload` type: the order, or the reasons it was not cancelled — never both. */
+record CancelOrderPayload(Order order, List<UserError> userErrors) {
+
+    static CancelOrderPayload succeeded(Order order) {
+        return new CancelOrderPayload(order, List.of());
+    }
+
+    static CancelOrderPayload failed(UserError error) {
+        return new CancelOrderPayload(null, List.of(error));
+    }
+}
+
+// --- OrderGraphQlMapper.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.application.port.in.customer.CustomerView;
+import com.exemplo.minhaapi.application.port.in.order.OrderLineView;
+import com.exemplo.minhaapi.application.port.in.order.OrderView;
+
+/** Read model to schema type, by hand. */
+final class OrderGraphQlMapper {
+
+    private OrderGraphQlMapper() {}
+
+    static Order order(OrderView view) {
+        return new Order(view.id(), view.status().name(), view.placedAt().toString(),
+                new Money(view.total().toPlainString(), view.currency()), view.customerId());
+    }
+
+    static OrderLine line(OrderLineView view) {
+        return new OrderLine(view.sku(), view.quantity(), new Money(view.unitPrice().toPlainString(), view.currency()));
+    }
+
+    static Customer customer(CustomerView view) {
+        return new Customer(view.id(), view.name(), view.taxId());
+    }
+}
+
+// --- OrderGraphQlController.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.adapter.in.rest.security.CurrentActorResolver;
+import com.exemplo.minhaapi.adapter.in.rest.security.HasRole;
+import com.exemplo.minhaapi.adapter.in.rest.security.Roles;
+import com.exemplo.minhaapi.application.port.in.customer.CustomerView;
+import com.exemplo.minhaapi.application.port.in.customer.CustomersQuery;
+import com.exemplo.minhaapi.application.port.in.order.Actor;
+import com.exemplo.minhaapi.application.port.in.order.CancelOrderCommand;
+import com.exemplo.minhaapi.application.port.in.order.CancelOrderUseCase;
+import com.exemplo.minhaapi.application.port.in.order.FindOrderQuery;
+import com.exemplo.minhaapi.application.port.in.order.ListMyOrdersQuery;
+import com.exemplo.minhaapi.application.port.in.order.OrderLineView;
+import com.exemplo.minhaapi.application.port.in.order.OrderLinesQuery;
+import com.exemplo.minhaapi.domain.exception.BusinessRuleViolationException;
+import com.exemplo.minhaapi.domain.exception.ConflictException;
+import com.exemplo.minhaapi.domain.exception.NotFoundException;
+import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
+import org.springframework.graphql.data.method.annotation.MutationMapping;
+import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.graphql.data.query.ScrollSubrange;
+import org.springframework.data.domain.Window;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Controller;
+
+/** Operations on orders. Every method is a field of the schema; none holds a business rule. */
+@Controller
+class OrderGraphQlController {
+
+    private static final List<String> ORDER_ID_FIELD = List.of("input", "orderId");
+
+    private final FindOrderQuery findOrder;
+    private final ListMyOrdersQuery listMyOrders;
+    private final OrderLinesQuery orderLines;
+    private final CustomersQuery customers;
+    private final CancelOrderUseCase cancelOrder;
+    private final CurrentActorResolver actors;
+    private final OrderCursors cursors;
+
+    OrderGraphQlController(FindOrderQuery findOrder, ListMyOrdersQuery listMyOrders, OrderLinesQuery orderLines,
+            CustomersQuery customers, CancelOrderUseCase cancelOrder, CurrentActorResolver actors,
+            OrderCursors cursors) {
+        this.findOrder = findOrder;
+        this.listMyOrders = listMyOrders;
+        this.orderLines = orderLines;
+        this.customers = customers;
+        this.cancelOrder = cancelOrder;
+        this.actors = actors;
+        this.cursors = cursors;
+    }
+
+    @QueryMapping
+    Order order(@Argument UUID id, Authentication authentication) {
+        return OrderGraphQlMapper.order(findOrder.find(id, actors.resolve(authentication)));
+    }
+
+    @QueryMapping
+    Window<Order> myOrders(ScrollSubrange subrange, Authentication authentication) {
+        ListMyOrdersQuery.OrderPage page = listMyOrders.list(
+                actors.resolve(authentication), cursors.after(subrange), cursors.limit(subrange));
+        return cursors.window(page);
+    }
+
+    @MutationMapping
+    CancelOrderPayload cancelOrder(@Argument @Valid CancelOrderInput input, Authentication authentication) {
+        Actor actor = actors.resolve(authentication);
+        try {
+            cancelOrder.handle(new CancelOrderCommand(input.orderId(), input.reason(), actor));
+        } catch (NotFoundException e) {
+            return CancelOrderPayload.failed(UserError.of(e, ORDER_ID_FIELD));
+        } catch (BusinessRuleViolationException | ConflictException e) {
+            return CancelOrderPayload.failed(UserError.of(e, List.of()));
+        }
+        return CancelOrderPayload.succeeded(OrderGraphQlMapper.order(findOrder.find(input.orderId(), actor)));
+    }
+
+    @BatchMapping(typeName = "Order", field = "lines")
+    Map<Order, List<OrderLine>> lines(List<Order> orders) {
+        Map<UUID, List<OrderLineView>> byOrder = orderLines.linesOf(
+                orders.stream().map(Order::id).collect(Collectors.toSet()));
+        Map<Order, List<OrderLine>> result = new LinkedHashMap<>();
+        orders.forEach(order -> result.put(order, byOrder.getOrDefault(order.id(), List.of()).stream()
+                .map(OrderGraphQlMapper::line)
+                .toList()));
+        return result;
+    }
+
+    @BatchMapping(typeName = "Order", field = "customer")
+    Map<Order, Customer> customer(List<Order> orders) {
+        Map<UUID, Customer> byId = customers.byIds(orders.stream().map(Order::customerId).collect(Collectors.toSet()))
+                .values().stream()
+                .collect(Collectors.toMap(CustomerView::id, OrderGraphQlMapper::customer));
+        return orders.stream().collect(Collectors.toMap(Function.identity(),
+                order -> byId.get(order.customerId()), (first, second) -> first, LinkedHashMap::new));
+    }
+
+    @HasRole(Roles.SUPPORT)
+    @SchemaMapping(typeName = "Customer", field = "taxId")
+    String taxId(Customer customer) {
+        return customer.taxId();
+    }
+}
+
+// --- OrderCursors.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.application.port.in.order.ListMyOrdersQuery;
+import graphql.GraphqlErrorException;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.domain.KeysetScrollPosition;
+import org.springframework.data.domain.ScrollPosition;
+import org.springframework.data.domain.Window;
+import org.springframework.graphql.data.query.ScrollSubrange;
+import org.springframework.graphql.execution.ErrorType;
+import org.springframework.stereotype.Component;
+
+/**
+ * Connection arguments to the port's own cursor and back. The cursor carries the ordering key —
+ * `placedAt` and `id`, both as text so they survive the cursor encoding unchanged.
+ */
+@Component
+class OrderCursors {
+
+    private static final String PLACED_AT = "placedAt";
+    private static final String ID = "id";
+
+    private final GraphQlLimits properties;
+
+    OrderCursors(GraphQlLimits properties) {
+        this.properties = properties;
+    }
+
+    int limit(ScrollSubrange subrange) {
+        int requested = subrange.count().orElse(properties.defaultPageSize());
+        if (requested < 1 || requested > properties.maxPageSize()) {
+            throw GraphqlErrorException.newErrorException()
+                    .message("first must be between 1 and " + properties.maxPageSize())
+                    .errorClassification(ErrorType.BAD_REQUEST)
+                    .extensions(Map.of("errorCode", "PAGE_SIZE_OUT_OF_RANGE"))
+                    .build();
+        }
+        return requested;
+    }
+
+    Optional<ListMyOrdersQuery.OrderCursor> after(ScrollSubrange subrange) {
+        return subrange.position()
+                .filter(KeysetScrollPosition.class::isInstance)
+                .map(KeysetScrollPosition.class::cast)
+                .filter(position -> !position.isInitial())
+                .map(position -> new ListMyOrdersQuery.OrderCursor(
+                        Instant.parse(String.valueOf(position.getKeys().get(PLACED_AT))),
+                        UUID.fromString(String.valueOf(position.getKeys().get(ID)))));
+    }
+
+    Window<Order> window(ListMyOrdersQuery.OrderPage page) {
+        List<Order> orders = page.items().stream().map(OrderGraphQlMapper::order).toList();
+        return Window.from(orders, index -> position(orders.get(index)), page.hasNext());
+    }
+
+    private static ScrollPosition position(Order order) {
+        Map<String, Object> keys = new LinkedHashMap<>();
+        keys.put(PLACED_AT, order.placedAt());
+        keys.put(ID, order.id().toString());
+        return ScrollPosition.forward(keys);
+    }
+}

@@ -1,0 +1,96 @@
+/*
+ * EXEMPLAR — the GraphQL schema's compatibility gate: the counterpart of a committed OpenAPI
+ * document, run by `./mvnw verify` like any unit test. No Spring context, no network, no Node.
+ *
+ * WHAT IT VERIFIES: the schema the application serves — every `.graphqls` under
+ * `src/main/resources/graphql/`, plus the connection types Spring for GraphQL generates — against
+ * the snapshot committed at `src/test/graphql/schema.snapshot.graphqls`:
+ *   - a type, field, argument or enum value that disappears, or a change a client cannot absorb (an
+ *     input made required, an output made nullable, a type changed), fails —
+ *     unless the snapshot already marked it `@deprecated`, which is the policy of
+ *     `.claude/rules/api-graphql.md` § Evolution: deprecated in one release, removed in a later one;
+ *   - any other difference — an addition, a deprecation — fails too, until the snapshot is refreshed
+ *     in the same change. The printer sorts types and fields, so the comparison is exact text. The snapshot is always the last schema shipped, so the next
+ *     removal is measured against it.
+ * The snapshot lives OUTSIDE `src/test/resources`: under `resources/graphql/` it would be on the test
+ * classpath, where this test would read it as the schema and Spring Boot would load it next to the
+ * real files in every `@SpringBootTest`, defining each type twice.
+ * The current schema is written to `target/graphql/schema.current.graphqls` on every run: refreshing
+ * the snapshot is copying that file, reviewed in the same pull request as the change.
+ *
+ * The printed form keeps descriptions and `@deprecated`, and drops `#` comments and directive
+ * definitions: a comment is not contract, and printing it made two runs over the same files differ.
+ *
+ * WHY graphql-java's `SchemaDiff`: it classifies each difference as breaking, dangerous or info, and
+ * names a removed deprecated field `DEPRECATION_REMOVED` — the one breaking change the policy admits.
+ * The `diffSchema(SchemaDiffSet, …)` overload is the current one; the `DiffSet` one is deprecated.
+ */
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import graphql.schema.GraphQLSchema;
+import graphql.schema.diff.DiffCategory;
+import graphql.schema.diff.DiffEvent;
+import graphql.schema.diff.SchemaDiff;
+import graphql.schema.diff.SchemaDiffSet;
+import graphql.schema.diff.reporting.CapturingReporter;
+import graphql.schema.idl.SchemaPrinter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.graphql.execution.ConnectionTypeDefinitionConfigurer;
+import org.springframework.graphql.execution.GraphQlSource;
+
+class GraphQlSchemaCompatibilityTest {
+
+    private static final Path SNAPSHOT = Path.of("src/test/graphql/schema.snapshot.graphqls");
+    private static final Path CURRENT = Path.of("target/graphql/schema.current.graphqls");
+
+    @Test
+    @DisplayName("the served schema removes nothing the snapshot did not deprecate first, and matches it")
+    void schemaIsCompatibleWithTheLastShippedOne() throws IOException {
+        String current = print(servedSchema());
+        Files.createDirectories(CURRENT.getParent());
+        Files.writeString(CURRENT, current, StandardCharsets.UTF_8);
+        assertThat(SNAPSHOT).as("no snapshot yet — copy %s to %s and commit it", CURRENT, SNAPSHOT).exists();
+
+        String snapshot = Files.readString(SNAPSHOT, StandardCharsets.UTF_8);
+        CapturingReporter reporter = new CapturingReporter();
+        new SchemaDiff().diffSchema(SchemaDiffSet.diffSetFromSdl(snapshot, current), reporter);
+
+        List<DiffEvent> forbidden = reporter.getBreakages().stream()
+                .filter(event -> event.getCategory() != DiffCategory.DEPRECATION_REMOVED)
+                .toList();
+        assertThat(forbidden)
+                .as("breaking change without a prior @deprecated — deprecate first, remove in a later release")
+                .isEmpty();
+        assertThat(current)
+                .as("the schema changed — copy %s to %s in this same change", CURRENT, SNAPSHOT)
+                .isEqualTo(snapshot);
+    }
+
+    private static GraphQLSchema servedSchema() throws IOException {
+        Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath*:graphql/**/*.graphqls");
+        return GraphQlSource.schemaResourceBuilder()
+                .schemaResources(files)
+                .configureTypeDefinitions(new ConnectionTypeDefinitionConfigurer())
+                .build()
+                .schema();
+    }
+
+    private static String print(GraphQLSchema schema) {
+        return new SchemaPrinter(SchemaPrinter.Options.defaultOptions()
+                .includeAstDefinitionComments(false)
+                .includeDirectiveDefinitions(false)
+                .includeDirectives(directive -> "deprecated".equals(directive))
+                .includeSchemaDefinition(false))
+                .print(schema);
+    }
+}

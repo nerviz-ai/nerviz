@@ -51,6 +51,7 @@ copy step isn't updated alongside it.
 | Aggregate, value object, invariant, ports | skill `domain-modeling` |
 | Table, JPA mapping, migration, index, slow query, datasource | skill `persistence-architect` |
 | Endpoint, controller, DTO, OpenAPI | skill `rest-api-architect` |
+| GraphQL schema, query, mutation, resolver, `@BatchMapping`, N+1, connection, GraphQL errors and limits — or choosing REST, GraphQL or both for a use case | skill `graphql-api-architect` — norms in `.claude/rules/api-graphql.md` |
 | Who may call an endpoint — roles, groups, only the owner — Spring Security, JWT, 401/403, CORS, Actuator exposure | skill `security-architect` — norms in `.claude/rules/authorization.md` |
 | Calling another system over HTTP — `RestClient`, `@HttpExchange`, OpenAPI client, `WebClient` stream, Feign, timeouts, retry, circuit breaker, outbound authentication, a provider down (502/503/504) | skill `http-client-architect` — norms in `.claude/rules/http-client.md` |
 | Design pattern, growing `if`/`switch` chain, class with too many responsibilities | Inside `/new-feature`: decided by each design skill in its partial's `## Design patterns`, through `gof-design-patterns` § Design-time use. On existing code, outside a feature run: skill `gof-design-patterns` — manual only (`/gof-design-patterns`) |

@@ -362,6 +362,14 @@ jobs:
       - name: AI exemplars decide every library default, and only they reach the library
         run: java .claude/.ci/AiTemplateTest.java
 
+      # Spring for GraphQL and graphql-java turn no limit on by default — no depth, no complexity,
+      # no timeout, an unbounded batch, introspection on, a schema inspection that only logs — and a
+      # resolver that loads a child per parent passes every functional test. The executor copies an
+      # exemplar's shape. Holds the GraphQL exemplars to api-graphql.md, keeps every other exemplar
+      # off the GraphQL libraries, and every blueprint's inner layers off them too (0146).
+      - name: GraphQL exemplars decide every limit and batch every child list
+        run: java .claude/.ci/GraphQlTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
@@ -704,7 +712,7 @@ jobs:
           curl -sS --fail --retry 3 --retry-all-errors --retry-delay 5 --max-time 120 \
             https://start.spring.io/starter.tgz \
             -d type=maven-project -d language=java -d javaVersion=21 \
-            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis,spring-ai-openai,spring-ai-vectordb-pgvector \
+            -d dependencies=web,data-jpa,flyway,validation,actuator,testcontainers,postgresql,lombok,kafka,batch,quartz,security,oauth2-resource-server,spring-restclient,spring-webclient,oauth2-client,cloud-feign,cache,data-redis,spring-ai-openai,spring-ai-vectordb-pgvector,graphql \
             -o /tmp/starter.tgz
           mkdir -p /tmp/ref && tar xzf /tmp/starter.tgz -C /tmp/ref
           # micrometer-tracing-bridge-otel is managed by the Boot BOM: no version here,
@@ -752,7 +760,10 @@ jobs:
           # `spring-ai-openai` and `spring-ai-vectordb-pgvector` are there because ai-architect's
           # exemplars and test-architect's three AI tests import Spring AI, the OpenAI SDK and Jackson 3
           # (0145) — the Initializr offers them for Boot 4 only, which is the line those exemplars are.
-          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson)\.'
+          # `graphql` is there because graphql-api-architect's exemplars and test-architect's three
+          # GraphQL tests import Spring for GraphQL, graphql-java and the GraphQL test support (0146);
+          # the `graphql` and `org.dataloader` prefixes below are graphql-java's and java-dataloader's roots.
+          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader)\.'
           IMPORTS=$(grep -rhoE '^ *import (static )?[a-z][a-zA-Z0-9_.]+;' \
                       .claude/skills/*/templates/*.java.example \
                     | sed -E 's/^ *import (static )?//; s/;$//' | sort -u)

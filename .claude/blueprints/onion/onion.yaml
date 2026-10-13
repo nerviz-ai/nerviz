@@ -53,6 +53,7 @@ modules:
       - "jakarta.validation.."
       - "com.fasterxml.jackson.."
       - "tools.jackson.."  # Jackson 3 (Spring Boot 4) core; annotations stay under com.fasterxml.jackson
+      - "graphql.."  # graphql-java; Spring for GraphQL is already under org.springframework — decision 0146
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -102,6 +103,10 @@ packages:
     # Outbound AI adapters implement a `domain.gateway` Gateway answered by a language model or a
     # vector store; they compile into `app`, the composition root, like `app.http` — decision 0145.
     app.ai: "app.ai"
+    # Inbound GraphQL adapter — controllers calling a domain service, like `presentation` does for
+    # REST, in its own package so the REST norm does not load on it; compiled into `app`, the
+    # composition root, like `app.scheduling` — decision 0146.
+    app.graphql: "app.graphql"
     commons.logging: "commons.logging"
 
 # Naming convention for this blueprint (specific to onion, not universal — see

@@ -1,0 +1,52 @@
+# EXEMPLAR — the GraphQL keys of `application.yml`, written once by the first use case whose
+# `31-graphql.md` § 6 decided them. Form reference for the executor agent; not a file to copy.
+# Rules: `.claude/rules/api-graphql.md` § Demand limits · `.claude/rules/secrets.md`
+#
+# WHAT THIS EXEMPLAR SHOWS:
+#  - every Spring Boot default that exposes something is written out: introspection is ON by
+#    default and GraphiQL is one property away — both are off here and on only in the `dev`
+#    profile. Introspection off is JVM-wide in graphql-java: a test context that starts with it off
+#    leaves it off for every later context in the same JVM;
+#  - schema inspection stays on; `GraphQlConfig` turns its report into a startup failure;
+#  - CORS: the endpoint is POST only, so `allowed-methods` is POST, and the origins come from the
+#    environment — empty by default, which allows no other origin — never `*`;
+#  - `app.graphql.*` holds every limit with no default: a missing key fails the startup.
+
+spring:
+  graphql:
+    http:
+      path: /graphql
+    schema:
+      locations: classpath:graphql/
+      inspection:
+        enabled: true
+      introspection:
+        enabled: false
+    graphiql:
+      enabled: false
+    cors:
+      allowed-origins: ${GRAPHQL_ALLOWED_ORIGINS:}
+      allowed-methods: POST
+      allowed-headers: Authorization,Content-Type
+      max-age: 1h
+
+app:
+  graphql:
+    max-depth: 8
+    max-complexity: 2000
+    request-timeout: 5s
+    default-page-size: 20
+    max-page-size: 100
+    max-batch-size: 100
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+    graphiql:
+      enabled: true

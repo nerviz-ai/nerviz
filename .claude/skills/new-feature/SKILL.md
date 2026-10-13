@@ -49,7 +49,10 @@ use case number or slug — `use-case-design` does.
   `10-dominio.md`'s Events block names external (Kafka) delivery
 - `docs/use-cases/UC-NNN-<slug>/35-jobs.md` — via `jobs-architect`, only if
   `25-mensageria.md` chose Form B or `00-caso-de-uso.md`'s trigger is a schedule
-- `docs/use-cases/UC-NNN-<slug>/30-rest.md` — via `rest-api-architect`
+- `docs/use-cases/UC-NNN-<slug>/30-rest.md` — via `rest-api-architect`, unless `00-caso-de-uso.md`'s
+  `Trigger` names `inbound GraphQL adapter` alone (step 3)
+- `docs/use-cases/UC-NNN-<slug>/31-graphql.md` — via `graphql-api-architect`, only if the `Trigger`
+  names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` (step 3g)
 - `docs/use-cases/UC-NNN-<slug>/32-seguranca.md` — via `security-architect`, only if
   `00-caso-de-uso.md`'s `Access` asks for something the project's filter chain does not
   already give (step 3b)
@@ -89,7 +92,11 @@ below. No end of this flow is left without an explicit git instruction.
 **Integrates with (sequence ordered by depends-on):**
 1. `use-case-design` — invoked for a new case; skipped on resume when `00-caso-de-uso.md` exists
 2. `domain-modeling` — invoked if `10-dominio.md` is missing (depends on 1)
-3. `rest-api-architect` — invoked if `30-rest.md` is missing (depends on 2)
+3. `rest-api-architect` — invoked if `30-rest.md` is missing (depends on 2). Skipped when
+   `00-caso-de-uso.md`'s `Trigger` names `inbound GraphQL adapter` alone
+3g. `graphql-api-architect` — invoked if the `Trigger` names `inbound GraphQL adapter` or
+   `inbound REST and GraphQL adapters` and `31-graphql.md` is missing (depends on 1, 2; reads 3 when
+   present). Skipped when the case has no GraphQL trigger
 3b. `security-architect` — invoked per step 3b's table when `32-seguranca.md` is missing
    (depends on 1, 2, 3). Skipped when `Access` is public in a project with no filter chain, or
    authenticated in one whose chain already denies by default
@@ -133,7 +140,14 @@ until `35-jobs.md` § 3 and § 6 exist. Jobs itself needs only the use case and 
 publication form, so it costs nothing to run first
 (`@.claude/decisions/0087-jobs-architect-skill.md`).
 
-Security runs right after REST, for the same two reasons in opposite directions. It needs the
+GraphQL runs right after REST and before security, the REST step's pair. Both shape the same input
+ports, and when the trigger names both adapters the GraphQL partial reads the REST one, so each
+operation names its counterpart. It generates requirements for the steps after it: a batch port the
+domain did not declare, the batch statement and an index for persistence, and an access row per
+root field and per sensitive field for security — none visible before `31-graphql.md` § 9 exists
+(`@.claude/decisions/0146-graphql-api-architect-skill.md`).
+
+Security runs right after REST and GraphQL, for the same two reasons in opposite directions. It needs the
 endpoints `30-rest.md` fixed — access rules written before them protect a guess — and it can
 generate schema requirements: users owned by the application need a credentials store, an
 API key needs a key store, both invisible to persistence until `32-seguranca.md` § 7 exists.
@@ -162,7 +176,9 @@ lists every writer of the data it holds, which only the finished partials name. 
 after it, because a cached read owes three tests no other layer asks for
 (`@.claude/decisions/0144-cache-architect-skill.md`).
 
-**Design order isn't implementation order.** Messaging is designed fourth and implemented
+**Design order isn't implementation order.** GraphQL is block 4.1, implemented by the conditional
+Block G right after Block 3 and before Block S — its resolvers call the same ports as the REST
+controllers, and Block S's annotations go on both. Messaging is designed fourth and implemented
 sixth: `UC-NNN-spec.md` keeps messaging as block 6, and the executor's conditional Block M
 still runs between REST and Tests. Jobs is block 7, implemented by the conditional Block J
 right after Block M — a trigger compiles against the inbound port it calls, so it comes last
@@ -339,7 +355,7 @@ created — never with the others.
 
 ### Short path — checked right after step 1
 
-A trivial case doesn't need five partials. Check all six against `00-caso-de-uso.md`
+A trivial case doesn't need five partials. Check all seven against `00-caso-de-uso.md`
 and the approved specs:
 
 | Criterion | Unmet when |
@@ -350,8 +366,9 @@ and the approved specs:
 | No question asked to the user | `use-case-design` needed `AskUserQuestion` |
 | No freshness tolerance | the `Freshness` row states a duration — a cache to design |
 | No model and no semantic search | the case asks a model to classify, extract or moderate, or finds items by meaning — an AI port to design |
+| No GraphQL operation | the `Trigger` names a GraphQL adapter — the short template has no GraphQL row |
 
-All six met → skip steps 2–6 and write `UC-NNN-spec.md` from
+All seven met → skip steps 2–6 and write `UC-NNN-spec.md` from
 `templates/feature-spec-short.md.example`: every row names its source, an approved spec or
 a rule. A row that needs judgment to fill means the case isn't trivial — discard the
 short spec and take steps 2–6. One criterion unmet → steps 2–6.
@@ -365,13 +382,31 @@ If it exists: read, validate (four blocks: aggregate, VOs, invariants, ports).
 
 ### Step 3: REST (depends on 1,2)
 
-If `30-rest.md` is missing: **invoke** `/rest-api-architect UC-NNN`.
+Read the closing phrase of `00-caso-de-uso.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
+skip this step. Any other phrase, or none (a case written before the phrase existed) → if
+`30-rest.md` is missing: **invoke** `/rest-api-architect UC-NNN`.
 If it exists: read, validate (six blocks: resources, DTOs, errors, pagination, idempotency,
 personal data).
 
-**Output:** "✅ REST ready" or gaps.
+**Output:** "✅ REST ready", "— skipped (GraphQL only)", or gaps.
 
-### Step 3b: Security (depends on 1, 2, 3, conditional)
+### Step 3g: GraphQL (depends on 1, 2, conditional)
+
+If the `Trigger` names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` and
+`31-graphql.md` is missing: **invoke** `/graphql-api-architect UC-NNN`. No GraphQL adapter in the
+phrase → skip this step. If `31-graphql.md` exists: read, validate (thirteen blocks: operations,
+schema, inputs and payloads, pagination, batch loads, project setup, error map, personal data,
+requirements to other partials, contract test cases, declared dependencies, configuration,
+deferred).
+
+Every list that grows is a connection with a ceiling, every child field that costs I/O is a batch
+load, and the project setup is decided or inherited — a § 6 with neither is a gap. § 9 is what steps
+2 (a batch port, through consolidation), 3b and 5 read; § 11 is the only list that entitles the
+executor to add the GraphQL starter to `pom.xml`; § 10 is what step 6 turns into tests.
+
+**Output:** "✅ GraphQL ready", "— skipped (no GraphQL trigger)", or gaps.
+
+### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)
 
 Read `00-caso-de-uso.md`'s `Access` row, and whether the project already has a filter chain
 (`grep -rl "SecurityFilterChain" --include='*.java' src/main`). If `32-seguranca.md` is missing,
@@ -384,7 +419,9 @@ Read `00-caso-de-uso.md`'s `Access` row, and whether the project already has a f
 | public | present | a `permitAll` needs its recorded reason |
 
 Otherwise skip: public in an unsecured project, or authenticated behind a chain that already
-denies by default — the spec's security block says which. An `00-caso-de-uso.md` with an HTTP
+denies by default — the spec's security block says which. A GraphQL trigger is not a skip when
+`31-graphql.md` § 9 asks for a field-level row: a sensitive field narrower than its operation is
+this case's rule whatever the `Access` row says. An `00-caso-de-uso.md` with an HTTP
 trigger and no `Access` row (written before the row existed) is not a skip: invoke it, it asks.
 If `32-seguranca.md` exists: read, validate (eleven blocks: access per endpoint, mechanism,
 authorities, project-wide setup, ownership, failure responses, schema requirements, declared
@@ -465,11 +502,12 @@ add a scheduling dependency to `pom.xml`.
 
 **Output:** "✅ Jobs ready", "— skipped (no scheduled work)", or gaps.
 
-### Step 5: Persistence (depends on 1,2,3,3b,3c,3d,4,4b)
+### Step 5: Persistence (depends on 1,2,3,3g,3b,3c,3d,4,4b)
 
 If `20-persistencia.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
 every schema requirement list in the same pass — `30-rest.md` block 4 (the idempotency
-table among them), when step 3b ran `32-seguranca.md` § 7 (a credentials or API-key store),
+table among them) when step 3 ran, when step 3g ran `31-graphql.md` § 9 (one statement per batch
+port, bounded by § 6's max batch, and the index each connection's order needs), when step 3b ran `32-seguranca.md` § 7 (a credentials or API-key store),
 when step 3c ran `28-cliente-http.md` § 10 (a stored idempotency key, an unknown-outcome state),
 when step 3d ran `29-ia.md` § 9 (a vector store's table, its extensions and its index),
 when step 4 ran `25-mensageria.md` § 6 (the shared outbox table, the
@@ -498,11 +536,14 @@ has a § 4 row — a writer named in another approved case's Components table an
 
 **Output:** "✅ Cache ready", "— skipped (no freshness tolerance)", or gaps.
 
-### Step 6: Tests (depends on 1,2,3,3b,3c,3d,4,5,5b)
+### Step 6: Tests (depends on 1,2,3,3g,3b,3c,3d,4,5,5b)
 
 If `40-testes.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
 If it exists: read, validate (five blocks: pyramid, cases, fixtures, coverage, test dependencies).
 When step 3b ran, every case of `32-seguranca.md` § 10 has a test row — a missing one is a gap.
+When step 3g ran, every case of `31-graphql.md` § 10 has a test row at the level it names, and the
+schema snapshot test exists — a missing one is a gap, and so is an access case placed in the
+GraphQL slice, where no filter chain runs.
 When step 3c ran, every case of `28-cliente-http.md` § 9 has a test row — a missing one is a gap.
 When step 3d ran, every case of `29-ia.md` § 8 has a test row at the level it names — a missing
 one is a gap, and so is any row that calls a real model.
@@ -513,9 +554,10 @@ two callers never sharing an entry when the key names the caller (`@.claude/rule
 
 **Output:** "✅ Tests ready" or gaps.
 
-### Consolidation (after 1,2,3,5,6 ✅ — steps 3b, 3c, 3d, 4, 4b and 5b conditional)
+### Consolidation (after 1,2,5,6 ✅, and 3 or 3g — steps 3, 3g, 3b, 3c, 3d, 4, 4b and 5b conditional)
 
-If all specs that apply exist and validate (security only when step 3b wasn't skipped,
+If all specs that apply exist and validate (REST only when step 3 wasn't skipped, GraphQL only when
+step 3g wasn't, security only when step 3b wasn't skipped,
 outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging only when step 4 wasn't, jobs only when step
 4b wasn't, cache only when step 5b wasn't):
 
@@ -532,7 +574,8 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging o
    | Fact | Who wins |
    |---|---|
    | HTTP path, verb, status, body shape | `30-rest.md` — except the 401 and 403 rows, below |
-   | Who may call each endpoint, the authentication mechanism, the claims-to-authorities mapping, the `permitAll` list and its reasons, the 401 and 403 rows, CORS, OpenAPI and Actuator exposure, where the controller reads the actor from | `32-seguranca.md`. The actor field, the owner field and the ownership invariant stay `10-dominio.md`'s; an owner-only `Access` whose domain partial has no actor is not settled by precedence: **stop and ask** |
+   | GraphQL root fields and the port each calls, types, fields and nullability, inputs, payloads and `userErrors`, connections and their ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field, below. A batch port it asked for becomes `10-dominio.md`'s port by consolidation, with `31-graphql.md` as who asked; the batch statement and its index are `20-persistencia.md`'s |
+   | Who may call each endpoint, GraphQL root field and sensitive field, the authentication mechanism, the claims-to-authorities mapping, the `permitAll` list and its reasons, the 401 and 403 rows, CORS, OpenAPI and Actuator exposure, where the controller reads the actor from | `32-seguranca.md`. The actor field, the owner field and the ownership invariant stay `10-dominio.md`'s; an owner-only `Access` whose domain partial has no actor is not settled by precedence: **stop and ask** |
    | Table, column, key, index, migration | `20-persistencia.md` — including every table or column another partial *asked for*: the requirement is born in `30-rest.md` block 4 or `25-mensageria.md` § 6, the final form (name, type, nullability, index, migration) is always this one's |
    | Topic, serialization, delivery guarantee, consumer retry and DLQ | `25-mensageria.md` |
    | Outbox table, its columns, the claim query, and the values the columns encode (batch size, backoff, attempt ceiling, retention window, the prune's statement) | `20-persistencia.md` — the whole table is its territory. `25-mensageria.md` declares the **guarantee** those values have to deliver, never the columns; a § 6 row naming columns is reported as a divergence and the guarantee is what carries over |
@@ -576,7 +619,9 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging o
    - Each block holds only the final decisions — one value per fact — and the path of the
      partial that details it. Never copy a partial's tables, SQL, or code: a copied
      consolidation doubled the output of a real run and added nothing the partial lacked
-   - Structure: 5 blocks (use case, domain, persistence, REST, tests), plus a 6th
+   - Structure: 5 blocks (use case, domain, persistence, REST, tests) — `## 4 REST` reads
+     `none — GraphQL only` when step 3 was skipped — plus `## 4.1 GraphQL` only when step 3g ran,
+     `none` otherwise, plus a 6th
      (messaging) only when step 4 wasn't skipped, a 7th (jobs) only when step 4b wasn't, and
      the security block (`## 4.5 Security`) only when step 3b wasn't — when it was, that block
      reads `none` with the skip row of step 3b, so "covered by deny-by-default" is a recorded
@@ -604,7 +649,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging o
      on every real call is not a detail the reader should have to find in a test fixture
      (lessons-learned-013 § 5)
    - **A partial that applies must carry its declared-dependency section, or consolidation
-     stops.** `20-persistencia.md` § 6 always; `32-seguranca.md` § 8 whenever step 3b ran;
+     stops.** `20-persistencia.md` § 6 always; `31-graphql.md` § 11 whenever step 3g ran; `32-seguranca.md` § 8 whenever step 3b ran;
      `28-cliente-http.md` § 8 whenever step 3c ran; `29-ia.md` § 10 whenever step 3d ran;
      `25-mensageria.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-testes.md` § 5 always. The
      value `none` is legitimate and common — most cases need no new dependency — but **absence
@@ -623,8 +668,8 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging o
      `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
      this one's report, has nothing to add and nothing to name — the broker of issue #119
    - **A personal-data field crossing the process boundary in clear carries a recorded
-     decision, or consolidation stops.** `25-mensageria.md` § 8, `30-rest.md` § 6 and `29-ia.md` § 4 each list
-     the fields of the payload and the response body that match
+     decision, or consolidation stops.** `25-mensageria.md` § 8, `30-rest.md` § 6, `31-graphql.md` § 8 and `29-ia.md` § 4 each list
+     the fields of the payload, the response body and the GraphQL output types that match
      `@.claude/rules/logging.md` § Masking candidates, with the form chosen. A `full value` row
      without a named receiver and a reason is not consolidated: the pipeline stops and asks, and
      it is not filled in by inference. `none` is a valid value and absence is not one. Until now
@@ -660,7 +705,10 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, messaging o
      what happens to the endpoints earlier cases published without a chain, is not consolidated
      — deny by default turns them into 401 on the next deploy, and nobody chose that
      (`@.claude/rules/authorization.md` § Default access)
-   - Recipient: `java-spring-boot-developer` agent — a spec with § 4.5 runs the executor's
+   - Recipient: `java-spring-boot-developer` agent — a spec with § 4.1 runs the executor's
+     conditional Block G (steps G1-G3, right after Block 3 and before Block S), which generates the
+     schema file, the GraphQL controllers and records, and — the first time — the GraphQL setup from
+     `31-graphql.md`; a spec with § 4.5 runs the executor's
      conditional Block S (steps S1-S3, right after REST), which generates the filter chain, the
      mechanism wiring, the method-security annotations and the actor resolution from
      `32-seguranca.md`; a spec with § 3.3 runs the executor's conditional Block H (steps H1-H3,
@@ -755,7 +803,7 @@ did, and the next commands. After § Approval those are `/clear` and
 Lives at `.claude/skills/new-feature/templates/feature-spec.md.example`; the short path
 uses `templates/feature-spec-short.md.example`.
 
-Structure (5 blocks, implementation order — plus outbound HTTP, cache, security, messaging and jobs when they apply):
+Structure (5 blocks, implementation order — plus outbound HTTP, cache, GraphQL, security, messaging and jobs when they apply):
 - Frontmatter: `status:`
 - Block 1: Use case
 - Block 2: Domain model (aggregate, VOs, invariants, ports, events)
@@ -771,7 +819,11 @@ Structure (5 blocks, implementation order — plus outbound HTTP, cache, securit
   otherwise. See the known gap above — the executor doesn't consume this block yet
 - Block 3.6 (conditional): Jobs (technology, triggers, coordination, replica count) —
   present only when step 4b ran; "none" otherwise. Implemented by the executor's Block J
-- Block 4: REST API (resources, DTOs, errors, pagination, idempotency)
+- Block 4: REST API (resources, DTOs, errors, pagination, idempotency) — `none — GraphQL only`
+  when step 3 was skipped
+- Block 4.1 (conditional): GraphQL (root fields and ports, connections, batch loads, errors as data,
+  project setup NEW/inherited) — present when step 3g ran; "none" otherwise. Implemented by the
+  executor's Block G, right after Block 3
 - Block 4.5 (conditional): Security (mechanism, access per endpoint, `permitAll` list,
   ownership, setup NEW/REUSE) — present when step 3b ran; otherwise `none` with the skip row.
   Implemented by the executor's Block S, right after Block 3
@@ -794,6 +846,9 @@ See `templates/feature-spec.md.example` for the full shape.
   chained as a conditional step, same pattern as `persistence-architect`/`rest-api-architect`.
 - **`@.claude/decisions/0144-cache-architect-skill.md`** — `cache-architect` chained as step 5b,
   after persistence, only when the use case states a freshness tolerance.
+- **`@.claude/decisions/0146-graphql-api-architect-skill.md`** — `graphql-api-architect` chained as
+  step 3g, the REST step's pair, when the `Trigger` names a GraphQL adapter; step 3 skipped when it
+  names GraphQL alone.
 - **`@.claude/decisions/0130-executor-split-by-block-group-implement-in-clean-session.md`** and
   **`@.claude/decisions/0135-new-feature-split-spec-and-implement.md`** — design and implement
   never share a session; the implement flow is `/new-feature-implement`, a skill of its own.
