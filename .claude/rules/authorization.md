@@ -63,6 +63,9 @@ correct.
   actuator exposes environment, configuration and heap to anyone who can reach the port
 - **Rules go from specific to general**, matching method and path together. A broad pattern
   before a narrow one shadows it, and nothing reports the shadowed rule
+- **A path rule names every API version of its route** — `/api/*/orders/*/cancellation`,
+  never `/api/v1/…`. The rule is matched against the raw path, so a new version of a
+  protected route otherwise falls to the last rule and keeps only "authenticated"
 
 ## Mechanism
 
@@ -145,6 +148,9 @@ grep -rln "org.springframework.security" --include=*.java src/main | grep -E "/(
 
 # Nothing public by accident. Zero lines expected.
 grep -rnE "anyRequest\(\)\.permitAll|requestMatchers\(\"/\*\*\"\)\.permitAll" --include=*.java src/main
+
+# No request rule bound to one API version. Zero lines expected.
+grep -rnE "requestMatchers\(.*\"/api/v[0-9]" --include=*.java src/main
 
 # Every permitAll is a recorded decision — review each hit against the design record.
 grep -rn "permitAll" --include=*.java src/main

@@ -51,7 +51,7 @@ copy step isn't updated alongside it.
 | Aggregate, value object, invariant, ports | skill `domain-modeling` |
 | Table, JPA mapping, migration, index, slow query, datasource — or a MongoDB collection, document mapping, its indexes and validator, `@Version`, a transaction on a replica set — or auditing: who created or changed a record, when, and its earlier values | skill `persistence-architect` — norms in `.claude/rules/persistence.md` |
 | Full-text or faceted search in Elasticsearch or OpenSearch — a search index kept as a projection of a source of truth, mapping, alias and reindex, an indexer fed by change events | skill `search-architect` — norms in `.claude/rules/search.md` |
-| Endpoint, controller, DTO, OpenAPI | skill `rest-api-architect` |
+| Endpoint, controller, DTO, OpenAPI, an API version (`/v2`, deprecation, sunset) | skill `rest-api-architect` |
 | GraphQL schema, query, mutation, resolver, `@BatchMapping`, N+1, connection, GraphQL errors and limits — or choosing REST, GraphQL or both for a use case | skill `graphql-api-architect` — norms in `.claude/rules/api-graphql.md` |
 | Who may call an endpoint — roles, groups, only the owner — Spring Security, JWT, 401/403, CORS, Actuator exposure | skill `security-architect` — norms in `.claude/rules/authorization.md` |
 | Calling another system over HTTP — `RestClient`, `@HttpExchange`, OpenAPI client, `WebClient` stream, Feign, timeouts, retry, circuit breaker, outbound authentication, a provider down (502/503/504) | skill `http-client-architect` — norms in `.claude/rules/http-client.md` |

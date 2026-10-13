@@ -127,15 +127,16 @@ in `23-busca.md`. Implemented by the executor's Block I, after Block A.
 
 ## 4. REST API — implement after 2
 
-Detail: `30-rest.md` § 1-5.
+Detail: `30-rest.md` § 1-5 and § 7.
 
 | Decision | Value |
 |---|---|
-| Endpoint | `POST /api/v1/users` → `201` + `Location` |
+| Endpoint | `POST /api/v1/users` (`version = "1+"`) → `201` + `Location` |
 | Errors | malformed payload `400` · email in use `409` · unexpected `500` with `traceId` |
 | Idempotency | `Idempotency-Key` required |
 | Pagination | none — no collection |
 | Dependencies | springdoc (version already in `pom.xml`), tracing bridge, validation |
+| Versioning | project setup NEW — `ApiVersioningConfig` (prefix `/api/v{version}`, supported `1`) + `ApiVersionObservationConvention`; later cases: `inherited from UC-NNN` or the version, deprecation or sunset § 7 lists |
 
 ---
 
@@ -240,7 +241,7 @@ Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is 
 - [ ] 11. Repository adapter
 - [ ] 12. Persistence properties
 - [ ] 13. DTOs + manual mapper
-- [ ] 14. Controller + contract interface + `ApiExceptionHandler`
+- [ ] 14. Controller + contract interface + `ApiExceptionHandler` + API versioning config (first REST case: NEW)
 - [ ] 15. Idempotency interceptor + `IdempotentExecution` wiring (first time: store + component) + REST properties
 - [ ] 16. Test fixtures
 - [ ] 17. Unit tests

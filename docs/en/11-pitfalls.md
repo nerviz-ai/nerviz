@@ -506,6 +506,19 @@ test. No hook covers it — no observed failure justifies one. What exists is th
 write, by design — the actor is never `null`. Design:
 `.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
+**The API version is one configuration per project, written by the first REST case.**
+`ApiVersioningConfig` adds the `/api/v{version}` prefix to the REST adapter package's controllers,
+and to them alone: a controller whose class mapping still spells `/api/v1` then answers at
+`/api/v1/api/v1/...`. So a project generated before `0150` moves every controller before turning the
+config on — the `api-version-path-prefix` migration says how, and no public URL changes. The prefix
+is `/api/v{version}`, not `/api/{version}` (springdoc would document `/api/1/users`), and it is
+scoped to the package, not only to `@RestController` (springdoc's own controller would get the
+prefix and `/v3/api-docs` would answer 404). A request rule on `/api/v1/…` leaves the `/v2` of the
+same route with only `authenticated`: rules write `/api/*/…`. And the OpenAPI document lists each
+operation only under the version its mapping starts at — an operation reaching v2 through its
+baseline is not listed there again (`.claude/rules/api-rest.md` § Versioning,
+`.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
+
 ### Mods
 
 **Below Claude Code 2.1.287 no mod loads, and nothing says so in the session.** The band

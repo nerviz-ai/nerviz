@@ -118,7 +118,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RefundController {
 
     @InGroup(Groups.FINANCE_APPROVERS)
-    @PostMapping("/api/v1/refunds/{refundId}/approval")
+    @PostMapping(path = "/refunds/{refundId}/approval", version = "1+")
     public ResponseEntity<Void> approve(@PathVariable UUID refundId) {
         return ResponseEntity.noContent().build();
     }

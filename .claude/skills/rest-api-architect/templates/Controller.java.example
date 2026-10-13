@@ -1,8 +1,8 @@
 /*
  * EXEMPLAR — controller implementation, in the shape `.claude/rules/api-rest.md`
- * requires. Shows the four points every new endpoint tends to get wrong: explicit
- * version prefix, `@ApiResponse` for EVERY status the endpoint returns (declared on
- * the contract, see below), `Location` on 201, and zero business logic.
+ * requires. Shows the four points every new endpoint tends to get wrong: a `version`
+ * baseline on every handler, `@ApiResponse` for EVERY status the endpoint returns
+ * (declared on the contract, see below), `Location` on 201, and zero business logic.
  * Compilable as-is — not pseudo-code.
  *
  * Implements `UserApi` (`Api.java.example`) for its `@Tag` and `...OpenApiDocs`
@@ -48,21 +48,26 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * Explicit version in the path. Never `server.servlet.context-path`: it hides the version
- * and prevents /v1 and /v2 from coexisting (decision P5(g)).
+ * The class mapping is the resource alone. The `/api/v{version}` prefix comes from
+ * `ApiVersioningConfig` (`ApiVersioningConfig.java.example`), which adds it to every
+ * controller of this package — spelling `/api/v1` here as well would serve
+ * `/api/v1/api/v1/users`. Never `server.servlet.context-path` either: it hides the version
+ * from the mapping (decision P5(g), `.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
+ *
+ * Every handler declares `version = "1+"`, a baseline: it serves v1 and every later
+ * supported version until a mapping at a higher version supersedes it
+ * (`.claude/rules/api-rest.md` § Versioning). A breaking change in a later use case adds a
+ * second method at the next version — `@GetMapping(path = "/{userId}", version = "2+")` —
+ * beside this one, which keeps serving v1 until its sunset. A handler with no `version`
+ * answers every version, including ones that do not exist yet: never written.
  */
 @RestController
-@RequestMapping(path = UserController.BASE_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
 public class UserController implements UserApi {
-
-    /**
-     * The collection's path, written once: the class mapping and every `Location` this
-     * controller answers read it, and the web-slice test asserts against it. A second spelling
-     * of the path drifts from the mapping on the first rename.
-     */
-    public static final String BASE_PATH = "/api/v1/users";
 
     private final CreateUserUseCase createUser;
     private final ListUsersQuery listUsers;
@@ -79,17 +84,18 @@ public class UserController implements UserApi {
      * request header, not from a controller parameter.
      *
      * 201 carries Location + the created representation. Only one of the two is half a
-     * contract. Location is relative, built from `BASE_PATH` (`.claude/rules/api-rest.md`
-     * § Success statuses). A replay answers the same 201 with the stored body — the aspect
-     * captures both from this return value.
+     * contract. Location is relative, built from the path this request arrived on
+     * (`.claude/rules/api-rest.md` § Success statuses), so a v2 call answers a v2 location.
+     * A replay answers the same 201 with the stored body — the aspect captures both from
+     * this return value.
      */
     @Override
     @Idempotent(bodyArgIndex = 0)
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(version = "1+", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         User user = createUser.handle(UserMapper.toCommand(request));
         UserResponse body = UserMapper.toResponse(user);
-        return ResponseEntity.created(URI.create(BASE_PATH + "/" + body.id())).body(body);
+        return ResponseEntity.created(locationOf(body.id())).body(body);
     }
 
     /**
@@ -116,7 +122,7 @@ public class UserController implements UserApi {
      * sees `Pageable` (`.claude/rules/architecture-ddd.md` § Application).
      */
     @Override
-    @GetMapping
+    @GetMapping(version = "1+")
     public PageResponse<UserResponse> list(
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
                     Pageable pageable) {
@@ -126,8 +132,19 @@ public class UserController implements UserApi {
     }
 
     @Override
-    @GetMapping("/{userId}")
+    @GetMapping(path = "/{userId}", version = "1+")
     public UserResponse get(@PathVariable String userId) {
         return UserMapper.toResponse(listUsers.byId(userId));
+    }
+
+    /**
+     * The request's own path plus the new id, path only — never the scheme and host, which
+     * an absolute URI would take from the request and leak from behind a proxy. Read from
+     * the current request, so no `HttpServletRequest` parameter leaks into `UserApi`'s
+     * signature. `pathSegment` encodes the id.
+     */
+    private static URI locationOf(String id) {
+        String collection = ServletUriComponentsBuilder.fromCurrentRequestUri().build().getPath();
+        return UriComponentsBuilder.fromPath(collection).pathSegment(id).build().toUri();
     }
 }

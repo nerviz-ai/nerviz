@@ -18,7 +18,7 @@
  * business method body free of documentation noise, and gives the contract a single
  * file reviewers check against `10-dominio.md`'s ports without wading through
  * `createUser.handle(...)` logic — and, unlike an earlier version of this exemplar,
- * without wondering which file actually decides `/api/v1/users` or whether `@Valid`
+ * without wondering which file actually decides the `/users` mapping, its `version`, or whether `@Valid`
  * fires: that's answered by one file now, the controller.
  *
  * One interface per resource, matching its controller 1:1 — not one interface for the

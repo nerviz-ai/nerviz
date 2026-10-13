@@ -38,28 +38,13 @@
  * `@.claude/skills/persistence-architect/templates/IdempotencyKeyTable.sql.example` and
  * `.../IdempotencyKeyStore.java.example`, and `.../IdempotentExecution.java.example`.
  *
- * ANNOTATION-BASED VARIANT — only `requiresKey` and its supporting field change;
- * `preHandle`, `requireValidKey`, `isUuid`, and the `WebMvcConfig` registration below stay
- * as written.
- *
- * Switch to this once `IdempotencyAspect.java.example` is the project's chosen strategy
- * (rest-api-architect's SKILL.md § "Fix pagination and idempotency": second
- * `Idempotency-Key` endpoint onward). A hardcoded path set has one advantage this loses:
- * it still works for a project using the by-hand `IdempotentExecution` call without ever
- * introducing `@Idempotent`. Don't make this switch for a single-endpoint project.
- *
- * import org.springframework.web.method.HandlerMethod;
- *
- * private boolean requiresKey(HttpServletRequest request, Object handler) {
- *     // The annotation is the single source of truth both this interceptor
- *     // (structural check) and IdempotencyAspect (transactional check) read — a second
- *     // annotated endpoint needs no change here.
- *     return handler instanceof HandlerMethod handlerMethod
- *             && handlerMethod.hasMethodAnnotation(Idempotent.class);
- * }
- *
- * // preHandle's signature already receives `handler` — pass it to requiresKey instead
- * // of PROTECTED_POST_PATHS/HttpMethod.POST.matches(request.getMethod()).
+ * WHICH ROUTES. The ones whose handler method carries `@Idempotent` — the same annotation
+ * `IdempotencyAspect.java.example` reads for the transactional half, so the two halves
+ * cannot disagree and a new protected endpoint needs no change here. Every
+ * `Idempotency-Key` endpoint uses `@Idempotent`, the first one included (decision `0044`).
+ * Never a set of literal paths: it is bound to one API version, and the `/v2` of a protected
+ * `POST` would arrive without the key check
+ * (`.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
  *
  * Registration. Its own file in the real project (`WebMvcConfig.java`), in the same module.
  *
@@ -76,10 +61,9 @@ package com.exemplo.minhaapi.adapter.in.rest.idempotent;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Set;
 import java.util.UUID;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
@@ -88,19 +72,13 @@ public class IdempotencyKeyInterceptor implements HandlerInterceptor {
     public static final String HEADER = "Idempotency-Key";
 
     /**
-     * Routes that require the key: POST that creates a resource, moves money, or touches an
-     * external system. Explicit list — requiring it across the whole API puts 400 on harmless actions.
-     */
-    private static final Set<String> PROTECTED_POST_PATHS = Set.of("/api/v1/users");
-
-    /**
      * One return, always `true`: a rejection is a thrown exception, so the error body
      * comes from `ApiExceptionHandler`. Two `return true` branches read to Sonar as a
      * method that "always returns the same value" (java:S3516), a BLOCKER.
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (requiresKey(request)) {
+        if (requiresKey(handler)) {
             requireValidKey(request);
         }
         return true;
@@ -113,9 +91,13 @@ public class IdempotencyKeyInterceptor implements HandlerInterceptor {
         }
     }
 
-    private boolean requiresKey(HttpServletRequest request) {
-        return HttpMethod.POST.matches(request.getMethod())
-                && PROTECTED_POST_PATHS.contains(request.getRequestURI());
+    /**
+     * Only an `@Idempotent` handler — a POST that creates a resource, moves money, or touches
+     * an external system. Requiring the key across the whole API puts 400 on harmless actions.
+     */
+    private static boolean requiresKey(Object handler) {
+        return handler instanceof HandlerMethod handlerMethod
+                && handlerMethod.hasMethodAnnotation(Idempotent.class);
     }
 
     private static boolean isUuid(String value) {

@@ -6,7 +6,7 @@ paths:
 status: active
 ---
 
-# REST API — resources, verbs, statuses, errors, pagination, idempotency
+# REST API — resources, verbs, statuses, errors, versioning, pagination, idempotency
 
 The inbound adapter translates HTTP into the use case and the result back again. It does
 not decide business rules (`@.claude/rules/architecture-ddd.md`), does not invent an
@@ -26,10 +26,7 @@ never replaces.** Wrong status with a pretty body is a bug.
 - A query with criteria too large for the query string: `POST /orders/search`, with an
   ADR recording the exception — it's a read via `POST`, which contradicts the table
   below's semantics.
-- Major version at the start of the path: `/api/v1/orders`. Never in the query string,
-  never in a header. Adding an optional field or a new status is not a breaking change;
-  removing a field, changing a type, tightening validation, or changing the returned
-  status is a breaking change and requires `/v2`.
+- Major version at the start of the path: `/api/v1/orders` — § Versioning.
 
 ## Verbs
 
@@ -67,10 +64,11 @@ never replaces.** Wrong status with a pretty body is a bug.
 | `PATCH` applied | 200 | Resulting representation |
 | `DELETE` executed, or resource already nonexistent | 204 | No body |
 
-`Location` is a relative URI (RFC 9110 allows it), built from the same path constant the
-class-level mapping reads — never a second spelling of the path. A relative URI needs no
-forwarded-header configuration behind a proxy; an absolute one built from the request
-leaks the internal host without it.
+`Location` is a relative URI (RFC 9110 allows it), built from the path the request itself
+arrived on plus the new identifier — so it carries the version the client called, and
+never a second spelling of the path. A relative URI needs no forwarded-header
+configuration behind a proxy; an absolute one built from the request leaks the internal
+host without it.
 
 `DELETE` of a nonexistent resource is 204, not 404: the choice applies to the whole API,
 not to each endpoint. An endpoint that returns 200 where its neighbor returns 204 in the
@@ -87,6 +85,7 @@ domain — it's 400. A valid body that the aggregate rejects is 422.
 | Malformed JSON, incompatible type, unknown enum | 400 |
 | Bean validation on the DTO, invalid query or path param | 400 |
 | Required `Idempotency-Key` missing or malformed | 400 |
+| API version not supported — never offered, or past its sunset | 400 |
 | No credential, invalid or expired credential | 401 |
 | Authenticated, no permission, and the resource's existence isn't sensitive | 403 |
 | Resource doesn't exist — or exists and revealing it would be an information leak | 404 |
@@ -155,7 +154,45 @@ plus three extensions, and no others:
 | `violations` | Bean validation in the adapter | `[{field, message}]` per rejected field |
 
 Bean validation is structural, it doesn't come from the domain — so it carries
-`violations` and **never** `errorCode`.
+`violations` and **never** `errorCode`. So do a missing `Idempotency-Key` (the header
+name as `field`) and an unsupported API version (`version` as `field`).
+
+## Versioning
+
+- **The major version is a path segment, `/api/v<N>/…`, and nowhere else.** Never in the
+  query string, a header, or a media type parameter: the version must show in access logs
+  and in a path matcher, and a header splits one cached URL into several representations
+  that only `Vary` tells apart.
+- **The framework's API versioning resolves it, from one configuration per project.** The
+  `/api/v{version}` prefix is added by configuration to the REST adapter package's
+  controllers alone, never spelled in a class mapping — a framework's own controller
+  (the OpenAPI endpoint) must not receive it. The version is read only from paths under
+  `/api/`, so `/actuator` and the OpenAPI endpoints are never parsed as a version.
+- **A version is required, and the supported versions are an explicit list.** No default
+  version, no version detected from the mappings: removing a version from the list is
+  what retires it.
+- **Every handler method declares the version it starts at, as a baseline** (`"1+"`): it
+  serves that version and every later one until a mapping at a higher version supersedes
+  it. A handler with no version is never written — it answers every version, including
+  ones that do not exist yet.
+- **What is breaking.** Adding an optional field or a new status is not. Removing or
+  renaming a field, changing a type, tightening validation, or changing the returned status
+  is — and is served by a new mapping at the next version, as its baseline, beside the old
+  one. Nothing else in the API moves: an endpoint without a breaking change is reached at
+  the new version through its baseline.
+- **Deprecation is per version, never per endpoint**, and a deprecated version answers with
+  both `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) on every response, plus a `Link`
+  with `rel="deprecation"` to the migration notes. Never `rel="sunset"`. The window between
+  the two dates is decided per deprecation and justified by measured use of the version,
+  not by a fixed number.
+- **After the sunset** the version leaves the supported list and its mappings are deleted
+  in the same change: a request to it is 400, structural.
+- **Use is measured per version.** The request metric carries the resolved version as a
+  tag, bounded by the supported list (`@.claude/rules/observability.md` § Metrics) — with
+  the version in a path variable, the URI tag no longer shows it.
+- **The OpenAPI document lists each operation under the version its mapping starts at.**
+  An operation reached at a later version through its baseline is not repeated there; the
+  migration notes the deprecation link points to say so.
 
 ## Pagination
 
@@ -256,3 +293,13 @@ Bean validation is structural, it doesn't come from the domain — so it carries
   first two pages and asserts the intersection is empty.
 - OpenAPI: `openapi.json` generated in CI and compared with the committed version. An
   unintended difference fails the build.
+- Versioning: a request to a version outside the supported list is 400 with `violations`
+  on `version`; a deprecated version carries `Deprecation` and `Sunset`.
+
+```bash
+# No version spelled in a mapping — the prefix is configuration. Zero lines expected.
+grep -rnE "@(Request|Get|Post|Put|Patch|Delete)Mapping\(.*\"/api/v[0-9]" --include=*.java src/main
+
+# Every handler method declares its baseline. Review any hit: a mapping with no `version`.
+grep -rnE "@(Get|Post|Put|Patch|Delete)Mapping" --include=*.java src/main | grep -v "version"
+```

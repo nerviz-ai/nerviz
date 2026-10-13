@@ -1,0 +1,44 @@
+/*
+ * EXEMPLAR — the resolved API version as a tag of the server request metric
+ * (`http.server.requests`), so use per version is measured before a deprecation window is
+ * chosen (`.claude/rules/api-rest.md` § Versioning). With the version in a path variable the
+ * `uri` tag reads `/api/v{version}/users/{userId}` and no longer shows it. Written together
+ * with `ApiVersioningConfig` by the first REST use case. Compilable as-is — not pseudo-code.
+ *
+ * Cardinality is bounded by the supported list (`.claude/rules/observability.md` § Metrics):
+ * the value is the parsed version (`1.0.0`, `2.0.0`), or `none` for a request outside `/api/`
+ * (actuator, OpenAPI) and for an unsupported one. Never the raw path segment — a client
+ * sending `/api/v999/...` would mint a series per guess.
+ *
+ * Read from `HandlerMapping.API_VERSION_ATTRIBUTE`, which holds an `ApiVersionHolder`, not
+ * the version itself (proven against Framework 7.0.9, `0150`).
+ */
+package com.exemplo.minhaapi.adapter.in.rest;
+
+import io.micrometer.common.KeyValue;
+import io.micrometer.common.KeyValues;
+import org.springframework.http.server.observation.DefaultServerRequestObservationConvention;
+import org.springframework.http.server.observation.ServerRequestObservationContext;
+import org.springframework.stereotype.Component;
+import org.springframework.web.accept.ApiVersionHolder;
+import org.springframework.web.servlet.HandlerMapping;
+
+@Component
+public class ApiVersionObservationConvention extends DefaultServerRequestObservationConvention {
+
+    private static final String TAG = "api.version";
+    private static final String NONE = "none";
+
+    @Override
+    public KeyValues getLowCardinalityKeyValues(ServerRequestObservationContext context) {
+        return super.getLowCardinalityKeyValues(context).and(KeyValue.of(TAG, versionOf(context)));
+    }
+
+    private static String versionOf(ServerRequestObservationContext context) {
+        Object attribute = context.getCarrier().getAttribute(HandlerMapping.API_VERSION_ATTRIBUTE);
+        if (attribute instanceof ApiVersionHolder holder && holder.hasVersion()) {
+            return holder.getVersion().toString();
+        }
+        return NONE;
+    }
+}
