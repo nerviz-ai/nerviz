@@ -10,7 +10,8 @@ description: >
   replicas, a job that must catch up after downtime, or pruning/retention of a table. Piece of
   the `/new-feature` pipeline: requires `00-caso-de-uso.md` in the given folder plus a
   schedule trigger, a Form B outbox in `25-mensageria.md`, a reconciliation pass asked by
-  `28-cliente-http.md`, or a deferred scheduled job — and stops without one of them.
+  `28-cliente-http.md`, a search index rebuild asked by `23-busca.md`, a document backfill asked
+  by `20-persistencia.md`, or a deferred scheduled job — and stops without one of them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
 model: opus
@@ -46,6 +47,8 @@ to.
 | `00-caso-de-uso.md` | The trigger is a schedule, a recurring run, a batch, or a background job | That job, calling the inbound port `10-dominio.md` declared — so `10-dominio.md` is required too |
 | `25-mensageria.md` | § 2 chose **Form B** (transactional outbox + relay) | The relay's schedule and the prune job — once per project, reused by every later case |
 | `28-cliente-http.md` | § 10 asks for a reconciliation pass over writes whose outcome is unknown | That pass, calling the inbound port that reads the provider and settles the state — `10-dominio.md` is required too |
+| `23-busca.md` | § 8 asks for a rebuild of a search projection | The rebuild job: on demand and after a version change, never two at once, paging the source through its port and writing through the rebuild port, ending in the alias swap — `search-architect`'s `SearchRebuild.java.example` is the adapter half |
+| `20-persistencia.md` (document family) | § 4 asks for a backfill — a field a query filters or sorts on, or a new unique key, over documents older than the current `schemaVersion` | That bounded pass, idempotent per document, run once per shape change |
 | Any partial's `Deferred` block | A row names a scheduled job as the missing piece | That job |
 
 None holds → stop and say so: a use case triggered by a request or a message has no schedule to

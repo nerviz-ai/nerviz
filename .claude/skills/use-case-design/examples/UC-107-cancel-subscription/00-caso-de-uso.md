@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | a customer-support agent cancels a subscription, over HTTP — inbound REST adapter |
 | Side effects | **1** — `UPDATE` on `subscriptions`, recorded as a queued, undoable action |
+| Storage | `Subscription` → relational — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | opens in the use case, closes before the response; the undo, if it happens, is a separate transaction |
 | Idempotency | yes — `Idempotency-Key` required |
 | Concurrency | optimistic lock (`version`) on `subscriptions` |

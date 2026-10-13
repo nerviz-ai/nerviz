@@ -43,6 +43,10 @@ modules:
       - "com.fasterxml.jackson.."
       - "tools.jackson.."  # Jackson 3 (Spring Boot 4) core; annotations stay under com.fasterxml.jackson
       - "graphql.."  # graphql-java; Spring for GraphQL is already under org.springframework — decision 0146
+      - "com.mongodb.."  # a document store's driver, BSON and the search clients stay in the outbound adapters; Spring Data is already under org.springframework — decision 0147
+      - "org.bson.."
+      - "co.elastic.."
+      - "org.opensearch.."
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -60,6 +64,12 @@ modules:
       - "org.springframework.ai.."  # the model suggests through a port; the library stays in infrastructure.ai — decision 0145
       - "org.springframework.graphql.."  # a resolver calls the use case; the library stays in infrastructure.graphql — decision 0146
       - "graphql.."
+      - "org.springframework.data.mongodb.."  # a port is all the application sees of a document store or a search index — decision 0147
+      - "com.mongodb.."
+      - "org.bson.."
+      - "org.springframework.data.elasticsearch.."
+      - "co.elastic.."
+      - "org.opensearch.."
   - id: infrastructure
     path: infrastructure
     depends_on: [application, domain, commons]
@@ -93,6 +103,8 @@ packages:
     infrastructure.cache: "infrastructure.cache"
     # Outbound AI adapters (a language model or a vector store behind a port) and the AI wiring — decision 0145.
     infrastructure.ai: "infrastructure.ai"
+    # Outbound search adapters — a search engine index kept as a projection — decision 0147.
+    infrastructure.search: "infrastructure.search"
     # Inbound GraphQL adapter (controllers, their records, the GraphQL wiring) — decision 0146.
     infrastructure.graphql: "infrastructure.graphql"
     infrastructure.config: "infrastructure.config"

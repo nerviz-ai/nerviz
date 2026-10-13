@@ -13,6 +13,8 @@
 | Date | 2026-09-26 |
 | Trigger | payout settlement, over HTTP — inbound REST adapter, called by the finance back office |
 | Side effects | **1** direct — `UPDATE` on `payouts`; **1** reactive, out of this boundary — the external accounting service credits the merchant's ledger |
+| Storage | `Payout` → relational — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | opens in the use case, closes before the response; the accounting service runs in its own process, after this one commits |
 | Idempotency | yes — settling an already-settled payout is a no-op, and must never produce a second ledger credit |
 | Concurrency | optimistic lock (`version`) on `payouts` |

@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | an operator moves an order to its next status, over HTTP — inbound REST adapter |
 | Side effects | **1** — `UPDATE` on `orders.status` |
+| Storage | `Order` → relational — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | opens in the use case, closes before the response |
 | Idempotency | no — a given transition is a one-time state change; retried with the same target status while already there is a no-op, to a different status is a conflict |
 | Concurrency | optimistic lock (`version`) on `orders` |

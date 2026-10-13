@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | charge computation for a product at checkout time, over HTTP — inbound REST adapter |
 | Side effects | **0** — pure computation |
+| Storage | `Product` → relational (read) — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | read-only |
 | Idempotency | yes |
 | Concurrency | not applicable |

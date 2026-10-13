@@ -1,0 +1,502 @@
+/*
+ * EXEMPLAR — the two shared stores of the project, when its aggregates live in MongoDB: the outbox
+ * (`outbox_events`, Form B) and the idempotency keys (`idempotency_keys`). Form reference for the
+ * executor agent; the relational shapes are `OutboxEventStore.java.example` and
+ * `IdempotencyKeyStore.java.example`, and every note there about ownership, ports and the
+ * transaction shape holds here unchanged.
+ * Rules: `.claude/rules/messaging.md` (§ Publication timing) · `.claude/rules/api-rest.md`
+ *        (§ Idempotency) · `.claude/rules/persistence.md` (§ Document (MongoDB))
+ *
+ * WHAT CHANGES WITH THE FAMILY:
+ *   - The outbox record commits with the aggregate only inside a MongoDB transaction — a replica
+ *     set and the `mongoTransactionManager` (`MongoConfig.java.example`). The appender joins the
+ *     transaction `DocumentTransactions` opened; on a standalone server there is no Form B.
+ *   - The claim is a lease taken one document at a time by `findAndModify` — atomic per document,
+ *     so two relay instances never take the same event inside the lease. The relational
+ *     `FOR UPDATE SKIP LOCKED` has no MongoDB equivalent for a batch.
+ *   - The idempotency key expires by a single-field TTL index on `expiresAt`. The outbox prune
+ *     stays the job's (`OutboxRetentionGateway`): retention is enforced by a job, and a TTL would
+ *     also delete a dead-lettered event nobody looked at.
+ *   - The two collections and their indexes are declared like any other
+ *     (`MongoCollections.java.example`), so they exist before the first transaction writes them.
+ *
+ * PORTS: `OutboxRelayGateway`, `OutboxEventRecord` (messaging-architect), `OutboxRetentionGateway`
+ * (jobs-architect) and `IdempotencyKeyPort` with its records (the relational exemplar) are declared
+ * where they are today — implemented here, never redeclared.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- outbox/OutboxEventDocument.java
+package com.example.demo.adapter.out.persistence.outbox;
+
+import java.time.Instant;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.TypeAlias;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
+/**
+ * Public: the appender in the messaging adapter writes it, the one consumer outside this
+ * subpackage (the same exception the relational entity carries).
+ */
+@Document("outbox_events")
+@TypeAlias("outboxEvent")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class OutboxEventDocument {
+
+    @Id
+    UUID eventId;
+
+    @Field("aggregateId")
+    String aggregateId;
+
+    @Field("eventType")
+    String eventType;
+
+    @Field("payload")
+    String payload;
+
+    @Field("occurredAt")
+    Instant occurredAt;
+
+    @Field("publishedAt")
+    Instant publishedAt;
+
+    /** The lease: a claimed event is invisible to other relays until this instant passes. */
+    @Field("claimedUntil")
+    Instant claimedUntil;
+
+    @Field("attempts")
+    int attempts;
+
+    @Field("lastError")
+    String lastError;
+
+    @Field("deadLettered")
+    boolean deadLettered;
+
+    @Version
+    Long version;
+
+    public OutboxEventDocument(UUID eventId, String aggregateId, String eventType, String payload, Instant occurredAt) {
+        this.eventId = eventId;
+        this.aggregateId = aggregateId;
+        this.eventType = eventType;
+        this.payload = payload;
+        this.occurredAt = occurredAt;
+    }
+}
+
+// --- outbox/OutboxEventMongoStore.java
+package com.example.demo.adapter.out.persistence.outbox;
+
+import com.example.demo.application.port.out.OutboxEventRecord;
+import com.example.demo.application.port.out.OutboxRelayGateway;
+import com.example.demo.application.port.out.OutboxRetentionGateway;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.stereotype.Component;
+
+/**
+ * No {@code @Transactional}: every operation here is one atomic document write, which is what
+ * the relay needs — a claim, a send and a mark are separate units, and none of them may hold a
+ * transaction across the broker call.
+ */
+@Component
+class OutboxEventMongoStore implements OutboxRelayGateway, OutboxRetentionGateway {
+
+    private static final int MAX_ERROR_LENGTH = 500;
+
+    /** Longer than the slowest send the producer's timeouts allow (the partial's § 1). */
+    private static final Duration LEASE = Duration.ofSeconds(60);
+
+    private final MongoTemplate template;
+    private final Clock clock;
+
+    OutboxEventMongoStore(MongoTemplate template, Clock clock) {
+        this.template = template;
+        this.clock = clock;
+    }
+
+    /**
+     * Oldest pending event first, one {@code findAndModify} per event: each call atomically takes
+     * the lease on one document, so a second relay polling at the same moment takes the next one.
+     * Served by {@code ix_outbox_pending} ({@code publishedAt, deadLettered, occurredAt}).
+     */
+    @Override
+    public List<OutboxEventRecord> claimPending(int batchSize) {
+        Instant now = clock.instant();
+        List<OutboxEventRecord> claimed = new ArrayList<>(batchSize);
+        for (int i = 0; i < batchSize; i++) {
+            Query pending = Query.query(Criteria.where("publishedAt").isNull()
+                            .and("deadLettered").is(false)
+                            .orOperator(Criteria.where("claimedUntil").isNull(), Criteria.where("claimedUntil").lt(now)))
+                    .with(Sort.by("occurredAt", "_id"));
+            OutboxEventDocument event = template.findAndModify(pending,
+                    new Update().set("claimedUntil", now.plus(LEASE)),
+                    FindAndModifyOptions.options().returnNew(true),
+                    OutboxEventDocument.class);
+            if (event == null) {
+                break;
+            }
+            claimed.add(toRecord(event));
+        }
+        return claimed;
+    }
+
+    @Override
+    public void markPublished(UUID eventId) {
+        template.updateFirst(byId(eventId), new Update().set("publishedAt", clock.instant()).unset("claimedUntil"),
+                OutboxEventDocument.class);
+    }
+
+    /**
+     * The attempt is counted atomically; once the count reaches the ceiling, a second write
+     * conditioned on {@code deadLettered: false} flags the event, and only one caller can win it —
+     * so {@code true} is returned exactly once, as the port promises.
+     */
+    @Override
+    public boolean markFailed(UUID eventId, String reason, int maxAttempts) {
+        OutboxEventDocument after = template.findAndModify(byId(eventId),
+                new Update().inc("attempts", 1).set("lastError", truncate(reason)).unset("claimedUntil"),
+                FindAndModifyOptions.options().returnNew(true),
+                OutboxEventDocument.class);
+        if (after == null || after.getAttempts() < maxAttempts) {
+            return false;
+        }
+        return template.updateFirst(byId(eventId).addCriteria(Criteria.where("deadLettered").is(false)),
+                new Update().set("deadLettered", true), OutboxEventDocument.class).getModifiedCount() == 1;
+    }
+
+    @Override
+    public void markDeadLettered(UUID eventId, String reason) {
+        template.updateFirst(byId(eventId),
+                new Update().set("deadLettered", true).set("lastError", truncate(reason)).unset("claimedUntil"),
+                OutboxEventDocument.class);
+    }
+
+    @Override
+    public Optional<Instant> oldestPendingOccurredAt() {
+        Query oldest = Query.query(Criteria.where("publishedAt").isNull().and("deadLettered").is(false))
+                .with(Sort.by("occurredAt")).limit(1);
+        return Optional.ofNullable(template.findOne(oldest, OutboxEventDocument.class))
+                .map(OutboxEventDocument::getOccurredAt);
+    }
+
+    /**
+     * Published events only, bounded by {@code limit}: the ids first, then one delete by id —
+     * MongoDB has no {@code DELETE … LIMIT}. Served by {@code ix_outbox_published}.
+     */
+    @Override
+    public int deletePublishedBefore(Instant cutoff, int limit) {
+        Query published = Query.query(Criteria.where("publishedAt").lt(cutoff)).limit(limit);
+        published.fields().include("_id");
+        List<UUID> ids = template.find(published, OutboxEventDocument.class).stream()
+                .map(OutboxEventDocument::getEventId)
+                .toList();
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        return (int) template.remove(Query.query(Criteria.where("_id").in(ids)), OutboxEventDocument.class)
+                .getDeletedCount();
+    }
+
+    private static Query byId(UUID eventId) {
+        return Query.query(Criteria.where("_id").is(eventId));
+    }
+
+    private static OutboxEventRecord toRecord(OutboxEventDocument event) {
+        return new OutboxEventRecord(event.getEventId(), event.getAggregateId(), event.getEventType(),
+                event.getPayload(), event.getOccurredAt());
+    }
+
+    private static String truncate(String reason) {
+        if (reason == null) {
+            return "unknown";
+        }
+        return reason.length() <= MAX_ERROR_LENGTH ? reason : reason.substring(0, MAX_ERROR_LENGTH);
+    }
+}
+
+// --- outbox/OutboxCollection.java
+package com.example.demo.adapter.out.persistence.outbox;
+
+import com.example.demo.adapter.out.persistence.shared.MongoCollectionSchema;
+import java.util.List;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.schema.JsonSchemaProperty;
+import org.springframework.data.mongodb.core.schema.MongoJsonSchema;
+import org.springframework.stereotype.Component;
+
+@Component
+class OutboxCollection implements MongoCollectionSchema {
+
+    @Override
+    public Class<?> documentType() {
+        return OutboxEventDocument.class;
+    }
+
+    @Override
+    public MongoJsonSchema validator() {
+        return MongoJsonSchema.builder()
+                .required("aggregateId", "eventType", "payload", "occurredAt")
+                .properties(JsonSchemaProperty.string("eventType"), JsonSchemaProperty.date("occurredAt"))
+                .build();
+    }
+
+    @Override
+    public List<Index> indexes() {
+        return List.of(
+                new Index().on("publishedAt", Sort.Direction.ASC)
+                        .on("deadLettered", Sort.Direction.ASC)
+                        .on("occurredAt", Sort.Direction.ASC)
+                        .named("ix_outbox_pending"),
+                new Index().on("publishedAt", Sort.Direction.ASC).sparse().named("ix_outbox_published"));
+    }
+}
+
+// --- idempotency/IdempotencyKeyDocument.java
+package com.example.demo.adapter.out.persistence.idempotency;
+
+import com.example.demo.application.port.out.IdempotencyRequest;
+import java.time.Instant;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.TypeAlias;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
+/**
+ * The key is the {@code _id}: the racing insert of {@code claim} is the concurrency control, and
+ * the null {@code @Version} makes {@code save} an insert that raises {@code DuplicateKeyException}.
+ */
+@Document("idempotency_keys")
+@TypeAlias("idempotencyKey")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+class IdempotencyKeyDocument {
+
+    @Id
+    UUID idempotencyKey;
+
+    @Field("route")
+    String route;
+
+    @Field("callerIdentity")
+    String callerIdentity;
+
+    @Field("bodyHash")
+    String bodyHash;
+
+    @Field("status")
+    IdempotencyStatus status;
+
+    @Field("responseStatus")
+    Integer responseStatus;
+
+    @Field("responseBody")
+    String responseBody;
+
+    @Field("responseHeaders")
+    String responseHeaders;
+
+    @Field("claimedAt")
+    Instant claimedAt;
+
+    /** The TTL index removes the key about a minute after this instant — retention, not a deadline. */
+    @Field("expiresAt")
+    Instant expiresAt;
+
+    @Version
+    Long version;
+
+    IdempotencyKeyDocument(IdempotencyRequest request, Instant expiresAt) {
+        this.idempotencyKey = request.key();
+        this.route = request.route();
+        this.callerIdentity = request.callerIdentity();
+        this.bodyHash = request.bodyHash();
+        this.status = IdempotencyStatus.IN_PROGRESS;
+        this.claimedAt = request.now();
+        this.expiresAt = expiresAt;
+    }
+
+    void applyResponse(int newStatus, String body, String headers) {
+        this.status = IdempotencyStatus.COMPLETED;
+        this.responseStatus = newStatus;
+        this.responseBody = body;
+        this.responseHeaders = headers;
+    }
+
+    void reclaim(Instant now) {
+        this.claimedAt = now;
+    }
+}
+
+// --- idempotency/IdempotencyStatus.java
+package com.example.demo.adapter.out.persistence.idempotency;
+
+enum IdempotencyStatus { IN_PROGRESS, COMPLETED }
+
+// --- idempotency/IdempotencyKeyMongoRepository.java
+package com.example.demo.adapter.out.persistence.idempotency;
+
+import java.util.UUID;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+interface IdempotencyKeyMongoRepository extends MongoRepository<IdempotencyKeyDocument, UUID> {}
+
+// --- idempotency/IdempotencyKeyMongoStore.java
+package com.example.demo.adapter.out.persistence.idempotency;
+
+import com.example.demo.application.port.out.IdempotencyClaim;
+import com.example.demo.application.port.out.IdempotencyKeyPort;
+import com.example.demo.application.port.out.IdempotencyRequest;
+import com.example.demo.application.port.out.StoredResponse;
+import com.example.demo.domain.exception.ConflictException;
+import java.time.Duration;
+import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+/**
+ * The relational exemplar's two-transaction shape, unchanged: {@code claim} and {@code release}
+ * commit on their own, {@code complete} joins the business transaction. MongoDB raises the
+ * duplicate at {@code save}, so no flush is needed, and a failed insert does not poison the
+ * session the way an aborted Postgres transaction does.
+ */
+@Component
+class IdempotencyKeyMongoStore implements IdempotencyKeyPort {
+
+    private static final Duration TTL = Duration.ofHours(24);
+    private static final Duration IN_PROGRESS_LEASE = Duration.ofMinutes(5);
+
+    private final IdempotencyKeyMongoRepository repository;
+
+    IdempotencyKeyMongoStore(IdempotencyKeyMongoRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public IdempotencyClaim claim(IdempotencyRequest request) {
+        requireNoTransaction("claim");
+        try {
+            repository.save(new IdempotencyKeyDocument(request, request.now().plus(TTL)));
+            return new IdempotencyClaim.Proceed();
+        } catch (DuplicateKeyException cause) {
+            IdempotencyKeyDocument existing = repository.findById(request.key()).orElseThrow(() -> cause);
+            return resolveCollision(existing, request);
+        }
+    }
+
+    @Override
+    public void complete(UUID key, StoredResponse response) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("complete must join the business transaction");
+        }
+        IdempotencyKeyDocument claimed = repository.findById(key).orElseThrow();
+        claimed.applyResponse(response.status(), response.body(), response.headers());
+        repository.save(claimed);
+    }
+
+    @Override
+    public void release(UUID key) {
+        requireNoTransaction("release");
+        repository.deleteById(key);
+    }
+
+    private IdempotencyClaim resolveCollision(IdempotencyKeyDocument existing, IdempotencyRequest request) {
+        if (!existing.getBodyHash().equals(request.bodyHash())) {
+            throw new ConflictException("IDEMPOTENCY_KEY_REUSED",
+                    "Idempotency-Key " + request.key() + " was already used with a different request body");
+        }
+        if (existing.getStatus() == IdempotencyStatus.COMPLETED) {
+            return new IdempotencyClaim.Replay(new StoredResponse(
+                    existing.getResponseStatus(), existing.getResponseBody(), existing.getResponseHeaders()));
+        }
+        if (existing.getClaimedAt().plus(IN_PROGRESS_LEASE).isAfter(request.now())) {
+            throw inProgress(request.key());
+        }
+        existing.reclaim(request.now());
+        try {
+            repository.save(existing);
+            return new IdempotencyClaim.Proceed();
+        } catch (OptimisticLockingFailureException lostRace) {
+            throw inProgress(request.key());
+        }
+    }
+
+    private static ConflictException inProgress(UUID key) {
+        return new ConflictException("IDEMPOTENCY_KEY_IN_PROGRESS",
+                "Request with Idempotency-Key " + key + " is still being processed");
+    }
+
+    private static void requireNoTransaction(String operation) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException(operation + " must commit on its own, outside the business transaction");
+        }
+    }
+}
+
+// --- idempotency/IdempotencyCollection.java
+package com.example.demo.adapter.out.persistence.idempotency;
+
+import com.example.demo.adapter.out.persistence.shared.MongoCollectionSchema;
+import java.time.Duration;
+import java.util.List;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.schema.JsonSchemaProperty;
+import org.springframework.data.mongodb.core.schema.MongoJsonSchema;
+import org.springframework.stereotype.Component;
+
+/** A single-field TTL index: on a compound index {@code expireAfterSeconds} is ignored. */
+@Component
+class IdempotencyCollection implements MongoCollectionSchema {
+
+    @Override
+    public Class<?> documentType() {
+        return IdempotencyKeyDocument.class;
+    }
+
+    @Override
+    public MongoJsonSchema validator() {
+        return MongoJsonSchema.builder()
+                .required("route", "callerIdentity", "bodyHash", "status", "claimedAt", "expiresAt")
+                .properties(JsonSchemaProperty.date("expiresAt"))
+                .build();
+    }
+
+    @Override
+    public List<Index> indexes() {
+        return List.of(new Index().on("expiresAt", Sort.Direction.ASC).expire(Duration.ZERO).named("ttl_idempotency_expires"));
+    }
+}

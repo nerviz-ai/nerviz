@@ -1,0 +1,127 @@
+/*
+ * EXEMPLAR — MongoDB client and transaction wiring. Form reference for the executor agent.
+ * Rules: `.claude/rules/persistence.md` (§ Document (MongoDB) · Transactions, Configuration)
+ *        `.claude/rules/secrets.md` (credentials only in the URI from the environment)
+ *
+ * WHY A CUSTOMIZER AND NOT A `MongoClientSettings` BEAN: a settings bean — or a
+ * `MongoCustomConversions` bean — of the project's own replaces Spring Boot's, and silently drops
+ * the URI, the UUID representation and the SSL bundle the properties declared. The customizer is
+ * applied on top of them.
+ *
+ * WHY EVERY TIMEOUT IS HERE: the driver waits 30 seconds to select a server, 10 to connect, and
+ * forever on a socket read. Each value below is the partial's § 5, with its reason.
+ *
+ * WHY A TRANSACTION MANAGER BEAN: Spring Boot registers none for MongoDB, and `@Transactional` or
+ * a `TransactionTemplate` without one does nothing to a document write.
+ *
+ * TWO SHAPES, ONE PER PROJECT — pick the block that matches, never both:
+ *   - `MongoTransactionConfig` — the project stores every aggregate in MongoDB.
+ *   - `TransactionManagersConfig` — JPA is in the project too. Declaring a `MongoTransactionManager`
+ *     makes Spring Boot's JPA transaction manager back off (it is conditional on no transaction
+ *     manager existing), and every `@Transactional` over a JPA write would then run on MongoDB's.
+ *     So both are declared, JPA's as the primary `transactionManager`, MongoDB's by name.
+ *
+ * Package: `…persistence.shared`. Each `// --- <File>.java` block is its own file.
+ */
+
+// --- shared/MongoClientConfig.java
+package com.example.demo.adapter.out.persistence.shared;
+
+import com.mongodb.WriteConcern;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(MongoClientConfig.MongoClientLimits.class)
+class MongoClientConfig {
+
+    /**
+     * {@code majority}: an acknowledged write is the only kind that reports a duplicate key or a
+     * lost version race. Never {@code UNACKNOWLEDGED}.
+     */
+    @Bean
+    MongoClientSettingsBuilderCustomizer mongoClientLimits(MongoClientLimits limits) {
+        return settings -> settings
+                .writeConcern(WriteConcern.MAJORITY)
+                .applyToClusterSettings(cluster -> cluster
+                        .serverSelectionTimeout(limits.serverSelectionTimeout().toMillis(), TimeUnit.MILLISECONDS))
+                .applyToSocketSettings(socket -> socket
+                        .connectTimeout(limits.connectTimeout().toMillis(), TimeUnit.MILLISECONDS)
+                        .readTimeout(limits.readTimeout().toMillis(), TimeUnit.MILLISECONDS))
+                .applyToConnectionPoolSettings(pool -> pool
+                        .maxSize(limits.maxPoolSize())
+                        .maxWaitTime(limits.maxPoolWait().toMillis(), TimeUnit.MILLISECONDS));
+    }
+
+    /** {@code app.mongodb.*} in {@code application.yml}, sized in the partial's § 5. */
+    @ConfigurationProperties("app.mongodb")
+    record MongoClientLimits(
+            Duration serverSelectionTimeout,
+            Duration connectTimeout,
+            Duration readTimeout,
+            int maxPoolSize,
+            Duration maxPoolWait) {}
+}
+
+// --- shared/MongoTransactionConfig.java
+package com.example.demo.adapter.out.persistence.shared;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+
+/**
+ * The project stores every aggregate in MongoDB: one transaction manager. Named
+ * {@code mongoTransactionManager} in both shapes, so {@code DocumentTransactions} selects it the
+ * same way whether or not JPA is ever added.
+ */
+@Configuration(proxyBeanMethods = false)
+class MongoTransactionConfig {
+
+    @Bean
+    MongoTransactionManager mongoTransactionManager(MongoDatabaseFactory databaseFactory) {
+        return new MongoTransactionManager(databaseFactory);
+    }
+}
+
+// --- shared/TransactionManagersConfig.java
+package com.example.demo.adapter.out.persistence.shared;
+
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.transaction.autoconfigure.TransactionManagerCustomizers;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.orm.jpa.JpaTransactionManager;
+
+/**
+ * VARIANT — JPA and MongoDB in the same project. JPA keeps the default name and the primary
+ * role, so every existing {@code @Transactional} is unchanged; a document write opens its
+ * transaction on {@code mongoTransactionManager}, by name, in {@code DocumentTransactions}.
+ */
+@Configuration(proxyBeanMethods = false)
+class TransactionManagersConfig {
+
+    @Bean
+    @Primary
+    JpaTransactionManager transactionManager(EntityManagerFactory entityManagerFactory,
+                                             ObjectProvider<TransactionManagerCustomizers> customizers) {
+        JpaTransactionManager manager = new JpaTransactionManager(entityManagerFactory);
+        customizers.ifAvailable(each -> each.customize(manager));
+        return manager;
+    }
+
+    @Bean
+    MongoTransactionManager mongoTransactionManager(MongoDatabaseFactory databaseFactory) {
+        return new MongoTransactionManager(databaseFactory);
+    }
+}

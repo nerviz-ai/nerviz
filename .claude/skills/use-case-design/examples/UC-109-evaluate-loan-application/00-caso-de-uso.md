@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | loan application submitted, over HTTP — inbound REST adapter |
 | Side effects | **1** — `INSERT` into `loan_evaluations`, recording the outcome and which check produced it |
+| Storage | `LoanApplication` → relational — chosen by: request (it names the `loan_evaluations` table) |
+| Search index | none |
 | Transaction | opens in the use case, closes before the response |
 | Idempotency | yes — `Idempotency-Key` required, resubmitting the same application returns the original evaluation |
 | Concurrency | `Idempotency-Key` uniqueness is the arbiter |

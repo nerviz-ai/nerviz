@@ -271,7 +271,8 @@ would pay for that on every turn.
      use-case-design → domain-modeling → rest-api-architect (unless GraphQL only)
         → graphql-api-architect (conditional)
         → security-architect (conditional) → http-client-architect (conditional)
-        → ai-architect (conditional) → messaging-architect (conditional) → jobs-architect (conditional)
+        → ai-architect (conditional) → search-architect (conditional)
+        → messaging-architect (conditional) → jobs-architect (conditional)
         → persistence-architect → cache-architect (conditional) → test-architect
      │  one use case per run; a split goes to docs/use-cases/BACKLOG.md
      │  design skills write only docs/ — never src/, never docker-compose.yml, never git
@@ -381,8 +382,8 @@ proposed fix, before anything is commented or designed. Details:
 | Piece | Count | Where |
 |---|---|---|
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
-| Norms, loaded on demand through `paths` | 22 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 28 | `.claude/skills/` |
+| Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
+| Skills (design, orchestration, build, ops, meta…) | 29 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
@@ -395,9 +396,12 @@ call each endpoint, JWT, opaque token, API key, 401/403, CORS), `http-client-arc
 (outbound HTTP client and engine, timeouts, retry, circuit breaker, outbound
 authentication), `ai-architect` (a language model or vector store behind a port —
 structured output, semantic search, prompts as resources, what the answer may change),
-`messaging-architect` (Kafka producer and consumer, retry, DLQ),
+`search-architect` (an Elasticsearch or OpenSearch index kept as a rebuildable projection
+of a source of truth: strict mapping, alias, indexer, rebuild, lag — only when the use case
+names a search index), `messaging-architect` (Kafka producer and consumer, retry, DLQ),
 `jobs-architect` (`@Scheduled`, ShedLock, Quartz, Spring Batch, db-scheduler, JobRunr; the
-outbox relay), `persistence-architect`, `cache-architect` (Caffeine or Redis behind
+outbox relay), `persistence-architect` (relational with JPA or document with MongoDB, as
+the use case's `Storage` row states), `cache-architect` (Caffeine or Redis behind
 a decorator of the outbound port, keys, expiry, eviction on every write — only when the use case
 states how old an answer may be), `test-architect`.
 

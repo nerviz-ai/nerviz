@@ -56,11 +56,12 @@ Detail: `10-dominio.md` § 1-4.
 
 ## 3. Persistence — implement after 2
 
-Detail: `20-persistencia.md` § 1-5. Migration SQL: § 4 of that partial — the executor
-materializes it verbatim.
+Detail: `20-persistencia.md` § 1-5. Migration SQL — or, for a `document (MongoDB)` aggregate, the
+collection's schema declaration: § 4 of that partial — the executor materializes it verbatim.
 
 | Decision | Value |
 |---|---|
+| Storage family | relational — `00-caso-de-uso.md` § Storage |
 | Table | `users`, one per aggregate root |
 | Business key | `UNIQUE (email)` |
 | Concurrency | `@Version` optimistic lock |
@@ -110,6 +111,16 @@ provider, one line per AI port (model, answer type, "could not decide" value, ti
 layer), the fields sent to the provider, the store and its embedding model, and the dependencies
 of `29-ia.md` § 10 — detail in `29-ia.md`. Implemented by the executor's Block A, right after
 Block H.
+
+---
+
+## 3.8 Search — conditional, implement after 2 and 3
+
+none — `00-caso-de-uso.md`'s `Search index` reads `none`. When present: the projection and its
+alias and version, the mapping file of `23-busca.md` § 2 (materialized verbatim), one line per
+query (match, filters, sort, page ceiling), the indexer's write rules or the rebuild's steps for
+this kind of case, the lag next to `Freshness`, and the dependencies of `23-busca.md` § 9 — detail
+in `23-busca.md`. Implemented by the executor's Block I, after Block A.
 
 ---
 

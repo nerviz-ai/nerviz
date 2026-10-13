@@ -1,0 +1,136 @@
+/*
+ * EXEMPLAR — the index lifecycle at startup: the current index version created behind its alias,
+ * only when the alias is absent. Form reference for the executor agent.
+ * Rules: `.claude/rules/search.md` (§ Index lifecycle)
+ *
+ * WHAT IT DOES: for every `SearchIndexDefinition`, if the alias (`orders`) does not exist, creates
+ * the versioned index (`orders-v1`) with the settings and the strict mapping read from its JSON file
+ * (`src/main/resources/search/orders-v1.json`, shape in `search-index.json.example`), the replica
+ * count of this environment, and adds the alias as its write index.
+ *
+ * WHAT IT NEVER DOES: delete, recreate or remap an index that exists. A mapping change is a new
+ * file (`orders-v2.json`), a new definition version, and the rebuild job — which fills `orders-v2`
+ * from the source and swaps the alias in one action (`SearchRebuild.java.example`). Until that job
+ * runs, the alias keeps pointing at `orders-v1`, and this bootstrap sees the alias and does nothing.
+ *
+ * WHY `SmartInitializingSingleton`: it runs before the web server starts, so no request queries an
+ * alias that is not there yet; a failure aborts the startup.
+ *
+ * Package: the search package's `shared` subpackage. Each `// --- <File>.java` block is its own file.
+ */
+
+// --- shared/SearchIndexDefinition.java
+package com.example.demo.adapter.out.search.shared;
+
+/**
+ * One per projection. {@code version} names the index behind the alias and the mapping file:
+ * alias {@code orders}, version 1 → index {@code orders-v1}, file {@code search/orders-v1.json}.
+ */
+public record SearchIndexDefinition(String alias, int version) {
+
+    public String indexName() {
+        return alias + "-v" + version;
+    }
+
+    public String mappingResource() {
+        return "search/" + indexName() + ".json";
+    }
+}
+
+// --- shared/SearchIndexBootstrap.java
+package com.example.demo.adapter.out.search.shared;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.document.Document;
+import org.springframework.data.elasticsearch.core.index.AliasAction;
+import org.springframework.data.elasticsearch.core.index.AliasActionParameters;
+import org.springframework.data.elasticsearch.core.index.AliasActions;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.stereotype.Component;
+
+/**
+ * Public, like the persistence family's schema initializer: every projection's search test imports
+ * it, or its slice runs against an alias that was never created.
+ */
+@Component
+public class SearchIndexBootstrap implements SmartInitializingSingleton {
+
+    private final ElasticsearchOperations operations;
+    private final List<SearchIndexDefinition> definitions;
+    private final int replicas;
+
+    /**
+     * {@code app.search.replicas}: 0 on a single-node local or test cluster, which never turns
+     * green with 1; the production value is the partial's.
+     */
+    SearchIndexBootstrap(ElasticsearchOperations operations, List<SearchIndexDefinition> definitions,
+                         @Value("${app.search.replicas}") int replicas) {
+        this.operations = operations;
+        this.definitions = definitions;
+        this.replicas = replicas;
+    }
+
+    @Override
+    public void afterSingletonsInstantiated() {
+        definitions.forEach(this::ensure);
+    }
+
+    private void ensure(SearchIndexDefinition definition) {
+        if (operations.indexOps(IndexCoordinates.of(definition.alias())).exists()) {
+            return;
+        }
+        Document file = Document.parse(read(definition.mappingResource()));
+        Map<String, Object> settings = new HashMap<>(asMap(file.get("settings")));
+        settings.put("number_of_replicas", replicas);
+        IndexOperations index = operations.indexOps(IndexCoordinates.of(definition.indexName()));
+        index.create(settings, Document.from(asMap(file.get("mappings"))));
+        index.alias(new AliasActions(new AliasAction.Add(AliasActionParameters.builder()
+                .withIndices(definition.indexName())
+                .withAliases(definition.alias())
+                .withIsWriteIndex(true)
+                .build())));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object section) {
+        return (Map<String, Object>) section;
+    }
+
+    private static String read(String resource) {
+        try (var in = new ClassPathResource(resource).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException missing) {
+            throw new UncheckedIOException("Search index mapping " + resource + " is missing", missing);
+        }
+    }
+}
+
+// --- order/OrderSearchIndex.java
+package com.example.demo.adapter.out.search.order;
+
+import com.example.demo.adapter.out.search.shared.SearchIndexDefinition;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/** The current version of the {@code orders} projection. A mapping change raises it to 2. */
+@Configuration(proxyBeanMethods = false)
+class OrderSearchIndex {
+
+    static final String ALIAS = "orders";
+    static final int CURRENT_VERSION = 1;
+
+    @Bean
+    SearchIndexDefinition orderSearchIndexDefinition() {
+        return new SearchIndexDefinition(ALIAS, CURRENT_VERSION);
+    }
+}

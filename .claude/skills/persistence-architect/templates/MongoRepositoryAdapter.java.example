@@ -1,0 +1,217 @@
+/*
+ * EXEMPLAR — output adapter over MongoDB: the Spring Data interface, the adapter implementing the
+ * ports declared in `10-dominio.md`, and the mapper. Form reference; not a file to copy.
+ * Rules: `.claude/rules/persistence.md` (§ Boundary, § Queries, § Translation, § Document
+ *        (MongoDB)) · `.claude/rules/architecture-ddd.md` (adapter has no business logic)
+ *        · `.claude/rules/error-handling.md`
+ *
+ * WHAT THIS FILE DELIBERATELY DOES NOT HAVE:
+ *   - `@Transactional` — the transaction opens in the application layer
+ *     (`DocumentTransactions.java.example`), and it needs a replica set
+ *   - a catch of `TransientDataAccessException` — a write conflict propagates, so the whole
+ *     transaction is retried where it opens (`.claude/rules/persistence.md` § Translation)
+ *   - a derived `…Containing`/`…IgnoreCase` method — a regular expression no index serves
+ *   - `Page` — it counts the whole collection on every page; the listing is keyset (`Window`)
+ *
+ * TWO WRITE PATHS, ON PURPOSE. `create` saves a fresh document whose `@Version` is `null`, so
+ * Spring Data inserts it, and an existing id raises `DuplicateKeyException`. `save` loads the
+ * stored document, mutates it and saves it with the version it was read at — a fresh document
+ * built from the aggregate would carry a `null` version and be inserted as a duplicate.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderMongoRepository.java
+package com.example.demo.adapter.out.persistence.order;
+
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.ScrollPosition;
+import org.springframework.data.domain.Window;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+interface OrderMongoRepository extends MongoRepository<OrderDocument, UUID> {
+
+    boolean existsByOrderNumber(String orderNumber);
+
+    Optional<OrderDocument> findByOrderNumber(String orderNumber);
+
+    /**
+     * Keyset over {@code (placedAt desc, id desc)}: the order ends in the unique key, and the
+     * compound index {@code ix_orders_customer_placed} in {@code OrderCollection} serves both the
+     * filter and the sort. A projection, because the listing does not need the lines.
+     */
+    Window<OrderSummary> findByCustomerIdOrderByPlacedAtDescIdDesc(UUID customerId, ScrollPosition position, Limit limit);
+}
+
+// --- order/OrderSummary.java
+package com.example.demo.adapter.out.persistence.order;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+/** Projection. Lives in the adapter and never leaves it without translation. */
+record OrderSummary(UUID id, String orderNumber, OrderStatus status, BigDecimal total, Instant placedAt) {}
+
+// --- order/OrderMongoRepositoryAdapter.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.application.port.out.CreateOrderPort;
+import com.example.demo.application.port.out.CustomerOrdersPage;
+import com.example.demo.application.port.out.ListCustomerOrdersPort;
+import com.example.demo.application.port.out.LoadOrderPort;
+import com.example.demo.application.port.out.SaveOrderPort;
+import com.example.demo.domain.exception.ConflictException;
+import com.example.demo.domain.exception.NotFoundException;
+import com.example.demo.domain.model.CustomerId;
+import com.example.demo.domain.model.Order;
+import com.example.demo.domain.model.OrderId;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.ScrollPosition;
+import org.springframework.data.domain.Window;
+import org.springframework.stereotype.Component;
+
+@Component
+class OrderMongoRepositoryAdapter implements CreateOrderPort, SaveOrderPort, LoadOrderPort, ListCustomerOrdersPort {
+
+    private final OrderMongoRepository repository;
+    private final OrderDocumentMapper mapper;
+
+    OrderMongoRepositoryAdapter(OrderMongoRepository repository, OrderDocumentMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
+    }
+
+    /**
+     * An insert: the version is {@code null}. The unique index on {@code orderNumber} and the
+     * {@code _id} both surface here as {@code DuplicateKeyException}, inside this try — a
+     * MongoDB write is sent at {@code save}, not at the commit.
+     */
+    @Override
+    public Order create(Order order) {
+        try {
+            return mapper.toDomain(repository.save(mapper.toDocument(order)));
+        } catch (DuplicateKeyException cause) {
+            throw new ConflictException("ORDER_ALREADY_EXISTS", order.number(), cause);
+        }
+    }
+
+    /** Load, mutate, save: the stored version goes into the update's filter. */
+    @Override
+    public Order save(Order order) {
+        OrderDocument stored = repository.findById(order.id().value())
+                .orElseThrow(() -> new NotFoundException("ORDER_NOT_FOUND", order.id().value().toString()));
+        mapper.updateDocument(stored, order);
+        try {
+            return mapper.toDomain(repository.save(stored));
+        } catch (OptimisticLockingFailureException cause) {
+            throw new ConflictException("ORDER_CONCURRENT_UPDATE", order.id().value().toString(), cause);
+        }
+    }
+
+    @Override
+    public Optional<Order> byId(OrderId id) {
+        return repository.findById(id.value()).map(mapper::toDomain);
+    }
+
+    /**
+     * The port's cursor is opaque to the caller and translated here into a keyset position —
+     * neither {@code ScrollPosition} nor {@code Window} crosses the port.
+     */
+    @Override
+    public CustomerOrdersPage page(CustomerId customerId, Optional<CustomerOrdersPage.Cursor> after, int size) {
+        ScrollPosition position = after
+                .<ScrollPosition>map(cursor -> ScrollPosition.forward(Map.of(
+                        "placedAt", cursor.placedAt(), "id", cursor.orderId())))
+                .orElseGet(ScrollPosition::keyset);
+        Window<OrderSummary> window = repository.findByCustomerIdOrderByPlacedAtDescIdDesc(
+                customerId.value(), position, Limit.of(size));
+        return mapper.toPage(window);
+    }
+}
+
+// --- order/OrderDocumentMapper.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.application.port.out.CustomerOrdersPage;
+import com.example.demo.domain.model.Order;
+import com.example.demo.domain.model.OrderLine;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.domain.Window;
+import org.springframework.stereotype.Component;
+
+/**
+ * Explicit translation both ways, and the one place an older document shape is read: the
+ * upcast lives here, keyed on {@code schemaVersion}, and the next save writes the current shape.
+ */
+@Component
+class OrderDocumentMapper {
+
+    OrderDocument toDocument(Order order) {
+        return new OrderDocument(
+                order.id().value(),
+                order.number(),
+                order.customerId().value(),
+                OrderStatus.valueOf(order.status().name()),
+                order.total(),
+                lines(order),
+                order.placedAt());
+    }
+
+    void updateDocument(OrderDocument stored, Order order) {
+        stored.applyState(OrderStatus.valueOf(order.status().name()), order.total(), lines(order));
+    }
+
+    Order toDomain(OrderDocument document) {
+        List<OrderLine> lines = document.getLines().stream()
+                .map(line -> new OrderLine(line.sku(), line.quantity(), line.unitPrice()))
+                .toList();
+        return Order.rehydrate(
+                document.getId(),
+                document.getOrderNumber(),
+                document.getCustomerId(),
+                com.example.demo.domain.model.OrderStatus.valueOf(document.getStatus().name()),
+                totalOf(document, lines),
+                lines,
+                document.getPlacedAt());
+    }
+
+    CustomerOrdersPage toPage(Window<OrderSummary> window) {
+        List<CustomerOrdersPage.Item> items = window.getContent().stream()
+                .map(summary -> new CustomerOrdersPage.Item(
+                        summary.id(), summary.orderNumber(), summary.status().name(), summary.total(), summary.placedAt()))
+                .toList();
+        Optional<CustomerOrdersPage.Cursor> next = window.hasNext() && !items.isEmpty()
+                ? Optional.of(new CustomerOrdersPage.Cursor(items.getLast().placedAt(), items.getLast().orderId()))
+                : Optional.empty();
+        return new CustomerOrdersPage(items, next);
+    }
+
+    /**
+     * Upcast of shape 1, which stored no {@code total}: computed from the lines on read, and
+     * written on the next save. A query that filters by {@code total} would miss every shape-1
+     * document — that is a backfill, not an upcast.
+     */
+    private static BigDecimal totalOf(OrderDocument document, List<OrderLine> lines) {
+        if (document.getSchemaVersion() >= 2) {
+            return document.getTotal();
+        }
+        return lines.stream()
+                .map(line -> line.unitPrice().multiply(BigDecimal.valueOf(line.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static List<OrderLineDocument> lines(Order order) {
+        return order.lines().stream()
+                .map(line -> new OrderLineDocument(line.sku(), line.quantity(), line.unitPrice()))
+                .toList();
+    }
+}

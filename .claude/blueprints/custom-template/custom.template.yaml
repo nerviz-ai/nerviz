@@ -28,7 +28,7 @@ modules:
   - id: core
     path: core
     depends_on: []
-    forbidden_imports: ["org.springframework..", "graphql.."]
+    forbidden_imports: ["org.springframework..", "graphql..", "com.mongodb..", "org.bson..", "co.elastic..", "org.opensearch.."]
   - id: app
     path: app
     depends_on: [core]
@@ -49,6 +49,8 @@ packages:
     app.cache: "app.cache"
     # Example: outbound AI adapters and the AI wiring — decision 0145.
     app.ai: "app.ai"
+    # Example: outbound search adapters, a search index kept as a projection — decision 0147.
+    app.search: "app.search"
     # Example: inbound GraphQL adapter and the GraphQL wiring — decision 0146.
     app.graphql: "app.graphql"
 
