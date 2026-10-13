@@ -502,6 +502,28 @@ Validation, document family: no `@DBRef`/`@DocumentReference` across aggregates,
 `MongoCustomConversions` bean, no `spring.data.mongodb.uri`, the `outbox_events` and
 `idempotency_keys` of this family from `MongoSharedCollections.java.example`.
 
+**Audit** — when `20-persistencia.md` § Audit is not `none`. The exemplars are
+`.claude/skills/persistence-architect/templates/Audit*.java.example`,
+`SystemActor.java.example`, `V1__create_audit_tables.sql.example` and
+`application-audit.yml.example`:
+- every entity § Audit lists gets `@EntityListeners(AuditingEntityListener.class)` and an embedded
+  `AuditStamps`; for `history`, `@Audited` too, and `@NotAudited` exactly on the fields § Audit
+  keeps out. Once per project, when step 2 of the partial found them missing: `AuditStamps`,
+  `AuditingConfig` with `AuditorResolver` (never on the application class), and for `history`
+  `AuditRevision` with its listener; `SystemActor` in the package `packages.map` names
+  `commons.audit`
+- the `_aud` tables and, the first time, `revinfo` and its sequence — materialized from § 4 like
+  any migration; the Envers properties of § 5
+- the history adapter over `RevisionRepository` when § Audit names a read port, and the
+  `AuditHistoryRetentionGateway` implementation with this case's `_aud` tables added to its list
+- § 6's `spring-data-envers` and, in a project without Spring Security, `spring-security-core` —
+  never the security starter
+
+Validation, audit: no stamp on `AssignedIdEntity`, no `List` child without `@OrderColumn` in an
+audited aggregate, no `NOT NULL` on a non-key `_aud` column, a `long` revision timestamp, no
+`@Modifying` query over an audited entity that § Audit does not list, `@EnableJpaAuditing` absent
+from the `@SpringBootApplication` class (`.claude/rules/persistence.md` § Auditing).
+
 Compilation: `./mvnw -q -pl <persistence-module> test-compile` in multi-module, `./mvnw -q test-compile` in single-module ✅
 
 **Line in the final report:**
@@ -852,7 +874,8 @@ Form A and the consumer generate:
 - `[Event]Payload.java` (`adapter/in/messaging`) — mirrors the producer's shape
 - `[Event]Listener.java` — `@KafkaListener`, dedupes via `ProcessedEventStore` before
   calling the target use case's inbound port, manual `Acknowledgment` committed only
-  after that call returns
+  after that call returns. When the use case writes an audited aggregate (spec § 3 Audit not
+  `none`), the call runs inside `SystemActor.run("<consumer-name>", …)`
 - `ProcessedEventStore` port + its persistence adapter — only if Block 2 modeled the
   dedupe table per `25-mensageria.md` step 5a. Missing table and the partial named the
   need → spec defect, stop and report; this block doesn't design schema
@@ -964,7 +987,10 @@ scheduler because a class looked easier with it:
   nothing else; trigger, cadence placeholder, zone, on/off property and lock bounds exactly as
   the row says. Under Form B, `OutboxRelayJob` records the two delivery metrics from each
   pass's `RelayOutcome`, and `OutboxPruneJob` goes with `PruneOutboxEvents`, its service and
-  `OutboxRetentionGateway` (the application side) — the gateway's implementation is Block 2's
+  `OutboxRetentionGateway` (the application side) — the gateway's implementation is Block 2's.
+  `AuditHistoryPruneJob` follows the same shape with `PruneAuditHistory` and
+  `AuditHistoryRetentionGateway`. A trigger whose inbound port writes an audited aggregate wraps
+  the call in `SystemActor.run("<job-name>", …)`
 - **J3 · Configuration** — the properties of § 8 in `application.yml`, and **every job's
   on/off property set to `false` in `src/test/resources/application-test.yml`**
 

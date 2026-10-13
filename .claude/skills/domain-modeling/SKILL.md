@@ -231,6 +231,19 @@ mother spec, it also isn't this skill.
    A search by meaning stays `vector store` (4e). The mapping, the engine and the indexer's rules
    are not this partial's: `search-architect` reads this port
    (`@.claude/rules/search.md` § Boundary).
+
+4g. **Reading an aggregate's history is a port of kind `persistence`.** Only when the case shows
+   earlier versions and `00-caso-de-uso.md`'s `Audit` row says `history` for that aggregate —
+   never inferred here, and nothing in this partial for a case that only writes an audited
+   aggregate: the stamps and the history are written by the adapter, with no port. The partial
+   carries the outbound port named for the capability (`LoadOrderHistoryPort`), taking the
+   aggregate's id and a page, returning a **read projection** per change — revision, instant,
+   actor, whether it created, updated or deleted, and only the fields the case shows — never the
+   aggregate rehydrated: an old version may break an invariant the current code holds. A delete
+   carries no state, so the projection is a sealed pair (written · deleted), never one record
+   with empty fields. The stamps a business rule reads ("only its creator may cancel") are a
+   field of the aggregate, loaded like any other; the aggregate never writes them. Mapping and
+   tables are `persistence-architect`'s (`@.claude/rules/persistence.md` § Auditing).
 5. **Map each invariant to its exception.** Typed family from
    `@.claude/rules/error-handling.md` and `errorCode` in `UPPER_SNAKE_CASE`. An invariant
    without a named exception is an invariant nobody will implement.

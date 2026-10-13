@@ -1,0 +1,197 @@
+/*
+ * EXEMPLAR — reading an aggregate's history through its port, and the history prune's statement.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/persistence.md` (§ Auditing, § Queries — every listing paginated)
+ *        `.claude/rules/architecture-ddd.md` (§ Adapters — the port, never the framework type)
+ *        `.claude/rules/code-quality.md` (no `null` crossing a boundary)
+ *
+ * THE READ SIDE exists only when `10-dominio.md` declares a port that returns the history. The
+ * aggregate's Spring Data repository extends `RevisionRepository` (enabled by
+ * `AuditingConfig.java.example`'s `@EnableEnversRepositories`); the adapter maps each `Revision`
+ * to the port's read projection — revision, instant, actor, kind, and the fields the case shows.
+ * Never the aggregate rehydrated: an old version may break an invariant the current code holds.
+ * `Revision`, `RevisionMetadata` and `Page` stay here.
+ *
+ * THE ACTOR comes from the project's revision entity, through `getMetadata().getDelegate()` —
+ * Spring Data's metadata knows the number and the instant, not the custom columns.
+ *
+ * A DELETE revision carries no state (`store_data_at_delete` is false): the projection is a
+ * sealed pair — written, with the state after the change, or deleted, with none — never a
+ * written change full of `null`s.
+ *
+ * THE PRUNE (last block) mirrors the outbox's: `jobs-architect` declares
+ * `AuditHistoryRetentionGateway` in `35-jobs.md` § 6 and runs it in bounded batches, each its own
+ * transaction — the one `@Transactional` the persistence norm admits in an adapter. Per audited
+ * table: the versions whose revision ended before the cutoff, and the delete rows older than it —
+ * never a current version, whose `revend` is empty; then the revisions no `_aud` row references.
+ * Pruning by the revision's own timestamp instead deletes the version still in force — the
+ * integration test's red run. Each case that audits a table adds it to `AUDIT_TABLES`. Postgres
+ * syntax; the engine is the one `20-persistencia.md` names.
+ *
+ * Each `// --- <File>.java` block is its own file, at the layer its package says.
+ */
+
+// --- OrderChange.java (application layer — the read projection, declared by 10-dominio.md)
+package com.example.demo.application.port.out;
+
+import com.example.demo.domain.model.OrderStatus;
+import java.time.Instant;
+
+public sealed interface OrderChange {
+
+    long revision();
+
+    Instant at();
+
+    String actor();
+
+    enum Kind { CREATED, UPDATED }
+
+    record Written(long revision, Instant at, String actor, Kind kind, OrderStatus status) implements OrderChange {
+    }
+
+    record Deleted(long revision, Instant at, String actor) implements OrderChange {
+    }
+}
+
+// --- LoadOrderHistoryPort.java (application layer — outbound port, declared by 10-dominio.md)
+package com.example.demo.application.port.out;
+
+import com.example.demo.domain.model.OrderId;
+import java.util.List;
+
+public interface LoadOrderHistoryPort {
+
+    /** Newest first. An unknown id is an empty page, not an error: a pruned history looks the same. */
+    OrderHistoryPage history(OrderId id, int page, int size);
+
+    record OrderHistoryPage(List<OrderChange> changes, boolean hasNext) {
+    }
+}
+
+// --- order/OrderSpringDataRepository.java
+package com.example.demo.adapter.out.persistence.order;
+
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.history.RevisionRepository;
+
+/** {@code Long}: the revision number's type, `AuditRevision.java.example`. */
+interface OrderSpringDataRepository
+        extends JpaRepository<OrderEntity, UUID>, RevisionRepository<OrderEntity, UUID, Long> {
+}
+
+// --- order/OrderHistoryAdapter.java
+package com.example.demo.adapter.out.persistence.order;
+
+import com.example.demo.adapter.out.persistence.shared.audit.AuditRevision;
+import com.example.demo.application.port.out.LoadOrderHistoryPort;
+import com.example.demo.application.port.out.OrderChange;
+import com.example.demo.domain.model.OrderId;
+import java.time.Instant;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.history.Revision;
+import org.springframework.data.history.RevisionMetadata.RevisionType;
+import org.springframework.data.history.RevisionSort;
+import org.springframework.stereotype.Component;
+
+@Component
+class OrderHistoryAdapter implements LoadOrderHistoryPort {
+
+    private final OrderSpringDataRepository repository;
+
+    OrderHistoryAdapter(OrderSpringDataRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public OrderHistoryPage history(OrderId id, int page, int size) {
+        Page<Revision<Long, OrderEntity>> revisions =
+                repository.findRevisions(id.value(), PageRequest.of(page, size, RevisionSort.desc()));
+        return new OrderHistoryPage(revisions.map(OrderHistoryAdapter::toChange).getContent(), revisions.hasNext());
+    }
+
+    private static OrderChange toChange(Revision<Long, OrderEntity> revision) {
+        AuditRevision info = revision.getMetadata().getDelegate();
+        long number = revision.getRequiredRevisionNumber();
+        Instant at = info.instant();
+        RevisionType type = revision.getMetadata().getRevisionType();
+        if (type == RevisionType.DELETE) {
+            return new OrderChange.Deleted(number, at, info.getActor());
+        }
+        OrderChange.Kind kind = type == RevisionType.INSERT ? OrderChange.Kind.CREATED : OrderChange.Kind.UPDATED;
+        return new OrderChange.Written(number, at, info.getActor(), kind,
+                com.example.demo.domain.model.OrderStatus.valueOf(revision.getEntity().getStatus().name()));
+    }
+}
+
+// --- AuditHistoryRetentionGateway.java (application layer — outbound port, declared by 35-jobs.md)
+package com.example.demo.application.port.out;
+
+import java.time.Instant;
+
+public interface AuditHistoryRetentionGateway {
+
+    /**
+     * Deletes at most {@code limit} history rows per audited table that ended before
+     * {@code cutoff}, and the revisions left unreferenced. Never a current version. Returns how
+     * many rows it deleted.
+     */
+    int deleteEndedBefore(Instant cutoff, int limit);
+}
+
+// --- shared/audit/AuditHistoryRetentionAdapter.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import com.example.demo.application.port.out.AuditHistoryRetentionGateway;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+class AuditHistoryRetentionAdapter implements AuditHistoryRetentionGateway {
+
+    /** Fixed names, never input: the only text formatted into the statements. */
+    private static final List<String> AUDIT_TABLES = List.of("orders_aud", "order_lines_aud");
+
+    private static final String ENDED_ROWS = """
+            DELETE FROM %1$s WHERE (id, rev) IN (
+                SELECT a.id, a.rev FROM %1$s a
+                WHERE a.revend_tstmp < :cutoff
+                   OR (a.revtype = 2 AND a.rev IN (SELECT r.rev FROM revinfo r WHERE r.revtstmp < :cutoffMillis))
+                LIMIT :limit)
+            """;
+
+    private static final String UNREFERENCED_REVISIONS = """
+            DELETE FROM revinfo WHERE rev IN (
+                SELECT r.rev FROM revinfo r WHERE r.revtstmp < :cutoffMillis AND %s LIMIT :limit)
+            """;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    @Transactional
+    public int deleteEndedBefore(Instant cutoff, int limit) {
+        int deleted = 0;
+        for (String table : AUDIT_TABLES) {
+            deleted += entityManager.createNativeQuery(ENDED_ROWS.formatted(table))
+                    .setParameter("cutoff", cutoff)
+                    .setParameter("cutoffMillis", cutoff.toEpochMilli())
+                    .setParameter("limit", limit)
+                    .executeUpdate();
+        }
+        String unreferenced = AUDIT_TABLES.stream()
+                .map(table -> "NOT EXISTS (SELECT 1 FROM %s a WHERE a.rev = r.rev OR a.revend = r.rev)".formatted(table))
+                .collect(Collectors.joining(" AND "));
+        return deleted + entityManager.createNativeQuery(UNREFERENCED_REVISIONS.formatted(unreferenced))
+                .setParameter("cutoffMillis", cutoff.toEpochMilli())
+                .setParameter("limit", limit)
+                .executeUpdate();
+    }
+}

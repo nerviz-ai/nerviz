@@ -62,6 +62,7 @@ collection's schema declaration: § 4 of that partial — the executor materiali
 | Decision | Value |
 |---|---|
 | Storage family | relational — `00-caso-de-uso.md` § Storage |
+| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`); otherwise the level per aggregate and `20-persistencia.md` § Audit |
 | Table | `users`, one per aggregate root |
 | Business key | `UNIQUE (email)` |
 | Concurrency | `@Version` optimistic lock |

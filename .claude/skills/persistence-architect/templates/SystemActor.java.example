@@ -1,0 +1,50 @@
+/*
+ * EXEMPLAR — the named actor of a pass no caller started: a scheduled job, a message consumer.
+ * Form reference for the executor agent.
+ * Rules: `.claude/rules/persistence.md` (§ Auditing · Common — the actor is never null)
+ *
+ * WHERE IT LIVES: the package the active blueprint's `packages.map` names `commons.audit`. Both
+ * the scheduling trigger and the consumer call it, and an adapter never imports another
+ * adapter, so it cannot live in either — nor in the persistence adapter that reads it.
+ *
+ * WHAT IT DOES: runs the pass with an authentication named `system:<name>`, then restores
+ * whatever context the thread had. `AuditorResolver` reads that name like any principal's, so
+ * the stamps and the revision say which job or consumer wrote. A pass that writes an audited
+ * aggregate without it fails — the resolver refuses a write with no authentication.
+ *
+ * HOW IT IS CALLED: by the inbound adapter, around the call to the inbound port —
+ * `SystemActor.run("order-expiry", () -> expireOrders.expire(now))` in the job's trigger,
+ * `SystemActor.run("payment-events", () -> confirmPayment.confirm(command))` in the listener.
+ * The name is the job's or the consumer's, never the case's.
+ */
+
+// --- SystemActor.java
+package com.example.demo.commons.audit;
+
+import java.util.List;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
+
+/** Runs a pass with no caller under {@code system:<name>}, restoring the thread's context after. */
+public final class SystemActor {
+
+    private static final String PREFIX = "system:";
+
+    private SystemActor() {
+    }
+
+    public static void run(String name, Runnable pass) {
+        SecurityContextHolderStrategy strategy = SecurityContextHolder.getContextHolderStrategy();
+        SecurityContext previous = strategy.getContext();
+        SecurityContext context = strategy.createEmptyContext();
+        context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(PREFIX + name, null, List.of()));
+        strategy.setContext(context);
+        try {
+            pass.run();
+        } finally {
+            strategy.setContext(previous);
+        }
+    }
+}

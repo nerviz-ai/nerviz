@@ -116,7 +116,8 @@ below. No end of this flow is left without an explicit git instruction.
    when the event, if any, stays in-process — not every use case needs it
 5. `jobs-architect` — invoked if `25-mensageria.md` chose Form B, the trigger is a
    schedule, `28-cliente-http.md` § 10 asks for a reconciliation pass, or `29-ia.md` § 9 asks
-   for an ingestion or re-index job, or `23-busca.md` § 8 asks for a rebuild job, and `35-jobs.md`
+   for an ingestion or re-index job, or `23-busca.md` § 8 asks for a rebuild job, or the `Audit`
+   row names `history` with no history prune job in the project yet, and `35-jobs.md`
    is missing (depends on 1, 3c, 3d, 3e, 4).
    Skipped otherwise
 6. `persistence-architect` — invoked if `20-persistencia.md` is missing (depends on 2, 3, 3b, 3c, 3d, 3e, 4, 5)
@@ -368,7 +369,7 @@ created — never with the others.
 
 ### Short path — checked right after step 1
 
-A trivial case doesn't need five partials. Check all eight against `00-caso-de-uso.md`
+A trivial case doesn't need five partials. Check all nine against `00-caso-de-uso.md`
 and the approved specs:
 
 | Criterion | Unmet when |
@@ -381,8 +382,9 @@ and the approved specs:
 | No model and no semantic search | the case asks a model to classify, extract or moderate, or finds items by meaning — an AI port to design |
 | No GraphQL operation | the `Trigger` names a GraphQL adapter — the short template has no GraphQL row |
 | No search projection, no new document | the `Search index` row names a projection, or a `document (MongoDB)` aggregate gets a NEW or CHANGE document, collection or index — the short template has no row for either |
+| No new audit level | the `Audit` row names `stamps` or `history` for an aggregate whose level is new or changes — stamps, history tables and the actor to design; the short template has no row for them |
 
-All eight met → skip steps 2–6 and write `UC-NNN-spec.md` from
+All nine met → skip steps 2–6 and write `UC-NNN-spec.md` from
 `templates/feature-spec-short.md.example`: every row names its source, an approved spec or
 a rule. A row that needs judgment to fill means the case isn't trivial — discard the
 short spec and take steps 2–6. One criterion unmet → steps 2–6.
@@ -522,7 +524,7 @@ approved anyway, so consolidation gates the same thing for every path.
 Invoke `/jobs-architect UC-NNN` if `35-jobs.md` is missing and at least one holds:
 `25-mensageria.md` § 2 chose **Form B**, `00-caso-de-uso.md`'s trigger is a schedule, a
 recurring run, a batch or a background job, `28-cliente-http.md` § 10 asks for a reconciliation
-pass, `29-ia.md` § 9 asks for an ingestion or re-index job, `23-busca.md` § 8 asks for a rebuild job, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
+pass, `29-ia.md` § 9 asks for an ingestion or re-index job, `23-busca.md` § 8 asks for a rebuild job, `00-caso-de-uso.md`'s `Audit` row names `history` and the project has no history prune job yet, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
 technology, coordination, execution guarantees, observability, schema requirements, declared
 dependencies, configuration, deferred).
 
@@ -617,6 +619,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
    | Provider and model of each AI port, its prompt resources and answer type, what each unusable answer becomes, the fields sent to the provider, the store and its embedding model, the timeout and retrying layer of each AI port | `29-ia.md`. The port, its "could not decide" value and the review state stay `10-dominio.md`'s; a timeout above the trigger's deadline, or a personal-data field sent in clear without a named receiver, is not settled by precedence: **stop and ask** |
    | The search document and its mapping, the index version and alias, the query and its cursor, the indexer's write rules, the rebuild's alias swap, the lag the projection consumes, the search dependency | `23-busca.md`. Whether the case has a search index, its engine and the freshness tolerance stay `00-caso-de-uso.md`'s; a lag larger than the tolerance is not settled by precedence: **stop and ask** |
    | Storage family of each aggregate | `00-caso-de-uso.md` — never a design partial, and never this orchestrator. An aggregate the code already stores in the other family is not settled by precedence: **stop and ask** |
+   | Audit level of each aggregate | `00-caso-de-uso.md` — never a design partial. An aggregate the code already audits at a higher level than the row asks is not settled by precedence (a history cannot be switched off without losing it): **stop and ask** |
    | Which reads are cached, each cache key, the cache provider, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md`. The freshness tolerance stays `00-caso-de-uso.md`'s; an expiry longer than it is not settled by precedence — it serves answers older than the business allowed: **stop and ask** |
    | Aggregate name, value object, port, event | `10-dominio.md` |
    | Exception class and `errorCode` | `10-dominio.md` |

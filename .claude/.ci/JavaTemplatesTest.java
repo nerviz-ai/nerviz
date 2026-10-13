@@ -17,6 +17,10 @@
 //     project keeps one) of persistence-architect, and `SearchDocument`, `SearchIndexBootstrap` of
 //     search-architect. The adapters around them name ports and domain types only a real use case
 //     creates, and stay shape references — they were run against real engines when written.
+//   - the auditing blocks of persistence-architect (decision 0149): `AuditedEntity` (extending the
+//     `AssignedIdEntity` above), `AuditRevision`, `AuditingConfig` and `SystemActor`, against
+//     `spring-data-envers` and `spring-security-core` added without a version — the Boot parent
+//     manages both. `AuditHistoryAdapter` names a use case's ports and stays a shape reference.
 // Out of scope: templates that reference classes only a real use case creates (a controller's
 // use case, a test's aggregate). They are shape references; compiling them needs stubs that
 // would test the stubs.
@@ -50,7 +54,11 @@ public class JavaTemplatesTest {
             SKILLS.resolve("persistence-architect/templates/MongoCollections.java.example"),
             SKILLS.resolve("persistence-architect/templates/MongoConfig.java.example"),
             SKILLS.resolve("search-architect/templates/SearchDocument.java.example"),
-            SKILLS.resolve("search-architect/templates/SearchIndexBootstrap.java.example"));
+            SKILLS.resolve("search-architect/templates/SearchIndexBootstrap.java.example"),
+            SKILLS.resolve("persistence-architect/templates/AuditedEntity.java.example"),
+            SKILLS.resolve("persistence-architect/templates/AuditRevision.java.example"),
+            SKILLS.resolve("persistence-architect/templates/AuditingConfig.java.example"),
+            SKILLS.resolve("persistence-architect/templates/SystemActor.java.example"));
     static final Pattern PACKAGE = Pattern.compile("(?m)^package\\s+([\\w.]+)\\s*;");
     static final Pattern BLOCK = Pattern.compile("(?m)^// --- (\\S+\\.java)\\s*$");
 
@@ -58,6 +66,8 @@ public class JavaTemplatesTest {
         Path work = Files.createTempDirectory("java-templates-test");
         Path app = initializrProject(work);
         addAspectjStarter(app.resolve("pom.xml"));
+        addDependency(app.resolve("pom.xml"), "org.springframework.data", "spring-data-envers");
+        addDependency(app.resolve("pom.xml"), "org.springframework.security", "spring-security-core");
 
         List<String> tests = new ArrayList<>();
         int files = 0;
@@ -133,6 +143,15 @@ public class JavaTemplatesTest {
         String artifact = Integer.parseInt(parent.group(1)) >= 4 ? "spring-boot-starter-aspectj" : "spring-boot-starter-aop";
         String dependency = "\t\t<dependency>\n\t\t\t<groupId>org.springframework.boot</groupId>\n\t\t\t<artifactId>"
                 + artifact + "</artifactId>\n\t\t</dependency>\n\t</dependencies>";
+        Files.writeString(pom, xml.replaceFirst("\t?</dependencies>", Matcher.quoteReplacement(dependency)),
+                StandardCharsets.UTF_8);
+    }
+
+    /** A dependency the Boot parent manages — no version, never one from memory (invariant 8). */
+    static void addDependency(Path pom, String groupId, String artifactId) throws IOException {
+        String xml = Files.readString(pom, StandardCharsets.UTF_8);
+        String dependency = "\t\t<dependency>\n\t\t\t<groupId>" + groupId + "</groupId>\n\t\t\t<artifactId>"
+                + artifactId + "</artifactId>\n\t\t</dependency>\n\t</dependencies>";
         Files.writeString(pom, xml.replaceFirst("\t?</dependencies>", Matcher.quoteReplacement(dependency)),
                 StandardCharsets.UTF_8);
     }

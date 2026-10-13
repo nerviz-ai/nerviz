@@ -76,6 +76,9 @@ packages:
     infrastructure.graphql: "infrastructure.graphql"
     infrastructure.config: "infrastructure.config"
     commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
 
 # Same naming convention as `clean-architecture-multi-module` — splitting into a
 # module or a package doesn't change the class vocabulary:

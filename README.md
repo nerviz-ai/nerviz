@@ -401,7 +401,7 @@ of a source of truth: strict mapping, alias, indexer, rebuild, lag — only when
 names a search index), `messaging-architect` (Kafka producer and consumer, retry, DLQ),
 `jobs-architect` (`@Scheduled`, ShedLock, Quartz, Spring Batch, db-scheduler, JobRunr; the
 outbox relay), `persistence-architect` (relational with JPA or document with MongoDB, as
-the use case's `Storage` row states), `cache-architect` (Caffeine or Redis behind
+the use case's `Storage` row states; stamps or an Envers history when its `Audit` row asks), `cache-architect` (Caffeine or Redis behind
 a decorator of the outbound port, keys, expiry, eviction on every write — only when the use case
 states how old an answer may be), `test-architect`.
 

@@ -58,6 +58,7 @@ modules:
       - "org.bson.."
       - "co.elastic.."
       - "org.opensearch.."
+      - "org.hibernate.."  # Hibernate and Envers stay in the persistence adapter; Spring Data auditing is already under org.springframework — decision 0149
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -114,6 +115,9 @@ packages:
     # composition root, like `app.scheduling` — decision 0146.
     app.graphql: "app.graphql"
     commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
 
 # Naming convention for this blueprint (specific to onion, not universal — see
 # .claude/rules/architecture-ddd.md for what IS universal, DDD, and

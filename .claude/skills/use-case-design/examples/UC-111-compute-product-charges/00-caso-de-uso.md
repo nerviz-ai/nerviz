@@ -15,6 +15,7 @@
 | Side effects | **0** — pure computation |
 | Storage | `Product` → relational (read) — chosen by: request (the aggregate already lives in a table) |
 | Search index | none |
+| Audit | none |
 | Transaction | read-only |
 | Idempotency | yes |
 | Concurrency | not applicable |

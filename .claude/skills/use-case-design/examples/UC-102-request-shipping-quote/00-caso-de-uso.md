@@ -15,6 +15,7 @@
 | Side effects | **0** — pure computation, nothing persisted |
 | Storage | none — the case reads and writes no stored aggregate |
 | Search index | none |
+| Audit | none |
 | Transaction | none — no write |
 | Idempotency | yes — same input always yields the same quote |
 | Concurrency | not applicable — no shared state written |

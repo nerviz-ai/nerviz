@@ -15,6 +15,7 @@
 | Side effects | **0** — the actual authorization is **UC-105**; this use case only resolves which gateway client would handle a given method |
 | Storage | none — the case reads and writes no stored aggregate |
 | Search index | none |
+| Audit | none |
 | Transaction | read-only |
 | Idempotency | yes |
 | Concurrency | not applicable |

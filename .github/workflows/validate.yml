@@ -386,6 +386,14 @@ jobs:
       - name: search exemplars keep the index a strict, versioned projection
         run: java .claude/.ci/SearchTemplateTest.java
 
+      # Envers' and Spring Data auditing's failures are late and quiet: a bag writes a duplicate
+      # once in the history, a NOT NULL `_aud` column breaks the first delete, an Instant revision
+      # timestamp breaks every update's commit, a prune by the revision's timestamp deletes the
+      # version in force, a rolled-back test sees no history. This keeps the auditing exemplars,
+      # the audit IT and every blueprint's inner layers decided (0149).
+      - name: auditing exemplars keep the history whole, its actor named and its prune safe
+        run: java .claude/.ci/AuditTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
@@ -746,7 +754,7 @@ jobs:
           R4J=$(curl -sS --fail --retry 3 https://repo1.maven.org/maven2/io/github/resilience4j/resilience4j-spring-boot4/maven-metadata.xml | grep -oE '<release>[^<]+' | sed 's/<release>//')
           WMSB=$(curl -sS --fail --retry 3 https://repo1.maven.org/maven2/org/wiremock/integrations/wiremock-spring-boot/maven-metadata.xml | grep -oE '<release>[^<]+' | sed 's/<release>//')
           test -n "$R4J" -a -n "$WMSB"
-          sed -i "0,/<\/dependencies>/s|</dependencies>|<dependency><groupId>com.github.ben-manes.caffeine</groupId><artifactId>caffeine</artifactId></dependency><dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId></dependency><dependency><groupId>io.github.resilience4j</groupId><artifactId>resilience4j-spring-boot4</artifactId><version>$R4J</version></dependency><dependency><groupId>org.wiremock.integrations</groupId><artifactId>wiremock-spring-boot</artifactId><version>$WMSB</version><scope>test</scope></dependency></dependencies>|" /tmp/ref/pom.xml
+          sed -i "0,/<\/dependencies>/s|</dependencies>|<dependency><groupId>com.github.ben-manes.caffeine</groupId><artifactId>caffeine</artifactId></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-envers</artifactId></dependency><dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId></dependency><dependency><groupId>io.github.resilience4j</groupId><artifactId>resilience4j-spring-boot4</artifactId><version>$R4J</version></dependency><dependency><groupId>org.wiremock.integrations</groupId><artifactId>wiremock-spring-boot</artifactId><version>$WMSB</version><scope>test</scope></dependency></dependencies>|" /tmp/ref/pom.xml
           grep -m1 -A1 '<artifactId>spring-boot-starter-parent' /tmp/ref/pom.xml
 
       - name: build the classpath
@@ -786,6 +794,10 @@ jobs:
           # SearchIndexIT import Spring Data MongoDB and Elasticsearch, the MongoDB driver, BSON and the
           # Elasticsearch client (0147); `com.mongodb`, `org.bson` and `co.elastic` are their roots.
           # Spring Data OpenSearch is not an Initializr dependency: no exemplar imports it.
+          # `spring-data-envers`, added to the pom above with no version (the Boot parent manages it, and
+          # it brings `hibernate-envers`), is there because persistence-architect's auditing exemplars
+          # and test-architect's AuditHistoryIT import Envers and Spring Data's history (0149); both sit
+          # under the `org.hibernate` and `org.springframework` prefixes already checked.
           PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader|com\.mongodb|org\.bson|co\.elastic)\.'
           IMPORTS=$(grep -rhoE '^ *import (static )?[a-z][a-zA-Z0-9_.]+;' \
                       .claude/skills/*/templates/*.java.example \

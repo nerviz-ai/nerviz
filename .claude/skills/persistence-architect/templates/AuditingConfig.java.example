@@ -1,0 +1,108 @@
+/*
+ * EXEMPLAR — the auditing wiring, once per project: who the actor is, which clock stamps the
+ * instant, and the repositories that read a history. Form reference for the executor agent.
+ * Rules: `.claude/rules/persistence.md` (§ Auditing)
+ *        `.claude/rules/authorization.md` (the principal's name)
+ *
+ * WHY ITS OWN CONFIGURATION CLASS: `@EnableJpaAuditing` on the `@SpringBootApplication` class
+ * is loaded by every test slice, and a slice without JPA fails on it — observed:
+ * `@WebMvcTest` → "JPA metamodel must not be empty". Here, in the persistence adapter, the
+ * slice never sees it.
+ *
+ * WHY `@EnableEnversRepositories`: it is what lets a Spring Data repository extend
+ * `RevisionRepository`. It takes over the JPA repository scanning from Spring Boot, so its
+ * base package is the whole persistence adapter — every JPA repository, audited or not, keeps
+ * working through it; a narrower one leaves the repositories outside it uncreated (observed:
+ * "No qualifying bean"). A MongoDB repository in the same tree keeps its own store. A project
+ * whose cases only write `stamps` leaves it out.
+ *
+ * THE ACTOR — STRICT: `AuditorResolver` is the one place the security context is read, by the
+ * stamps (`AuditorAware`) and by the revision listener alike, since Envers calls its listener
+ * with no argument. An authenticated caller is its principal's name (`sub` for a token); an
+ * anonymous one, `anonymous`; a job or a consumer, the `system:<name>` its pass runs under
+ * (`SystemActor`). No authentication at all throws: an audited write that cannot say who made
+ * it is a lost security context, and writing `null` or a default would hide it. A project
+ * without the Spring Security starter declares `spring-security-core` alone — the starter
+ * would secure every endpoint.
+ *
+ * THE CLOCK: the stamps read the application's `Clock` bean through the `DateTimeProvider`, so a
+ * test fixes the instant the same way it fixes every other. Reuse the project's `Clock` bean
+ * when one exists.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- shared/audit/AuditingConfig.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import java.time.Clock;
+import java.util.Optional;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.auditing.DateTimeProvider;
+import org.springframework.data.domain.AuditorAware;
+import org.springframework.data.envers.repository.config.EnableEnversRepositories;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+
+@Configuration(proxyBeanMethods = false)
+@EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "auditingDateTimeProvider")
+@EnableEnversRepositories(basePackages = "com.example.demo.adapter.out.persistence")
+class AuditingConfig {
+
+    @Bean
+    AuditorAware<String> auditorAware(AuditorResolver auditorResolver) {
+        return () -> Optional.of(auditorResolver.currentAuditor());
+    }
+
+    @Bean
+    DateTimeProvider auditingDateTimeProvider(Clock clock) {
+        return () -> Optional.of(clock.instant());
+    }
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+}
+
+// --- shared/audit/MongoAuditingConfig.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.config.EnableMongoAuditing;
+
+/**
+ * Document family only, beside or instead of the JPA one: the same two beans fill the stamps
+ * of a document.
+ */
+@Configuration(proxyBeanMethods = false)
+@EnableMongoAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "auditingDateTimeProvider")
+class MongoAuditingConfig {
+}
+
+// --- shared/audit/AuditorResolver.java
+package com.example.demo.adapter.out.persistence.shared.audit;
+
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+
+/** {@code public}: the revision listener Hibernate instantiates through Spring receives it. */
+@Component
+public class AuditorResolver {
+
+    static final String ANONYMOUS = "anonymous";
+
+    public String currentAuditor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new IllegalStateException(
+                    "Audited write with no authentication: a job or consumer pass runs under SystemActor");
+        }
+        if (authentication instanceof AnonymousAuthenticationToken) {
+            return ANONYMOUS;
+        }
+        return authentication.getName();
+    }
+}

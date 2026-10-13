@@ -47,6 +47,7 @@ modules:
       - "org.bson.."
       - "co.elastic.."
       - "org.opensearch.."
+      - "org.hibernate.."  # Hibernate and Envers stay in the persistence adapter; Spring Data auditing is already under org.springframework — decision 0149
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -70,6 +71,11 @@ modules:
       - "org.springframework.data.elasticsearch.."
       - "co.elastic.."
       - "org.opensearch.."
+      - "org.hibernate.envers.."  # the history is read through a port; Envers, Spring Data history and the auditing annotations stay in the persistence adapter — decision 0149
+      - "org.hibernate.annotations.."
+      - "org.springframework.data.history.."
+      - "org.springframework.data.envers.."
+      - "org.springframework.data.annotation.."
   - id: infrastructure
     path: infrastructure
     depends_on: [application, domain, commons]
@@ -109,6 +115,9 @@ packages:
     infrastructure.graphql: "infrastructure.graphql"
     infrastructure.config: "infrastructure.config"
     commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
 
 # Naming convention for this blueprint (specific to clean-architecture, not universal —
 # see .claude/rules/architecture-ddd.md for what IS universal, DDD, and
