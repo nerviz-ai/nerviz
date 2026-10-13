@@ -518,6 +518,19 @@ hook cobre isso — não houve falha observada que justifique um. O que existe �
 `SystemActor` falha na escrita, por desenho — o ator nunca é `null`. Design:
 `.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
+**A versão da API é uma configuração por projeto, escrita pelo primeiro caso REST.** O
+`ApiVersioningConfig` adiciona o prefixo `/api/v{version}` aos controllers do pacote do adapter
+REST, e só a eles: um controller com `/api/v1` ainda no mapping de classe passa a responder em
+`/api/v1/api/v1/...`. Por isso um projeto gerado antes de `0150` move todo controller antes de
+ligar a config — a migração `api-version-path-prefix` diz como, e nenhuma URL pública muda. O
+prefixo é `/api/v{version}`, não `/api/{version}` (o springdoc documentaria `/api/1/users`), e é
+restrito ao pacote, não só a `@RestController` (o controller do próprio springdoc receberia o
+prefixo e o `/v3/api-docs` daria 404). Uma regra de request em `/api/v1/…` deixa a `/v2` da mesma
+rota só com `authenticated`: as regras escrevem `/api/*/…`. E o documento OpenAPI lista cada
+operação só na versão em que o mapping começa — uma operação que chega à v2 pelo baseline não
+aparece de novo lá (`.claude/rules/api-rest.md` § Versioning,
+`.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
+
 ### Mods
 
 **Abaixo do Claude Code 2.1.287 nenhum mod carrega, e nada na sessão avisa.** A faixa e o

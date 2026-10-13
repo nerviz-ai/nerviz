@@ -87,7 +87,7 @@ public class OrderController {
      * Authenticated in the chain; owner-or-support in the use case. No `@PreAuthorize`: the
      * rule needs the order, and loading it is the use case's job.
      */
-    @PostMapping("/api/v1/orders/{orderId}/cancellation")
+    @PostMapping(path = "/orders/{orderId}/cancellation", version = "1+")
     public ResponseEntity<Void> cancel(@PathVariable UUID orderId, Authentication authentication) {
         cancelOrder.handle(new CancelOrderCommand(orderId, actors.resolve(authentication)));
         return ResponseEntity.noContent().build();

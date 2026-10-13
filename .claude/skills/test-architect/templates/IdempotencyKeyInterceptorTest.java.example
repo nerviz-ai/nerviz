@@ -9,8 +9,11 @@
  * rejected with the same exception — so they are one method and six rows. The accepted key
  * and the unprotected routes are different behaviors, so they get their own methods.
  *
- * No `@WebMvcTest`: the interceptor reads only the request, and `MockHttpServletRequest`
- * gives it one in microseconds. The 400 body it leads to belongs to the web-slice test.
+ * No `@WebMvcTest`: the interceptor reads only the request and the handler, and
+ * `MockHttpServletRequest` plus a `HandlerMethod` over a two-method fixture give it both in
+ * microseconds. Whether a route needs the key is read from `@Idempotent` on the handler, never
+ * from its path — so no path here names an API version. The 400 body it leads to belongs to
+ * the web-slice test.
  */
 package com.exemplo.minhaapi.adapter.in.rest.idempotent;
 
@@ -20,16 +23,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.method.HandlerMethod;
 
 class IdempotencyKeyInterceptorTest {
 
-    private static final String PROTECTED_PATH = "/api/v1/users";
-    private static final Object HANDLER = new Object();
+    private static final HandlerMethod PROTECTED = handler("create");
+    private static final HandlerMethod UNPROTECTED = handler("list");
 
     private final IdempotencyKeyInterceptor interceptor = new IdempotencyKeyInterceptor();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
@@ -40,9 +43,9 @@ class IdempotencyKeyInterceptorTest {
     @ValueSource(strings = {"   ", "not-a-uuid", "12345", "0f2b6c1e-4d3a-4f5b-9c8d"})
     @DisplayName("rejects a protected POST whose key is missing or not a UUID")
     void rejectsMissingOrMalformedKey(String key) {
-        MockHttpServletRequest request = request("POST", PROTECTED_PATH, key);
+        MockHttpServletRequest request = request("POST", key);
 
-        assertThatThrownBy(() -> interceptor.preHandle(request, response, HANDLER))
+        assertThatThrownBy(() -> interceptor.preHandle(request, response, PROTECTED))
                 .isInstanceOf(MissingIdempotencyKeyException.class)
                 .hasMessageContaining(IdempotencyKeyInterceptor.HEADER);
     }
@@ -50,27 +53,51 @@ class IdempotencyKeyInterceptorTest {
     @Test
     @DisplayName("lets a protected POST with a UUID key through")
     void acceptsUuidKey() {
-        MockHttpServletRequest request =
-                request("POST", PROTECTED_PATH, "0f2b6c1e-4d3a-4f5b-9c8d-7e6f5a4b3c2d");
+        MockHttpServletRequest request = request("POST", "0f2b6c1e-4d3a-4f5b-9c8d-7e6f5a4b3c2d");
 
-        assertThat(interceptor.preHandle(request, response, HANDLER)).isTrue();
+        assertThat(interceptor.preHandle(request, response, PROTECTED)).isTrue();
     }
 
-    /** A route outside the protected list needs no key: requiring it everywhere puts 400 on harmless calls. */
+    /**
+     * A handler without `@Idempotent` needs no key, whatever the method: requiring it
+     * everywhere puts 400 on harmless calls. A static resource or an error page reaches the
+     * interceptor with a handler that is no `HandlerMethod` at all.
+     */
     @ParameterizedTest
-    @CsvSource({"GET, /api/v1/users", "POST, /api/v1/orders", "PUT, /api/v1/users"})
-    @DisplayName("lets a request without a key through on a route that doesn't require one")
-    void passesUnprotectedRouteWithoutKey(String method, String path) {
-        MockHttpServletRequest request = request(method, path, null);
+    @ValueSource(strings = {"GET", "POST", "PUT"})
+    @DisplayName("lets a request without a key through on a handler that doesn't require one")
+    void passesUnprotectedHandlerWithoutKey(String method) {
+        MockHttpServletRequest request = request(method, null);
 
-        assertThat(interceptor.preHandle(request, response, HANDLER)).isTrue();
+        assertThat(interceptor.preHandle(request, response, UNPROTECTED)).isTrue();
+        assertThat(interceptor.preHandle(request, response, new Object())).isTrue();
     }
 
-    private static MockHttpServletRequest request(String method, String path, String key) {
-        MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+    private static MockHttpServletRequest request(String method, String key) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/");
         if (key != null) {
             request.addHeader(IdempotencyKeyInterceptor.HEADER, key);
         }
         return request;
+    }
+
+    private static HandlerMethod handler(String name) {
+        try {
+            return new HandlerMethod(new Endpoints(), Endpoints.class.getMethod(name));
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Stands in for a controller: one protected handler, one not. */
+    static class Endpoints {
+        @Idempotent
+        public void create() {
+            // fixture: only the annotation is read
+        }
+
+        public void list() {
+            // fixture: no annotation
+        }
     }
 }

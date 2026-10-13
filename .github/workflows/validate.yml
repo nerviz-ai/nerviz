@@ -394,6 +394,14 @@ jobs:
       - name: auditing exemplars keep the history whole, its actor named and its prune safe
         run: java .claude/.ci/AuditTemplateTest.java
 
+      # An API version spelled in one place works until the first `/v2`, then fails silently: a class
+      # mapping under the configured prefix serves `/api/v1/api/v1/...`, a request rule on `/api/v1/…`
+      # leaves the `/v2` of a protected route to "authenticated", a path set of protected POSTs lets
+      # the `/v2` skip the key check — and a prefix `/api/{version}` or one scoped by annotation alone
+      # breaks the OpenAPI document. Keeps every REST exemplar versioned from one configuration (0150).
+      - name: REST exemplars version every handler from one configuration
+        run: java .claude/.ci/ApiVersionTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0

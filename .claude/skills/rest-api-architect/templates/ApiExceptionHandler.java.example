@@ -78,6 +78,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.accept.InvalidApiVersionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -155,6 +156,22 @@ public class ApiExceptionHandler {
     public ProblemDetail handleMissingIdempotencyKey(MissingIdempotencyKeyException e, HttpServletRequest request) {
         log.debug("Missing/malformed Idempotency-Key at {}", request.getRequestURI());
         return invalidRequest(request, List.of(new Violation(IdempotencyKeyInterceptor.HEADER, e.getMessage())));
+    }
+
+    /**
+     * A version outside `ApiVersioningConfig`'s supported list — never offered, or past its
+     * sunset (`.claude/rules/api-rest.md` § Versioning). Structural: the request never
+     * reached a controller, so `violations` on `version` and never `errorCode`. Also covers
+     * `NotAcceptableApiVersionException`, its subclass, for a supported version no mapping
+     * serves. Thrown while the handler is looked up, before any controller — this advice still
+     * catches it (proven against Framework 7.0.9, `0150`). A path with no version segment at
+     * all matches no mapping and answers 404: `MissingApiVersionException` never surfaces
+     * with the path-segment strategy, so it has no handler here.
+     */
+    @ExceptionHandler(InvalidApiVersionException.class)
+    public ProblemDetail handleUnsupportedApiVersion(InvalidApiVersionException e, HttpServletRequest request) {
+        log.debug("Unsupported API version at {}", request.getRequestURI());
+        return invalidRequest(request, List.of(new Violation("version", "is not a supported API version")));
     }
 
     /**

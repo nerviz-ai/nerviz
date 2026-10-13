@@ -1,0 +1,88 @@
+/*
+ * EXEMPLAR — the project's one API versioning configuration (`.claude/rules/api-rest.md`
+ * § Versioning). Written by the first use case that exposes REST, from its `30-rest.md`
+ * § 7 · Versioning; every later case CHANGEs it only to add a version, deprecate one, or
+ * retire one. Lives in the REST adapter's root package — its own package is what scopes the
+ * prefix. Compilable as-is — not pseudo-code.
+ *
+ * Everything sits here and nowhere else. No `spring.mvc.apiversion.use.*` property in
+ * `application.yml`: Boot would register a second resolver beside the one below, and Boot has
+ * no property for the prefix or the path predicate anyway. `spring.mvc.apiversion.*` stays out
+ * of the yml entirely, so the supported list has one writer.
+ *
+ * Shapes that were wrong on the first run of this exemplar, against Boot 4.1.1 / Framework
+ * 7.0.9 / springdoc 3.1.1 (`.claude/decisions/0150-api-versioning-in-rest-api-architect.md`):
+ *   - prefix `/api/{version}` → springdoc lists `/api/1/users`. The `v` belongs to the
+ *     pattern, `/api/v{version}`, and the OpenAPI document then reads `/api/v1/users`;
+ *   - prefix scoped by `@RestController` alone → springdoc's own endpoint is a
+ *     `@RestController` too, receives the prefix, and `/v3/api-docs` answers 404. The
+ *     package predicate keeps it to this adapter.
+ */
+package com.exemplo.minhaapi.adapter.in.rest;
+
+import java.net.URI;
+import java.time.ZonedDateTime;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.accept.ApiVersionDeprecationHandler;
+import org.springframework.web.accept.StandardApiVersionDeprecationHandler;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.HandlerTypePredicate;
+import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration(proxyBeanMethods = false)
+public class ApiVersioningConfig implements WebMvcConfigurer {
+
+    /** The path segment that holds the version: `/api` is segment 0, `v1` segment 1. */
+    private static final int VERSION_SEGMENT = 1;
+
+    /**
+     * Every controller of this package and its subpackages, and no other — a framework's own
+     * `@RestController` (the OpenAPI endpoint) keeps its path.
+     */
+    @Override
+    public void configurePathMatch(PathMatchConfigurer configurer) {
+        configurer.addPathPrefix("/api/v{version}",
+                HandlerTypePredicate.forAnnotation(RestController.class)
+                        .and(HandlerTypePredicate.forBasePackageClass(ApiVersioningConfig.class)));
+    }
+
+    /**
+     * The version is read only under `/api/`: `/actuator`, `/v3/api-docs` and `/swagger-ui` are
+     * never parsed as one. Required, no default, and an explicit supported list —
+     * `detectSupportedVersions(false)`, or a mapping alone would keep a retired version alive.
+     * Removing a version from `addSupportedVersions` is its sunset: 400 from then on.
+     *
+     * `v1` in the path parses as `1.0.0`; `"1"` here and `"1+"` on a mapping mean the same
+     * major.
+     */
+    @Override
+    public void configureApiVersioning(ApiVersionConfigurer configurer) {
+        configurer.usePathSegment(VERSION_SEGMENT,
+                        path -> path.pathWithinApplication().value().startsWith("/api/"))
+                .setVersionRequired(true)
+                .detectSupportedVersions(false)
+                .addSupportedVersions("1");
+    }
+
+    /**
+     * One entry per deprecated version, from the `30-rest.md` that deprecated it — empty
+     * until the first deprecation. Boot injects this bean into the versioning above on its
+     * own. Both dates always; the deprecation link to the migration notes; never
+     * `setSunsetLink` (`.claude/rules/api-rest.md` § Versioning). Writes `Deprecation`,
+     * `Sunset` and `Link` only on responses to that exact version.
+     *
+     * Shape, once v2 exists and v1 is deprecated:
+     *
+     *    handler.configureVersion("1")
+     *            .setDeprecationDate(ZonedDateTime.parse("2026-11-01T00:00:00Z"))
+     *            .setSunsetDate(ZonedDateTime.parse("2027-05-01T00:00:00Z"))
+     *            .setDeprecationLink(URI.create("https://developer.example.com/api/migrations/v2"));
+     */
+    @Bean
+    ApiVersionDeprecationHandler apiVersionDeprecationHandler() {
+        return new StandardApiVersionDeprecationHandler();
+    }
+}

@@ -12,18 +12,22 @@
 | Parent spec | `00-caso-de-uso.md` |
 | Domain partial | `10-dominio.md` |
 | Resource | `users` |
-| Version prefix | `/api/v1` |
+| API versioning | project setup NEW in this case — § 7 |
 | Divergences from `10-dominio.md` | none |
 
 ## 1 · Endpoints
 
 One per line. `operationId` is a contract: it becomes a method name in the generated client.
+`Path` is the public URI a client calls; the controller's mapping carries the resource alone
+(`/users`) and `Version` as its `version` attribute — the `/api/v{version}` prefix is § 7's
+configuration. `1+` is a baseline: served at v1 and every later version until a mapping at a
+higher one supersedes it.
 
-| Method | Path | `operationId` | Inbound port | Success |
-|---|---|---|---|---|
-| `POST` | `/api/v1/users` | `createUser` | `CreateUserUseCase` | 201 + `Location` + representation |
-| `GET` | `/api/v1/users` | `listUsers` | `ListUsersQuery` | 200 + page envelope |
-| `GET` | `/api/v1/users/{userId}` | `getUser` | `ListUsersQuery.byId` | 200 + representation |
+| Method | Path | Version | `operationId` | Inbound port | Success |
+|---|---|---|---|---|---|
+| `POST` | `/api/v1/users` | `1+` | `createUser` | `CreateUserUseCase` | 201 + `Location` + representation |
+| `GET` | `/api/v1/users` | `1+` | `listUsers` | `ListUsersQuery` | 200 + page envelope |
+| `GET` | `/api/v1/users/{userId}` | `1+` | `getUser` | `ListUsersQuery.byId` | 200 + representation |
 
 No `PUT` nor `PATCH` in this iteration: the parent spec has no update use case.
 Adding an endpoint with no use case behind it is guessing the contract.
@@ -56,6 +60,7 @@ table is the source of block 5 — no test case comes from anywhere but here.
 | Unknown `userId` in `GET` | `NotFoundException` | 404 | `USER_NOT_FOUND` | `errorCode` |
 | Same key, different body | `ConflictException` | 409 | `IDEMPOTENCY_KEY_REUSED` | `errorCode` |
 | `Idempotency-Key` missing or malformed | — (`MissingIdempotencyKeyException`, structural) | 400 | **none** | `violations` |
+| API version outside the supported list | — (`InvalidApiVersionException`, structural) | 400 | **none** | `violations` on `version` |
 | Required field missing, malformed `email` | — (bean validation) | 400 | **none** | `violations` |
 | Unreadable JSON, incompatible type | — (deserialization) | 400 | **none** | — |
 | Unmapped | — | 500 | **none** | `traceId` |
@@ -112,6 +117,7 @@ Asserting only the status number isn't enough: a wrong `errorCode` would slip th
 | Empty page | `GET` with no results | 200 with `content: []` — never 204 |
 | Stable ordering | `GET` page 0 and page 1 | empty intersection |
 | `size` above the maximum | `GET ?size=500` | 400 — never truncated silently |
+| Unsupported API version | `GET /api/v99/users` | 400, `violations[0].field = version`, `errorCode` absent — first REST case of the project only |
 
 Body-shape fixtures: `templates/error-responses.json.example` and
 `templates/page-response.json.example`.
@@ -136,6 +142,39 @@ clear was never protected — it was protected in the one place someone happened
 
 A **full value** carries the receiver's name and the reason, and without them consolidation
 stops. `reduced` and `reference` need no receiver column: nothing personal crosses.
+
+## 7 · Versioning
+
+`@.claude/rules/api-rest.md` § Versioning. The project setup is written once, by the first
+REST case of the project (NEW); every later case writes `inherited from UC-NNN` in its place
+and fills only **Changes in this case**.
+
+**Project setup** — NEW in this case: no `ApiVersioningConfig` exists yet.
+
+| Setting | Value |
+|---|---|
+| Strategy | Path segment: prefix `/api/v{version}` on the REST adapter package's controllers, read only under `/api/` — `ApiVersioningConfig` |
+| Supported versions | `1` |
+| Required | yes, no default version |
+| Deprecated versions | none |
+| Use per version | `api.version` tag on `http.server.requests` — `ApiVersionObservationConvention` |
+
+**Changes in this case** — none.
+
+A later case that changes an existing endpoint in a way `api-rest.md` § Versioning calls
+breaking writes one row per change, and the executor CHANGEs `ApiVersioningConfig`:
+
+`| Change | Version | Endpoints | Dates | Justification |`
+
+- *New version* — `2` added to the supported list; the endpoints that break get a mapping at
+  `2+` beside the `1+` one, which stays; every other endpoint reaches v2 through its baseline.
+  The breaking change that forces it goes in Justification.
+- *Deprecation* — `Deprecation` and `Sunset` dates for the old version, and the link to the
+  migration notes, which also say that operations reached through a baseline are listed in
+  the OpenAPI document under their starting version only. Justification: the measured use of
+  that version (`api.version`), and the consumers known to call it.
+- *Sunset* — the version leaves the supported list and its mappings are deleted, in the same
+  change. Never before the `Sunset` date recorded when it was deprecated.
 
 ## Design patterns
 

@@ -20,6 +20,13 @@
  *
  * ASSERTING THE NUMBER ISN'T ENOUGH. A wrong `errorCode` slips through a test that only
  * checks for 422 (`.claude/rules/api-rest.md` § How to verify).
+ *
+ * THE PUBLIC URI, SPELLED HERE. `USERS` is the path a client calls, version included —
+ * never built from the controller's class mapping, which no longer carries the
+ * `/api/v{version}` prefix (`ApiVersioningConfig`, `.claude/rules/api-rest.md` § Versioning).
+ * A literal URI reaches the server's version resolver unchanged, so neither `.apiVersion(...)`
+ * nor an `apiVersionInserter` is needed. The slice loads `ApiVersioningConfig` on its own: it
+ * is a `WebMvcConfigurer`.
  */
 package com.exemplo.minhaapi.adapter.in.rest;
 
@@ -55,6 +62,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(UserController.class)
 class UserControllerTest {
 
+    private static final String USERS = "/api/v1/users";
     private static final String VALID_KEY = "0f2b6c1e-4d3a-4f5b-9c8d-7e6f5a4b3c2d";
     private static final String VALID_BODY =
             """
@@ -94,12 +102,12 @@ class UserControllerTest {
         given(createUser.handle(any())).willReturn(user);
 
         mockMvc.perform(
-                        post(UserController.BASE_PATH)
+                        post(USERS)
                                 .header("Idempotency-Key", VALID_KEY)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(VALID_BODY))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", UserController.BASE_PATH + "/" + user.id().value()))
+                .andExpect(header().string("Location", USERS + "/" + user.id().value()))
                 .andExpect(jsonPath("$.email").value("ana@exemplo.com"));
     }
 
@@ -112,7 +120,7 @@ class UserControllerTest {
                 .handle(any());
 
         mockMvc.perform(
-                        post(UserController.BASE_PATH)
+                        post(USERS)
                                 .header("Idempotency-Key", VALID_KEY)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(VALID_BODY))
@@ -125,7 +133,7 @@ class UserControllerTest {
     @DisplayName("missing required field is 400 with violations and no errorCode")
     void rejectsInvalidBody() throws Exception {
         mockMvc.perform(
-                        post(UserController.BASE_PATH)
+                        post(USERS)
                                 .header("Idempotency-Key", VALID_KEY)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -139,7 +147,7 @@ class UserControllerTest {
     @DisplayName("missing Idempotency-Key is 400")
     void rejectsMissingIdempotencyKey() throws Exception {
         mockMvc.perform(
-                        post(UserController.BASE_PATH)
+                        post(USERS)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(VALID_BODY))
                 .andExpect(status().isBadRequest());
@@ -152,7 +160,7 @@ class UserControllerTest {
                 .given(listUsers)
                 .byId(any());
 
-        mockMvc.perform(get(UserController.BASE_PATH + "/{userId}", "unknown"))
+        mockMvc.perform(get(USERS + "/{userId}", "unknown"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("USER_NOT_FOUND"));
     }
@@ -162,7 +170,7 @@ class UserControllerTest {
     void emptyCollection() throws Exception {
         given(listUsers.handle(0, 20, "createdAt,desc")).willReturn(TestFixtures.emptyPage());
 
-        mockMvc.perform(get(UserController.BASE_PATH))
+        mockMvc.perform(get(USERS))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.page.totalElements").value(0));
@@ -171,7 +179,21 @@ class UserControllerTest {
     @Test
     @DisplayName("size above the maximum is 400, never silently truncated")
     void sizeAboveMaximum() throws Exception {
-        mockMvc.perform(get(UserController.BASE_PATH).param("size", "500"))
+        mockMvc.perform(get(USERS).param("size", "500"))
                 .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Once per project, in the first REST use case — a version outside the supported list is
+     * structural: `violations` on `version`, no `errorCode`. A deprecated version gets its own
+     * case in the case that deprecates it: `Deprecation` and `Sunset` present on the response.
+     */
+    @Test
+    @DisplayName("unsupported API version is 400 with violations on version")
+    void unsupportedApiVersion() throws Exception {
+        mockMvc.perform(get("/api/v99/users"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("version"))
+                .andExpect(jsonPath("$.errorCode").doesNotExist());
     }
 }

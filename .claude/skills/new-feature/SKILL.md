@@ -401,8 +401,8 @@ If it exists: read, validate (four blocks: aggregate, VOs, invariants, ports).
 Read the closing phrase of `00-caso-de-uso.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
 skip this step. Any other phrase, or none (a case written before the phrase existed) → if
 `30-rest.md` is missing: **invoke** `/rest-api-architect UC-NNN`.
-If it exists: read, validate (six blocks: resources, DTOs, errors, pagination, idempotency,
-personal data).
+If it exists: read, validate (seven blocks: resources, DTOs, errors, pagination, idempotency,
+personal data, versioning).
 
 **Output:** "✅ REST ready", "— skipped (GraphQL only)", or gaps.
 

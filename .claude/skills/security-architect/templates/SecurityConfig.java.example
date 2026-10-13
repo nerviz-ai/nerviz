@@ -32,7 +32,9 @@
  *   - authorizeHttpRequests, specific to general: health and info public, every other
  *     actuator endpoint for the operator role, the OpenAPI paths public unless the project
  *     turned that off, the endpoints of § 1 that a request rule protects, and
- *     `anyRequest().authenticated()` last — never `permitAll`.
+ *     `anyRequest().authenticated()` last — never `permitAll`. A rule on an API route names
+ *     every version, `/api/*/…`: `/api/v1/…` alone would leave the `/v2` of the route to the
+ *     last rule (`.claude/rules/authorization.md` § Default access).
  *
  * WHAT IS NOT HERE: a `@PreAuthorize` rule (method security, on the controller), the owner
  * check (the use case), a `JwtDecoder` bean (Boot builds it from
@@ -100,7 +102,7 @@ public class SecurityConfig {
                     if (PUBLIC_ENDPOINTS.length > 0) {
                         requests.requestMatchers(HttpMethod.GET, PUBLIC_ENDPOINTS).permitAll();
                     }
-                    requests.requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancellation").authenticated();
+                    requests.requestMatchers(HttpMethod.POST, "/api/*/orders/*/cancellation").authenticated();
                     requests.anyRequest().authenticated();
                 });
         mechanism.applyTo(http, entryPoint, accessDeniedHandler);

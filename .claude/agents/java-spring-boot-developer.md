@@ -701,6 +701,11 @@ the step at hand. Generates:
 - Response DTO — `record`
 - `[Resource]RestMapper.java` — manual (no `@Mapping`), domain ↔ DTO
 - `ApiExceptionHandler.java` — `@RestControllerAdvice`, 5 error shapes (422, 404, 409, 400, 500 with `traceId`)
+- `ApiVersioningConfig.java` and `ApiVersionObservationConvention.java` — the first REST case of
+  the project, when `30-rest.md` § 7 · Versioning says NEW; CHANGE only for the version, deprecation
+  or sunset that section lists. Every handler method carries the `version` the partial's endpoint
+  table gives (`1+`), and no class mapping spells `/api/v1` — the prefix is the config's
+  (`.claude/rules/api-rest.md` § Versioning)
 - `IdempotencyKeyInterceptor.java` (if needed) — and, the first time, the transactional half the
   partial cites: `IdempotencyKeyStore`, `IdempotentExecution`. The controller calls
   `IdempotentExecution`; the command never carries the key (`.claude/rules/api-rest.md`
