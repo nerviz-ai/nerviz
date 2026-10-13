@@ -1,0 +1,41 @@
+# Shape for an Elasticsearch service block appended under docker-compose.yml's `services:`.
+# Tag matched to the one `src/test` pins in `DockerImageName.parse` (test-architect's
+# `SearchIndexIT.java.example`) and to the client's major: the Spring Boot BOM's Elasticsearch
+# client refuses — and is refused by — a server one major behind. Verified in the registry
+# (docker.elastic.co), step 4. Never "latest".
+#
+# ONE NODE, SECURITY ON, HTTP WITHOUT TLS — LOCAL ONLY. `discovery.type: single-node` forms a
+# cluster of one and skips the production bootstrap checks, so `vm.max_map_count` does not stop the
+# start (on Linux hosts a heavy local index still wants `sysctl -w vm.max_map_count=1048576`).
+# Authentication stays on, so the application's credentials are exercised every run. TLS on HTTP is
+# off here because its certificate is generated inside the container on first start; production
+# serves TLS, and application.yml's production profile carries the SSL bundle.
+#
+# `ELASTIC_PASSWORD`, never `ELASTIC_PASSWORD_FILE`: Spring Boot's compose support refuses the file
+# variant and the application fails to start. The password has no default (`rules/secrets.md`).
+# The user is `elastic`. Same variable names as application.yml: `SEARCH_PASSWORD`, `SEARCH_PORT`.
+#
+# A single node with one replica never turns green: the application creates its indexes with the
+# replica count of `app.search.replicas`, 0 here.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.8
+    environment:
+      discovery.type: single-node
+      ELASTIC_PASSWORD: ${SEARCH_PASSWORD:?set SEARCH_PASSWORD in .env}
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${SEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs -u elastic:$${ELASTIC_PASSWORD} 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+# Named volume — add under docker-compose.yml's top-level `volumes:`.
+volumes:
+  elasticsearch-data:

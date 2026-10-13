@@ -1,0 +1,37 @@
+# Shape for an OpenSearch service block appended under docker-compose.yml's `services:`.
+# Tag matched to the one `src/test` pins in `DockerImageName.parse`, and inside the server range the
+# compatibility matrix of spring-data-opensearch's README gives for the project's version. Verified
+# in the registry (Docker Hub, `opensearchproject/opensearch`), step 4. Never "latest".
+#
+# ONE NODE, SECURITY PLUGIN ON, HTTP WITHOUT TLS — LOCAL ONLY. The image installs its demo security
+# configuration on first start; HTTP TLS is turned off so the host run needs no certificate, while
+# the admin login stays required. Production serves TLS with its own certificates.
+#
+# `OPENSEARCH_INITIAL_ADMIN_PASSWORD` is required from 2.12 on, and must be strong — at least eight
+# characters with upper case, lower case, a digit and a symbol — or the container exits on start.
+# No default (`rules/secrets.md`). The user is `admin`. Same variable names as application.yml:
+# `SEARCH_PASSWORD`, `SEARCH_PORT`. Spring Boot has no compose service connection for OpenSearch;
+# spring-data-opensearch's own module provides one, keyed on this image name.
+#
+# On Linux hosts a heavy local index wants `sysctl -w vm.max_map_count=262144`.
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${SEARCH_PASSWORD:?set SEARCH_PASSWORD in .env}
+      plugins.security.ssl.http.enabled: "false"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${SEARCH_PORT:-9200}:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs -u admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD} 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+# Named volume — add under docker-compose.yml's top-level `volumes:`.
+volumes:
+  opensearch-data:

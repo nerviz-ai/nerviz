@@ -1,0 +1,197 @@
+/*
+ * EXEMPLAR — the two outbound adapters over a search index: the query side, implementing the
+ * `search index` port of the read use case, and the indexer side, implementing the port the
+ * indexer use case writes through. Form reference; not a file to copy.
+ * Rules: `.claude/rules/search.md` (§ Boundary, § Writes, § Queries, § Failure)
+ *        `.claude/rules/error-handling.md` (§ Integration families)
+ *
+ * WHAT THIS FILE DELIBERATELY DOES NOT HAVE:
+ *   - an `ElasticsearchRepository` — its `save` refreshes the index on every call unless a refresh
+ *     policy is set; `ElasticsearchOperations` sends no refresh, which is the policy wanted
+ *   - a `NativeQuery` — it belongs to the Elasticsearch client (`client.elc`); `CriteriaQuery`
+ *     runs unchanged on Elasticsearch and OpenSearch
+ *   - `from`/`size` paging — the cursor is the last hit's sort values (`search_after`)
+ *   - the aggregate — the query returns a read projection, and a caller that acts on an order
+ *     loads it from its own repository
+ *
+ * THE INDEXER WRITES TO TWO ALIASES DURING A REBUILD. `orders` always; `orders-next` too while a
+ * rebuild is filling the next index version (`SearchRebuild.java.example`), so an event that lands
+ * during the rebuild reaches the new index as well. The external version makes the two writers —
+ * the rebuild and the indexer — safe in any order: the higher source version wins.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderSearchAdapter.java
+package com.example.demo.adapter.out.search.order;
+
+import com.example.demo.application.port.out.OrderSearchPage;
+import com.example.demo.application.port.out.OrderSearchQuery;
+import com.example.demo.application.port.out.SearchOrdersPort;
+import com.example.demo.domain.exception.DependencyUnavailableException;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.NoSuchIndexException;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.stereotype.Component;
+
+@Component
+class OrderSearchAdapter implements SearchOrdersPort {
+
+    /** The page ceiling, far below the engine's 10 000-hit window. */
+    static final int MAX_PAGE = 100;
+    private static final String DEPENDENCY = "order-search";
+
+    private final ElasticsearchOperations operations;
+
+    OrderSearchAdapter(ElasticsearchOperations operations) {
+        this.operations = operations;
+    }
+
+    /**
+     * The user's text is the value of a {@code match} query ({@code Criteria.matches}) — never
+     * {@code query_string} syntax, never a wildcard. The sort ends in {@code orderId}, unique.
+     */
+    @Override
+    public OrderSearchPage search(OrderSearchQuery query, Optional<OrderSearchPage.Cursor> after, int size) {
+        Criteria criteria = Criteria.where("deleted").is(false);
+        if (query.text().isPresent()) {
+            criteria = criteria.and(Criteria.where("customerName").matches(query.text().get()));
+        }
+        if (query.status().isPresent()) {
+            criteria = criteria.and(Criteria.where("status").is(query.status().get()));
+        }
+        CriteriaQuery search = new CriteriaQuery(criteria);
+        search.setPageable(PageRequest.of(0, Math.min(size, MAX_PAGE),
+                Sort.by(Sort.Order.desc("placedAt"), Sort.Order.desc("orderId"))));
+        after.ifPresent(cursor -> search.setSearchAfter(List.of(cursor.placedAtMillis(), cursor.orderId())));
+        search.addSourceFilter(new org.springframework.data.elasticsearch.core.query.FetchSourceFilter(
+                true, new String[] {"orderId", "orderNumber", "customerName", "status", "placedAt"}, null));
+        try {
+            return toPage(operations.search(search, OrderSearchDocument.class, IndexCoordinates.of(OrderSearchIndex.ALIAS)));
+        } catch (DataAccessResourceFailureException | NoSuchIndexException cause) {
+            throw new DependencyUnavailableException("ORDER_SEARCH_UNAVAILABLE", DEPENDENCY,
+                    "the order search index could not be queried", cause);
+        }
+    }
+
+    /**
+     * The cursor is built from the last item's own fields — the sort's values — never from
+     * {@code SearchHit.getSortValues()}: Elasticsearch's client returns them as numbers and strings,
+     * OpenSearch's as its own {@code FieldValue}, and a cast that works on one fails on the other.
+     */
+    private static OrderSearchPage toPage(SearchHits<OrderSearchDocument> hits) {
+        List<OrderSearchPage.Item> items = hits.getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .map(document -> new OrderSearchPage.Item(document.getOrderId(), document.getOrderNumber(),
+                        document.getCustomerName(), document.getStatus(), document.getPlacedAt()))
+                .toList();
+        Optional<OrderSearchPage.Cursor> next = items.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new OrderSearchPage.Cursor(items.getLast().placedAt().toEpochMilli(), items.getLast().orderId()));
+        return new OrderSearchPage(items, next);
+    }
+}
+
+// --- order/OrderIndexerAdapter.java
+package com.example.demo.adapter.out.search.order;
+
+import com.example.demo.application.port.out.IndexOrderPort;
+import com.example.demo.application.port.out.IndexWrite;
+import com.example.demo.application.port.out.OrderSnapshot;
+import com.example.demo.domain.exception.DependencyUnavailableException;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.elasticsearch.VersionConflictException;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.stereotype.Component;
+
+@Component
+class OrderIndexerAdapter implements IndexOrderPort {
+
+    private static final String DEPENDENCY = "order-search";
+
+    private final ElasticsearchOperations operations;
+
+    OrderIndexerAdapter(ElasticsearchOperations operations) {
+        this.operations = operations;
+    }
+
+    @Override
+    public IndexWrite upsert(OrderSnapshot order) {
+        return write(OrderSearchDocuments.of(order));
+    }
+
+    /** A tombstone with the source's version, so a late update cannot resurrect the order. */
+    @Override
+    public IndexWrite remove(String orderId, long sourceVersion) {
+        return write(OrderSearchDocument.tombstone(orderId, sourceVersion));
+    }
+
+    /**
+     * {@code STALE}: the index already holds a copy at least this new. The indexer acknowledges
+     * the event; it is neither an error nor a retry.
+     */
+    private IndexWrite write(OrderSearchDocument document) {
+        IndexWrite result = IndexWrite.WRITTEN;
+        for (String alias : targets()) {
+            try {
+                operations.save(document, IndexCoordinates.of(alias));
+            } catch (VersionConflictException alreadyNewer) {
+                result = IndexWrite.STALE;
+            } catch (DataAccessResourceFailureException cause) {
+                throw new DependencyUnavailableException("ORDER_SEARCH_UNAVAILABLE", DEPENDENCY,
+                        "the order search index could not be written", cause);
+            }
+        }
+        return result;
+    }
+
+    private List<String> targets() {
+        List<String> aliases = new ArrayList<>(List.of(OrderSearchIndex.ALIAS));
+        String next = OrderSearchIndex.ALIAS + "-next";
+        if (operations.indexOps(IndexCoordinates.of(next)).exists()) {
+            aliases.add(next);
+        }
+        return aliases;
+    }
+}
+
+// --- order/OrderSearchDocuments.java
+package com.example.demo.adapter.out.search.order;
+
+import com.example.demo.application.port.out.OrderSnapshot;
+import java.math.BigDecimal;
+
+/** Snapshot of the source → search document. The only translation into the engine's shape. */
+final class OrderSearchDocuments {
+
+    private OrderSearchDocuments() {
+    }
+
+    static OrderSearchDocument of(OrderSnapshot order) {
+        return new OrderSearchDocument(
+                order.orderId(),
+                order.orderNumber(),
+                order.customerName(),
+                order.status(),
+                order.total().movePointRight(2).setScale(0, java.math.RoundingMode.UNNECESSARY).longValueExact(),
+                order.placedAt(),
+                order.lines().stream().map(line -> new OrderSearchLine(line.sku(), line.quantity())).toList(),
+                order.sourceVersion());
+    }
+
+    static BigDecimal totalOf(long minor) {
+        return BigDecimal.valueOf(minor, 2);
+    }
+}

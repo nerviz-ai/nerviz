@@ -28,7 +28,12 @@ $ARGUMENTS
 # Use Case Design
 
 Produces the use case's **parent spec**: the boundary, the flow, and the canonical
-names every layer inherits. Writes no code. Chooses no technology.
+names every layer inherits. Writes no code. Weighs no storage technology: the storage family
+and the search engine come from the request — stated, or inferred without ambiguity — or from one
+factual question with no criteria and no recommendation; weighing them belongs to a planned
+solution-design step (`@.claude/decisions/0147-document-storage-and-search-architect.md`). The
+inbound protocol is the one technology asked with criteria, those of
+`@.claude/rules/api-graphql.md` (`0146`).
 
 **Entry rule: one use case, one side effect.** Before any question, apply the
 boundary test from `references/scope-boundary.md`. A request with two side effects and
@@ -67,7 +72,8 @@ Pinned to `opus`: the partial is what the executor implements verbatim. A pinned
 
 | Doesn't decide | Why | Who decides |
 |---|---|---|
-| SQL or NoSQL, Kafka or SQS | Technology is an architecture choice, fixed earlier: the blueprint's `packages.map` and `features` | The user, in `/init-project` |
+| Kafka or SQS | The broker is an architecture choice, fixed earlier: the blueprint's `features` | The user, in `/init-project` |
+| **Weighing** relational, document or search for a case — scenarios, trade-offs, pros and cons, a recommendation | A decision interview is a different job from recording a fact. This skill records the storage family and the search engine the request states, or asks one factual question when it does not (step 3, the `Storage` block); it never argues for one | A planned solution-design step, which will write the same `Storage` and `Search index` rows |
 | Which design pattern to apply | A pattern shapes the classes of one layer, and this spec fixes no class | Each layer's partial, through `gof-design-patterns` § Design-time use |
 | Writing classes, tests, or migrations | The spec describes what to create; creating is a different phase | The layer skills and, eventually, the executor agent |
 | Per-layer detail (annotations, columns, exact HTTP status) | Each layer has its own rule and owner | The partial specs — see § Structure |
@@ -107,7 +113,7 @@ the decision.
    when the case stops being backlog.
 
    Nothing is saved before the answer.
-3. **Interview** with `AskUserQuestion`, seven blocks, one per call when earlier
+3. **Interview** with `AskUserQuestion`, eight blocks, one per call when earlier
    answers change the next questions:
 
    | Block | Fixes |
@@ -118,6 +124,7 @@ the decision.
    | External calls — **always asked when a side effect reaches a system this service does not own** | Per system: what it is and what the case asks of it (read, or a write with an effect over there); its documentation link and whether it publishes an OpenAPI document; **how it authenticates this service** — as this service itself (an authorization server issues it a token), on behalf of the user who made the request, a static key, a username and password, a client certificate, a signature over each request, or none — and the credential's owner; whether it accepts an idempotency key on writes; what the business wants when it is down (fail now, or degrade to a named alternative); and, for a write, what happens when its result is unknown (stop, or reconcile later). The answers are the `External calls` row; a port of kind `external HTTP` in `10-dominio.md` is what then decides whether `http-client-architect` runs. Never asked as library, timeout or retry questions |
    | Invariants and errors | Rules the domain guarantees, and the situation each violation produces — described, never named as an exception |
    | Repetition, transaction, concurrency | Does repeating the request create a duplicate (business fact)? Where does the transaction open and close? What business key could collide? |
+   | Storage — **asked only when the request leaves it unclear** | Per aggregate the case writes or reads as its source: `relational` or `document (MongoDB)`; and whether the case searches that data through a search engine. **Recorded, not asked, when the request states it or it is inferred without ambiguity**: the request names the family or the engine ("store orders in MongoDB", "search the catalog in Elasticsearch"); the aggregate already lives in a table or a collection (step 4 reads it); the case extends data already persisted; the request names full-text search over named fields. **Never an inference**: a loose word — "document", "flexible", "fast", "scalable", "schemaless", "JSON". Unclear → one `AskUserQuestion`, a factual question with no criteria and no recommendation: *Will this data be persisted in SQL or NoSQL?* · `SQL (relational)` · `NoSQL (document, MongoDB)`. MongoDB is the only document engine in scope, so no engine question follows — it is recorded. The relational engine (Postgres, MySQL, Oracle) is never asked here: `persistence-architect` asks it. A search engine is asked only when the request names a search but no engine: *Which search engine holds the search index?* · `Elasticsearch` · `OpenSearch`. Whether the case wants a search index at all is never asked. The answers are the `Storage` and `Search index` rows, each with who chose |
    | Freshness — **always asked when the case returns data it did not just write** | How old may the answer be when it is served: must every read see the last write, or may it be some seconds or minutes old — in business words ("a balance may be up to 30 seconds old"). The answer is the `Freshness` row, `none` or a duration; a duration is what decides whether `cache-architect` runs. A case that only writes, or returns what it just wrote, records `none` without asking |
 
    Don't move on with a block unanswered. A missing answer becomes a silent assumption
@@ -134,6 +141,8 @@ the decision.
    | a client library (`RestClient`, Feign, `WebClient`), a timeout, a retry count, a circuit breaker | don't ask — ask what the business tolerates when the other system is down or slow; `http-client-architect` decides. **Exception: how the other system authenticates this service is asked here, always** — it is a fact of the integration contract, and the credential's owner is a person to find before the design, not after |
    | the shape of a domain field (value object, `enum`, primitive) | don't ask — ask what values the field admits; `domain-modeling` decides the shape |
    | a cache, Redis, Caffeine, an expiry or TTL, a hit ratio | don't ask — ask how old the answer may be when served; `cache-architect` decides whether a cache exists and its shape |
+   | criteria, pros and cons, or a recommendation between SQL, a document store and a search engine — "which fits better", "faster", "more flexible" | don't ask — record what the request states, or ask the bare factual question of the `Storage` block; weighing them belongs to a solution-design step, not to this skill |
+   | tables, collections, indexes, a mapping, the relational engine | don't ask — `persistence-architect` and `search-architect` decide |
    | fewer than 2 real options | don't ask — decide and record it in the spec. The runtime rejects the whole batch over a single one-option question (`@CLAUDE.md` § Known pitfalls) |
 
    A question whose answer another skill overwrites is worse than no question: it costs
@@ -279,7 +288,8 @@ impact section.
 **Does not** write code, tests, migrations, or OpenAPI, and never writes under `src/`. Doesn't touch the inbound REST
 adapter — the package the blueprint's `packages.map` gives that role
 (`rest-api-architect`) —, the domain or application (`gof-design-patterns`,
-`domain-modeling`), nor `.claude/rules/**`. Doesn't decide technology.
+`domain-modeling`), nor `.claude/rules/**`. Doesn't weigh a storage technology: records the
+storage family and the search engine the request states or the user answers.
 
 **Does not** reproduce rules. Cites by path; what the rule already says isn't repeated
 in the spec.

@@ -1,0 +1,172 @@
+/*
+ * EXEMPLAR — persistence integration test of a MongoDB adapter. Compilable against the persistence
+ * exemplars it names (`persistence-architect/templates/Mongo*.java.example`).
+ * Rules: `.claude/rules/testing.md` (§ Database in integration tests) ·
+ *        `.claude/rules/persistence.md` (§ Document (MongoDB))
+ *
+ * WHY `.withReplicaSet()`: Testcontainers 2 starts MongoDB standalone by default, and a standalone
+ * server refuses every transaction — the outbox, the idempotency complete and any multi-document
+ * write would pass a unit test and fail here, or worse, never be tested at all. A single-node
+ * replica set is what the compose service runs too.
+ *
+ * WHY `DockerImageName.parse(…)`: the compose × `src/test` tag comparison of `ArchHook.java
+ * compose` reads exactly that call. A `new MongoDBContainer("mongo:8.0")` literal is invisible to it.
+ *
+ * WHY THE SCHEMA INITIALIZER IS IMPORTED: the slice loads no `@Component`. Without it no index
+ * exists, and the duplicate test below passes for the wrong reason — or fails for one nobody reads.
+ * `uniqueIndexExists` proves the index the business key depends on is really there.
+ *
+ * WHAT THIS LEVEL VERIFIES: mapping, indexes, the version on update, the upcast of an older shape,
+ * and that the transaction manager really rolls back. Business rules have their test in the domain.
+ *
+ * The test package mirrors the main one, aggregate subpackage included.
+ */
+package com.example.demo.adapter.out.persistence.order;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.example.demo.adapter.out.persistence.shared.MongoSchemaInitializer;
+import com.example.demo.application.service.DocumentTransactions;
+import com.example.demo.domain.exception.ConflictException;
+import com.example.demo.domain.model.Order;
+import com.example.demo.domain.model.OrderLine;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.IndexInfo;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
+import org.testcontainers.utility.DockerImageName;
+
+@DataMongoTest(properties = {
+        "spring.mongodb.representation.uuid=standard",
+        "spring.data.mongodb.representation.big-decimal=decimal128"})
+@Testcontainers
+@Import({OrderMongoRepositoryAdapter.class, OrderDocumentMapper.class, OrderCollection.class,
+        MongoSchemaInitializer.class, MongoPersistenceIT.Transactions.class})
+class MongoPersistenceIT {
+
+    @Container
+    @ServiceConnection
+    static final MongoDBContainer MONGO = new MongoDBContainer(DockerImageName.parse("mongo:8.0")).withReplicaSet();
+
+    /** The slice registers no transaction manager; the production config is not a slice bean. */
+    @TestConfiguration(proxyBeanMethods = false)
+    static class Transactions {
+
+        @Bean
+        MongoTransactionManager mongoTransactionManager(MongoDatabaseFactory databaseFactory) {
+            return new MongoTransactionManager(databaseFactory);
+        }
+
+        @Bean
+        DocumentTransactions documentTransactions(MongoTransactionManager mongoTransactionManager) {
+            return new DocumentTransactions(mongoTransactionManager);
+        }
+    }
+
+    @Autowired private OrderMongoRepositoryAdapter adapter;
+    @Autowired private DocumentTransactions transactions;
+    @Autowired private MongoTemplate template;
+
+    @Test
+    @DisplayName("persists and re-reads the same aggregate, money and instant intact")
+    void persistsAndRereads() {
+        Order created = adapter.create(order("ORD-1"));
+
+        Order reread = adapter.byId(created.id()).orElseThrow();
+
+        assertThat(reread.number()).isEqualTo("ORD-1");
+        assertThat(reread.total()).isEqualByComparingTo("25.50");
+        assertThat(reread.placedAt()).isEqualTo(created.placedAt());
+    }
+
+    @Test
+    @DisplayName("the unique index on the business key exists, created at startup")
+    void uniqueIndexExists() {
+        List<IndexInfo> indexes = template.indexOps(OrderDocument.class).getIndexInfo();
+
+        assertThat(indexes)
+                .filteredOn(index -> index.getName().equals("ux_orders_order_number"))
+                .singleElement()
+                .extracting(IndexInfo::isUnique)
+                .isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("a second order with the same number is a conflict, not an overwrite")
+    void rejectsDuplicateNumber() {
+        adapter.create(order("ORD-2"));
+        Order duplicate = order("ORD-2");
+
+        assertThatThrownBy(() -> adapter.create(duplicate))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("ORDER_ALREADY_EXISTS");
+    }
+
+    @Test
+    @DisplayName("an update keeps the id and raises the stored version")
+    void updateRaisesVersion() {
+        Order created = adapter.create(order("ORD-3"));
+        created.confirm();
+
+        adapter.save(created);
+
+        OrderDocument stored = template.findById(created.id().value(), OrderDocument.class);
+        assertThat(stored.getVersion()).isEqualTo(1L);
+        assertThat(stored.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("a shape-1 document without total is upcast on read")
+    void upcastsShapeOne() {
+        UUID id = UUID.randomUUID();
+        template.getCollection("orders").insertOne(new org.bson.Document("_id", id)
+                .append("orderNumber", "ORD-OLD")
+                .append("customerId", UUID.randomUUID())
+                .append("status", "PLACED")
+                .append("lines", List.of(new org.bson.Document("sku", "A").append("quantity", 2)
+                        .append("unitPrice", new org.bson.types.Decimal128(new BigDecimal("3.00")))))
+                .append("placedAt", java.util.Date.from(Instant.now()))
+                .append("schemaVersion", 1)
+                .append("version", 0L));
+
+        Order upcast = adapter.byId(new com.example.demo.domain.model.OrderId(id)).orElseThrow();
+
+        assertThat(upcast.total()).isEqualByComparingTo("6.00");
+    }
+
+    @Test
+    @DisplayName("a failure inside the transaction leaves nothing written")
+    void rollsBack() {
+        Order doomed = order("ORD-4");
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+            adapter.create(doomed);
+            throw new IllegalStateException("after the write");
+        })).isInstanceOf(IllegalStateException.class);
+
+        assertThat(adapter.byId(doomed.id())).isEmpty();
+    }
+
+    private static Order order(String number) {
+        return Order.place(number, UUID.randomUUID(),
+                List.of(new OrderLine("SKU-1", 3, new BigDecimal("8.50"))),
+                Instant.now().truncatedTo(ChronoUnit.MILLIS));
+    }
+}

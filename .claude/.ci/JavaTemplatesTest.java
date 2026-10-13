@@ -12,6 +12,11 @@
 //     It carries `AssignedIdEntity`, the `@MappedSuperclass` every assigned-id entity extends
 //     (decision 0096), and `UserEntity` extending it: the base class is new, and a mapped
 //     superclass that doesn't compile is the kind of error no prose review sees.
+//   - the self-contained blocks of the document family and of the search projection (decision
+//     0147): `MongoDocument`, `MongoCollections`, `MongoConfig` (both transaction shapes compile; a
+//     project keeps one) of persistence-architect, and `SearchDocument`, `SearchIndexBootstrap` of
+//     search-architect. The adapters around them name ports and domain types only a real use case
+//     creates, and stay shape references — they were run against real engines when written.
 // Out of scope: templates that reference classes only a real use case creates (a controller's
 // use case, a test's aggregate). They are shape references; compiling them needs stubs that
 // would test the stubs.
@@ -39,6 +44,13 @@ public class JavaTemplatesTest {
     static final Path SKILLS = Paths.get(".claude/skills");
     static final Path COMMONS = SKILLS.resolve("new-feature-implement/templates/commons");
     static final Path JPA_ENTITY = SKILLS.resolve("persistence-architect/templates/JpaEntity.java.example");
+    static final List<Path> BLOCK_TEMPLATES = List.of(
+            JPA_ENTITY,
+            SKILLS.resolve("persistence-architect/templates/MongoDocument.java.example"),
+            SKILLS.resolve("persistence-architect/templates/MongoCollections.java.example"),
+            SKILLS.resolve("persistence-architect/templates/MongoConfig.java.example"),
+            SKILLS.resolve("search-architect/templates/SearchDocument.java.example"),
+            SKILLS.resolve("search-architect/templates/SearchIndexBootstrap.java.example"));
     static final Pattern PACKAGE = Pattern.compile("(?m)^package\\s+([\\w.]+)\\s*;");
     static final Pattern BLOCK = Pattern.compile("(?m)^// --- (\\S+\\.java)\\s*$");
 
@@ -62,9 +74,11 @@ public class JavaTemplatesTest {
             }
             files++;
         }
-        for (Map.Entry<String, String> block : blocks(Files.readString(JPA_ENTITY, StandardCharsets.UTF_8)).entrySet()) {
-            place(app, block.getKey(), block.getValue());
-            files++;
+        for (Path template : BLOCK_TEMPLATES) {
+            for (Map.Entry<String, String> block : blocks(template).entrySet()) {
+                place(app, block.getKey(), block.getValue());
+                files++;
+            }
         }
         if (tests.isEmpty()) fail("no *Test template found under " + COMMONS + " — the installer ships three");
 
@@ -86,7 +100,7 @@ public class JavaTemplatesTest {
     static Path initializrProject(Path work) throws Exception {
         int java = Runtime.version().feature();
         String url = "https://start.spring.io/starter.zip?type=maven-project&language=java"
-                + "&dependencies=lombok,data-jpa&groupId=com.exemplo&artifactId=minhaapi&name=minhaapi"
+                + "&dependencies=lombok,data-jpa,data-mongodb,data-elasticsearch&groupId=com.exemplo&artifactId=minhaapi&name=minhaapi"
                 + "&packageName=com.exemplo.minhaapi&baseDir=app&javaVersion=" + java;
         HttpResponse<InputStream> r = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
                 .send(HttpRequest.newBuilder(URI.create(url)).build(), HttpResponse.BodyHandlers.ofInputStream());
@@ -124,7 +138,8 @@ public class JavaTemplatesTest {
     }
 
     /** One entry per `// --- <path>.java` block; the header comment before the first block is dropped. */
-    static Map<String, String> blocks(String template) {
+    static Map<String, String> blocks(Path file) throws IOException {
+        String template = Files.readString(file, StandardCharsets.UTF_8);
         Map<String, String> out = new LinkedHashMap<>();
         Matcher m = BLOCK.matcher(template);
         List<int[]> starts = new ArrayList<>();
@@ -133,7 +148,7 @@ public class JavaTemplatesTest {
             starts.add(new int[] {m.start(), m.end()});
             names.add(Paths.get(m.group(1)).getFileName().toString().replace(".java", ""));
         }
-        if (names.isEmpty()) fail("no `// --- <File>.java` block in " + JPA_ENTITY);
+        if (names.isEmpty()) fail("no `// --- <File>.java` block in " + file);
         for (int i = 0; i < names.size(); i++) {
             int end = i + 1 < starts.size() ? starts.get(i + 1)[0] : template.length();
             out.put(names.get(i), template.substring(starts.get(i)[1], end));

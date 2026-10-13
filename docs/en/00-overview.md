@@ -41,6 +41,7 @@ flowchart TB
         SK_JOBS["skill: jobs-architect"]:::skill
         SK_CACHE["skill: cache-architect"]:::skill
         SK_AI["skill: ai-architect"]:::skill
+        SK_SEARCH["skill: search-architect"]:::skill
         SK_DOCTOR["skill: arch-doctor"]:::skill
         SK_GIT["skill: git-publish"]:::skill
         SK_SONAR["skill: sonarqube-setup"]:::skill
@@ -80,7 +81,7 @@ flowchart TB
     SK_BOOT -->|reads and copies into the generated project| RULES
     SK_BOOT -->|installs, with guard + audit wired| SETTINGS
     SK_BOOT -->|copies verbatim| HOOK
-    SK_BOOT -->|copies| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
+    SK_BOOT -->|copies| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_DOCKER & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_SEARCH & SK_DOCTOR & SK_NF & SK_GIT & SK_AUDIT & SK_PAT & SK_ADOPT & SK_SONAR & SK_TRANSPORT & SK_REPORT
     SK_BOOT -.->|Skill tool, step 7.5| SK_TRANSPORT
     SK_BOOT -.->|Skill tool, step 8.4| SK_SONAR
     SK_ADOPT -.->|Skill tool, when the build file has no scanner| SK_SONAR
@@ -91,7 +92,7 @@ flowchart TB
     SK_BOOT -->|copies| AG_DEV & AG_ARCH & AG_LOG & AG_COMPOSE
     SK_DESIGNER -.->|proposes and writes, after approval| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent at SubagentStart: the catalog, generated project only| AG_DEV
-    SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI -.->|read § Design-time use, decide the layer's patterns| SK_PAT
+    SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_SEARCH -.->|read § Design-time use, decide the layer's patterns| SK_PAT
     SK_NF -->|Agent tool, pre-flight, if commons is empty| AG_LOG
     SK_NF -->|"Agent tool, after the tests group, for each materialize row"| AG_COMPOSE
     AG_COMPOSE -->|Skill tool, admitted because the caller is a classed agent| SK_DOCKER
@@ -107,6 +108,7 @@ flowchart TB
     SK_REST -.->|if Access asks for something the filter chain doesn't already give| SK_SEC
     SK_DOM -.->|if the port's kind is external HTTP| SK_HTTP
     SK_DOM -.->|if the port's kind is LLM or vector store| SK_AI
+    SK_UC -.->|if the Search index row names a projection| SK_SEARCH
     SK_DOM -.->|if the event needs external delivery| SK_MSG
     SK_UC -.->|if the case names a scheduled/job trigger| SK_JOBS
     SK_MSG -.->|"if Form B (outbox + relay), or a partial defers a job"| SK_JOBS
@@ -130,6 +132,9 @@ flowchart TB
     SK_GQL --> SK_PERS
     SK_GQL -.-> SK_SEC
     SK_GQL --> SK_TEST
+    SK_SEARCH --> SK_PERS
+    SK_SEARCH -.->|"if § 8 asks for a rebuild job"| SK_JOBS
+    SK_SEARCH --> SK_TEST
     SK_NF -->|Agent tool, optional, after consolidating| AG_DEV
     AG_DEV -->|writes| SRC["src/** of the generated project"]:::out
     AG_INITZR -.->|Skill tool, if build green| SK_GIT
@@ -145,7 +150,7 @@ flowchart TB
     HOOK -->|blocks or warns about| SRC
     HOOK -->|audit: writes, in the generated project| TRAIL[".claude/audit-usage/*.md + history.jsonl + nodes.jsonl"]:::out
 
-    RULES -.->|cited by path, never copied| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE & SK_AI
+    RULES -.->|cited by path, never copied| SK_UC & SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_TEST & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_SEARCH
     BLUEPRINTS -.->|cited by path| SK_BOOT
 
     classDef hook fill:#5c1a1a,stroke:#ff6b6b,color:#fff,stroke-width:2px

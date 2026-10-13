@@ -54,6 +54,10 @@ modules:
       - "com.fasterxml.jackson.."
       - "tools.jackson.."  # Jackson 3 (Spring Boot 4) core; annotations stay under com.fasterxml.jackson
       - "graphql.."  # graphql-java; Spring for GraphQL is already under org.springframework — decision 0146
+      - "com.mongodb.."  # a document store's driver, BSON and the search clients stay in the outbound adapters; Spring Data is already under org.springframework — decision 0147
+      - "org.bson.."
+      - "co.elastic.."
+      - "org.opensearch.."
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -103,6 +107,8 @@ packages:
     # Outbound AI adapters implement a `domain.gateway` Gateway answered by a language model or a
     # vector store; they compile into `app`, the composition root, like `app.http` — decision 0145.
     app.ai: "app.ai"
+    # Outbound search adapters — a search engine index kept as a projection — decision 0147.
+    app.search: "app.search"
     # Inbound GraphQL adapter — controllers calling a domain service, like `presentation` does for
     # REST, in its own package so the REST norm does not load on it; compiled into `app`, the
     # composition root, like `app.scheduling` — decision 0146.

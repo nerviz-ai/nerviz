@@ -1,0 +1,138 @@
+/*
+ * EXEMPLAR — persistence document (MongoDB). Lives in the output adapter, never in the domain.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/persistence.md` (§ Boundary, § Document (MongoDB) · Mapping, Identity and
+ *        versioning) · `.claude/rules/lombok.md` · `.claude/rules/architecture-ddd.md`
+ *
+ * WHY `@Document("orders")` AND `@TypeAlias("order")`: without the first the collection is named
+ * after the class, and renaming the class moves the data out of reach; without the second `_class`
+ * stores the fully qualified class name, and moving the class breaks every stored document.
+ *
+ * WHY `@Version Long` (a wrapper): `null` while new. Spring Data inserts a document whose version
+ * is `null` and updates one whose version is set, with the version in the filter — so a second
+ * insert of the same id raises `DuplicateKeyException` and a stale update raises
+ * `OptimisticLockingFailureException`. Without `@Version`, `save` is a whole-document upsert: it
+ * never fails, and the last writer silently wins.
+ *
+ * WHY THE LINES ARE EMBEDDED: they are children of the `Order` aggregate, loaded and saved with it.
+ * The list is bounded by a business ceiling (`MAX_LINES`, checked by the aggregate) — an embedded
+ * array with no ceiling grows to the 16 MiB document limit. Another aggregate (the customer) is
+ * referenced by its id only: never `@DBRef` or `@DocumentReference`.
+ *
+ * WHY `schemaVersion`: the adapter writes the current shape's number on every save, and the mapper
+ * upcasts an older document on read (`MongoRepositoryAdapter.java.example`).
+ *
+ * PACKAGE: the aggregate's own subpackage, `…persistence.order` — the same rule as a JPA entity
+ * (`.claude/rules/persistence.md` § Boundary). Package-private.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderDocument.java
+package com.example.demo.adapter.out.persistence.order;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.TypeAlias;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
+/**
+ * Mutable by reflection, like a JPA entity: Spring Data writes the fields when it reads a
+ * document. The no-arg constructor is {@code PROTECTED}, closed to everyone but the mapping
+ * layer, and {@code @FieldDefaults} comes from {@code lombok.experimental}.
+ */
+@Document("orders")
+@TypeAlias("order")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@FieldDefaults(level = AccessLevel.PRIVATE)
+class OrderDocument {
+
+    /** The shape this class writes. Raise it with every change the mapper has to upcast. */
+    static final int CURRENT_SCHEMA_VERSION = 2;
+
+    /**
+     * Assigned by the application as a UUIDv7, stored as a standard UUID
+     * ({@code spring.mongodb.representation.uuid: standard}) — never an {@code ObjectId}.
+     */
+    @Id
+    UUID id;
+
+    /** The business key. Unique by an index declared in {@code OrderCollection}, never by {@code @Indexed}. */
+    @Field("orderNumber")
+    String orderNumber;
+
+    /** Another aggregate: its id, nothing else. */
+    @Field("customerId")
+    UUID customerId;
+
+    @Field("status")
+    OrderStatus status;
+
+    /** {@code Decimal128} through {@code spring.data.mongodb.representation.big-decimal: decimal128}. */
+    @Field("total")
+    BigDecimal total;
+
+    @Field("lines")
+    List<OrderLineDocument> lines;
+
+    @Field("placedAt")
+    Instant placedAt;
+
+    @Field("schemaVersion")
+    int schemaVersion;
+
+    @Version
+    Long version;
+
+    OrderDocument(UUID id, String orderNumber, UUID customerId, OrderStatus status,
+                  BigDecimal total, List<OrderLineDocument> lines, Instant placedAt) {
+        this.id = id;
+        this.orderNumber = orderNumber;
+        this.customerId = customerId;
+        this.status = status;
+        this.total = total;
+        this.lines = List.copyOf(lines);
+        this.placedAt = placedAt;
+        this.schemaVersion = CURRENT_SCHEMA_VERSION;
+    }
+
+    /**
+     * No setters. The document changes through methods that say what changed; the rule that
+     * allowed the change was already applied on the aggregate. Every write stamps the current
+     * shape, which is how an upcast document is rewritten in the new shape on its next save.
+     */
+    void applyState(OrderStatus newStatus, BigDecimal newTotal, List<OrderLineDocument> newLines) {
+        this.status = newStatus;
+        this.total = newTotal;
+        this.lines = List.copyOf(newLines);
+        this.schemaVersion = CURRENT_SCHEMA_VERSION;
+    }
+}
+
+// --- order/OrderLineDocument.java
+package com.example.demo.adapter.out.persistence.order;
+
+import java.math.BigDecimal;
+import org.springframework.data.mongodb.core.mapping.Field;
+
+/** An embedded child of the aggregate: no id of its own, no collection of its own. */
+record OrderLineDocument(
+        @Field("sku") String sku,
+        @Field("quantity") int quantity,
+        @Field("unitPrice") BigDecimal unitPrice) {}
+
+// --- order/OrderStatus.java
+package com.example.demo.adapter.out.persistence.order;
+
+/** Persistence-side enum, stored by name. Mirrors the domain's; not the same type. */
+enum OrderStatus { PLACED, CONFIRMED, CANCELLED }

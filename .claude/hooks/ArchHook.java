@@ -1759,16 +1759,35 @@ public class ArchHook {
         Map<String, Object> cfg = asMap(get(asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))),
                 "compose"));
         if (cfg == null) return List.of();
-        Map<String, Object> pairs = asMap(cfg.get("datasource_pairs"));
+        List<Object> pairs = asList(cfg.get("datasource_pairs"));
         List<String> hosts = asStrList(cfg.get("host_addresses"));
         List<String> globs = asStrList(cfg.get("app_config_globs"));
         String appKey = asStr(cfg.get("app_service_key"));
         if (pairs == null || hosts.isEmpty() || globs.isEmpty() || appKey == null) return List.of();
-        String urlProp = asStr(pairs.get("url_property"));
-        String userProp = asStr(pairs.get("username_property"));
-        String pwdProp = asStr(pairs.get("password_property"));
-        List<Object> engines = asList(pairs.get("engines"));
-        if (urlProp == null || userProp == null || pwdProp == null || engines == null) return List.of();
+        List<String> out = new ArrayList<>();
+        for (Object pair : pairs) {
+            Map<String, Object> p = asMap(pair);
+            if (p != null) out.addAll(pairLoginWarnings(p, hosts, globs, appKey, composeFile, ports));
+        }
+        return new ArrayList<>(new LinkedHashSet<>(out));
+    }
+
+    /**
+     * The login comparison for one pair of {@code compose.datasource_pairs}: one connection
+     * property set (a JDBC datasource, a MongoDB URI) against the engines it may reach. The
+     * username and the password come from their own properties when the pair names them, else
+     * from the URL through the pair's patterns — a MongoDB URI carries both in its user info.
+     */
+    static List<String> pairLoginWarnings(Map<String, Object> pair, List<String> hosts, List<String> globs,
+                                          String appKey, Path composeFile, Map<String, Set<String>> ports) {
+        String urlProp = asStr(pair.get("url_property"));
+        String userProp = asStr(pair.get("username_property"));
+        String pwdProp = asStr(pair.get("password_property"));
+        List<Object> engines = asList(pair.get("engines"));
+        if (urlProp == null || engines == null) return List.of();
+        Pattern userInUrl = pattern(asStr(pair.get("username_pattern")));
+        Pattern pwdInUrl = pattern(asStr(pair.get("password_pattern")));
+        Map<String, Object> hints = asMap(pair.get("variables"));
 
         // The base file only: the host run has no profile active, and a profile file is what
         // a container usually layers on top.
@@ -1784,7 +1803,8 @@ public class ArchHook {
         }
         String rawUrl = props.get(urlProp);
         if (rawUrl == null) return List.of();
-        String rawUser = props.get(userProp), rawPwd = props.get(pwdProp);
+        String rawUser = userProp == null ? null : props.get(userProp);
+        String rawPwd = pwdProp == null ? null : props.get(pwdProp);
 
         String yaml = readOrNull(composeFile);
         Map<String, String> images = composeImages(yaml);
@@ -1795,8 +1815,9 @@ public class ArchHook {
         String compose = relative(composeFile);
         List<String> out = new ArrayList<>();
 
-        // Host side: the defaults of the base file.
-        String hostUrl = springDefault(rawUrl);
+        // Host side: the defaults of the base file. A placeholder with no default inside the URL
+        // — a password in a MongoDB URI — is kept as a marker, so the rest of the URL is read.
+        String hostUrl = urlDefaults(rawUrl);
         String hostSvc = null;
         for (String[] hp : hostPorts(hostUrl)) {
             if (!hosts.contains(hp[0])) continue;
@@ -1806,11 +1827,16 @@ public class ArchHook {
             if (hostSvc != null) break;
         }
         if (hostSvc != null) {
-            String pwd = rawPwd == null ? null : springDefault(rawPwd);
-            boolean hasPwd = rawPwd != null && (pwd == null || !pwd.isEmpty());
-            loginCompare(out, engines, images, env, hostSvc, compose,
-                    "the host run (defaults in " + configFile + ")",
-                    hostUrl, springDefault(rawUser), hasPwd);
+            String user = rawUser != null ? springDefault(rawUser) : group(userInUrl, hostUrl);
+            boolean hasPwd;
+            if (rawPwd != null) {
+                String pwd = springDefault(rawPwd);
+                hasPwd = pwd == null || !pwd.isEmpty();
+            } else {
+                hasPwd = group(pwdInUrl, hostUrl) != null;
+            }
+            loginCompare(out, pair, engines, images, env, hostSvc, compose,
+                    "the host run (defaults in " + configFile + ")", hostUrl, user, hasPwd, hints, userProp, urlProp);
         }
 
         // Container side: what each application service sets, by placeholder name or by the
@@ -1824,21 +1850,64 @@ public class ArchHook {
                 if (images.containsKey(hp[0]) && !apps.contains(hp[0])) { svc = hp[0]; break; }
             }
             if (svc == null) continue;
-            String user = appSet(appEnv, rawUser, userProp);
-            user = user != null ? composeDefaults(user) : springDefault(rawUser);
-            String setPwd = appSet(appEnv, rawPwd, pwdProp);
-            String filePwd = rawPwd == null ? null : springDefault(rawPwd);
-            boolean hasPwd = setPwd != null || (filePwd != null && !filePwd.isEmpty());
-            loginCompare(out, engines, images, env, svc, compose, "service `" + app + "`",
-                    url, user, hasPwd);
+            String user;
+            boolean hasPwd;
+            if (rawUser != null || userProp != null && appSet(appEnv, rawUser, userProp) != null) {
+                user = appSet(appEnv, rawUser, userProp);
+                user = user != null ? composeDefaults(user) : springDefault(rawUser);
+            } else {
+                user = group(userInUrl, url);
+            }
+            if (rawPwd != null || pwdProp != null && appSet(appEnv, rawPwd, pwdProp) != null) {
+                String setPwd = appSet(appEnv, rawPwd, pwdProp);
+                String filePwd = rawPwd == null ? null : springDefault(rawPwd);
+                hasPwd = setPwd != null || (filePwd != null && !filePwd.isEmpty());
+            } else {
+                hasPwd = group(pwdInUrl, url) != null;
+            }
+            loginCompare(out, pair, engines, images, env, svc, compose, "service `" + app + "`",
+                    url, user, hasPwd, hints, userProp, urlProp);
         }
-        return new ArrayList<>(new LinkedHashSet<>(out));
+        return out;
+    }
+
+    /** A compiled pattern from data, or null when the pair names none. */
+    static Pattern pattern(String regex) {
+        return regex == null || regex.isBlank() ? null : Pattern.compile(regex);
+    }
+
+    /** Group 1 of a pattern found in a value, or null — a missing pattern finds nothing. */
+    static String group(Pattern p, String value) {
+        if (p == null || value == null) return null;
+        Matcher m = p.matcher(value);
+        return m.find() && m.group(1) != null && !m.group(1).isEmpty() ? m.group(1) : null;
+    }
+
+    /**
+     * A Spring value read as its defaults, like {@link #springDefault}, except that a placeholder
+     * with no default becomes the marker {@code <unset>} instead of discarding the whole value:
+     * {@code mongodb://${U:app}:${PWD}@localhost:27017/app} reads as
+     * {@code mongodb://app:<unset>@localhost:27017/app}, so its host, port and user stay comparable.
+     * The marker holds no digit, so it is never read as a port.
+     */
+    static String urlDefaults(String raw) {
+        if (raw == null) return null;
+        Pattern inner = Pattern.compile("\\$\\{([^:{}]+)(?::([^{}]*))?}");
+        String s = raw;
+        for (int guard = 0; guard < 16; guard++) {
+            Matcher m = inner.matcher(s);
+            if (!m.find()) return s;
+            String value = m.group(2) == null ? "<unset>" : m.group(2);
+            s = s.substring(0, m.start()) + value + s.substring(m.end());
+        }
+        return null;
     }
 
     /** One side of the login comparison against one database service. Never prints a password. */
-    static void loginCompare(List<String> out, List<Object> engines, Map<String, String> images,
-                             Map<String, Map<String, String>> env, String svc, String compose,
-                             String side, String url, String user, boolean hasPwd) {
+    static void loginCompare(List<String> out, Map<String, Object> pair, List<Object> engines,
+                             Map<String, String> images, Map<String, Map<String, String>> env, String svc,
+                             String compose, String side, String url, String user, boolean hasPwd,
+                             Map<String, Object> hints, String userProp, String urlProp) {
         String[] img = images.containsKey(svc) ? splitImage(images.get(svc)) : null;
         if (img == null) return;
         String repo = img[0].substring(img[0].lastIndexOf('/') + 1);
@@ -1849,16 +1918,18 @@ public class ArchHook {
         }
         if (engine == null) return;
         Map<String, String> svcEnv = env.getOrDefault(svc, Map.of());
+        String dbVar = hints == null ? null : asStr(hints.get("database"));
+        String userVar = hints == null ? null : asStr(hints.get("username"));
+        String pwdVar = hints == null ? null : asStr(hints.get("password"));
 
         String dbKey = asStr(engine.get("database_env"));
         String svcDb = dbKey == null ? null : composeDefaults(svcEnv.get(dbKey));
-        Matcher path = Pattern.compile("^jdbc:[a-z0-9]+://[^/]+/([^?;/]+)").matcher(url == null ? "" : url);
-        String appDb = path.find() ? path.group(1) : null;
+        String appDb = group(pattern(asStr(pair.get("database_pattern"))), url);
         if (appDb != null && svcDb != null && !svcDb.contains("${") && !appDb.equals(svcDb)) {
             out.add("login: " + side + " connects to database `" + appDb + "`, but service `" + svc
                     + "` creates `" + svcDb + "` (`" + dbKey + "` in " + compose + ") — the socket"
-                    + " opens and the login fails  →  read one variable on both sides (`DB_NAME`,"
-                    + " the same default in the JDBC URL and in `" + dbKey + "`)");
+                    + " opens and the login fails  →  read one variable on both sides (`" + dbVar
+                    + "`, the same default in `" + urlProp + "` and in `" + dbKey + "`)");
         }
 
         String userKey = asStr(engine.get("username_env"));
@@ -1867,8 +1938,8 @@ public class ArchHook {
                 && !user.equals(svcUser)) {
             out.add("login: " + side + " logs in as `" + user + "`, but service `" + svc
                     + "` creates user `" + svcUser + "` (`" + userKey + "` in " + compose + ")  →"
-                    + "  read one variable on both sides (`DB_USERNAME`, the same default in"
-                    + " `spring.datasource.username` and in `" + userKey + "`)");
+                    + "  read one variable on both sides (`" + userVar + "`, the same default in"
+                    + " `" + (userProp != null ? userProp : urlProp) + "` and in `" + userKey + "`)");
         }
 
         String pwdKey = asStr(engine.get("password_env"));
@@ -1876,7 +1947,7 @@ public class ArchHook {
         if (svcPwd != null && !svcPwd.isBlank() && !hasPwd) {
             out.add("login: service `" + svc + "` requires a password (`" + pwdKey + "` in "
                     + compose + "), and " + side + " has none — absent, empty, or an empty"
-                    + " default  →  read it from `DB_PASSWORD` with no default, kept in the"
+                    + " default  →  read it from `" + pwdVar + "` with no default, kept in the"
                     + " untracked `.env`");
         }
     }

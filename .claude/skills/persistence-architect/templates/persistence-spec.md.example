@@ -11,6 +11,7 @@
 | Mother spec | `00-caso-de-uso.md` |
 | Domain partial | `10-dominio.md` |
 | Aggregate | `User` |
+| Storage family | relational — `00-caso-de-uso.md` § Storage |
 | Engine | PostgreSQL 16 |
 | Expected volume at 12 months | ~200,000 rows |
 | Divergences from `10-dominio.md` | none |

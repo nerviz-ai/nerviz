@@ -38,6 +38,10 @@ modules:
       - "com.fasterxml.jackson.."
       - "tools.jackson.."  # Jackson 3 (Spring Boot 4) core; annotations stay under com.fasterxml.jackson
       - "graphql.."  # graphql-java; Spring for GraphQL is already under org.springframework — decision 0146
+      - "com.mongodb.."  # a document store's driver, BSON and the search clients stay in the outbound adapters; Spring Data is already under org.springframework — decision 0147
+      - "org.bson.."
+      - "co.elastic.."
+      - "org.opensearch.."
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -55,6 +59,12 @@ modules:
       - "org.springframework.ai.."  # the model suggests through a port; the library stays in adapter.out.ai — decision 0145
       - "org.springframework.graphql.."  # a resolver calls the input port; the library stays in adapter.in.graphql — decision 0146
       - "graphql.."
+      - "org.springframework.data.mongodb.."  # a port is all the application sees of a document store or a search index — decision 0147
+      - "com.mongodb.."
+      - "org.bson.."
+      - "org.springframework.data.elasticsearch.."
+      - "co.elastic.."
+      - "org.opensearch.."
   - id: adapter-in-rest
     path: adapters/adapter-in-rest
     depends_on: [application, domain, commons]
@@ -105,6 +115,10 @@ packages:
     # Outbound AI adapters — a language model or a vector store behind a port, and the AI wiring —
     # decision 0145. Compiled into `bootstrap` like `adapter.out.http`; Spring AI appears nowhere else.
     adapter.out.ai: "adapter.out.ai"
+    # Outbound search adapters — a search engine index kept as a projection of a source of truth, the
+    # index bootstrap and the search wiring — decision 0147. Compiled into `bootstrap` like
+    # `adapter.out.ai`; the search client appears nowhere else.
+    adapter.out.search: "adapter.out.search"
     # Inbound GraphQL adapter — schema-first controllers calling the same input ports as `adapter.in.rest`,
     # their records and the GraphQL wiring — decision 0146. Compiled into `bootstrap` like
     # `adapter.in.scheduling`, until a project needs build isolation for it, at which point an

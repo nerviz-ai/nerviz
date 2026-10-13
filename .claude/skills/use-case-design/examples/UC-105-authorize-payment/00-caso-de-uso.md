@@ -13,6 +13,8 @@
 | Date | 2026-09-09 |
 | Trigger | payment authorization for an order, over HTTP — inbound REST adapter |
 | Side effects | **2** — `INSERT` into the internal ledger, and a call to an external payment gateway |
+| Storage | `Order` → relational — chosen by: request (the aggregate already lives in a table) |
+| Search index | none |
 | Transaction | opens in the use case; the ledger write is transactional, the external call is not — see Errors for the reconciliation implication |
 | Idempotency | yes — `Idempotency-Key` required, a retried request with the same key returns the original result |
 | Concurrency | `Idempotency-Key` uniqueness is the arbiter |

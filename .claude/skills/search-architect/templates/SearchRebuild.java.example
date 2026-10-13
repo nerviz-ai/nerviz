@@ -1,0 +1,137 @@
+/*
+ * EXEMPLAR — the rebuild of a projection from its source: the adapter half. The job that drives it
+ * — when it runs, its batch, its switch — is a job, designed with the scheduling norm; it reads the
+ * source through the source's own port and writes through this one.
+ * Rules: `.claude/rules/search.md` (§ Boundary, § Index lifecycle, § Writes)
+ *
+ * THE SEQUENCE, ONE STEP PER METHOD:
+ *   1. `begin(version)` — creates `orders-v<version>` from `search/orders-v<version>.json` and points
+ *      the alias `orders-next` at it. From now on the indexer writes every event to both aliases.
+ *   2. `write(version, batch)` — the job pages through the source and bulk-writes each batch with
+ *      the source's version. An event the indexer wrote meanwhile is newer and wins; a batch item
+ *      older than it is refused and counted as stale, never as a failure.
+ *   3. `publish(version)` — one atomic alias action: `orders` moves to the new index as its write
+ *      index, `orders-next` is removed. Readers never see a missing or half-filled alias. The old
+ *      index is deleted afterwards.
+ *   A job that dies between 1 and 3 is rerun from 1: `begin` drops a leftover `orders-next` index.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- order/OrderSearchRebuildAdapter.java
+package com.example.demo.adapter.out.search.order;
+
+import com.example.demo.adapter.out.search.shared.SearchIndexDefinition;
+import com.example.demo.application.port.out.OrderSnapshot;
+import com.example.demo.application.port.out.RebuildOrderSearchPort;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.elasticsearch.BulkFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.document.Document;
+import org.springframework.data.elasticsearch.core.index.AliasAction;
+import org.springframework.data.elasticsearch.core.index.AliasActionParameters;
+import org.springframework.data.elasticsearch.core.index.AliasActions;
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.core.query.BulkOptions;
+import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.IndexQueryBuilder;
+import org.springframework.stereotype.Component;
+
+@Component
+class OrderSearchRebuildAdapter implements RebuildOrderSearchPort {
+
+    private static final String NEXT = OrderSearchIndex.ALIAS + "-next";
+
+    private final ElasticsearchOperations operations;
+    private final int replicas;
+
+    OrderSearchRebuildAdapter(ElasticsearchOperations operations, @Value("${app.search.replicas}") int replicas) {
+        this.operations = operations;
+        this.replicas = replicas;
+    }
+
+    @Override
+    public void begin(int version) {
+        SearchIndexDefinition next = new SearchIndexDefinition(OrderSearchIndex.ALIAS, version);
+        IndexOperations index = operations.indexOps(IndexCoordinates.of(next.indexName()));
+        if (index.exists()) {
+            index.delete();
+        }
+        Document file = Document.parse(read(next.mappingResource()));
+        Map<String, Object> settings = new HashMap<>(asMap(file.get("settings")));
+        settings.put("number_of_replicas", replicas);
+        index.create(settings, Document.from(asMap(file.get("mappings"))));
+        index.alias(new AliasActions(new AliasAction.Add(AliasActionParameters.builder()
+                .withIndices(next.indexName()).withAliases(NEXT).build())));
+    }
+
+    /**
+     * One bulk request, every item carrying the source's version — {@code withVersion} is not taken
+     * from the document by the builder, and an item without it overwrites whatever the indexer wrote
+     * meanwhile, losing the newer event. Each item's result is read: an item refused with 409 because
+     * the index already holds a newer version is expected during a rebuild and counted as stale; any
+     * other failed item fails the batch. Returns how many items were written.
+     */
+    @Override
+    public int write(int version, List<OrderSnapshot> batch) {
+        String index = new SearchIndexDefinition(OrderSearchIndex.ALIAS, version).indexName();
+        List<IndexQuery> queries = batch.stream()
+                .map(OrderSearchDocuments::of)
+                .map(document -> new IndexQueryBuilder()
+                        .withId(document.getId())
+                        .withObject(document)
+                        .withVersion(document.getVersion())
+                        .build())
+                .toList();
+        try {
+            operations.bulkIndex(queries, BulkOptions.defaultOptions(), IndexCoordinates.of(index));
+            return queries.size();
+        } catch (BulkFailureException partial) {
+            boolean onlyStale = partial.getFailedDocuments().values().stream()
+                    .allMatch(failure -> Integer.valueOf(HttpStatus.CONFLICT.value()).equals(failure.status()));
+            if (!onlyStale) {
+                throw partial;
+            }
+            return queries.size() - partial.getFailedDocuments().size();
+        }
+    }
+
+    @Override
+    public void publish(int version) {
+        String next = new SearchIndexDefinition(OrderSearchIndex.ALIAS, version).indexName();
+        IndexOperations alias = operations.indexOps(IndexCoordinates.of(OrderSearchIndex.ALIAS));
+        Set<String> previous = alias.getAliases(OrderSearchIndex.ALIAS).keySet();
+        alias.alias(new AliasActions(
+                new AliasAction.Remove(AliasActionParameters.builder()
+                        .withIndices(previous.toArray(String[]::new)).withAliases(OrderSearchIndex.ALIAS).build()),
+                new AliasAction.Add(AliasActionParameters.builder()
+                        .withIndices(next).withAliases(OrderSearchIndex.ALIAS).withIsWriteIndex(true).build()),
+                new AliasAction.Remove(AliasActionParameters.builder()
+                        .withIndices(next).withAliases(NEXT).build())));
+        previous.stream().filter(name -> !name.equals(next))
+                .forEach(old -> operations.indexOps(IndexCoordinates.of(old)).delete());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object section) {
+        return (Map<String, Object>) section;
+    }
+
+    private static String read(String resource) {
+        try (var in = new ClassPathResource(resource).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException missing) {
+            throw new UncheckedIOException("Search index mapping " + resource + " is missing", missing);
+        }
+    }
+}

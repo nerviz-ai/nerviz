@@ -102,7 +102,7 @@ what's left to cover outside of transport.
 
 1. **Read the partials.** `00-caso-de-uso.md` and `10-dominio.md` are mandatory;
    without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `31-graphql.md`, `28-cliente-http.md`,
-   `29-ia.md`, `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
+   `29-ia.md`, `23-busca.md`, `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
    the HTTP contract's case table, and each job of `35-jobs.md` § 1 — a job is tested through
    the inbound port it calls, never by waiting for a scheduler, and the test profile's
    switches (`@.claude/rules/scheduling.md` § Triggers) get one context test proving no
@@ -140,6 +140,20 @@ what's left to cover outside of transport.
    the read timeout lowered only for that class. `wiremock-spring-boot` goes into § 5 when the
    build does not declare it — not managed by the Boot parent, so its version is the `<release>`
    of its `maven-metadata.xml`, read at design time; never from memory.
+
+   **The document family, when `20-persistencia.md` stores an aggregate in MongoDB:** the
+   persistence integration test runs against a single-node replica set
+   (`templates/MongoPersistenceIT.java.example` — `.withReplicaSet()`, the image through
+   `DockerImageName.parse`), imports the schema initializer, and proves that every unique index of
+   § 1 exists, that a duplicate business key is a conflict, that an update raises the version, that
+   an older shape is upcast, and that a failed transaction leaves nothing written.
+
+   **`23-busca.md`, when it exists, fixes cases this partial must test** — against the real engine
+   (`templates/SearchIndexIT.java.example`, the same image and tag as the compose service): the
+   alias exists at startup, each § 3 query finds by its match fields and pages by its cursor, a
+   tombstone is never returned; for an indexer case, an older event is acknowledged as stale and a
+   delete followed by a late write stays deleted; for a rebuild case, an event written during the
+   rebuild survives the alias swap. Refresh only in the test's fixture.
 
    **`29-ia.md`, when it exists, fixes cases this partial must test — all of § 8, at the level
    each row names.** No case calls a real model (`@.claude/rules/ai.md` § Tests). Answers: through
@@ -286,7 +300,7 @@ question nobody asked.
 | Block | Fixes | Shape exemplar |
 |---|---|---|
 | Distribution by level | Each behavior, the level it's tested at, and why | `DomainTest.java.example` |
-| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ia.md` exists) · `PersistenceIT.java.example` · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
+| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ia.md` exists) · `SearchIndexIT.java.example` (when `23-busca.md` exists) · `PersistenceIT.java.example`, or `MongoPersistenceIT.java.example` for an aggregate of the document family · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) |
 | Data and doubles | Factories, meaningful fields, substituted ports, clock | `TestFixtures.java.example` |
 | Coverage and gaps | Invariants with no test, and what's deliberately left uncovered | `@.claude/rules/testing.md` § Coverage |
 | Test dependencies | Test-scoped libraries the build doesn't declare yet — the executor's only license to add them | `@.claude/rules/testing.md` § Asynchronous effects |
@@ -316,8 +330,8 @@ bypasses as an executor.
 
 **Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md`
 (mandatory in design mode — stops without the second), `20-persistencia.md`,
-`30-rest.md`, `31-graphql.md`, `32-seguranca.md`, `28-cliente-http.md`, `29-ia.md`, `35-jobs.md` and `22-cache.md` when they
-exist, `@.claude/rules/ai.md` § Tests when `29-ia.md` does, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
+`30-rest.md`, `31-graphql.md`, `32-seguranca.md`, `28-cliente-http.md`, `29-ia.md`, `23-busca.md`, `35-jobs.md` and `22-cache.md` when they
+exist, `@.claude/rules/search.md` § Tests when `23-busca.md` does, `@.claude/rules/ai.md` § Tests when `29-ia.md` does, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
 when `22-cache.md` does, `@.claude/rules/authorization.md` § Tests
 when `32-seguranca.md` does, `@.claude/rules/http-client.md` § Tests when `28-cliente-http.md` does,
 `@.claude/rules/testing.md`,

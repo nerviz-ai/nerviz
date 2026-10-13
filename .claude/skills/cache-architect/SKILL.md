@@ -92,6 +92,9 @@ the rest of the turn keeps `/new-feature` on the model that designed it
 ## Procedure
 
 1. **Read the specs.** `00-caso-de-uso.md` (the `Freshness` row and the Components table),
+   `23-busca.md` when the cached port is of kind `search index` — its § 6 lag comes out of the
+   tolerance first, and only the remainder bounds this cache's expiry; a remainder of zero or less
+   means no cache, recorded as such —
    `10-dominio.md` (the outbound ports and the records they return), `20-persistencia.md` and
    `28-cliente-http.md` when present (the adapter behind each port), `35-jobs.md` when present.
    Apply the entry rule. List the reads the tolerance covers, each as a port method.
@@ -152,7 +155,7 @@ the rest of the turn keeps `/new-feature` on the model that designed it
    | Cache name | One per kind of value, kebab-case, added to `CacheNames` |
    | Key | The SpEL expression, naming every input that changes the result — the caller included when the result depends on it, always as a port parameter, never read from a context |
    | Value | The record the port returns, when it is a record of plain components; otherwise the cache-local `…CacheEntry` record the decorator maps to |
-   | Freshness tolerance | Copied from `00-caso-de-uso.md` — the bound for § 3 |
+   | Freshness tolerance | Copied from `00-caso-de-uso.md` — the bound for § 3; for a search projection, the tolerance minus `23-busca.md` § 6's lag |
    | Absence cached | no, or yes with its own expiry |
    | Concurrent misses | `sync`, or per caller — never `sync` with `unless` (the framework refuses it) |
 

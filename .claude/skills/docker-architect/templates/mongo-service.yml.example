@@ -1,0 +1,62 @@
+# Shape for a MongoDB service block appended under docker-compose.yml's `services:`.
+# Tag matched to the one `src/test` pins in `DockerImageName.parse` (test-architect's
+# `MongoPersistenceIT.java.example`) — see docker-architect/SKILL.md step 4. Never "latest".
+#
+# A SINGLE-NODE REPLICA SET, NOT A STANDALONE SERVER. A standalone MongoDB refuses every
+# transaction, and the project's transactions — the outbox beside the aggregate, the idempotency
+# key completed with the effect — need one (`rules/persistence.md` § Document · Transactions).
+# Spring Boot's compose support does not build a replica set either, which is why this block does.
+#
+# WHY A KEYFILE: with authentication on, a replica set member authenticates to the others with a
+# shared key, and `mongod` refuses `--replSet` with users and no key. The entrypoint writes one
+# random key into the config volume on first start; it never leaves the container, and it is not a
+# credential anybody uses — `MONGO_PASSWORD` is.
+#
+# WHY THE HEALTHCHECK INITIATES THE SET: `rs.initiate` must run once, after the server is up. The
+# check runs `rs.status()` and initiates on the first failure; from then on it is a plain status
+# check. The member is advertised as `mongo:27017`, the name the `app` container resolves; the host
+# run connects with `directConnection=true` (persistence-architect's `application-mongodb.yml`).
+#
+# ONE SET OF VARIABLES FOR BOTH SIDES. `MONGO_USERNAME`, `MONGO_PASSWORD`, `MONGO_DATABASE` and
+# `MONGO_PORT` are the names application.yml reads too. `{{DB_NAME}}` is the artifact name with `-`
+# replaced by `_`. The password has no default (`rules/secrets.md`); `:?` makes `docker compose up`
+# name the missing variable. The user is the root user of the `admin` database — the image creates
+# no other — so the URI carries `authSource=admin`. Spring Boot's compose support rejects the
+# `MONGO_INITDB_*_FILE` variants, so the plain variables are used.
+#
+# THE IMAGE READS MONGO_INITDB_ROOT_* ONCE, on an empty data volume. Changing either needs
+# `docker compose down -v`, which deletes the data.
+  mongo:
+    image: mongo:8.0
+    entrypoint:
+      - bash
+      - -c
+      - |
+        if [ ! -s /data/configdb/keyfile ]; then head -c 756 /dev/urandom | base64 > /data/configdb/keyfile; fi
+        chmod 400 /data/configdb/keyfile && chown 999:999 /data/configdb/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /data/configdb/keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-{{DB_NAME}}}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$${MONGO_INITDB_ROOT_USERNAME}" -p "$${MONGO_INITDB_ROOT_PASSWORD}"
+          --authenticationDatabase admin --eval
+          "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}).ok }"
+          | grep -q 1
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+# Named volumes — add under docker-compose.yml's top-level `volumes:`.
+volumes:
+  mongo-data:
+  mongo-config:

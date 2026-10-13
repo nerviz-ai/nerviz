@@ -1,0 +1,138 @@
+# UC-007 · Persistence
+
+> Partial of `docs/use-cases/UC-007-place-order/`. Owner: `persistence-architect`.
+> Document family: the `Order` aggregate lives in MongoDB, per `00-caso-de-uso.md` § Storage.
+> Inherits the aggregate and ports from `10-dominio.md` — doesn't reinvent them.
+> Contains no code but the schema declaration. Form references in
+> `.claude/skills/persistence-architect/templates/` (`Mongo*.java.example`).
+> Rules applied, never reproduced: `@.claude/rules/persistence.md` § Boundary, § Queries,
+> § Translation, § Document (MongoDB).
+
+| Field | Value |
+|---|---|
+| Mother spec | `00-caso-de-uso.md` |
+| Domain partial | `10-dominio.md` |
+| Aggregate | `Order` |
+| Storage family | document (MongoDB) — `00-caso-de-uso.md` § Storage |
+| Expected volume at 12 months | ~2,000,000 documents |
+| Divergences from `10-dominio.md` | none |
+
+## 1 · Schema
+
+**Collection `orders`** — one per aggregate root, `@Document("orders")`, `@TypeAlias("order")`.
+
+| Stored field | BSON type | Required | Notes |
+|---|---|---|---|
+| `_id` | UUID (standard, subtype 4) | yes | assigned by the application, UUIDv7 |
+| `orderNumber` | string | yes | business key — unique index |
+| `customerId` | UUID | yes | another aggregate: its id only, never a reference |
+| `status` | string | yes | enum by name: `PLACED`, `CONFIRMED`, `CANCELLED` |
+| `total` | decimal128 | no | absent in shape 1 — upcast on read |
+| `lines` | array of `{sku, quantity, unitPrice}` | yes | embedded child entities; **bound 200** — the aggregate refuses more, the validator caps it |
+| `placedAt` | date | yes | an `Instant` |
+| `schemaVersion` | int | yes | current shape: 2 |
+| `version` | long | yes | `@Version` — inserts on `null`, updates with the version in the filter |
+
+**Indexes**
+
+| Index | Keys | Why |
+|---|---|---|
+| `_id_` | `_id` | created with the collection |
+| `ux_orders_order_number` | `orderNumber` asc, **unique** | the business key; serves `existsByOrderNumber` |
+| `ix_orders_customer_placed` | `customerId` asc, `placedAt` desc, `_id` desc | the customer's listing: filter, sort and keyset tiebreaker in one index |
+
+**Validator** — `$jsonSchema`, `validationAction: error`: the required fields above, `status` in its
+three values, `lines` at most 200 items, `placedAt` a date, `schemaVersion` an int.
+
+**Personal data at rest** — `@.claude/rules/personal-data.md` § At rest.
+
+| Field | Holds | Retention | Why it is stored at all |
+|---|---|---|---|
+| — | no field holds personal data; the customer is referenced by id | — | — |
+
+**Transactions.** The case writes `orders` and appends `OrderPlaced` to `outbox_events` in one
+transaction, through `DocumentTransactions` on the `mongoTransactionManager`; the server is a
+replica set in every environment. A transient error retries the whole transaction up to three times,
+then `ConflictException`.
+
+**Claim strategy — `outbox_events` only.** Lease per document by `findAndModify`
+(`claimedUntil`, 60 s), so `35-jobs.md` § 3's 2 replicas never take the same event inside the lease.
+
+## 2 · Mapping
+
+Aggregate `Order` → document `OrderDocument` in `adapter/out/persistence/order`, lines embedded as
+`OrderLineDocument` records. Package-private, one subpackage per aggregate.
+
+| Aggregate field | Domain type | Stored field | Translation |
+|---|---|---|---|
+| `id` | `OrderId` | `_id` | `OrderId.value()` ↔ `new OrderId(uuid)` |
+| `number` | `String` | `orderNumber` | direct |
+| `customerId` | `CustomerId` | `customerId` | `.value()` ↔ `new CustomerId(uuid)` |
+| `total` | `BigDecimal` | `total` | direct; shape 1 → sum of the lines (upcast) |
+| `lines` | `List<OrderLine>` | `lines` | per item, both ways |
+| — | — | `schemaVersion`, `version` | document-only, invisible to the domain |
+
+## 3 · Adapter and ports
+
+| Port | Signature (from `10-dominio.md`) | Operation | Index serving it |
+|---|---|---|---|
+| `CreateOrderPort` | `Order create(Order order)` | insert (`version` null) — `DuplicateKeyException` → `ORDER_ALREADY_EXISTS` | `_id_`, `ux_orders_order_number` |
+| `SaveOrderPort` | `Order save(Order order)` | load, mutate, save with the stored version — `OptimisticLockingFailureException` → `ORDER_CONCURRENT_UPDATE` | `_id_` |
+| `LoadOrderPort` | `Optional<Order> byId(OrderId id)` | find by `_id` | `_id_` |
+| `ListCustomerOrdersPort` | `CustomerOrdersPage page(CustomerId, Optional<Cursor>, int)` | keyset `Window`, projection without lines | `ix_orders_customer_placed` |
+
+## 4 · Migrations
+
+No migration file: the collection's indexes and validator are declared in code and applied at
+startup. The executor creates the file below from this block, verbatim.
+
+**`src/main/java/com/example/demo/adapter/out/persistence/order/OrderCollection.java`** — shape
+`templates/MongoCollections.java.example`: the three indexes of § 1 and the validator.
+
+| Change | Kind | Content |
+|---|---|---|
+| shape 1 → 2 | upcast | `total` stored from now on; read as the sum of the lines when absent; written on the next save |
+| backfill | none | no query filters or sorts by `total` — an upcast is enough |
+
+## 5 · Configuration
+
+| Property | Value | Why |
+|---|---|---|
+| `spring.mongodb.uri` | `${MONGO_URI:mongodb://…@localhost:${MONGO_PORT:27017}/…?authSource=admin&directConnection=true}` | the compose replica set from the host |
+| `spring.mongodb.representation.uuid` | `standard` | rule |
+| `spring.data.mongodb.representation.big-decimal` | `decimal128` | rule |
+| `app.mongodb.server-selection-timeout` / `connect-timeout` / `read-timeout` | `5s` / `3s` / `10s` | the driver's defaults are 30 s, 10 s and never |
+| `app.mongodb.max-pool-size` / `max-pool-wait` | `50` / `2s` | two replicas, the expected rate |
+
+Full shape in `templates/application-mongodb.yml.example`; client and transaction wiring in
+`templates/MongoConfig.java.example` (this project has no JPA: `MongoTransactionConfig`).
+
+## 6 · Declared dependencies
+
+| Dependency | Version | Why |
+|---|---|---|
+| `org.springframework.boot:spring-boot-starter-data-mongodb` | (managed by the Boot parent) | the MongoDB driver and Spring Data MongoDB |
+| `org.testcontainers:testcontainers-mongodb` (test) | (managed by the Boot parent) | `MongoPersistenceIT` against a replica set |
+
+## Compose services
+
+| Service | Image | Decision | Detail |
+|---|---|---|---|
+| `mongo` | `mongo:<tag>` | `materialize` | single-node replica set — added by `/new-feature-implement` |
+
+## Design patterns
+
+none — no force in the spec, no symptom on disk
+
+## Impact on approved use cases
+
+none
+
+## Implementation order
+
+1. The dependencies of § 6
+2. `MongoClientConfig`, `MongoTransactionConfig`, `MongoCollectionSchema`, `MongoSchemaInitializer`, `DocumentTransactions` — once per project
+3. `OrderDocument`, `OrderLineDocument`, `OrderStatus`, `OrderCollection`
+4. `OrderMongoRepository`, `OrderDocumentMapper`, `OrderMongoRepositoryAdapter` — after the ports exist
+5. Properties in `application.yml`
+6. Tests — `40-testes.md`: the unique index exists, a duplicate number is a conflict, an update raises the version, shape 1 is upcast, a failed transaction leaves nothing
