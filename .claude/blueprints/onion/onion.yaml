@@ -59,6 +59,11 @@ modules:
       - "co.elastic.."
       - "org.opensearch.."
       - "org.hibernate.."  # Hibernate and Envers stay in the persistence adapter; Spring Data auditing is already under org.springframework — decision 0149
+      - "org.slf4j.."  # the domain throws and returns, the adapter or application service logs — rules/logging.md, decision 0154
+      - "ch.qos.logback.."
+      - "org.apache.logging.."
+      - "org.apache.commons.logging.."
+      - "lombok.extern.."  # @Slf4j and the other Lombok logger annotations; Lombok itself stays allowed
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap

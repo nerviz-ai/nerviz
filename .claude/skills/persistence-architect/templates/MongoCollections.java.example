@@ -57,6 +57,9 @@ package com.example.demo.adapter.out.persistence.shared;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.data.mongodb.core.CollectionOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -72,15 +75,12 @@ import org.springframework.stereotype.Component;
  * index at all.
  */
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class MongoSchemaInitializer implements SmartInitializingSingleton {
 
-    private final MongoTemplate template;
-    private final List<MongoCollectionSchema> schemas;
-
-    MongoSchemaInitializer(MongoTemplate template, List<MongoCollectionSchema> schemas) {
-        this.template = template;
-        this.schemas = schemas;
-    }
+    MongoTemplate template;
+    List<MongoCollectionSchema> schemas;
 
     @Override
     public void afterSingletonsInstantiated() {

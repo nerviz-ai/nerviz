@@ -97,6 +97,43 @@ throw new ValidationException("ORDER_ID_REQUIRED", "order id is required");
 catch (DataIntegrityViolationException e) { throw new ConflictException("ORDER_ALREADY_EXISTS", "Order already exists", e); }
 ```
 
+## A caught exception is never silent
+
+Every `catch` in production code does one of four things, and nothing else:
+
+1. **Rethrows** — the same exception, or the family it translates into, with the `cause`.
+2. **Restores the interrupt** — an `InterruptedException` sets the flag back with
+   `Thread.currentThread().interrupt()`, then rethrows or translates.
+3. **Returns the exception as the answer of the call** — only when the exception *is* an
+   expected answer of the operation (a lookup's not-found, malformed input the method exists to
+   check, a domain family a protocol payload carries) **and** the return value has a shape of
+   its own for it, one the caller tells apart from success: `Optional.empty()`, `false`, a
+   payload error.
+4. **Logs** — everything else: a placeholder or default value standing in for data that should
+   exist, carrying on as if the call had worked, a response identical to success. The level is
+   § Logging and verification's: a typed family, an integration family or a recovered
+   degradation at `WARN`, with `errorCode` (and `dependency`) as fields and no stack trace; an
+   unmapped exception at `ERROR`, with the stack trace. Masking per `@.claude/rules/logging.md`.
+   Never in the domain, which does not log (`@.claude/rules/logging.md` § Format and level): a
+   `catch` there rethrows, restores the interrupt, or answers.
+
+Never an empty body. A comment does not make it non-empty: the reason it states belongs in
+the log line, where whoever reads the log after the fact can see it.
+
+```java
+// WRONG — the not-found vanishes, and the 204 looks like any other success
+catch (CustomerNotFoundException e) {
+    // answered as success by decision of the spec
+}
+
+// RIGHT — same 204, and the log says which branch ran
+catch (CustomerNotFoundException e) {
+    log.warn("Anonymize answered 204 for an unknown customer: customerId={} errorCode={}", customerId, e.errorCode());
+}
+```
+
+Test code is out of this section's scope: a test may catch and ignore on purpose.
+
 ## Logging and verification
 
 Level semantics (what `ERROR`, `WARN`, and `INFO` mean) are
@@ -113,4 +150,7 @@ specific to an exception once it reaches the log:
 Never the real message or stack trace in the response to the caller — only in the log.
 
 Verification: a contract test that triggers the case and asserts the thrown type +
-`errorCode`.
+`errorCode`. An empty `catch`, with or without a comment, fails the build: Checkstyle's
+`EmptyCatchBlock` in `config/checkstyle/checkstyle.xml`, production code only. The `catch` that
+swallows behind a placeholder is review-held — no structural check tells it apart from case 3
+of § A caught exception is never silent.

@@ -135,6 +135,9 @@ blueprint's `architecture_paths`.
 rule that needs mechanical verification points to a hook, a build plugin
 (Checkstyle), or a test (ArchUnit) — never to itself.
 
+**The role of each rule**, where it ends and which check holds it:
+[14-rules.md](14-rules.md).
+
 **Recognized frontmatter** (`.claude/schemas/extensions.json`):
 
 ```

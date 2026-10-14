@@ -46,6 +46,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -63,11 +65,12 @@ import org.springframework.stereotype.Component;
  * it, or its slice runs against an alias that was never created.
  */
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SearchIndexBootstrap implements SmartInitializingSingleton {
 
-    private final ElasticsearchOperations operations;
-    private final List<SearchIndexDefinition> definitions;
-    private final int replicas;
+    ElasticsearchOperations operations;
+    List<SearchIndexDefinition> definitions;
+    int replicas;
 
     /**
      * {@code app.search.replicas}: 0 on a single-node local or test cluster, which never turns

@@ -34,18 +34,21 @@ import java.time.Clock;
 import java.util.HexFormat;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class HmacSigningInterceptor implements ClientHttpRequestInterceptor {
 
     private static final String ALGORITHM = "HmacSHA256";
 
-    private final String keyId;
-    private final SecretKeySpec secret;
-    private final Clock clock;
+    String keyId;
+    SecretKeySpec secret;
+    Clock clock;
 
     public HmacSigningInterceptor(String keyId, String secret, Clock clock) {
         this.keyId = keyId;

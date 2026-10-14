@@ -28,7 +28,7 @@ modules:
   - id: core
     path: core
     depends_on: []
-    forbidden_imports: ["org.springframework..", "graphql..", "com.mongodb..", "org.bson..", "co.elastic..", "org.opensearch..", "org.hibernate.."]  # org.hibernate.. — decision 0149
+    forbidden_imports: ["org.springframework..", "graphql..", "com.mongodb..", "org.bson..", "co.elastic..", "org.opensearch..", "org.hibernate..", "org.slf4j..", "ch.qos.logback..", "org.apache.logging..", "org.apache.commons.logging..", "lombok.extern.."]  # org.hibernate.. — decision 0149; the logging prefixes — decision 0154
   - id: app
     path: app
     depends_on: [core]

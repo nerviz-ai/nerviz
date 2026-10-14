@@ -9,12 +9,15 @@
 package com.example.adapter.out.shipping;
 
 import com.example.domain.model.order.Order;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ShippingLabelFacade {
 
-    private final CarrierAuthClient authClient;
-    private final CarrierRatesClient ratesClient;
-    private final CarrierBookingClient bookingClient;
+    CarrierAuthClient authClient;
+    CarrierRatesClient ratesClient;
+    CarrierBookingClient bookingClient;
 
     public ShippingLabelFacade(CarrierAuthClient authClient, CarrierRatesClient ratesClient,
                                 CarrierBookingClient bookingClient) {

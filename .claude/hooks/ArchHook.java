@@ -498,6 +498,8 @@ public class ArchHook {
 
         doctorAgentInstructions();
 
+        doctorVirtualThreads();
+
         provenance();
 
         ComposeReport comp = composeReport();
@@ -924,6 +926,104 @@ public class ArchHook {
                 + " (migration `agents-md` in .claude/schemas/extensions.json writes them)");
         for (String p : problems.stream().limit(8).collect(Collectors.toList())) err("    " + p);
         if (problems.size() > 8) err("    … and " + (problems.size() - 8) + " more");
+    }
+
+    /**
+     * The `Virtual threads` line: a project whose build targets JDK 21 or later sets every
+     * property of `doctor.virtual_threads.properties` in its main configuration file, and no
+     * configuration file sets one to anything else (`.claude/rules/virtual-threads.md`). The
+     * target is the build file's, never the JVM running this: a 17 build on a 21 machine is a
+     * 17 project. Why a `doctor` line and not a gate: the norm was set in advance, with no
+     * failure observed, and a profile may turn it off with a stated reason — the closest
+     * rejected form, an entry in `doctor.gate.labels`, would fail a project's CI over one
+     * configuration line. Silent with no build file (this meta-repository), no version found,
+     * or a target below `min_feature`; reads `doctor.virtual_threads` (invariant 10).
+     * Design: `.claude/decisions/0155-virtual-threads-on-jdk-21.md`.
+     */
+    static void doctorVirtualThreads() {
+        Map<String, Object> spec = doctorSpec("virtual_threads");
+        if (spec == null) return;
+        String label = "  Virtual threads ... ";
+        String build = null;
+        String content = null;
+        for (String f : asStrList(spec.get("build_files"))) {
+            content = readOrNull(ROOT.resolve(f));
+            if (content != null) { build = f; break; }
+        }
+        if (build == null) {
+            err(label + "⚪ no build file — nothing to check (optional)");
+            return;
+        }
+        int target = -1;
+        for (String p : asStrList(spec.get("version_patterns"))) {
+            Matcher m = Pattern.compile(p).matcher(content);
+            if (m.find()) { target = Integer.parseInt(m.group(1)); break; }
+        }
+        long min = num(spec.get("min_feature"));
+        if (target < 0) {
+            err(label + "⚪ no target JDK found in " + build + " — nothing to check");
+            return;
+        }
+        if (target < min) {
+            err(label + "⚪ " + build + " targets JDK " + target + " — virtual threads need " + min);
+            return;
+        }
+        Map<String, Object> wanted = asMap(spec.get("properties"));
+        if (wanted == null || wanted.isEmpty()) return;
+        Pattern main = Pattern.compile(orEmpty(asStr(spec.get("main_file_pattern"))));
+        List<String> globs = asStrList(spec.get("config_globs"));
+        List<String> problems = new ArrayList<>();
+        List<String> mains = new ArrayList<>();
+        Map<String, Boolean> set = new LinkedHashMap<>();
+        for (Path f : projectFiles(rel -> matchesAny(globs, rel))) {
+            String rel = relative(f);
+            Map<String, String> values = configScalars(rel, orEmpty(readOrNull(f)));
+            boolean isMain = main.matcher(rel).find();
+            if (isMain) mains.add(rel);
+            for (Map.Entry<String, Object> w : wanted.entrySet()) {
+                String v = values.get(w.getKey());
+                String expected = asStr(w.getValue());
+                if (v == null) continue;
+                if (!v.equals(expected)) problems.add(rel + " sets " + w.getKey() + " to " + v);
+                else if (isMain) set.put(w.getKey(), true);
+            }
+        }
+        if (mains.isEmpty()) {
+            problems.add("no main configuration file (application.yml, .yaml or .properties)");
+        } else {
+            for (String k : wanted.keySet()) {
+                if (!set.containsKey(k)) {
+                    problems.add(k + ": " + asStr(wanted.get(k)) + " missing from "
+                            + String.join(", ", mains));
+                }
+            }
+        }
+        if (problems.isEmpty()) {
+            err(label + "✅ JDK " + target + " · " + String.join(", ", wanted.keySet())
+                    + " on in " + String.join(", ", mains));
+            return;
+        }
+        err(label + "⚠️  JDK " + target + " — " + problems.size()
+                + " problem(s), see .claude/rules/virtual-threads.md"
+                + " (migration `virtual-threads` in .claude/schemas/extensions.json)");
+        for (String p : problems.stream().limit(8).collect(Collectors.toList())) err("    " + p);
+        if (problems.size() > 8) err("    … and " + (problems.size() - 8) + " more");
+    }
+
+    /**
+     * Every scalar of an application configuration file by its dotted property: YAML through
+     * {@link #yamlScalars}, `.properties` as `key=value` or `key: value` lines.
+     */
+    static Map<String, String> configScalars(String rel, String content) {
+        if (!rel.endsWith(".properties")) return yamlScalars(content);
+        Map<String, String> out = new LinkedHashMap<>();
+        for (String raw : content.split("\r?\n")) {
+            String l = raw.strip();
+            if (l.isEmpty() || l.startsWith("#") || l.startsWith("!")) continue;
+            Matcher m = Pattern.compile("^([^=:\\s]+)\\s*[=:]\\s*(.*)$").matcher(l);
+            if (m.find()) out.putIfAbsent(m.group(1), m.group(2).strip());
+        }
+        return out;
     }
 
     /**

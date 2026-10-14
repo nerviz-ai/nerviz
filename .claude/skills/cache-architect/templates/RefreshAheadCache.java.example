@@ -37,10 +37,13 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class RefreshingProductCatalog implements ProductCatalogPort {
 
-    private final LoadingCache<String, ProductCatalogView> catalogs;
+    LoadingCache<String, ProductCatalogView> catalogs;
 
     RefreshingProductCatalog(ProductCatalogPort delegate, CacheSettings.Spec spec, MeterRegistry meters) {
         this.catalogs = Caffeine.newBuilder()

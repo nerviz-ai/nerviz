@@ -274,11 +274,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OutboxEventStore implements OutboxRelayGateway, OutboxRetentionGateway {
 
     /**
@@ -287,18 +292,13 @@ class OutboxEventStore implements OutboxRelayGateway, OutboxRetentionGateway {
      */
     private static final int MAX_ERROR_LENGTH = 500;
 
-    private final OutboxEventJpaRepository repository;
+    OutboxEventJpaRepository repository;
     /**
      * Injected, never `Instant.now()` — `.claude/rules/architecture-ddd.md` § Domain, and the
      * reason this adapter can be tested without waiting for a clock. The port's signature
      * carries no timestamp, so the stamp is this adapter's to produce.
      */
-    private final Clock clock;
-
-    OutboxEventStore(OutboxEventJpaRepository repository, Clock clock) {
-        this.repository = repository;
-        this.clock = clock;
-    }
+    Clock clock;
 
     @Override
     public List<OutboxEventRecord> claimPending(int batchSize) {

@@ -1,0 +1,97 @@
+/*
+ * EXEMPLAR — enum that answers its own questions. A closed set whose behavior needs nothing
+ * outside the value: data per constant in a constructor field, behavior in a method — a body
+ * per constant, or an interface the enum implements. No framework.
+ * Form reference for the executor agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/code-quality.md` § Branching on a closed set (the type, a switch
+ *          expression, or a Strategy — which one, and why not `==` at the call site)
+ *        `.claude/rules/value-objects.md` § The criterion 3 (closed set means enum)
+ *
+ * What stays out: a branch that needs a port, a clock or a repository, or that maps the enum
+ * to an adapter's shape. That is a switch expression in the use case or the adapter — the
+ * domain enum never learns about either.
+ *
+ * Each `// --- <File>.java` block is its own file.
+ */
+
+// --- OrderStatus.java
+package com.example.demo.domain.model;
+
+/**
+ * Constant names are the persisted column values: renaming one is a migration. {@code PLACED} is
+ * the only state a new order starts in; {@code DELIVERED} and {@code CANCELLED} are final.
+ */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public enum OrderStatus {
+    PLACED(false),
+    SHIPPED(false),
+    DELIVERED(true),
+    CANCELLED(true);
+
+    boolean terminal;
+
+    OrderStatus(boolean terminal) {
+        this.terminal = terminal;
+    }
+
+    /** No transition leaves a final state. Callers ask this, never compare constants. */
+    public boolean isFinal() {
+        return terminal;
+    }
+
+    /** Cancelling is the one rule asked from two use cases, so it lives here, once. */
+    public boolean allowsCancellation() {
+        return this == PLACED;
+    }
+}
+
+// --- ShippingSpeed.java
+package com.example.demo.domain.model;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
+/**
+ * Behavior per constant: each speed computes its own delivery date. A fourth speed is a
+ * constant with its own body, and the compiler rejects one that leaves the method out.
+ */
+public enum ShippingSpeed implements DeliveryEstimate {
+    STANDARD {
+        @Override
+        public LocalDate estimatedDelivery(LocalDate shippedOn) {
+            return shippedOn.plusDays(STANDARD_DAYS);
+        }
+    },
+    EXPRESS {
+        @Override
+        public LocalDate estimatedDelivery(LocalDate shippedOn) {
+            return shippedOn.plusDays(EXPRESS_DAYS);
+        }
+    },
+    NEXT_BUSINESS_DAY {
+        @Override
+        public LocalDate estimatedDelivery(LocalDate shippedOn) {
+            LocalDate next = shippedOn.plusDays(1);
+            while (next.getDayOfWeek() == DayOfWeek.SATURDAY || next.getDayOfWeek() == DayOfWeek.SUNDAY) {
+                next = next.plusDays(1);
+            }
+            return next;
+        }
+    };
+
+    static final int STANDARD_DAYS = 7;
+    static final int EXPRESS_DAYS = 2;
+}
+
+// --- DeliveryEstimate.java
+package com.example.demo.domain.model;
+
+import java.time.LocalDate;
+
+/** What a caller needs from a speed — it depends on this, never on which constant it holds. */
+public interface DeliveryEstimate {
+
+    LocalDate estimatedDelivery(LocalDate shippedOn);
+}

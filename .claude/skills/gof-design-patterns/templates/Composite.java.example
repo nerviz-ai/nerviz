@@ -4,17 +4,20 @@
 package com.example.domain.model.order;
 
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 public interface Priceable {
     Money price();
 }
 
 // --- leaf: a single product line
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class OrderLine implements Priceable {
 
-    private final String productId;
-    private final int quantity;
-    private final Money unitPrice;
+    String productId;
+    int quantity;
+    Money unitPrice;
 
     public OrderLine(String productId, int quantity, Money unitPrice) {
         this.productId = productId;
@@ -33,9 +36,10 @@ public final class OrderLine implements Priceable {
  * A bundle, possibly of bundles, priced by summing its members. The caller calls price()
  * the same way on a bundle as on a single line — that's the point.
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class LineBundle implements Priceable {
 
-    private final List<Priceable> members;
+    List<Priceable> members;
 
     public LineBundle(List<Priceable> members) {
         this.members = List.copyOf(members);

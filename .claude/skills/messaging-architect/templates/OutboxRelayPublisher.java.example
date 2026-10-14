@@ -174,19 +174,20 @@ package com.example.demo.adapter.out.messaging.orderconfirmed;
 
 import com.example.demo.application.port.out.PublishOrderConfirmedPort;
 import com.example.demo.domain.event.OrderConfirmed;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 /**
  * No `@Transactional` here: the use case owns the transaction
  * (`.claude/rules/architecture-ddd.md` § Application). This class only has to run inside it —
  * writing the row in its own transaction would recreate exactly the gap Form B closes.
  */
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OrderConfirmedOutboxWriter implements PublishOrderConfirmedPort {
 
-    private final OutboxAppender outbox;
-
-    public OrderConfirmedOutboxWriter(OutboxAppender outbox) {
-        this.outbox = outbox;
-    }
+    OutboxAppender outbox;
 
     @Override
     public void publish(OrderConfirmed event) {
@@ -211,7 +212,18 @@ public interface RelayOutboxEvents {
     /** How far behind delivery is — empty when nothing is pending. Feeds the pending-age gauge. */
     Optional<Duration> oldestPendingAge();
 
-    record RelayOutcome(int published, int failed, int deadLettered) {}
+    record RelayOutcome(int published, int failed, int deadLettered) {
+
+        public static final RelayOutcome NONE = new RelayOutcome(0, 0, 0);
+        public static final RelayOutcome PUBLISHED_ONE = new RelayOutcome(1, 0, 0);
+        public static final RelayOutcome FAILED_ONE = new RelayOutcome(0, 1, 0);
+        public static final RelayOutcome DEAD_LETTERED_ONE = new RelayOutcome(0, 0, 1);
+
+        public RelayOutcome plus(RelayOutcome other) {
+            return new RelayOutcome(
+                    published + other.published, failed + other.failed, deadLettered + other.deadLettered);
+        }
+    }
 }
 
 // --- OutboxEventSender.java (application layer — the relay's only view of the broker)
@@ -266,6 +278,9 @@ import com.example.demo.application.port.out.OutboxRelayGateway;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 
 /**
@@ -274,17 +289,13 @@ import org.springframework.stereotype.Service;
  * broker send is the long transaction Form B exists to avoid.
  */
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RelayOutboxEventsService implements RelayOutboxEvents {
 
-    private final OutboxRelayGateway gateway;
-    private final OutboxEventSender sender;
-    private final Clock clock;
-
-    public RelayOutboxEventsService(OutboxRelayGateway gateway, OutboxEventSender sender, Clock clock) {
-        this.gateway = gateway;
-        this.sender = sender;
-        this.clock = clock;
-    }
+    OutboxRelayGateway gateway;
+    OutboxEventSender sender;
+    Clock clock;
 
     /**
      * Dead-lettered by name, not by an attempts count that happens to arrive at
@@ -295,30 +306,37 @@ public class RelayOutboxEventsService implements RelayOutboxEvents {
      */
     @Override
     public RelayOutcome relayPending(RelayOutboxEventsCommand command) {
-        int published = 0;
-        int failed = 0;
-        int deadLettered = 0;
+        RelayOutcome outcome = RelayOutcome.NONE;
         for (OutboxEventRecord event : gateway.claimPending(command.batchSize())) {
-            SendResult result = sender.send(event);
-            switch (result.status()) {
-                case SENT -> {
-                    gateway.markPublished(event.eventId());
-                    published++;
-                }
-                case UNROUTABLE -> {
-                    gateway.markDeadLettered(event.eventId(), result.reason());
-                    deadLettered++;
-                }
-                case FAILED -> {
-                    if (gateway.markFailed(event.eventId(), result.reason(), command.maxAttempts())) {
-                        deadLettered++;
-                    } else {
-                        failed++;
-                    }
-                }
-            }
+            outcome = outcome.plus(relay(event, command.maxAttempts()));
         }
-        return new RelayOutcome(published, failed, deadLettered);
+        return outcome;
+    }
+
+    /** The branch computes one row's outcome, so it is a switch expression (code-quality.md). */
+    private RelayOutcome relay(OutboxEventRecord event, int maxAttempts) {
+        SendResult result = sender.send(event);
+        return switch (result.status()) {
+            case SENT -> publish(event);
+            case UNROUTABLE -> deadLetter(event, result.reason());
+            case FAILED -> fail(event, result.reason(), maxAttempts);
+        };
+    }
+
+    private RelayOutcome publish(OutboxEventRecord event) {
+        gateway.markPublished(event.eventId());
+        return RelayOutcome.PUBLISHED_ONE;
+    }
+
+    private RelayOutcome deadLetter(OutboxEventRecord event, String reason) {
+        gateway.markDeadLettered(event.eventId(), reason);
+        return RelayOutcome.DEAD_LETTERED_ONE;
+    }
+
+    private RelayOutcome fail(OutboxEventRecord event, String reason, int maxAttempts) {
+        return gateway.markFailed(event.eventId(), reason, maxAttempts)
+                ? RelayOutcome.DEAD_LETTERED_ONE
+                : RelayOutcome.FAILED_ONE;
     }
 
     @Override
@@ -333,19 +351,19 @@ package com.example.demo.adapter.out.messaging.outbox;
 import com.example.demo.application.port.out.OutboxEventRecord;
 import com.example.demo.application.port.out.OutboxEventSender;
 import java.util.concurrent.CompletionException;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class KafkaOutboxEventSender implements OutboxEventSender {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final TopicResolver topics;
-
-    KafkaOutboxEventSender(KafkaTemplate<String, String> kafkaTemplate, TopicResolver topics) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.topics = topics;
-    }
+    KafkaTemplate<String, String> kafkaTemplate;
+    TopicResolver topics;
 
     /**
      * Partition key = aggregate id, so per-aggregate order holds (`messaging.md`).

@@ -153,6 +153,11 @@ mother spec, it also isn't this skill.
    dead code, and the named backlog case is the correct answer in that situation. What this step
    forbids is the third option: a value with no method and no named case, where the gap is
    discovered later by whoever adds a precondition on it.
+
+   When the state is an enum, a question the aggregate asks about it — final or not, which
+   value a verdict leads to — is a method of the enum, and the partial names it; where a branch
+   over the state goes is `@.claude/rules/code-quality.md` § Branching on a closed set. Form
+   exemplar: `templates/Enum.java.example`.
 4c. **`Access` = the owner makes ownership an invariant of this case.** When
    `00-use-case.md`'s `Access` row says only the owner may execute it, the check is a
    business rule, never a request rule (`@.claude/rules/authorization.md` § Boundary), and this
@@ -297,7 +302,7 @@ question nobody asked.
 
 | Block | Details | Form exemplar |
 |---|---|---|
-| Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` |
+| Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` · `Enum.java.example` |
 | Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example` and the four typed ones · `@.claude/rules/error-handling.md` |
 | Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP` · `LLM` · `vector store` · `search index`) | `UseCasePort.java.example` · `Command.java.example` |
 | Events | Which event, which payload, which UC consumes it | `DomainEvent.java.example` |
@@ -307,7 +312,7 @@ The exemplars in `templates/` are **reference for form**, not files to copy: the
 record with a compact constructor, a static `of` factory, and total absence of
 framework. It's the executor that reads them when generating code.
 
-Twelve exemplars, and the five of the exception family (`DomainException`, `NotFound`,
+Thirteen exemplars, and the five of the exception family (`DomainException`, `NotFound`,
 `Validation`, `BusinessRuleViolation`, `Conflict`) arrived here when `project-bootstrap`
 stopped emitting business code. This skill owns the shape of the domain, and the
 exception is domain: transport-agnostic, no framework, with a stable `errorCode`.

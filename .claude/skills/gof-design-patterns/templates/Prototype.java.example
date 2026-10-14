@@ -5,6 +5,8 @@
 package com.example.domain.model.pricing;
 
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /** One evaluation of every DiscountPolicy against the order, then reused freely. */
 public interface PricingQuote {
@@ -15,11 +17,12 @@ public interface PricingQuote {
 }
 
 // --- the expensive path: runs once, evaluates every policy against the order
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class EvaluatedPricingQuote implements PricingQuote {
 
-    private final Money basePrice;
-    private final List<Money> appliedDiscounts;
-    private final Money finalPrice;
+    Money basePrice;
+    List<Money> appliedDiscounts;
+    Money finalPrice;
 
     public EvaluatedPricingQuote(Money basePrice, List<DiscountPolicy> policies, Order order) {
         this.basePrice = basePrice;

@@ -77,6 +77,8 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -85,12 +87,13 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "app.outbox.enabled", matchIfMissing = true)
 @EnableConfigurationProperties(OutboxProperties.class)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OutboxRelayJob {
 
-    private final RelayOutboxEvents relay;
-    private final RelayOutboxEventsCommand command;
-    private final JobRunRecorder recorder;
-    private final Counter deadLettered;
+    RelayOutboxEvents relay;
+    RelayOutboxEventsCommand command;
+    JobRunRecorder recorder;
+    Counter deadLettered;
 
     /**
      * Registers the dead-letter counter and the pending-age gauge. An event declared "must not

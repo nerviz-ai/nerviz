@@ -18,6 +18,8 @@ import com.example.application.port.out.OrderRepositoryPort;
 import com.example.domain.model.order.Order;
 import com.example.domain.model.order.OrderId;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
@@ -28,10 +30,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Primary
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class AuditedOrderRepository implements OrderRepositoryPort {
 
-    private final OrderRepositoryPort delegate;
-    private final AuditTrailPort audit;
+    OrderRepositoryPort delegate;
+    AuditTrailPort audit;
 
     public AuditedOrderRepository(OrderRepositoryAdapter delegate, AuditTrailPort audit) {
         this.delegate = delegate;

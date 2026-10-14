@@ -50,8 +50,9 @@ effects.
   database, on its own clock, under tests that assert something else. A test that exercises a
   job calls its inbound port directly
 - **Pool size is a decision.** A platform-thread scheduler runs on a single thread unless
-  configured otherwise, so a second job waits for the first. More than one job means either a
-  pool sized to the job count or virtual threads, stated in configuration
+  configured otherwise, so a second job waits for the first. On JDK 21 or later virtual threads
+  are on (`@.claude/rules/virtual-threads.md`) and the pool keys are read by nothing; below 21,
+  more than one job means a pool sized to the job count, stated in configuration
 
 ## Execution guarantees
 
@@ -89,7 +90,7 @@ effects.
 - Scheduled executions are observed through the framework's observation hook, so a run carries
   a trace like any request
 - Logs: the outcome of a pass at `INFO` with counts (claimed, done, failed), never payloads;
-  a pass that found nothing to do logs at `DEBUG` or not at all — `@.claude/rules/logging.md`
+  a pass that found nothing to do is not logged — `@.claude/rules/logging.md`
 
 ## Retention
 

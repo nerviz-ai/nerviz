@@ -28,7 +28,9 @@ public class AgentInstructionsTest {
     static final Path HOOK = Paths.get(".claude/hooks/ArchHook.jar").toAbsolutePath();
     static final String DOMAIN_PREFIXES = "- `org.springframework..`\n- `jakarta.persistence..`\n"
             + "- `jakarta.validation..`\n- `com.fasterxml.jackson..`\n- `tools.jackson..`\n- `graphql..`\n"
-            + "- `com.mongodb..`\n- `org.bson..`\n- `co.elastic..`\n- `org.opensearch..`\n- `org.hibernate..`\n";
+            + "- `com.mongodb..`\n- `org.bson..`\n- `co.elastic..`\n- `org.opensearch..`\n- `org.hibernate..`\n"
+            + "- `org.slf4j..`\n- `ch.qos.logback..`\n- `org.apache.logging..`\n- `org.apache.commons.logging..`\n"
+            + "- `lombok.extern..`\n";
 
     public static void main(String[] args) throws Exception {
         expect(doctor(complete()), "Agent instructions . ✅ 4 file(s) · 2 module(s) match blueprint hexagonal",

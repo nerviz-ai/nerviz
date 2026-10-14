@@ -7,6 +7,15 @@ spring:
   application:
     name: minha-api
 
+  # Always — the build targets JDK 21 or later (.claude/rules/virtual-threads.md). Virtual
+  # threads are daemon threads: keep-alive holds the JVM up for an application whose only work
+  # is a scheduler or a listener.
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true
+
   # feature: persistence-jpa
   # The untracked `.env` at the project root: docker compose reads it for the services, and
   # this import hands the host run (the IDE, `./mvnw spring-boot:run`) the same values, so

@@ -38,6 +38,8 @@ package com.example.demo.application.service;
 import com.example.demo.domain.exception.ConflictException;
 import java.time.Duration;
 import java.util.function.Supplier;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.retry.RetryException;
 import org.springframework.core.retry.RetryPolicy;
@@ -48,13 +50,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentTransactions {
 
     /** Attempts after the first. A conflict that survives three reruns is real contention. */
     private static final long MAX_RETRIES = 3;
 
-    private final TransactionTemplate transaction;
-    private final RetryTemplate retry;
+    TransactionTemplate transaction;
+    RetryTemplate retry;
 
     /** The MongoDB manager, by the name both shapes of `MongoConfig.java.example` give it. */
     public DocumentTransactions(@Qualifier("mongoTransactionManager") PlatformTransactionManager manager) {

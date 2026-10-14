@@ -47,17 +47,27 @@ line in the same change, not silently diverging from it.
   recovered degradation or an expected business rejection; `INFO` for a business state
   transition. An expected failure translated into the client's response is `WARN` or
   `INFO`, never `ERROR`.
+- `DEBUG` and `TRACE` are written only when the use case or the request asks for them, and
+  the line says what it shows and why. They never stand in for the level the event already
+  has: a rejection logged at `DEBUG` is a rejection nobody sees in production. An event with
+  no level above — a pass that found nothing to do — is not logged.
+- A request refused before the use case ran — malformed, invalid, over its quota, not
+  authenticated, not allowed — is logged at `WARN` with method, path and the reason: its
+  category, or the fields that failed. Never the exception object or its message: a parser's
+  message can echo the payload it failed on.
 - The exception enters the log as an exception, with the stack, not as concatenated
   text — except where `@.claude/rules/error-handling.md` says otherwise for a typed
-  business exception (no stack, `errorCode` as its own field).
+  domain or integration family (no stack; `errorCode`, and an integration family's
+  `dependency`, as their own fields), and for a refused request (above).
 - **Zero *raw* sensitive data in the log**: credentials, tokens, cards, personal
   documents. Two ways to comply, not one — pick per field: log the technical key instead
   of the value (an id, not the document it identifies), or mask the value before it's
   interpolated into the line, never the value itself unmasked. A masked field still
   counts as compliant; an unmasked one never does, regardless of how it got there.
-- Logging inside the domain is a smell. The domain throws and returns; the adapter or
-  application service is the one that logs, because it's the one that knows what the
-  event means to the outside.
+- The domain does not log. It throws and returns; the adapter or application service is
+  the one that logs, because it's the one that knows what the event means to the outside.
+  No logging API is imported in the domain — SLF4J, Logback, Log4j, Commons Logging, JUL,
+  or a Lombok logger annotation.
 
 ## Masking mechanism
 
@@ -128,7 +138,7 @@ per class. Names per `@.claude/rules/naming.md` and the active blueprint's
 | `<Resource>Controller` (inbound REST) | method + path, response status, duration | `INFO` on success; `WARN`/`ERROR` per `error-handling.md`'s exception-family mapping on failure |
 | `<Verb><Noun>UseCase` / `<Verb><Noun>Service` (inbound port + its implementation) | one line per business state transition (`from → to`, not the full payload) | `INFO` |
 | `<Resource>RepositoryAdapter` (outbound persistence) | query identifier, duration | `WARN` when the duration crosses `@.claude/rules/persistence.md`'s slow-query threshold, otherwise not logged |
-| domain (aggregate, value object, domain service) | nothing | — always a smell, see § Format and level |
+| domain (aggregate, value object, domain service) | nothing | — forbidden, see § Format and level |
 | outbound integration adapter (external HTTP/gateway client) | outcome (success/failure) and latency, never the raw request/response payload | `INFO` on success, `WARN` on a failure the caller recovers from |
 | inbound event/message listener | event or message type, correlation identifier, outcome | `INFO` |
 
@@ -152,7 +162,11 @@ interface and marks the field. The test is guarded by the presence of that inter
 where the `commons` package was never installed there is nothing to implement, and the
 rule evaluates vacuously instead of failing.
 
+The domain's silence is checked twice. Where the blueprint gives the domain its own module,
+the logging prefixes are among that module's forbidden imports, refused at the import. In
+every layout, the architecture test fails on a domain class that depends on a logging API —
+read from the bytecode, so a Lombok logger annotation counts by the field it generates.
+JUL is refused in every package by the same test.
+
 The rest of this file has no mechanical check: the format, the levels and the per-class
-content are `Review`-verified, same class as `naming.md` and `value-objects.md`. The one
-other structurally checkable part — no `org.slf4j.Logger` field in the domain package —
-is not enforced yet.
+content are `Review`-verified, same class as `naming.md` and `value-objects.md`.

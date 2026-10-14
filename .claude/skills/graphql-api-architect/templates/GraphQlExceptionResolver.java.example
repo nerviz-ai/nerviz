@@ -22,8 +22,9 @@
  *    dependency, since the client does the same thing: wait and retry. Resilience4j's exception is
  *    mapped as it arrives: an outbound adapter translates its own full bulkhead, so every one that
  *    reaches here is the root field's `@Bulkhead`. Present once § 6 has an `Admission` cap; until
- *    then the case, the constructor and their imports stay out. A spent quota never reaches a
- *    resolver: it is HTTP 429 before execution, from `ApiExceptionHandler`;
+ *    then the case, the `admission` field, `@RequiredArgsConstructor` and their imports stay
+ *    out. A spent quota never reaches a resolver: it is HTTP 429 before execution, from
+ *    `ApiExceptionHandler`;
  *  - a `GraphqlErrorException` an adapter raised on purpose (the page-size check) keeps its own
  *    classification and extensions;
  *  - EVERYTHING ELSE RETURNS `null`. Spring Security's `AccessDeniedException` and
@@ -59,21 +60,22 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.graphql.execution.DataFetcherExceptionResolverAdapter;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.stereotype.Component;
 
 /** Exception family to GraphQL error. Returns `null` for anything it does not own. */
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
 
     private static final String ERROR_CODE = "errorCode";
 
-    private final AdmissionProperties admission;
-
-    GraphQlExceptionResolver(AdmissionProperties admission) {
-        this.admission = admission;
-    }
+    AdmissionProperties admission;
 
     @Override
     protected GraphQLError resolveToSingleError(Throwable ex, DataFetchingEnvironment env) {

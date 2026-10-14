@@ -14,6 +14,8 @@ import com.example.application.port.out.StockLevelPort;
 import com.example.domain.model.order.Order;
 import java.util.List;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 // --- one check per rule; a new rule is a new file, no file edited
 public interface OrderCheck {
@@ -33,9 +35,10 @@ public final class MinimumAmountCheck implements OrderCheck {
     }
 }
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class StockAvailableCheck implements OrderCheck {
 
-    private final StockLevelPort stockLevel;
+    StockLevelPort stockLevel;
 
     public StockAvailableCheck(StockLevelPort stockLevel) {
         this.stockLevel = stockLevel;
@@ -48,9 +51,10 @@ public final class StockAvailableCheck implements OrderCheck {
 }
 
 // --- the chain: stops at the first rejection, never runs a check that no longer matters
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class OrderValidationChain {
 
-    private final List<OrderCheck> checks;
+    List<OrderCheck> checks;
 
     public OrderValidationChain(List<OrderCheck> checks) {
         this.checks = List.copyOf(checks);

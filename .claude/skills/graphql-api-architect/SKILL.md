@@ -189,7 +189,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
    | Limit | Where | Written |
    |---|---|---|
    | Quota | The whole GraphQL endpoint, per caller, before the document runs — never per field or per cost | The `graphql` entry of `app.admission.quotas`, stated and per-replica. The first case to state one sets it; a later case's different number is a CHANGE with a reason, since every operation shares it. The 429 is HTTP, Problem Details, before any GraphQL response — a row in § 7 and a case in § 10 |
-   | Cap | The root field's controller method, `@Bulkhead(name = "inbound-<slug>")` | Size below the request thread pool, and why; the `SERVICE_BUSY` row in § 7 and its case in § 10 |
+   | Cap | The root field's controller method, `@Bulkhead(name = "inbound-<slug>")` | Size below the scarcest resource the case holds, and why; the `SERVICE_BUSY` row in § 7 and its case in § 10 |
 
    The pieces are `@.claude/skills/rest-api-architect/templates/AdmissionConfig.java.example` and
    `application-admission.yml.example`, in the GraphQL package's `admission` subpackage when the

@@ -9,6 +9,8 @@ import com.example.application.port.out.StockLevelPort;
 import com.example.domain.model.inventory.ProductId;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 public interface InventoryCommand {
 
@@ -18,11 +20,12 @@ public interface InventoryCommand {
 }
 
 // --- one command per reversible action; the invoker never knows which one it's running
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ReserveStockCommand implements InventoryCommand {
 
-    private final StockLevelPort stockLevel;
-    private final ProductId productId;
-    private final int quantity;
+    StockLevelPort stockLevel;
+    ProductId productId;
+    int quantity;
 
     public ReserveStockCommand(StockLevelPort stockLevel, ProductId productId, int quantity) {
         this.stockLevel = stockLevel;
@@ -47,9 +50,10 @@ public final class ReserveStockCommand implements InventoryCommand {
  * what was done, in reverse order — this is what "undo" buys that a plain method call
  * doesn't.
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ReversibleInventoryBatch {
 
-    private final Deque<InventoryCommand> executed = new ArrayDeque<>();
+    Deque<InventoryCommand> executed = new ArrayDeque<>();
 
     public void run(InventoryCommand command) {
         command.execute();

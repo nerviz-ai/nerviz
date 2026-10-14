@@ -9,9 +9,13 @@
  */
 package com.exemplo.minhaapi.domain.exception;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public abstract class DomainException extends RuntimeException {
 
-    private final String errorCode;
+    String errorCode;
 
     protected DomainException(String errorCode, String message) {
         super(message);

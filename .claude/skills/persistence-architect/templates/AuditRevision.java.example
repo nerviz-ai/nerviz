@@ -78,18 +78,19 @@ public class AuditRevision {
 // --- shared/audit/AuditRevisionListener.java
 package com.example.demo.adapter.out.persistence.shared.audit;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.hibernate.envers.RevisionListener;
 import org.springframework.stereotype.Component;
 
 /** Called once per revision, inside the transaction that writes it. */
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class AuditRevisionListener implements RevisionListener {
 
-    private final AuditorResolver auditorResolver;
-
-    AuditRevisionListener(AuditorResolver auditorResolver) {
-        this.auditorResolver = auditorResolver;
-    }
+    AuditorResolver auditorResolver;
 
     @Override
     public void newRevision(Object revisionEntity) {

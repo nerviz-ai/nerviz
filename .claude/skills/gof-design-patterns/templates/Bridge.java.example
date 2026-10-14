@@ -5,14 +5,18 @@
 // for a single varying axis is Strategy with extra ceremony.
 package com.example.application.notification;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
 // --- implementation hierarchy: how the message actually reaches the customer
 public interface NotificationChannel {
     void deliver(Customer customer, String message);
 }
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class EmailChannel implements NotificationChannel {
 
-    private final EmailSender sender;
+    EmailSender sender;
 
     public EmailChannel(EmailSender sender) {
         this.sender = sender;

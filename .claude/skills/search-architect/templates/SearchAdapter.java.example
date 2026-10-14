@@ -31,6 +31,9 @@ import com.example.demo.application.port.out.SearchOrdersPort;
 import com.example.demo.domain.exception.DependencyUnavailableException;
 import java.util.List;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -44,17 +47,15 @@ import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderSearchAdapter implements SearchOrdersPort {
 
     /** The page ceiling, far below the engine's 10 000-hit window. */
     static final int MAX_PAGE = 100;
     private static final String DEPENDENCY = "order-search";
 
-    private final ElasticsearchOperations operations;
-
-    OrderSearchAdapter(ElasticsearchOperations operations) {
-        this.operations = operations;
-    }
+    ElasticsearchOperations operations;
 
     /**
      * The user's text is the value of a {@code match} query ({@code Criteria.matches}) — never
@@ -110,6 +111,9 @@ import com.example.demo.application.port.out.OrderSnapshot;
 import com.example.demo.domain.exception.DependencyUnavailableException;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.elasticsearch.VersionConflictException;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -117,15 +121,13 @@ import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderIndexerAdapter implements IndexOrderPort {
 
     private static final String DEPENDENCY = "order-search";
 
-    private final ElasticsearchOperations operations;
-
-    OrderIndexerAdapter(ElasticsearchOperations operations) {
-        this.operations = operations;
-    }
+    ElasticsearchOperations operations;
 
     @Override
     public IndexWrite upsert(OrderSnapshot order) {

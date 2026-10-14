@@ -67,6 +67,9 @@ class ShedLockConfig {
 package com.example.demo.adapter.in.scheduling;
 
 import com.example.demo.application.port.in.quote.CloseExpiredQuotes;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import net.javacrumbs.shedlock.core.LockAssert;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -75,15 +78,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(name = "app.jobs.close-expired-quotes.enabled", matchIfMissing = true)
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CloseExpiredQuotesJob {
 
-    private final CloseExpiredQuotes closeExpiredQuotes;
-    private final JobRunRecorder recorder;
-
-    CloseExpiredQuotesJob(CloseExpiredQuotes closeExpiredQuotes, JobRunRecorder recorder) {
-        this.closeExpiredQuotes = closeExpiredQuotes;
-        this.recorder = recorder;
-    }
+    CloseExpiredQuotes closeExpiredQuotes;
+    JobRunRecorder recorder;
 
     /**
      * The lock name is the job's identity across instances — stable, one per job, never shared

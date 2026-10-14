@@ -50,10 +50,10 @@ public List<OrderLine> lines() {
 `@Getter` on the class declares that **all** fields are publicly readable — rarely true
 for an aggregate.
 
-## `@FieldDefaults` — mandatory when every field is private
+## `@FieldDefaults` — mandatory when every instance field is private
 
-A class whose fields are all private declares it once at the top and omits the modifier
-on each field:
+A class whose instance fields are all private declares it once at the top and omits the
+modifier on each of them:
 
 ```java
 // without @FieldDefaults — the modifier repeats on every field
@@ -72,9 +72,14 @@ List<OrderLine> lines;
 field has to vary: forcing `final` and then annotating exceptions costs more than
 writing `final` on the ones that are.
 
-Practical rule: if at least one field needs a visibility other than private,
+Practical rule: if at least one instance field needs a visibility other than private,
 `@FieldDefaults` doesn't apply — declare all modifiers by hand and don't mix the two
-styles in the same file.
+styles in the same class.
+
+`@FieldDefaults` never touches a `static` field: a constant keeps the modifiers it is
+written with (`private static final`), and one written without `private` is
+package-private under the annotation too. A class whose only fields are static carries no
+`@FieldDefaults` — it would do nothing.
 
 ## Deserialization without setters
 
@@ -86,17 +91,49 @@ Jackson and JPA don't need `@Setter`:
   reflection. `@NoArgsConstructor(access = AccessLevel.PROTECTED)` is allowed: it opens
   no public write point
 
+## Generated boilerplate — the default, not an option
+
+What Lombok writes exactly as a person would, it writes. A hand-written copy is code
+somebody reviews for nothing, and it drifts from the fields it mirrors.
+
+- **Logger: `@Slf4j`.** It is the only way a class gets its logger — never
+  `LoggerFactory.getLogger(...)` written by hand. The generated field is `log`. The
+  domain never logs at all (`@.claude/rules/logging.md`)
+- **Constructor that only assigns: `@RequiredArgsConstructor`.** A constructor whose body
+  is nothing but `this.x = x;` for each `final` field is generated, with the access level
+  it had (`access = AccessLevel.PACKAGE` / `PRIVATE` when it wasn't public). Over
+  `final` fields, it is exactly the constructor `@.claude/rules/architecture-ddd.md`
+  § Composition requires; field `@Autowired` remains forbidden. The parameter order is the
+  field order — moving a field moves an argument
+- **Field modifiers: `@FieldDefaults`**, as § `@FieldDefaults` above already requires
+
+The constructor stays written when Lombok would change what it means or hide what it
+shows:
+
+- a domain class — aggregate, entity, value object, enum, domain event, domain exception:
+  its constructor is part of the model a reviewer reads. An application service is not a
+  domain class and follows the default
+- a constructor with any other statement — a validation, a copy, a computed field
+- a persistence entity: its fields aren't `final`, JPA or the document mapper writes them
+  by reflection, and its constructor takes a subset of them
+- a parameter carrying an annotation (`@Qualifier`, `@Value`): Lombok does not copy it to
+  the generated parameter
+- two parameters of one type: reordering their fields swaps the two arguments at every
+  call site with no compile error
+- more than one constructor
+
+Test sources write all of this by hand. The Gradle build gives Lombok to the main
+compilation only (`compileOnly` + `annotationProcessor`), so a Lombok annotation under
+`src/test` compiles on Maven and fails on Gradle.
+
 ## Remaining annotations
 
-`@RequiredArgsConstructor`, `@AllArgsConstructor`, `@Builder`, `@Value`,
-`@EqualsAndHashCode` and `@ToString` are allowed. Two cautions:
+`@AllArgsConstructor`, `@Builder`, `@Value`, `@EqualsAndHashCode` and `@ToString` are
+allowed. One caution:
 
 - **`@ToString`** — exclude sensitive fields (`@ToString.Exclude`) or don't use it. A
   `toString` generated over every field prints passwords, tokens, and PII the moment the
   class ends up in a log message
-- **Generated constructor and injection** — `@RequiredArgsConstructor` over `private
-  final` fields generates exactly the constructor that `@.claude/rules/architecture-ddd.md`
-  § Composition requires. Field `@Autowired` remains forbidden
 
 ## How to verify
 
@@ -113,5 +150,7 @@ lombok.setter.flagUsage = ERROR
 ./mvnw -q test-compile
 ```
 
-The `@Getter` immutability condition is the only part of this rule that no tool
-enforces. That's verified in review.
+The `@Getter` immutability condition and § Generated boilerplate are the parts of this
+rule no tool enforces in the project. They're verified in review — a written
+`LoggerFactory.getLogger`, or a constructor that only assigns `final` fields, is the
+sign to look for.

@@ -25,8 +25,9 @@
  *  - the cadence is a placeholder read by the annotation, never ALSO a field of a properties
  *    record: the annotation resolves before any bean exists (lessons-learned-013 § 2).
  *
- * POOL SIZE. Without virtual threads the scheduler has ONE thread: a second job waits for the
- * first. Set `spring.task.scheduling.pool.size` to the job count, or enable virtual threads —
+ * POOL SIZE. On JDK 21 or later virtual threads are on (.claude/rules/virtual-threads.md) and
+ * there is no pool to size. Below 21 the scheduler has ONE thread: a second job waits for the
+ * first, so set `spring.task.scheduling.pool.size` to the job count —
  * `application-jobs.yml.example`.
  *
  * PACKAGE: the blueprint's `packages.map` entry ending in `.scheduling` — `adapter.in.scheduling`
@@ -69,19 +70,19 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class JobRunRecorder {
 
-    private final MeterRegistry meters;
-    private final Clock clock;
-    private final Map<String, AtomicLong> lastSuccess = new ConcurrentHashMap<>();
-
-    JobRunRecorder(MeterRegistry meters, Clock clock) {
-        this.meters = meters;
-        this.clock = clock;
-    }
+    MeterRegistry meters;
+    Clock clock;
+    Map<String, AtomicLong> lastSuccess = new ConcurrentHashMap<>();
 
     /**
      * Runs one pass and records it. A failure still escapes to the scheduler's error handler,
@@ -124,21 +125,21 @@ class JobRunRecorder {
 package com.example.demo.adapter.in.scheduling;
 
 import com.example.demo.application.port.in.payment.ReconcilePayments;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(name = "app.jobs.reconcile-payments.enabled", matchIfMissing = true)
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class ReconcilePaymentsJob {
 
-    private final ReconcilePayments reconcilePayments;
-    private final JobRunRecorder recorder;
-
-    ReconcilePaymentsJob(ReconcilePayments reconcilePayments, JobRunRecorder recorder) {
-        this.reconcilePayments = reconcilePayments;
-        this.recorder = recorder;
-    }
+    ReconcilePayments reconcilePayments;
+    JobRunRecorder recorder;
 
     /**
      * Calendar-anchored → cron, and cron always names its zone: without it the job runs in the

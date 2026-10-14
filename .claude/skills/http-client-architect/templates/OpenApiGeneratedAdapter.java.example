@@ -93,20 +93,20 @@ import com.exemplo.minhaapi.domain.exception.DependencyResponseException;
 import com.exemplo.minhaapi.domain.model.order.IdempotencyKey;
 import com.exemplo.minhaapi.domain.model.order.Money;
 import com.exemplo.minhaapi.domain.model.order.TaxQuote;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class TaxServiceAdapter implements TaxQuotePort {
 
-    private final QuotesApi quotes;
-    private final TaxServiceMapper mapper;
-    private final HttpFailureTranslator failures = new HttpFailureTranslator("tax-service", "TAX_SERVICE");
-
-    TaxServiceAdapter(QuotesApi quotes, TaxServiceMapper mapper) {
-        this.quotes = quotes;
-        this.mapper = mapper;
-    }
+    QuotesApi quotes;
+    TaxServiceMapper mapper;
+    HttpFailureTranslator failures = new HttpFailureTranslator("tax-service", "TAX_SERVICE");
 
     @Override
     @IdempotentCall

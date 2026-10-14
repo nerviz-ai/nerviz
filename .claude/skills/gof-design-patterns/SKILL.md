@@ -40,14 +40,17 @@ Pinned to `opus`: choosing a pattern against a growing chain is judgment, and th
 2. Look up the symptom in the table. No matching row, stop — write simple code.
 3. Confirm the pattern doesn't collide with the active blueprint's `packages.map`.
 4. Generate from the exemplar in `templates/`, with the names from
-   `@.claude/rules/naming.md`. Size limits: `@.claude/rules/code-quality.md`.
+   `@.claude/rules/naming.md`. Size limits: `@.claude/rules/code-quality.md`. The
+   exemplars write each constructor out, since the wiring between participants is what
+   they show; the generated class follows `@.claude/rules/lombok.md` § Generated
+   boilerplate, outside the domain.
 5. Record it in an ADR if the pattern changes the shape of an entire module.
 
 ## Catalog
 
 | Symptom in code | Pattern | When **not** |
 |---|---|---|
-| `switch`/`if-else` over a type or enum, repeated in ≥ 2 places, growing with each new rule | Strategy | Two stable branches that have never grown |
+| `switch`/`if-else` over a type or enum, repeated in ≥ 2 places, growing with each new rule | Strategy | Two stable branches that have never grown · the branch needs nothing outside the value — a method of the enum or sealed type · a closed set one layer branches on once — a `switch` expression there; both per `@.claude/rules/code-quality.md` § Branching on a closed set |
 | Construction with invariants, many steps, or possible invalid combinations | Static factory (`of`, `from`) | A record with validation in the compact constructor is already enough |
 | ≥ 4 optional constructor parameters | Builder | Record + `with*`; Lombok `@Builder` on a domain object hides invariants |
 | Cross-cutting behavior (retry, audit) repeated across implementations | Decorator | A Spring aspect already exists (`@Transactional`, `@Retryable`) that does the same thing — or the behavior is a cache, whose decorator shape `@.claude/rules/caching.md` owns |

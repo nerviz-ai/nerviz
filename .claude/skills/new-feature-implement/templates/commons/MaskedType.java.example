@@ -8,9 +8,14 @@
  */
 package com.exemplo.minhaapi.commons.logging.enums;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 @Getter
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public enum MaskedType {
 
     ALL("\\S"),
@@ -23,9 +28,5 @@ public enum MaskedType {
     NUMBER("\\d"),
     TELEPHONE(".(?=.{2})[^-]");
 
-    private final String regex;
-
-    MaskedType(String regex) {
-        this.regex = regex;
-    }
+    String regex;
 }

@@ -1,8 +1,9 @@
 /*
  * EXEMPLAR — the WARN line and the counter for every refused authentication and every denied
  * authorization, from the framework's own events (`.claude/rules/authorization.md` § Credentials
- * and logs). The only place a refusal is logged above DEBUG: `SecurityExceptionHandler` writes
- * the response and nothing else, so a refusal is never logged twice.
+ * and logs). `SecurityExceptionHandler` writes the response and its own WARN line with method, path
+ * and the exception's type; this one adds what only the event carries — the principal of a
+ * denial — and the counters.
  *
  * TWO PUBLISHERS, ONE OF THEM OPT-IN:
  *   - authentication events: Boot already registers the publisher. Failure events are mapped by
@@ -20,8 +21,10 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,15 +36,12 @@ import org.springframework.security.authorization.event.AuthorizationDeniedEvent
 import org.springframework.security.core.Authentication;
 
 @Configuration(proxyBeanMethods = false)
+@Slf4j
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SecurityAuditListener {
 
-    private static final Logger log = LoggerFactory.getLogger(SecurityAuditListener.class);
-
-    private final MeterRegistry meters;
-
-    public SecurityAuditListener(MeterRegistry meters) {
-        this.meters = meters;
-    }
+    MeterRegistry meters;
 
     @Bean
     static AuthorizationEventPublisher authorizationEventPublisher(ApplicationEventPublisher publisher) {

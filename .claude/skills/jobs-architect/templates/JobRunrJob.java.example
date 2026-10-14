@@ -62,18 +62,19 @@ package com.example.demo.adapter.in.scheduling;
 import com.example.demo.application.port.out.SendWelcomeEmailLaterPort;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.jobrunr.jobs.JobId;
 import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class JobRunrWelcomeEmail implements SendWelcomeEmailLaterPort {
 
-    private final JobScheduler jobScheduler;
-
-    JobRunrWelcomeEmail(JobScheduler jobScheduler) {
-        this.jobScheduler = jobScheduler;
-    }
+    JobScheduler jobScheduler;
 
     /**
      * Deterministic job id from the customer id: a retried registration enqueues the SAME job,
@@ -91,17 +92,18 @@ package com.example.demo.adapter.in.scheduling;
 
 import com.example.demo.application.port.in.customer.SendWelcomeEmail;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.jobrunr.jobs.annotations.Job;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WelcomeEmailJob {
 
-    private final SendWelcomeEmail sendWelcomeEmail;
-
-    WelcomeEmailJob(SendWelcomeEmail sendWelcomeEmail) {
-        this.sendWelcomeEmail = sendWelcomeEmail;
-    }
+    SendWelcomeEmail sendWelcomeEmail;
 
     /**
      * {@code public}: JobRunr invokes it by reflection from storage. Retries come from the
@@ -117,18 +119,19 @@ public class WelcomeEmailJob {
 package com.example.demo.adapter.in.scheduling;
 
 import com.example.demo.application.port.in.nightlydigest.SendNightlyDigest;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.annotations.Recurring;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class NightlyDigestJob {
 
-    private final SendNightlyDigest sendNightlyDigest;
-
-    NightlyDigestJob(SendNightlyDigest sendNightlyDigest) {
-        this.sendNightlyDigest = sendNightlyDigest;
-    }
+    SendNightlyDigest sendNightlyDigest;
 
     @Recurring(id = "nightly-digest", cron = "${app.jobs.nightly-digest.cron:0 0 7 * * *}", zoneId = "America/Sao_Paulo")
     @Job(name = "Nightly digest")

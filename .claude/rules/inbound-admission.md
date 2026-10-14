@@ -9,9 +9,9 @@ status: active
 # Inbound admission — a quota per caller and a concurrency cap, at the entry boundary
 
 Code that refuses a request before the use case runs, because the caller has spent its quota or
-too many requests are already in flight. Both protect the same scarce resource — the request
-threads and whatever the use case holds while it runs — and both fail silently when the defaults
-are kept: a limiter that waits holds the thread it was bought to free, a limiter per caller in an
+too many requests are already in flight. Both protect the same scarce resource — whatever the use
+case holds while it runs — and both fail silently when the defaults are kept: a limiter that
+waits holds what it was bought to free, a limiter per caller in an
 unbounded registry is a memory leak keyed by the client, a cap named like an outbound one shares
 its permits, and a rejection without `Retry-After` makes every client retry at once.
 
@@ -62,8 +62,10 @@ its permits, and a rejection without `Retry-After` makes every client retry at o
   name share its permits
 - **On the adapter's handler method** (the REST handler, the GraphQL controller method), never on
   a use case, an aggregate or a port — `@.claude/rules/architecture-ddd.md` § Adapters
-- **Sized below the request thread pool**, with the reason recorded: a cap as large as the pool
-  protects nothing
+- **Sized below the scarcest resource the use case holds while it runs**, with the reason
+  recorded: the request thread pool on platform threads, the database or client connection pool
+  on virtual threads, where the request pool bounds nothing (`@.claude/rules/virtual-threads.md`).
+  A cap as large as that resource protects nothing
 - **One resilience library per project**, inbound and outbound — two libraries mean two
   configurations, two metric shapes and two meanings of "full"
 - **The cap runs before the idempotency claim.** A rejected call never claims an idempotency key

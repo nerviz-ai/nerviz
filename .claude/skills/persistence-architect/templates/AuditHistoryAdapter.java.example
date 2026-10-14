@@ -89,6 +89,9 @@ import com.example.demo.application.port.out.LoadOrderHistoryPort;
 import com.example.demo.application.port.out.OrderChange;
 import com.example.demo.domain.model.OrderId;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.history.Revision;
@@ -97,13 +100,11 @@ import org.springframework.data.history.RevisionSort;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderHistoryAdapter implements LoadOrderHistoryPort {
 
-    private final OrderSpringDataRepository repository;
-
-    OrderHistoryAdapter(OrderSpringDataRepository repository) {
-        this.repository = repository;
-    }
+    OrderSpringDataRepository repository;
 
     @Override
     public OrderHistoryPage history(OrderId id, int page, int size) {
@@ -150,10 +151,13 @@ import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE)
 class AuditHistoryRetentionAdapter implements AuditHistoryRetentionGateway {
 
     /** Fixed names, never input: the only text formatted into the statements. */
@@ -173,7 +177,7 @@ class AuditHistoryRetentionAdapter implements AuditHistoryRetentionGateway {
             """;
 
     @PersistenceContext
-    private EntityManager entityManager;
+    EntityManager entityManager;
 
     @Override
     @Transactional

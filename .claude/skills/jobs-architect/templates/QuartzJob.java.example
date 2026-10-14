@@ -63,20 +63,20 @@ package com.example.demo.adapter.in.scheduling;
 
 import com.example.demo.application.port.in.payout.SettleMerchantPayouts;
 import java.time.LocalDate;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 
 @DisallowConcurrentExecution
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class SettleMerchantPayoutsJob implements Job {
 
-    private final SettleMerchantPayouts settleMerchantPayouts;
-    private final JobRunRecorder recorder;
-
-    SettleMerchantPayoutsJob(SettleMerchantPayouts settleMerchantPayouts, JobRunRecorder recorder) {
-        this.settleMerchantPayouts = settleMerchantPayouts;
-        this.recorder = recorder;
-    }
+    SettleMerchantPayouts settleMerchantPayouts;
+    JobRunRecorder recorder;
 
     /**
      * The business date comes from the SCHEDULED fire time, not from "now": a fire caught up at
