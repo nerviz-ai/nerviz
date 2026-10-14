@@ -500,6 +500,8 @@ public class ArchHook {
 
         doctorVirtualThreads();
 
+        doctorPlatform();
+
         provenance();
 
         ComposeReport comp = composeReport();
@@ -940,6 +942,71 @@ public class ArchHook {
      * or a target below `min_feature`; reads `doctor.virtual_threads` (invariant 10).
      * Design: `.claude/decisions/0155-virtual-threads-on-jdk-21.md`.
      */
+    /**
+     * The Spring Boot line (`major.minor`) a project's build declares, or null when nothing in
+     * it says so. `root` is the project, never this repository: `export` asks about its
+     * destination, `doctor` about the project it runs in.
+     *
+     * <p>Why this is a mode helper and not a hook: the refusal has to run before `export` writes
+     * a byte, and `doctor` has to report the same answer afterwards — one reader, two callers.
+     * Invoked by `export` (exit 2 below the floor) and by `doctorPlatform` (reported, never
+     * gated). The closest rejected form is a `permissions` rule: it cannot read a build file.
+     */
+    static String bootLine(Path root, Map<String, Object> spec) {
+        List<Pattern> patterns = new ArrayList<>();
+        for (String p : asStrList(spec.get("line_patterns"))) patterns.add(Pattern.compile(p));
+        for (String f : asStrList(spec.get("build_files"))) {
+            String content = readOrNull(root.resolve(f));
+            if (content == null) continue;
+            for (Pattern p : patterns) {
+                Matcher m = p.matcher(content);
+                if (m.find()) return m.group(1);
+            }
+        }
+        return null;
+    }
+
+    /** True when `line` and `floor`, both `major.minor`, order `line` first. */
+    static boolean lineBelow(String line, String floor) {
+        String[] a = line.split("\\."), b = floor.split("\\.");
+        int major = Integer.compare(Integer.parseInt(a[0]), Integer.parseInt(b[0]));
+        if (major != 0) return major < 0;
+        return Integer.parseInt(a[1]) < Integer.parseInt(b[1]);
+    }
+
+    /** `export` stops here when the destination's Spring Boot line is below the floor. */
+    static void exportPlatformGate(Path destRoot) {
+        Map<String, Object> spec = doctorSpec("platform");
+        if (spec == null) return;
+        String floor = asStr(spec.get("min_line"));
+        String line = bootLine(destRoot, spec);
+        if (floor == null || line == null || !lineBelow(line, floor)) return;
+        err("❌ " + destRoot + " builds on Spring Boot " + line + " — this .claude/ is written for "
+                + floor + " and later.");
+        err("   Its norms, exemplars and architecture-test allowlist use APIs and packages that do");
+        err("   not exist on " + line + ", so what they generate would not build or would misbehave there.");
+        err("   Nothing was written. Migrate the project to Spring Boot " + floor + " or later first,");
+        err("   then run this again. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
+        System.exit(2);
+    }
+
+    /** The `Platform` line: the Spring Boot line the build declares against the floor. Reported, never gated. */
+    static void doctorPlatform() {
+        Map<String, Object> spec = doctorSpec("platform");
+        if (spec == null) return;
+        String label = "  Platform .......... ";
+        String floor = asStr(spec.get("min_line"));
+        String line = bootLine(ROOT, spec);
+        if (line == null) {
+            err(label + "⚪ no Spring Boot line found in the build — nothing to check (optional)");
+        } else if (floor != null && lineBelow(line, floor)) {
+            err(label + "⚠️  Spring Boot " + line + " — this .claude/ is written for " + floor
+                    + " and later; its norms and exemplars do not apply as written");
+        } else {
+            err(label + "✅ Spring Boot " + line);
+        }
+    }
+
     static void doctorVirtualThreads() {
         Map<String, Object> spec = doctorSpec("virtual_threads");
         if (spec == null) return;
@@ -2423,6 +2490,7 @@ public class ArchHook {
             err("   Export writes a project's .claude/ from this one; give it another path.");
             System.exit(2);
         }
+        exportPlatformGate(destRoot);
         Blueprint bp = loadBlueprint(exp, blueprintId);
 
         Map<String, String> out = new TreeMap<>();

@@ -179,6 +179,12 @@ user the list before the real run. Read the mode's own output: a line reporting 
 surviving citation to `decisions/` or `blueprints/` means a dead path just landed in the
 project, and it belongs in the report, not in silence.
 
+`export` exits 2 before writing a byte when the project's build declares a Spring Boot line
+below `doctor.platform.min_line` of the fetched `extensions.json`. Show the user its message
+as it is and stop: the floor is data, not a flag to work around, and there is no `--force`.
+A build whose line no pattern reads is not refused, so a corporate parent hiding the version
+still goes through: `doctor`'s `Platform` line, step 6, says ⚪ then — put it in the report.
+
 ### 6 · Verify, then hand the diff over
 
 ```bash
