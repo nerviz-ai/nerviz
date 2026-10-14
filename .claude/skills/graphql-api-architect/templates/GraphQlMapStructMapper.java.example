@@ -1,0 +1,51 @@
+/*
+ * EXEMPLAR — the same read model → schema type translation as `OrderGraphQlMapper` in
+ * GraphQlController.java.example, in a project whose root CLAUDE.md says
+ * `**Mappers: MapStruct.**` (.claude/rules/mapping.md). Never both in one project. Compiled by
+ * .claude/.ci/MapStructWiringTest.java against stubs of the types it names.
+ *
+ * Every source is a port's read-model record and every target an adapter record, so MapStruct
+ * generates the whole type. The one shape it cannot infer — a `Money` built from two fields of
+ * the source, the amount and the currency — is a `@Named` method fed the whole source parameter.
+ * The controller receives this interface by constructor instead of calling static methods.
+ */
+
+// --- OrderGraphQlMapper.java (adapter.in.graphql)
+package com.exemplo.minhaapi.adapter.in.graphql;
+
+import com.exemplo.minhaapi.application.port.in.customer.CustomerView;
+import com.exemplo.minhaapi.application.port.in.order.OrderLineView;
+import com.exemplo.minhaapi.application.port.in.order.OrderView;
+import java.math.BigDecimal;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Named;
+
+@Mapper
+interface OrderGraphQlMapper {
+
+    /** Generated. `status` by constant name, `placedAt` by `Instant.toString()`, `total` below. */
+    @Mapping(target = "total", source = "view", qualifiedByName = "orderTotal")
+    Order order(OrderView view);
+
+    @Mapping(target = "unitPrice", source = "view", qualifiedByName = "lineUnitPrice")
+    OrderLine line(OrderLineView view);
+
+    /** Generated: same component names on both sides. */
+    Customer customer(CustomerView view);
+
+    @Named("orderTotal")
+    default Money orderTotal(OrderView view) {
+        return money(view.total(), view.currency());
+    }
+
+    @Named("lineUnitPrice")
+    default Money lineUnitPrice(OrderLineView view) {
+        return money(view.unitPrice(), view.currency());
+    }
+
+    /** `toPlainString`, never `toString`: the schema's decimal is never in scientific notation. */
+    private static Money money(BigDecimal amount, String currency) {
+        return new Money(amount.toPlainString(), currency);
+    }
+}

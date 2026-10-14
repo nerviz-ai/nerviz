@@ -25,7 +25,7 @@ change.
 | REST controller | `<Resource>Controller` | `OrderController` |
 | Inbound REST DTO | `<Verb><Resource>Request` | `ConfirmOrderRequest` |
 | Outbound REST DTO | `<Resource>Response` | `OrderResponse` |
-| Mapper (DTO or JPA entity ↔ domain) | `<Resource>Mapper` | `OrderMapper` |
+| Mapper (DTO or JPA entity ↔ domain) — mechanism per `@.claude/rules/mapping.md` | `<Resource>Mapper` | `OrderMapper` |
 | JPA entity — name distinct from the aggregate | `<Resource>Entity` | `OrderEntity` |
 | Outbound port implementation | `<Resource>RepositoryAdapter` | `OrderRepositoryAdapter` |
 | Spring Data interface | `<Resource>JpaRepository` | `OrderJpaRepository` |

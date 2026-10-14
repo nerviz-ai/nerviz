@@ -1,0 +1,84 @@
+/*
+ * EXEMPLAR — the same DTO ↔ application translation as RestMapper.java.example, in a project whose
+ * root CLAUDE.md says `**Mappers: MapStruct.**` (.claude/rules/mapping.md). Never both in one
+ * project. Compiled by .claude/.ci/MapStructWiringTest.java against stubs of the types it names.
+ *
+ * The processor options of the build make this interface a Spring bean, injected by constructor,
+ * and refuse a target property nobody maps — no `componentModel` here, no `INSTANCE` field.
+ * What MapStruct generates is what it can read (records) into what it can build (records); the
+ * one direction it cannot see — `Pageable` into the port's own criteria — stays a `default`
+ * method, written exactly as the manual mapper writes it.
+ */
+
+// --- adapter/in/rest/UserMapper.java
+package com.exemplo.minhaapi.adapter.in.rest;
+
+import com.exemplo.minhaapi.adapter.in.rest.dto.CreateUserRequest;
+import com.exemplo.minhaapi.adapter.in.rest.dto.UserResponse;
+import com.exemplo.minhaapi.application.port.in.PageCriteria;
+import com.exemplo.minhaapi.application.port.in.PageCriteria.SortCriterion;
+import com.exemplo.minhaapi.application.port.in.user.CreateUserCommand;
+import com.exemplo.minhaapi.domain.model.user.User;
+import org.mapstruct.Mapper;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+/** Package-private: the controller beside it is its only caller, and receives it by constructor. */
+@Mapper(uses = UserRestConversions.class)
+interface UserMapper {
+
+    /** Generated. `email` and `departmentId` go through the value objects' own factories. */
+    CreateUserCommand toCommand(CreateUserRequest request);
+
+    /** Generated. `User` is a record, so every component is a readable property. */
+    UserResponse toResponse(User user);
+
+    /**
+     * Written: `Pageable` is no bean of properties for this target, and the sort needs a branch.
+     * The only place Spring Data's paging type and this adapter meet — PageCriteria carries no
+     * Spring Data import.
+     */
+    default PageCriteria toCriteria(Pageable pageable) {
+        var sort = pageable.getSort().stream()
+                .map(order -> new SortCriterion(
+                        order.getProperty(),
+                        order.getDirection() == Sort.Direction.ASC
+                                ? SortCriterion.Direction.ASC
+                                : SortCriterion.Direction.DESC))
+                .toList();
+        return new PageCriteria(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+}
+
+// --- adapter/in/rest/UserRestConversions.java
+package com.exemplo.minhaapi.adapter.in.rest;
+
+import com.exemplo.minhaapi.domain.model.user.DepartmentId;
+import com.exemplo.minhaapi.domain.model.user.Email;
+import com.exemplo.minhaapi.domain.model.user.UserId;
+
+/**
+ * The value object conversions this adapter's mappers share, named in `uses =`. One method per
+ * direction, selected by type; a `@Named` qualifier only when two of them share a signature.
+ * This is where the DTO's `String` becomes `Email`, and where the format exception is born if it
+ * doesn't — the factory validates, never a nested `target = "email.value"`.
+ */
+class UserRestConversions {
+
+    Email email(String raw) {
+        return Email.of(raw);
+    }
+
+    String email(Email email) {
+        return email.value();
+    }
+
+    /** Absent in the DTO becomes the domain's own explicit value, never null crossing the boundary. */
+    DepartmentId departmentId(String raw) {
+        return raw == null ? DepartmentId.unassigned() : DepartmentId.of(raw);
+    }
+
+    String id(UserId id) {
+        return id.value().toString();
+    }
+}

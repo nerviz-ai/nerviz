@@ -33,7 +33,7 @@ session's model — measured in the run's audit report, not assumed.
 
 **Class:** orchestrator — `skill_classes.orchestrator` in `@.claude/schemas/extensions.json`,
 with `overrides.new-feature-implement.write_allow: []`: this thread writes nothing. Every write
-of a run is a subagent's, judged by its own `agent_classes` entry — the executor's and the two
+of a run is a subagent's, judged by its own `agent_classes` entry — the executor's and the
 installers' — never by this phase (`@.claude/decisions/0059-agent-classes-territory-schema.md`).
 The class keeps `design_phase: true`, so `ArchHook.java guard` refuses a `Skill` call to a
 `build`-class skill while the run is open.
@@ -52,13 +52,17 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
   and `## Infrastructure`, for the services the run adds and reports
 - `@.claude/skills/docker-architect/references/compose-service-decision.md` — what each
   `## Infrastructure` decision means, and who acts on it
-- `src/test/**`, the `commons` package — by command, for the pre-flight
+- `src/test/**`, the `commons` package, the root `CLAUDE.md`'s `**Mappers:` paragraph — by
+  command, for the pre-flight
 
 **Writes (indirectly):**
 - `src/**`, `pom.xml` and the spec's checklist and `status:` — via `java-spring-boot-developer`
 - the ArchUnit tests and coverage gate — via `test-architect` setup mode → `archunit-installer`
 - the logging/masking classes — via `commons-logging-installer`, from this skill's
   `templates/commons/*.example`
+- the project's mapper mechanism — the `**Mappers:` paragraph, and for MapStruct the build wiring
+  and every converted mapper — via `mapstruct-installer`, from this skill's
+  `templates/mapstruct/*.example`
 - `docker-compose.yml` and what a service needs next to it — via `compose-service-installer`,
   which runs `docker-architect` for every `materialize` row of the spec
 
@@ -68,8 +72,9 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
 behind its two confirmations. No end of this flow is left without an explicit git instruction.
 
 **Integrates with:**
-1. `test-architect` (setup mode) and `commons-logging-installer` — pre-flight, each only when
-   its gap is found and the user answers **Install now**
+1. `test-architect` (setup mode), `commons-logging-installer` and `mapstruct-installer` —
+   pre-flight, each only when its gap is found; the first two when the user answers **Install
+   now**, the third with whichever mechanism the user picks
 2. `java-spring-boot-developer` — three chained delegations, one per block group
 3. `compose-service-installer` — on success, only when the spec has a `materialize` row
 4. `git-publish` — on success
@@ -122,19 +127,34 @@ pre-existing changes travel to `git-publish` at the end of the run.
    ```bash
    grep -rl "ArchRule\|ArchTest" --include='*.java' src/test/ 2>/dev/null | head -1
    find . -type d -iname commons -o -type d -path '*shared/logging' 2>/dev/null
+   grep -n '^\*\*Mappers:' CLAUDE.md 2>/dev/null
    ```
 
    First command empty → ArchUnit not installed yet (the same gap `/new-feature`'s
    consolidation step 3 already flagged, if this use case is the first one). Second command
    empty, or the directory it finds has nothing but `package-info.java` → commons-logging
-   classes not installed yet. Either gap found → `AskUserQuestion`, one option per gap
-   found: **Install now** / **Skip for this run**.
+   classes not installed yet. Third command empty → the project never chose its mapper
+   mechanism (`.claude/rules/mapping.md` § One mechanism per project). Any gap found →
+   `AskUserQuestion`, one question per gap found: **Install now** / **Skip for this run** for
+   the first two; for the mappers, **Keep manual mappers** (recorded, never asked again) /
+   **Install MapStruct** (converts every existing mapper; needs a clean `src/`).
    - ArchUnit, install now → **invoke** `test-architect` via the `Skill` tool with **no
      argument at all** (setup mode) — the route `/new-feature`'s consolidation step 3
      names; never invoke `archunit-installer` directly, it stays `test-architect`'s alone.
    - Commons-logging, install now → **invoke** `commons-logging-installer` directly via
      the `Agent` tool. No owning per-feature skill to route through: this orchestrator
      is the trigger, same as it owns `git-publish`'s invocation.
+   - Mappers, either answer → **invoke** `mapstruct-installer` directly via the `Agent` tool,
+     with the mode — `manual` or `install` — and the project root. It writes the
+     `**Mappers:` paragraph either way, so the question is never asked twice. **When its mode is
+     `install`, run it first and alone, and wait for it before the other two**: it refuses a
+     source tree with uncommitted changes — so `git restore` can undo its conversion — and the
+     other two installers write under `src/`. When the worktree check already listed
+     pre-existing changes under `src/` or in a build file, don't invoke it: say why, and the
+     executor writes manual mappers this run — the next run asks again, and an install then
+     converts them with the rest. A failure it reports (dirty `src/`, red baseline, red after conversion) leaves
+     no paragraph: say so, show its one line, and proceed to the executor with the manual
+     mechanism for this run — the next run asks again.
    - **Both gaps found and both answered "Install now" → either order works, and the
      same turn is fine.** This used to be the one place in the repo that could deadlock
      itself: `Skill(test-architect)` opened a design phase and
@@ -145,10 +165,10 @@ pre-existing changes travel to `git-publish` at the end of the run.
      subagent's write is judged by its own `agent_type`, so no phase reaches it and nothing
      closes a phase on an `Agent` call any more
      (`@.claude/decisions/0059-agent-classes-territory-schema.md`).
-   - Either **Skip** → proceed to the executor anyway. A spec that doesn't cite
+   - Either **Skip** of the first two → proceed to the executor anyway. A spec that doesn't cite
      `@LogExecution`/`@MaskSensitiveData` or ArchUnit doesn't need either installed to
      compile; skipping isn't a gate failure, it's the user's call.
-   - Neither gap found → skip this pre-flight silently, no question asked.
+   - No gap found → skip this pre-flight silently, no question asked.
 
 2. **Three delegations to `java-spring-boot-developer`, chained.** Every turn of the executor
    rereads its whole context, so one run carrying Block 1 into Block 4 pays for it on every
@@ -237,6 +257,9 @@ measurable per case. A failed group's report instead names the group, its failur
   group launches in the turn that receives the previous one's report.
 - **`@.claude/agents/commons-logging-installer.md`** — one-time logging/masking setup,
   triggered directly from the pre-flight, from this skill's `templates/commons/`.
+- **`@.claude/agents/mapstruct-installer.md`** — records the project's mapper mechanism once;
+  for MapStruct, wires the build from this skill's `templates/mapstruct/` and converts every
+  existing mapper.
 - **`@.claude/agents/compose-service-installer.md`** — adds the spec's `materialize` services
   through `docker-architect`, after the `tests` group and before `git-publish`.
 - **`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`**

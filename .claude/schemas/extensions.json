@@ -372,7 +372,7 @@
         "required_fields": ["effort"],
         "write_allow": ["pom.xml", "**/pom.xml"],
         "required_sections": ["## Failure mode", "## Summary format", "## References"],
-        "agents": ["archunit-installer", "commons-logging-installer", "compose-service-installer"],
+        "agents": ["archunit-installer", "commons-logging-installer", "compose-service-installer", "mapstruct-installer"],
         "overrides": {
           "archunit-installer": {
             "$comment": "Each path is listed twice, once rooted and once under `**/`, because `**` expands to `.*` and a single-module project writes `src/test/...` with nothing before it — the same pair `executor` carries for `src/**`.",
@@ -393,6 +393,16 @@
               "**/src/test/java/**/logging/**",
               "src/main/resources/META-INF/spring/*.imports",
               "**/src/main/resources/META-INF/spring/*.imports"
+            ]
+          },
+          "mapstruct-installer": {
+            "$comment": "The build files, the root CLAUDE.md for the `**Mappers:` paragraph, and both source trees: converting a manual mapper changes its callers (a static call becomes an injected bean) and the tests that built it. The widest installer territory here, on purpose — the procedure touches only mappers, their callers and their tests, and starts from a clean tree so `git restore` undoes it. Design: .claude/decisions/0160-mapstruct-as-a-per-project-mapper-choice.md",
+            "write_allow": [
+              "pom.xml", "**/pom.xml",
+              "build.gradle", "**/build.gradle", "build.gradle.kts", "**/build.gradle.kts",
+              "CLAUDE.md",
+              "src/main/java/**", "**/src/main/java/**",
+              "src/test/java/**", "**/src/test/java/**"
             ]
           },
           "compose-service-installer": {
@@ -762,6 +772,12 @@
         ],
         "note": "Kafka listeners now leave retry and commit to the container (.claude/rules/messaging.md § Retry and DLQ, § Configuration): no Acknowledgment parameter (Boot's default BATCH ack mode commits after the listener returns, a dead-lettered record included), no retry loop or sleep in the listener, and one project-wide classification by type — the domain families straight to the DLQ, the new ConcurrentUpdateException (a ConflictException subclass the persistence adapter throws on an optimistic-lock failure, .claude/rules/error-handling.md) retried, DependencyResponseException straight to the DLQ, everything else retried. Code generated before this has ack-mode: manual with ack.acknowledge() calls, translates an optimistic-lock failure into a plain ConflictException that the error handler dead-letters unretried, and may retry that conflict by hand inside a listener. Only matters if the project has a @KafkaListener; nothing breaks if it stays, but a lost race goes to the DLQ instead of being retried, and an interrupt during a hand-written backoff dead-letters a record that only needed redelivery.",
         "prompt": "Bring this project's Kafka consumers in line with .claude/rules/messaging.md § Retry and DLQ and § Configuration, and .claude/rules/error-handling.md § Shape of the base classes. First list, with file and line, and change nothing yet: (1) every @KafkaListener method taking an Acknowledgment, and the ack-mode line in application*.yml; (2) every loop, Thread.sleep or catch-and-retry inside a listener; (3) every OptimisticLockingFailureException (or spent document-store retry) translated into ConflictException; (4) the DefaultErrorHandler bean and the exceptions it classifies. Then, after I confirm: add ConcurrentUpdateException extends ConflictException in the domain exception package, shaped like .claude/skills/domain-modeling/templates/ConcurrentUpdateException.java.example, keeping each errorCode the code already uses; throw it from the translations in (3); replace the error handler with the shared error handling of .claude/skills/messaging-architect/templates/KafkaListenerErrorHandler.java.example (ListenerFailureClassification, MonitoredDeadLetterPublisher, KafkaListenerErrorHandling), keeping the project's backoff numbers, DLQ topic names and dead-letter metric name if they already exist; remove the Acknowledgment parameters and calls and the ack-mode: manual line — set ack-mode: record instead only if a consumed use case calls another system over HTTP or a language model; delete the hand-written retry in (2); add @LogExecution on each listener method only if the project's commons package already has a LogExecution annotation, never creating it. Update the listener tests that asserted acknowledge() calls, add one asserting a ConcurrentUpdateException is retried and a ConflictException is dead-lettered once, change no business behavior, and run ./mvnw verify."
+      },
+      {
+        "id": "mapstruct-per-project",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "modular-monolith", "layered", "vertical-slice", "onion"],
+        "note": "Mappers now have one mechanism per project, recorded in a `**Mappers:` paragraph of the root CLAUDE.md (.claude/rules/mapping.md): manual — the default and what every project generated before this has — or MapStruct. The next /new-feature-implement asks once and records the answer; choosing MapStruct wires the build (Lombok, its MapStruct binding and every other processor on the annotation processor path, the three processor options) and converts every existing manual mapper and its callers in one change, from a clean source tree. The domain module, and the application module where the blueprint has one, now forbid `org.mapstruct..` (hexagonal, clean-architecture-multi-module, onion). `.claude/forbidden-imports.txt` and each module AGENTS.md are written once, so a project generated before this does not refuse the new import. Nothing breaks if they stay.",
+        "prompt": "Bring this project's boundary map up to the active blueprint's MapStruct rule. Read the active blueprint's YAML — the one whose id .claude/.arch-provenance.json names, which the export keeps in this project — and the generation rule in Nerviz's project-bootstrap references/project-files.md § 5 — never from memory: if /arch-adopt just ran it is under $SRC/.claude/skills/project-bootstrap/references/ (SRC defaults to /tmp/arch-src); otherwise download the tarball named by `source.base_url` in .claude/schemas/extensions.json, with {ref} set to the `ref` of .claude/.arch-provenance.json. (1) If the blueprint gives the domain its own module, add to .claude/forbidden-imports.txt every `<module-path>|<prefix>` line that rule derives and the file does not hold yet — `domain|org.mapstruct.`, and `application|org.mapstruct.` for a layout with an application module, with each module's real path — and the same prefix to those modules' AGENTS.md, in their list format. Never remove a line. If the blueprint has no domain module, say so and change nothing. (2) Do not add MapStruct here and do not write a `**Mappers:` paragraph: the next /new-feature-implement asks which mechanism this project uses. Finish with `java .claude/hooks/ArchHook.java doctor` and show me its `Boundaries`, `Boundary violations` and `Agent instructions` lines."
       }
     ]
   },
@@ -895,13 +911,13 @@
     "agents": {
       "from": ".claude/agents",
       "to": ".claude/agents",
-      "include": ["archunit-installer", "commons-logging-installer", "compose-service-installer", "java-spring-boot-developer"],
+      "include": ["archunit-installer", "commons-logging-installer", "compose-service-installer", "java-spring-boot-developer", "mapstruct-installer"],
       "exclude": ["issue-verifier", "project-initializer"]
     },
 
     "derived_paths": {
       "$comment_exempt": "Globs that are valid in any architecture and so need no derivation: they name no package. A rule whose `paths` holds only these is not expected here. Java is `**/src/**/*.java`, never `**/*.java`, which also matches .claude/hooks/ArchHook.java and loads every Java norm on each read of the hook (0082). One that names a package and is missing from this map would travel with the glob of whichever blueprint happened to be written into the file — gap 8 of lessons-learned-001. `schema` checks both directions.",
-      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.yaml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**", "**/src/main/resources/prompts/**", "**/src/main/resources/graphql/**", "**/src/main/resources/search/**"],
+      "derived_paths_exempt_globs": ["**/src/**/*.java", "**/src/test/**", "**/db/migration/**", ".claude/rules/**", "**/src/**", "**/src/main/resources/application*.yml", "**/src/main/resources/application*.yaml", "**/src/main/resources/application*.properties", "**/*.yml", "**/*.yaml", "**/*.properties", "**/Dockerfile*", "docker-compose*.yml", "docker/caddy/**", "docs/use-cases/**", "**/src/main/resources/prompts/**", "**/src/main/resources/graphql/**", "**/src/main/resources/search/**", "**/src/**/*Mapper.java", "**/pom.xml", "**/build.gradle", "**/build.gradle.kts"],
       "$comment": "A rule with a territory auto-loads by `paths`, and a glob naming a package the active blueprint does not use leaves it silently unloaded. The glob is therefore derived from the blueprint's packages.map — the VALUE, not the key, with `.` becoming `/` — and never copied from the original file. `suffix` selects the packages.map entry whose key ends with it; `key` names candidates in order of preference, first hit wins. A selector that matches nothing and is `optional` keeps the master example globs, inert in that architecture — never strips them, since a rule without `paths` loads at launch in every session (.claude/decisions/0082-rules-without-paths-load-at-launch.md); one that matches nothing and is not optional is a failure of the export, not of the project. No defensive union: this blueprint's glob and no other.",
       "api-rest.md": {
         "suffix": [".rest"],

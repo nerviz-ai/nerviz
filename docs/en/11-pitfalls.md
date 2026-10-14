@@ -531,6 +531,19 @@ idempotency key; and the aspect does not exist in a `@WebMvcTest`, so a slice te
 passes with the bulkhead absent (`.claude/rules/inbound-admission.md`,
 `.claude/decisions/0151-inbound-admission-in-rest-and-graphql.md`).
 
+**The mapper mechanism is the project's, decided once: the root `CLAUDE.md`'s `**Mappers:`
+paragraph.** Without it, every mapper is manual. `/new-feature-implement`'s pre-flight asks once,
+and `mapstruct-installer` records the answer — `manual`, or `MapStruct` after wiring the build and
+converting every existing mapper, its callers and their tests in one change, from a clean `src/`
+so `git restore` undoes it. A spec never names the mechanism; the executor reads the paragraph.
+Three silent traps: declaring `annotationProcessorPaths` turns classpath discovery off — Lombok and
+`spring-boot-configuration-processor` stop with no error unless listed; the Initializr declares
+that list **inside the `default-compile` execution**, which replaces a plugin-level one, so an
+entry written at the wrong level is ignored; and `maven-metadata.xml`'s `<release>` is the last
+deploy, not the last stable — MapStruct's was `1.7.0.Beta2`. In the domain and the application,
+`org.mapstruct..` is a forbidden import (`.claude/rules/mapping.md`,
+`.claude/decisions/0160-mapstruct-as-a-per-project-mapper-choice.md`).
+
 ### Mods
 
 **Below Claude Code 2.1.287 no mod loads, and nothing says so in the session.** The band

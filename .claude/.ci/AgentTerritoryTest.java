@@ -76,6 +76,26 @@ public class AgentTerritoryTest {
                 "src/test/java/com/acme/order/OrderTest.java",
                 2, "commons-logging-installer is refused src/test outside its package");
 
+        // ── installer · mapstruct-installer ──────────────────────────────────
+        // Converts every manual mapper, its callers and their tests (decision 0160): both source
+        // trees, every build file of both tools, and the root CLAUDE.md for `**Mappers:`. Nothing
+        // under docs/ — an approved spec never named a mechanism — and no compose file.
+        for (String f : new String[]{"pom.xml", "adapters/adapter-in-rest/pom.xml", "build.gradle",
+                "app/build.gradle.kts", "CLAUDE.md",
+                "src/main/java/com/acme/adapter/in/rest/UserMapper.java",
+                "adapters/adapter-in-rest/src/main/java/com/acme/adapter/in/rest/UserController.java",
+                "src/test/java/com/acme/adapter/in/rest/UserControllerTest.java"}) {
+            failures += write(hook, session, "mapstruct-installer", f,
+                    0, "mapstruct-installer writes " + f);
+        }
+        failures += write(hook, session, "mapstruct-installer",
+                "docs/use-cases/UC-001-create-user/UC-001-spec.md",
+                2, "mapstruct-installer is refused a spec");
+        failures += write(hook, session, "mapstruct-installer", "docker-compose.yml",
+                2, "mapstruct-installer is refused docker-compose.yml");
+        failures += write(hook, session, "mapstruct-installer", "src/main/resources/application.yml",
+                2, "mapstruct-installer is refused the application configuration");
+
         // ── installer · compose-service-installer ────────────────────────────
         // Runs docker-architect inside an implement run (decision 0137). Every write the skill
         // makes there is judged by this agent_type, so the territory must cover each path

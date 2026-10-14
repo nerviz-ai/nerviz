@@ -1,0 +1,63 @@
+/*
+ * EXEMPLAR — the same aggregate ↔ entity translation as `UserPersistenceMapper` in
+ * RepositoryAdapter.java.example, in a project whose root CLAUDE.md says `**Mappers: MapStruct.**`
+ * (.claude/rules/mapping.md). Never both in one project. Compiled by
+ * .claude/.ci/MapStructWiringTest.java against stubs of the types it names; the document family
+ * (MongoRepositoryAdapter.java.example) follows the same split.
+ *
+ * Persistence is where MapStruct generates least, and this exemplar says so instead of hiding it:
+ *   - the entity has no setters and a protected no-args constructor. MapStruct would pick that
+ *     constructor and find no writable property — an empty entity, and `unmappedTargetPolicy =
+ *     ERROR` has nothing to report. So `toEntity` is written;
+ *   - the aggregate comes back through `rehydrate`, a named factory MapStruct does not call. So
+ *     `toDomain` is written;
+ *   - the enum translation between the two `UserStatus` types is generated, constant by name, and
+ *     fails the compile the day one side gains a constant the other lacks.
+ * The interface is still the one mechanism of the project: one bean, injected by constructor.
+ */
+
+// --- user/UserPersistenceMapper.java
+package com.example.demo.adapter.out.persistence.user;
+
+import com.example.demo.domain.model.DepartmentId;
+import com.example.demo.domain.model.Email;
+import com.example.demo.domain.model.User;
+import com.example.demo.domain.model.UserId;
+import java.util.UUID;
+import org.mapstruct.Mapper;
+
+@Mapper
+interface UserPersistenceMapper {
+
+    /** Generated: constant to constant by name. A renamed constant takes a `@ValueMapping`. */
+    UserStatus entityStatus(com.example.demo.domain.model.UserStatus status);
+
+    /** Generated, the other direction. */
+    com.example.demo.domain.model.UserStatus domainStatus(UserStatus status);
+
+    /** Written: the entity is built by its constructor, which MapStruct does not choose. */
+    default UserEntity toEntity(User user) {
+        UUID department = user.departmentId().isAssigned() ? user.departmentId().value() : null;
+        return new UserEntity(
+                user.id().value(),
+                user.email().value(),
+                user.name(),
+                department,
+                entityStatus(user.status()),
+                user.createdAt());
+    }
+
+    /** Written: reconstitution goes through the aggregate's named factory, never a constructor. */
+    default User toDomain(UserEntity entity) {
+        DepartmentId department = entity.getDepartmentId() == null
+                ? DepartmentId.unassigned()
+                : DepartmentId.of(entity.getDepartmentId());
+        return User.rehydrate(
+                UserId.of(entity.getId()),
+                Email.of(entity.getEmail()),
+                entity.getName(),
+                department,
+                domainStatus(entity.getStatus()),
+                entity.getCreatedAt());
+    }
+}

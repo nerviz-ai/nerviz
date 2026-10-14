@@ -260,10 +260,13 @@ Plus `## Impact on approved use cases` and `## Implementation order`, as in ever
 The exemplars in `templates/` are **reference for form**, not files to copy. Each was compiled and
 run against the classpath the Initializr resolved on the day it was written:
 
+The mapper comes in two exemplars — `OrderGraphQlMapper` inside `GraphQlController.java.example`, and `GraphQlMapStructMapper.java.example` beside it — because the mechanism is the project's, not this partial's: the partial says what maps to what, and the executor writes it in the mechanism the root `CLAUDE.md`'s `**Mappers:` paragraph names (`@.claude/rules/mapping.md`).
+
 | Exemplar | Shape of |
 |---|---|
 | `templates/schema.graphqls.example` | The schema file: nullability, a connection by suffix, a mutation input and payload, `UserError` |
 | `templates/GraphQlController.java.example` | The input ports and read models it calls, the adapter records, the mapper, `@QueryMapping`, a connection through `ScrollSubrange` and `Window`, `@MutationMapping` with `userErrors`, two `@BatchMapping`, a guarded `@SchemaMapping` |
+| `templates/GraphQlMapStructMapper.java.example` | The same read model → schema type mapper as a MapStruct interface, for a project whose mechanism is MapStruct: generated records, a `Money` from two source fields through a `@Named` method |
 | `templates/GraphQlConfig.java.example` | `GraphQlLimits`, depth, complexity, timeout, batch size, the schema inspection that fails the startup |
 | `templates/GraphQlExceptionResolver.java.example` | Each family to a classification and `errorCode`; `null` for the rest |
 | `templates/application-graphql.yml.example` | Introspection and GraphiQL by profile, CORS, `app.graphql.*` |

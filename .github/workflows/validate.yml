@@ -352,6 +352,12 @@ jobs:
       - name: exemplars let Lombok write the logger, the plain constructor and the field modifiers
         run: java .claude/.ci/TemplateLombokTest.java
 
+      # A MapStruct exemplar is the shape the executor writes and the installer converts to in every
+      # project that chose MapStruct; a forbidden construct there ships into all of them, and a
+      # skill with only the manual exemplar leaves the MapStruct one improvised (0160).
+      - name: MapStruct mapper exemplars hold mapping.md § Forbidden and pair every manual one
+        run: java .claude/.ci/MapperTemplateTest.java
+
       # An XML exemplar is copied in its own order, declaration included. logback-spring.xml's
       # `<?xml … ?>` once sat below its EXEMPLAR comment — a fatal parse error that turned every
       # Spring-context test red in the generated project, patched by hand there (0123).

@@ -1,7 +1,8 @@
 /*
- * EXEMPLAR — DTO ↔ domain translation, manual, in static methods.
- * MapStruct rejected (decision P5(f)): it brings an annotation processor and hides the
- * mapping, which is exactly the boundary this file exists to make visible.
+ * EXEMPLAR — DTO ↔ domain translation, manual, in static methods: the default mechanism, and
+ * the one of every project whose root CLAUDE.md has no `**Mappers:` paragraph or says
+ * `**Mappers: manual.**`. A project that chose MapStruct writes RestMapStructMapper.java.example
+ * instead — never both (.claude/rules/mapping.md).
  * Compilable as-is.
  *
  * Direction of dependencies: this file knows the domain; the domain doesn't know this

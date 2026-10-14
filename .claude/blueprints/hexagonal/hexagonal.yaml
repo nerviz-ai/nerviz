@@ -48,6 +48,7 @@ modules:
       - "org.apache.logging.."
       - "org.apache.commons.logging.."
       - "lombok.extern.."  # @Slf4j and the other Lombok logger annotations; Lombok itself stays allowed
+      - "org.mapstruct.."  # a mapper lives in the adapter that owns the types it translates — decision 0160
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
@@ -76,6 +77,7 @@ modules:
       - "org.springframework.data.history.."
       - "org.springframework.data.envers.."
       - "org.springframework.data.annotation.."
+      - "org.mapstruct.."  # a mapper lives in the adapter that owns the types it translates — decision 0160
   - id: adapter-in-rest
     path: adapters/adapter-in-rest
     depends_on: [application, domain, commons]

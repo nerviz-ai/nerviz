@@ -30,7 +30,7 @@ public class AgentInstructionsTest {
             + "- `jakarta.validation..`\n- `com.fasterxml.jackson..`\n- `tools.jackson..`\n- `graphql..`\n"
             + "- `com.mongodb..`\n- `org.bson..`\n- `co.elastic..`\n- `org.opensearch..`\n- `org.hibernate..`\n"
             + "- `org.slf4j..`\n- `ch.qos.logback..`\n- `org.apache.logging..`\n- `org.apache.commons.logging..`\n"
-            + "- `lombok.extern..`\n";
+            + "- `lombok.extern..`\n- `org.mapstruct..`\n";
 
     public static void main(String[] args) throws Exception {
         expect(doctor(complete()), "Agent instructions . ✅ 4 file(s) · 2 module(s) match blueprint hexagonal",
@@ -118,7 +118,8 @@ public class AgentInstructionsTest {
                 + "- `org.springframework.data.mongodb..`\n- `com.mongodb..`\n- `org.bson..`\n"
                 + "- `org.springframework.data.elasticsearch..`\n- `co.elastic..`\n- `org.opensearch..`\n"
                 + "- `org.hibernate.envers..`\n- `org.hibernate.annotations..`\n- `org.springframework.data.history..`\n"
-                + "- `org.springframework.data.envers..`\n- `org.springframework.data.annotation..`\n");
+                + "- `org.springframework.data.envers..`\n- `org.springframework.data.annotation..`\n"
+                + "- `org.mapstruct..`\n");
         f.put("application/CLAUDE.md", "@AGENTS.md\n");
         return f;
     }

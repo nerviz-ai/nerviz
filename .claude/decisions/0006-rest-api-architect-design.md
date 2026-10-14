@@ -46,7 +46,7 @@ flagged.
 | c | Source of `traceId` | Micrometer Tracing. `Tracer` injected into `ApiExceptionHandler`; `tracer.currentSpan().context().traceId()`. Aligns with the planned `observability.md` and closes the exemplar's correction |
 | d | Who installs springdoc | **Corrected by P7.** The skill doesn't edit `pom.xml`. It declares the dependency in block 4 of `30-rest.md`, with the version **resolved at runtime** (invariant 8) — springdoc isn't in the Spring Boot BOM, so the version is explicit and never written from memory |
 | e | `openapi.json` diff job in CI | `project-bootstrap`, owner of `.github/workflows/*`, conditional on `feature: rest`. Two owners of the same file is the bad alternative. **Left undone** — see § Propagation |
-| f | DTO↔domain mapper | Manual, in static methods. MapStruct brings an annotation processor and hides the mapping |
+| f | DTO↔domain mapper | Manual, in static methods. MapStruct brings an annotation processor and hides the mapping. **Superseded by `@.claude/decisions/0160-mapstruct-as-a-per-project-mapper-choice.md`** (2026-10-14): manual stays the default, MapStruct is a per-project choice recorded once |
 | g | `/api/v1` prefix | Explicit in `@RequestMapping`. `server.servlet.context-path` hides the version and prevents `v1` and `v2` from coexisting |
 | h | Default pagination | Offset. Cursor only when requested |
 

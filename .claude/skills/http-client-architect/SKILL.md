@@ -256,6 +256,8 @@ stack and the Spring Framework generation the project's Boot parent manages; eve
 compiled against Boot 4.1.1, and the integration test exemplar ran green against the default
 adapter. The sources they follow are in `references/http-client-reference-links.md`.
 
+The mapper comes in two exemplars — `PaymentGatewayMapper` inside `HttpExchangeAdapter.java.example`, and `HttpClientMapStructMapper.java.example` beside it — because the mechanism is the project's, not this partial's: the partial says what maps to what, and the executor writes it in the mechanism the root `CLAUDE.md`'s `**Mappers:` paragraph names (`@.claude/rules/mapping.md`).
+
 ## Contract
 
 **Class:** design — the territory is `skill_classes.design` in

@@ -366,6 +366,19 @@ that `subagent_context` lists before Block 1.
 
 ---
 
+## Mappers — the project's mechanism, not the block's choice
+
+Every mapper a block writes — REST, GraphQL, persistence, outbound HTTP, messaging — uses the
+mechanism the root `CLAUDE.md`'s `**Mappers:` paragraph names: `MapStruct`, or `manual` (also when
+the line is absent). Read `.claude/rules/mapping.md` before the first mapper of the run; it owns
+what MapStruct generates, what stays a `default` method, and the forbidden constructs. The spec
+and its partials say *what* maps to *what*, never the mechanism, so a spec written before the
+project chose is implemented in the project's current style. Each layer has both exemplars side
+by side in its skill's `templates/`: the manual one each block below names, and a
+`*MapStructMapper.java.example` beside it. Never mix the two in one project, and never edit the
+build's annotation processor setup — that is the installer's, and a MapStruct mapper that does
+not compile in a project whose line says `manual` is a report, not a fix.
+
 ## Procedure — 4 fixed blocks + 8 conditional
 
 Order: domain (1-7) → persistence (8-12) → REST (13-15) → GraphQL (G1-G3, only when the spec
@@ -699,7 +712,7 @@ the step at hand. Generates:
 - `[Resource]Controller.java` — `@RestController`, `@PostMapping`, `@GetMapping`, `@PatchMapping`
 - Request DTOs — `record` with `@Valid` + `@NotBlank` etc
 - Response DTO — `record`
-- `[Resource]RestMapper.java` — manual (no `@Mapping`), domain ↔ DTO
+- `[Resource]RestMapper.java` — domain ↔ DTO, in the project's mechanism (§ Mappers): `RestMapper.java.example` or `RestMapStructMapper.java.example`
 - `ApiExceptionHandler.java` — `@RestControllerAdvice`, 5 error shapes (422, 404, 409, 400, 500 with `traceId`)
 - `ApiVersioningConfig.java` and `ApiVersionObservationConvention.java` — the first REST case of
   the project, when `30-rest.md` § 7 · Versioning says NEW; CHANGE only for the version, deprecation
@@ -753,7 +766,7 @@ Compilation: `./mvnw -q -pl <rest-adapter-module> test-compile` in multi-module,
 ✅ Block 3: REST complete (steps 13-15)
 - Controller: 3 endpoints (POST 201, GET 200, PATCH 200)
 - DTOs: CreateOrderRequest, UpdateOrderRequest, OrderResponse
-- Mapper: manual conversion domain → REST
+- Mapper: domain → REST (manual | MapStruct)
 - Exception handler: 5 error shapes (422 validation, 404, 409, 400, 500+traceId)
 - Interceptor: Idempotency-Key + If-Match
 - Files: 5 classes, 0 errors
