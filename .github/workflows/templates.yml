@@ -11,6 +11,9 @@ name: templates
 #      direct — in a fresh Initializr project (decision 0122)
 #   4. the generated CI's "integration tests actually ran" step reads the reports Maven and
 #      Gradle really write: @Nested ITs pass it, a Docker-guard skip fails it (decision 0127)
+#   5. the MapStruct build fragments wire Lombok, the configuration processor and MapStruct on
+#      Maven and Gradle, every MapStruct mapper exemplar compiles under them, and an unmapped
+#      target fails the compile (decision 0160)
 # Design: .claude/decisions/0099-ci-tests-for-verbatim-templates.md
 #
 # Path-filtered on purpose: every job downloads from Maven Central, GitHub or
@@ -43,6 +46,9 @@ on:
       - '.claude/skills/project-bootstrap/templates/pom.parent.xml.example'
       - '.claude/skills/project-bootstrap/templates/build.gradle.parent.example'
       - '.claude/.ci/CiItCheckTest.java'
+      - '.claude/skills/new-feature-implement/templates/mapstruct/**'
+      - '.claude/skills/*/templates/*MapStructMapper.java.example'
+      - '.claude/.ci/MapStructWiringTest.java'
       - '.github/workflows/templates.yml'
   pull_request:
     paths:
@@ -67,6 +73,9 @@ on:
       - '.claude/skills/project-bootstrap/templates/pom.parent.xml.example'
       - '.claude/skills/project-bootstrap/templates/build.gradle.parent.example'
       - '.claude/.ci/CiItCheckTest.java'
+      - '.claude/skills/new-feature-implement/templates/mapstruct/**'
+      - '.claude/skills/*/templates/*MapStructMapper.java.example'
+      - '.claude/.ci/MapStructWiringTest.java'
       - '.github/workflows/templates.yml'
   workflow_dispatch:
 
@@ -109,6 +118,22 @@ jobs:
 
       - name: commons templates + AssignedIdEntity in a fresh Initializr project
         run: java .claude/.ci/JavaTemplatesTest.java
+
+  mapstruct-wiring:
+    name: MapStruct wiring compiles its exemplars on Maven and Gradle
+    runs-on: ubuntu-latest
+    # Two fresh Initializr projects (Maven and Gradle wrappers, cold caches), two compiles each.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: build fragments + every MapStruct exemplar, green then an unmapped target red
+        run: java .claude/.ci/MapStructWiringTest.java
 
   transport-templates:
     name: transport templates pass their IT per topology

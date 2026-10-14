@@ -1,0 +1,56 @@
+/*
+ * EXEMPLAR — the same domain ↔ provider DTO translation as `PaymentGatewayMapper` in
+ * HttpExchangeAdapter.java.example, in a project whose root CLAUDE.md says
+ * `**Mappers: MapStruct.**` (.claude/rules/mapping.md). Never both in one project. Compiled by
+ * .claude/.ci/MapStructWiringTest.java against stubs of the types it names; the OpenAPI Generator
+ * variant (OpenApiGeneratedAdapter.java.example) follows the same split.
+ *
+ * Three things this adapter shows that the others don't:
+ *   - several source parameters feeding one request record;
+ *   - the tolerant reader as `@ValueMapping`: the provider's status words are listed, a word this
+ *     version does not know — and a missing one — become `UNKNOWN`, never an exception, and a
+ *     domain constant renamed or removed fails the compile;
+ *   - what is not a mapping stays out of the mapper: reading the provider's Problem Details on a
+ *     4xx is the adapter's (`declineReason` in the manual exemplar), not a `default` method here.
+ */
+
+// --- paymentgateway/PaymentGatewayMapper.java
+package com.exemplo.minhaapi.adapter.out.http.paymentgateway;
+
+import com.exemplo.minhaapi.domain.model.payment.ChargeReference;
+import com.exemplo.minhaapi.domain.model.payment.ChargeStatus;
+import com.exemplo.minhaapi.domain.model.payment.Money;
+import com.exemplo.minhaapi.domain.model.payment.PaymentId;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
+import org.mapstruct.Named;
+import org.mapstruct.ValueMapping;
+
+@Mapper
+interface PaymentGatewayMapper {
+
+    /** Generated from two sources; `currency` is `Currency → String`, a built-in conversion. */
+    @Mapping(target = "merchantReference", source = "paymentId.value")
+    @Mapping(target = "amountMinor", source = "amount", qualifiedByName = "minorUnits")
+    @Mapping(target = "currency", source = "amount.currency")
+    CreateChargeRequest toRequest(PaymentId paymentId, Money amount);
+
+    /** Generated: the provider's id is the reference's only component. */
+    @Mapping(target = "value", source = "id")
+    ChargeReference toReference(ChargeResource resource);
+
+    /** Generated tolerant reader — every word the provider documents, then everything else. */
+    @ValueMapping(source = "pending", target = "PENDING")
+    @ValueMapping(source = "captured", target = "CAPTURED")
+    @ValueMapping(source = "declined", target = "DECLINED")
+    @ValueMapping(source = MappingConstants.NULL, target = "UNKNOWN")
+    @ValueMapping(source = MappingConstants.ANY_REMAINING, target = "UNKNOWN")
+    ChargeStatus toStatus(String providerStatus);
+
+    /** The minor units are a computation of the value object, not one of its components. */
+    @Named("minorUnits")
+    default long minorUnits(Money amount) {
+        return amount.minorUnits();
+    }
+}

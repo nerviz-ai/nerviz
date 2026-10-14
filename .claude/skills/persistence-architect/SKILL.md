@@ -513,6 +513,8 @@ Configuration, the MongoDB client and the transaction manager. Exemplars:
 The exemplars in `templates/` are **reference for form**, not files to copy. It's the
 executor agent that reads them when generating code.
 
+The mapper comes in two exemplars — the mapper inside `RepositoryAdapter.java.example` (and `MongoRepositoryAdapter.java.example`), and `PersistenceMapStructMapper.java.example` beside it — because the mechanism is the project's, not this partial's: the partial says what maps to what, and the executor writes it in the mechanism the root `CLAUDE.md`'s `**Mappers:` paragraph names (`@.claude/rules/mapping.md`).
+
 ## Contract
 
 **Class:** design — the territory is `skill_classes.design` in

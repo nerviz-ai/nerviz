@@ -58,6 +58,7 @@ copy step isn't updated alongside it.
 | Calling another system over HTTP — `RestClient`, `@HttpExchange`, OpenAPI client, `WebClient` stream, Feign, timeouts, retry, circuit breaker, outbound authentication, a provider down (502/503/504) | skill `http-client-architect` — norms in `.claude/rules/http-client.md` |
 | Design pattern, growing `if`/`switch` chain, class with too many responsibilities | Inside `/new-feature`: decided by each design skill in its partial's `## Design patterns`, through `gof-design-patterns` § Design-time use. On existing code, outside a feature run: skill `gof-design-patterns` — manual only (`/gof-design-patterns`) |
 | Tests, coverage, installing ArchUnit | skill `test-architect` |
+| A mapper — DTO, entity, document, payload or provider DTO to and from the model — MapStruct, `@Mapper`, the annotation processor path | `.claude/rules/mapping.md` — the mechanism is this file's **Mappers:** paragraph under the title, manual while it is absent; `/new-feature-implement` asks once and runs `mapstruct-installer` |
 | Designing a full feature (use case → domain → REST → persistence → tests) up to an approved spec | skill `new-feature` — manual only: the user types `/new-feature <description>`, the model can't invoke it. One use case per run |
 | Implementing an approved spec | skill `new-feature-implement` — manual only: `/new-feature-implement UC-NNN-<slug>` after `/clear`. Pre-flight, the executor in three block groups, then `git-publish` |
 | Diagnosing hooks and enforcement | `/arch-doctor` |

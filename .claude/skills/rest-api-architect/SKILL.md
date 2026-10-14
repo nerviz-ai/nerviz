@@ -152,8 +152,9 @@ skill.
 
 5. **Fix the DTOs.** Input and output, field by field. DTO validation is **shape**
    only; business rule stays in the aggregate and comes out as 422. No domain type in
-   the public signature, no aggregate serialized. Manual, static mapper
-   (`templates/RestMapper.java.example`).
+   the public signature, no aggregate serialized. The translation in the project's mapper
+   mechanism (`@.claude/rules/mapping.md` — `templates/RestMapper.java.example` or
+   `templates/RestMapStructMapper.java.example`); the partial never names which.
 
    **Apply masking, and re-derive it here instead of trusting the previous partial.**
    Every DTO field gets walked through `@.claude/rules/logging.md` § Masking candidates —
@@ -321,7 +322,7 @@ question nobody asked.
 |---|---|---|
 | Endpoints | Method, path, `operationId`, port, success status | `Controller.java.example` implementing `Api.java.example` |
 | OpenAPI docs | `@Tag` + `@Operation`, `@ApiResponse` per status, `@Parameter` with examples, request body example — one composed `...OpenApiDocs` annotation per operation, declared on the contract interface alone (no mapping/binding annotation there — those are on the controller) | `Api.java.example` · `OpenApiDocs.java.example` |
-| DTOs | Input and output, fields, shape validation, translation, `@MaskSensitiveData` on sensitive fields | `Dtos.java.example` · `RestMapper.java.example` |
+| DTOs | Input and output, fields, shape validation, translation, `@MaskSensitiveData` on sensitive fields | `Dtos.java.example` · `RestMapper.java.example` · `RestMapStructMapper.java.example` |
 | Error map | Exception → status → `errorCode`; `violations` and `traceId` | `ApiExceptionHandler.java.example` · `error-responses.json.example` |
 | Pagination, idempotency and dependencies | Mode and limits, both halves of the key, artifacts to add | `PageResponse.java.example` · `page-response.json.example` · `PageCriteria.java.example` (the port's own pagination type — `Pageable` never crosses it) · `IdempotencyKeyInterceptor.java.example` · `IdempotencyAspect.java.example` (every `@Idempotent` endpoint, first one included) |
 | Contract test cases | Status, `errorCode`, and body shape per scenario | `@.claude/skills/test-architect/templates/ControllerTest.java.example` |
@@ -332,6 +333,8 @@ question nobody asked.
 
 The exemplars in `templates/` are a **shape reference**, not files to copy. It's the
 executor agent that reads them when generating code.
+
+The mapper comes in two exemplars — `RestMapper.java.example`, and `RestMapStructMapper.java.example` beside it — because the mechanism is the project's, not this partial's: the partial says what maps to what, and the executor writes it in the mechanism the root `CLAUDE.md`'s `**Mappers:` paragraph names (`@.claude/rules/mapping.md`).
 
 The contract test exemplar does **not** live here: test-code shape has a single owner,
 and it's `test-architect`. This skill fixes the cases; the shape of the class that

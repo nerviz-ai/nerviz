@@ -1,0 +1,108 @@
+<!--
+EXEMPLAR — the MapStruct wiring `mapstruct-installer` merges into a Maven build. A fragment:
+each block below goes into the element of the same name that already exists, never as a second
+copy of it. Norm: .claude/rules/mapping.md § Build.
+
+Placement:
+  - the properties, dependencyManagement and build blocks — the ROOT pom.xml (single-module: the
+    only one).
+  - the bare dependency on org.mapstruct:mapstruct — every module that may hold a mapper: each
+    module whose blueprint entry does NOT list `org.mapstruct..` in `forbidden_imports`
+    (single-module: the root pom).
+
+Versions: mapstruct and the Lombok binding are not managed by the Spring Boot parent. Both are
+resolved from repo1.maven.org's maven-metadata.xml at install time — the latest version with no
+pre-release qualifier, never `<release>`, which can be a beta — and written into the two
+properties, never from memory. Lombok and spring-boot-configuration-processor are
+managed by the parent's BOM, so they carry no version here.
+
+Why every processor is listed: declaring annotationProcessorPaths turns classpath discovery off.
+Lombok first, then the binding, then MapStruct, then every other processor the build already ran
+(spring-boot-configuration-processor below; hibernate-jpamodelgen when present). One missing here
+stops running with no error.
+-->
+<properties>
+  <mapstruct.version><!-- resolved: org/mapstruct/mapstruct/maven-metadata.xml, latest stable <version> --></mapstruct.version>
+  <lombok-mapstruct-binding.version><!-- resolved: org/projectlombok/lombok-mapstruct-binding/maven-metadata.xml, latest stable <version> --></lombok-mapstruct-binding.version>
+</properties>
+
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct</artifactId>
+      <version>${mapstruct.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct-processor</artifactId>
+      <version>${mapstruct.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok-mapstruct-binding</artifactId>
+      <version>${lombok-mapstruct-binding.version}</version>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <!-- Only the annotations; no version — the entry above manages it. -->
+  <dependency>
+    <groupId>org.mapstruct</groupId>
+    <artifactId>mapstruct</artifactId>
+  </dependency>
+</dependencies>
+
+<build>
+  <plugins>
+    <!-- The Initializr already declares this plugin with one execution per compile goal, each
+         with its own annotationProcessorPaths: an execution's configuration replaces the
+         plugin-level one, so the entries go INTO the `default-compile` execution that exists.
+         Only a build with no such execution (no compiler plugin at all) gets this plugin whole,
+         with the paths at plugin level. `default-testCompile` stays as it is: no mapper lives
+         in a test source. -->
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-compiler-plugin</artifactId>
+      <executions>
+        <execution>
+          <id>default-compile</id>
+          <phase>compile</phase>
+          <goals>
+            <goal>compile</goal>
+          </goals>
+          <configuration>
+            <!-- No <version>: a version-less path is looked up in dependencyManagement — the
+                 Boot BOM for the first and last, the entries above for the middle two. -->
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+              </path>
+              <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok-mapstruct-binding</artifactId>
+              </path>
+              <path>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+              </path>
+              <!-- Kept from the execution as found — every processor the build already ran stays,
+                   after MapStruct's. -->
+              <path>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-configuration-processor</artifactId>
+              </path>
+            </annotationProcessorPaths>
+            <compilerArgs combine.children="append">
+              <arg>-Amapstruct.defaultComponentModel=spring</arg>
+              <arg>-Amapstruct.defaultInjectionStrategy=constructor</arg>
+              <arg>-Amapstruct.unmappedTargetPolicy=ERROR</arg>
+            </compilerArgs>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>

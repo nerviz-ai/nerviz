@@ -1,0 +1,41 @@
+// EXEMPLAR — the MapStruct wiring `mapstruct-installer` merges into a Gradle build (Groovy DSL;
+// an adopted Kotlin DSL build gets the same lines in its own syntax). A fragment: each block
+// goes into the block of the same name that already exists. Norm: .claude/rules/mapping.md § Build.
+//
+// Placement:
+//   - `ext` and the `annotationProcessor` lines — the root build.gradle, inside the
+//     `subprojects` (or `allprojects`) block that already declares Lombok's; single-module: the
+//     root `dependencies`.
+//   - `implementation 'org.mapstruct:mapstruct'` — every module that may hold a mapper: each
+//     module whose blueprint entry does NOT list `org.mapstruct..` in `forbidden_imports`.
+//   - the `JavaCompile` block — beside the `annotationProcessor` lines, so every module compiles
+//     with the same three options.
+//
+// Versions: resolved from repo1.maven.org's maven-metadata.xml at install time — the latest
+// version with no pre-release qualifier, never `<release>`, which can be a beta — and never from
+// memory. Lombok keeps the version the imported Spring Boot BOM gives it.
+//
+// Unlike Maven, Gradle never discovers processors on the compile classpath: each one is already
+// its own `annotationProcessor` line, so adding MapStruct cannot silently drop Lombok — but a
+// processor declared only as `implementation`/`compileOnly` was never running here either.
+
+ext {
+    mapstructVersion = '<!-- resolved: org/mapstruct/mapstruct/maven-metadata.xml, latest stable <version> -->'
+    lombokMapstructBindingVersion = '<!-- resolved: org/projectlombok/lombok-mapstruct-binding/maven-metadata.xml, latest stable <version> -->'
+}
+
+dependencies {
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+
+    annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+            '-Amapstruct.defaultComponentModel=spring',
+            '-Amapstruct.defaultInjectionStrategy=constructor',
+            '-Amapstruct.unmappedTargetPolicy=ERROR',
+    ]
+}

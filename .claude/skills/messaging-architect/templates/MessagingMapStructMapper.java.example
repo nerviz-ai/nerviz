@@ -1,0 +1,36 @@
+/*
+ * EXEMPLAR — the same domain event → payload translation as `OrderConfirmedPayload.from` in
+ * KafkaProducerAdapter.java.example, in a project whose root CLAUDE.md says
+ * `**Mappers: MapStruct.**` (.claude/rules/mapping.md). Never both in one project. Compiled by
+ * .claude/.ci/MapStructWiringTest.java against stubs of the types it names.
+ *
+ * The payload record loses its static `from`: the publisher receives this interface by
+ * constructor and calls `toPayload`. The event never serializes directly, and every field of the
+ * payload is still named in one place — the payload record — so `unmappedTargetPolicy = ERROR`
+ * fails the compile the day the payload gains a field the event does not carry, instead of
+ * publishing it null. A consumer's payload → command mapping has the same shape, reversed.
+ */
+
+// --- orderconfirmed/OrderConfirmedMapper.java
+package com.example.demo.adapter.out.messaging.orderconfirmed;
+
+import com.example.demo.domain.event.OrderConfirmed;
+import com.example.demo.domain.model.CustomerId;
+import com.example.demo.domain.model.OrderId;
+import java.util.UUID;
+import org.mapstruct.Mapper;
+
+@Mapper
+interface OrderConfirmedMapper {
+
+    /** Generated: the event is a record; the two ids unwrap through the methods below. */
+    OrderConfirmedPayload toPayload(OrderConfirmed event);
+
+    default UUID orderId(OrderId id) {
+        return id.value();
+    }
+
+    default UUID customerId(CustomerId id) {
+        return id.value();
+    }
+}
