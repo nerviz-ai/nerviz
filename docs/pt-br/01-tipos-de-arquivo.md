@@ -133,6 +133,9 @@ do blueprint ativo.
 que precisa de verificação mecânica aponta para um hook, um plugin de build
 (Checkstyle) ou um teste (ArchUnit) — nunca para si mesma.
 
+**O papel de cada rule**, onde ela termina e qual verificação a segura:
+[14-rules.md](14-rules.md).
+
 **Frontmatter reconhecido** (`.claude/schemas/extensions.json`):
 
 ```

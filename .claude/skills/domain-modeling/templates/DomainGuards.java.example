@@ -224,14 +224,17 @@ package com.example.demo.domain.model;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class Order implements DomainGuards {
 
-    private final OrderId id;
-    private final Email customerEmail;
-    private final List<OrderLine> lines;
-    private OrderStatus status;
-    private Instant confirmedAt;
+    final OrderId id;
+    final Email customerEmail;
+    final List<OrderLine> lines;
+    OrderStatus status;
+    Instant confirmedAt;
 
     private Order(OrderId id, Email customerEmail, List<OrderLine> lines) {
         this.id = requireNonNull(id, "ORDER_ID_REQUIRED", "order id is required");

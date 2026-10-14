@@ -98,6 +98,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -107,15 +109,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CarrierAdapter implements CarrierTrackingPort {
 
     private static final Pattern NEXT_LINK = Pattern.compile("<([^>]+)>\\s*;\\s*rel=\"?next\"?");
     private static final ParameterizedTypeReference<List<ShipmentPageItem>> PAGE = new ParameterizedTypeReference<>() {
     };
 
-    private final RestClient client;
-    private final CarrierProperties properties;
-    private final HttpFailureTranslator failures = new HttpFailureTranslator("carrier", "CARRIER");
+    RestClient client;
+    CarrierProperties properties;
+    HttpFailureTranslator failures = new HttpFailureTranslator("carrier", "CARRIER");
 
     CarrierAdapter(@Qualifier(CarrierClientConfig.CLIENT) RestClient client, CarrierProperties properties) {
         this.client = client;
@@ -239,6 +242,8 @@ import com.exemplo.minhaapi.application.port.out.DeliverWebhookPort;
 import com.exemplo.minhaapi.domain.exception.BusinessRuleViolationException;
 import com.exemplo.minhaapi.domain.model.webhook.WebhookEndpoint;
 import com.exemplo.minhaapi.domain.model.webhook.WebhookNotification;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.http.client.FilteredHostException;
 import org.springframework.http.MediaType;
@@ -246,10 +251,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class WebhookDeliveryAdapter implements DeliverWebhookPort {
 
-    private final RestClient client;
-    private final HttpFailureTranslator failures = new HttpFailureTranslator("webhook", "WEBHOOK");
+    RestClient client;
+    HttpFailureTranslator failures = new HttpFailureTranslator("webhook", "WEBHOOK");
 
     WebhookDeliveryAdapter(@Qualifier(WebhookClientConfig.CLIENT) RestClient client) {
         this.client = client;

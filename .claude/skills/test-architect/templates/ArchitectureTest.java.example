@@ -81,6 +81,21 @@ class ArchitectureTest {
             .orShould().callMethod(Clock.class, "systemDefaultZone")
             .because("Clock is injected — see rules/architecture-ddd.md");
 
+    /**
+     * The domain throws and returns; the adapter or application service logs
+     * (`.claude/rules/logging.md` § Format and level). Read from the bytecode, so a Lombok
+     * {@code @Slf4j} counts too: its annotation is gone after compilation, the
+     * {@code org.slf4j.Logger} field it generated is not. JUL is already refused everywhere by
+     * {@code no_java_util_logging} below.
+     */
+    @ArchTest
+    static final ArchRule domain_does_not_log = noClasses()
+            .that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("org.slf4j..", "ch.qos.logback..", "org.apache.logging..", "org.apache.commons.logging..")
+            .because("a catch in the domain rethrows or answers; the log line belongs to the layer that knows"
+                    + " what the event means outside (rules/logging.md § Format and level)");
+
     /** Composition (`.claude/rules/architecture-ddd.md` § Composition). */
     @ArchTest
     static final ArchRule no_field_injection = NO_CLASSES_SHOULD_USE_FIELD_INJECTION;

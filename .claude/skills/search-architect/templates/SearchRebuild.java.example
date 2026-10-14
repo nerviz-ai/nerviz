@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.elasticsearch.BulkFailureException;
@@ -48,12 +50,13 @@ import org.springframework.data.elasticsearch.core.query.IndexQueryBuilder;
 import org.springframework.stereotype.Component;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderSearchRebuildAdapter implements RebuildOrderSearchPort {
 
     private static final String NEXT = OrderSearchIndex.ALIAS + "-next";
 
-    private final ElasticsearchOperations operations;
-    private final int replicas;
+    ElasticsearchOperations operations;
+    int replicas;
 
     OrderSearchRebuildAdapter(ElasticsearchOperations operations, @Value("${app.search.replicas}") int replicas) {
         this.operations = operations;

@@ -22,6 +22,8 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -29,9 +31,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-    private final HandlerExceptionResolver resolver;
+    HandlerExceptionResolver resolver;
 
     public ProblemDetailAuthenticationEntryPoint(
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
@@ -50,6 +53,8 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -57,9 +62,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 @Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProblemDetailAccessDeniedHandler implements AccessDeniedHandler {
 
-    private final HandlerExceptionResolver resolver;
+    HandlerExceptionResolver resolver;
 
     public ProblemDetailAccessDeniedHandler(
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {

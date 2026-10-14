@@ -81,16 +81,17 @@ import com.example.demo.application.port.out.AccountRepositoryPort;
 import com.example.demo.domain.model.account.Account;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CachedAccountRepository implements AccountRepositoryPort {
 
-    private final AccountRepositoryPort delegate;
-
-    CachedAccountRepository(AccountRepositoryPort delegate) {
-        this.delegate = delegate;
-    }
+    AccountRepositoryPort delegate;
 
     /**
      * Owner and account both in the key: the balance depends on both, and two owners never
@@ -142,6 +143,9 @@ package com.example.demo.adapter.out.cache;
 
 import com.example.demo.application.port.out.ExchangeRatePort;
 import com.example.demo.application.port.out.ExchangeRateView;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.Cacheable;
 
 /**
@@ -151,13 +155,11 @@ import org.springframework.cache.annotation.Cacheable;
  * case stated. Registered as the port's @Primary bean exactly like the account decorator,
  * delegating to the HTTP adapter by its bean name.
  */
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CachedExchangeRates implements ExchangeRatePort {
 
-    private final ExchangeRatePort delegate;
-
-    CachedExchangeRates(ExchangeRatePort delegate) {
-        this.delegate = delegate;
-    }
+    ExchangeRatePort delegate;
 
     @Override
     @Cacheable(cacheNames = CacheNames.EXCHANGE_RATE, key = "#base + ':' + #quote", sync = true)

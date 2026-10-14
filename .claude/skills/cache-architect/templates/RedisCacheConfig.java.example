@@ -40,6 +40,9 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
@@ -57,6 +60,8 @@ import org.springframework.data.redis.serializer.RedisSerializationContext.Seria
 @Configuration
 @EnableCaching
 @EnableConfigurationProperties(CacheSettings.class)
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class RedisCacheConfig implements CachingConfigurer {
 
     private static final int CLEAR_BATCH = 1000;
@@ -68,11 +73,7 @@ class RedisCacheConfig implements CachingConfigurer {
     private static final Map<String, Class<?>> VALUE_TYPES = Map.of(
             CacheNames.ACCOUNT_BALANCE, AccountBalanceView.class);
 
-    private final MeterRegistry meters;
-
-    RedisCacheConfig(MeterRegistry meters) {
-        this.meters = meters;
-    }
+    MeterRegistry meters;
 
     @Bean
     RedisCacheManager cacheManager(RedisConnectionFactory connections, CacheSettings settings) {

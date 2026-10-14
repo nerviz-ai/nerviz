@@ -70,6 +70,9 @@ import com.example.demo.domain.model.Order;
 import com.example.demo.domain.model.OrderId;
 import java.util.Map;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Limit;
@@ -78,15 +81,12 @@ import org.springframework.data.domain.Window;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderMongoRepositoryAdapter implements CreateOrderPort, SaveOrderPort, LoadOrderPort, ListCustomerOrdersPort {
 
-    private final OrderMongoRepository repository;
-    private final OrderDocumentMapper mapper;
-
-    OrderMongoRepositoryAdapter(OrderMongoRepository repository, OrderDocumentMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
-    }
+    OrderMongoRepository repository;
+    OrderDocumentMapper mapper;
 
     /**
      * An insert: the version is {@code null}. The unique index on {@code orderNumber} and the

@@ -93,6 +93,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import org.springframework.http.HttpHeaders;
@@ -105,10 +107,11 @@ import org.springframework.web.client.RestClientResponseException;
  * dependency: `dependency` is its `spring.http.serviceclient` group id, `codePrefix` the
  * `UPPER_SNAKE_CASE` stem of every `errorCode` it raises (`PAYMENT_GATEWAY_UNAVAILABLE`).
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class HttpFailureTranslator {
 
-    private final String dependency;
-    private final String codePrefix;
+    String dependency;
+    String codePrefix;
 
     public HttpFailureTranslator(String dependency, String codePrefix) {
         this.dependency = dependency;
@@ -217,6 +220,9 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.time.Duration;
 import java.util.function.Supplier;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 
 /**
  * Bulkhead, then circuit breaker, then translation — used only when `28-http-client.md` § 5
@@ -224,17 +230,13 @@ import java.util.function.Supplier;
  * {@link HttpFailureTranslator#call(Supplier)} directly. Both instances come from the
  * Resilience4j registries, configured by name in `application-http-client.yml`.
  */
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ResilientHttpCall {
 
-    private final HttpFailureTranslator translator;
-    private final CircuitBreaker breaker;
-    private final Bulkhead bulkhead;
-
-    public ResilientHttpCall(HttpFailureTranslator translator, CircuitBreaker breaker, Bulkhead bulkhead) {
-        this.translator = translator;
-        this.breaker = breaker;
-        this.bulkhead = bulkhead;
-    }
+    HttpFailureTranslator translator;
+    CircuitBreaker breaker;
+    Bulkhead bulkhead;
 
     public <T> T call(Supplier<T> remoteCall) {
         Supplier<T> translated = () -> translator.call(remoteCall);

@@ -50,19 +50,19 @@ import com.example.demo.application.port.out.IdempotencyRequest;
 import com.example.demo.application.port.out.StoredResponse;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class IdempotentExecution {
 
-    private final IdempotencyKeyPort idempotencyKeys;
-    private final TransactionOperations transactions;
-
-    public IdempotentExecution(IdempotencyKeyPort idempotencyKeys, TransactionOperations transactions) {
-        this.idempotencyKeys = idempotencyKeys;
-        this.transactions = transactions;
-    }
+    IdempotencyKeyPort idempotencyKeys;
+    TransactionOperations transactions;
 
     /**
      * Transaction 1, the claim, commits on its own: a concurrent request with the same key

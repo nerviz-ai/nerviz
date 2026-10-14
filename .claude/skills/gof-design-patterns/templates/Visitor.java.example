@@ -9,6 +9,9 @@
 // that cost is exactly what makes the "genuinely closed" check upfront non-optional.
 package com.example.domain.model.order;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
 // --- the closed hierarchy — three kinds of discount line, unlikely to gain a fourth
 public sealed interface DiscountLine permits PercentageLine, FixedAmountLine, LoyaltyLine {
     void accept(DiscountLineReport report);
@@ -45,9 +48,10 @@ public interface DiscountLineReport {
 }
 
 // --- a second operation is a second implementation, no discount line touched again
+@FieldDefaults(level = AccessLevel.PRIVATE)
 final class DiscountLineSummaryReport implements DiscountLineReport {
 
-    private Money total = Money.zero();
+    Money total = Money.zero();
 
     @Override
     public void visit(PercentageLine line) {

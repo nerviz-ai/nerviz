@@ -102,16 +102,17 @@ import com.github.kagkarlsson.scheduler.SchedulerClient;
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class DbSchedulerTrialExpiry implements ScheduleTrialExpiryPort {
 
-    private final SchedulerClient scheduler;
-
-    DbSchedulerTrialExpiry(SchedulerClient scheduler) {
-        this.scheduler = scheduler;
-    }
+    SchedulerClient scheduler;
 
     /**
      * Instance id = subscription id: a retried use case schedules the same instance, which the

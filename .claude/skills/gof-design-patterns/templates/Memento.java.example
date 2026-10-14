@@ -19,12 +19,15 @@
 package com.example.domain.model.order;
 
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 // --- the originator creates and restores from its own memento; nobody else can read one
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class Order {
 
-    private OrderStatus status;
-    private List<OrderLine> lines;
+    OrderStatus status;
+    List<OrderLine> lines;
 
     /** Narrow interface for the caretaker: opaque, no accessors on it at all. */
     public OrderSnapshot snapshot() {
@@ -43,9 +46,10 @@ public final class Order {
     }
 
     /** Wide interface: fields visible only inside this file, never through OrderSnapshot. */
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     private static final class Captured implements OrderSnapshot {
-        private final OrderStatus status;
-        private final List<OrderLine> lines;
+        OrderStatus status;
+        List<OrderLine> lines;
 
         Captured(OrderStatus status, List<OrderLine> lines) {
             this.status = status;

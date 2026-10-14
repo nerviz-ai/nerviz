@@ -16,8 +16,10 @@
  * filter chain makes the same distinction, and this keeps method security consistent with it.
  *
  * THE BODY SAYS NOTHING SPECIFIC: no missing role, no token parse error, no expiry time. The
- * reason goes to the log at DEBUG here; the WARN line with the principal is
- * `SecurityAuditListener`'s, from the framework's events, so a refusal is not logged twice.
+ * reason goes to the log at WARN here, with method, path and the exception's type
+ * (`.claude/rules/logging.md` § Format and level). `SecurityAuditListener` writes its own WARN
+ * line from the framework's events, with the principal of a denial: two lines per refusal, each
+ * carrying what the other cannot see.
  *
  * NO `errorCode`: the extension field belongs to errors that come from the domain
  * (`.claude/rules/api-rest.md` § Error body). An ownership refusal is not handled here at all —
@@ -27,8 +29,10 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -47,22 +51,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@Slf4j
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SecurityExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(SecurityExceptionHandler.class);
-
-    private final AuthenticationMechanism mechanism;
-    private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
-    private final SecurityContextHolderStrategy contextHolder = SecurityContextHolder.getContextHolderStrategy();
-
-    public SecurityExceptionHandler(AuthenticationMechanism mechanism) {
-        this.mechanism = mechanism;
-    }
+    AuthenticationMechanism mechanism;
+    AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
+    SecurityContextHolderStrategy contextHolder = SecurityContextHolder.getContextHolderStrategy();
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleAuthentication(
             AuthenticationException e, HttpServletRequest request) {
-        log.debug("Authentication refused at {} {}: {}", request.getMethod(), request.getRequestURI(), e.getClass().getSimpleName());
+        log.warn("Authentication refused at {} {}: {}", request.getMethod(), request.getRequestURI(), e.getClass().getSimpleName());
         return unauthorized(request);
     }
 
@@ -73,7 +74,7 @@ public class SecurityExceptionHandler {
         if (authentication == null || trustResolver.isAnonymous(authentication)) {
             return unauthorized(request);
         }
-        log.debug("Access denied at {} {}", request.getMethod(), request.getRequestURI());
+        log.warn("Access denied at {} {}: {}", request.getMethod(), request.getRequestURI(), e.getClass().getSimpleName());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access denied");
         problem.setInstance(URI.create(request.getRequestURI()));
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);

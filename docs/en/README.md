@@ -32,6 +32,7 @@ the others.
 | [11-pitfalls.md](11-pitfalls.md) | Every silent trap, in two parts. The runtime's: a skill named after a native command, `$ARGUMENTS` interpolated in prose, pipe segments in `allowed-tools`, an injection's cwd, unknown frontmatter, a hook's four mute failures, `AskUserQuestion`, and the four `.mcp.json` ones. This repository's: write territories and the guards, frozen spec folders, compose reachability, who owns `pom.xml` and the outbox |
 | [12-issues.md](12-issues.md) | Issues, both sides: `/report-issue` files a verifiable, sanitized issue from a generated project; `/triage-issue` has the read-only `issue-verifier` check every claim at `HEAD` — diagnosis and proposed fix included — before a comment, a label, or a design run |
 | [13-github-copilot.md](13-github-copilot.md) | What a generated project gives a GitHub Copilot user, surface by surface (CLI, cloud agent, VS Code, code review): what works the same, what needs a file or frontmatter translation, what only Claude Code has, what only Copilot has, and which Nerviz guarantee still holds there. Basis of `roadmap.md` phase 8 and of the `AGENTS.md` design |
+| [14-rules.md](14-rules.md) | The role of each rule in `.claude/rules/`: what only it decides, where it hands over to another, what verifies it — and a table of boundary questions (who decides the status, the log level, masking, inbound and outbound TLS). It restates no norm; it points at them |
 
 ## How this repository is organized (quick reference)
 

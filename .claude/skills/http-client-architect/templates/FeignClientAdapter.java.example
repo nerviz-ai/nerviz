@@ -87,19 +87,20 @@ import feign.RetryableException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class AddressLookupAdapter implements AddressLookupPort {
 
     private static final String DEPENDENCY = "address-lookup";
 
-    private final AddressLookupFeignClient client;
-
-    AddressLookupAdapter(AddressLookupFeignClient client) {
-        this.client = client;
-    }
+    AddressLookupFeignClient client;
 
     @Override
     @IdempotentCall

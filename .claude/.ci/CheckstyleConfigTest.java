@@ -298,6 +298,95 @@ public class CheckstyleConfigTest {
                 }
                 """);
 
+        // error-handling.md § A caught exception is never silent (decision 0153): an empty catch
+        // fails with or without a comment; a catch that logs, rethrows or answers passes.
+        Map<String, Path> emptyCatches = new LinkedHashMap<>();
+        emptyCatches.put("CommentedCatch", write(src.resolve("CommentedCatch.java"), """
+                package example;
+
+                /** Parses one number. */
+                public final class CommentedCatch {
+
+                    private CommentedCatch() {
+                    }
+
+                    /** Parses the value. */
+                    public static int parse(String value) {
+                        int parsed = 0;
+                        try {
+                            parsed = Integer.parseInt(value);
+                        } catch (NumberFormatException e) {
+                            // answered as zero by decision of the spec
+                        }
+                        return parsed;
+                    }
+                }
+                """));
+        emptyCatches.put("BareCatch", write(src.resolve("BareCatch.java"), """
+                package example;
+
+                /** Parses one number. */
+                public final class BareCatch {
+
+                    private BareCatch() {
+                    }
+
+                    /** Parses the value. */
+                    public static int parse(String value) {
+                        int parsed = 0;
+                        try {
+                            parsed = Integer.parseInt(value);
+                        } catch (NumberFormatException e) {
+                        }
+                        return parsed;
+                    }
+                }
+                """));
+        Path handledCatch = write(src.resolve("HandledCatch.java"), """
+                package example;
+
+                import java.util.Optional;
+                import java.util.logging.Logger;
+
+                /** Every handler error-handling.md admits. */
+                public final class HandledCatch {
+
+                    private static final Logger LOG = Logger.getLogger("example");
+
+                    private HandledCatch() {
+                    }
+
+                    /** The exception is the call's answer. */
+                    public static Optional<Integer> parse(String value) {
+                        try {
+                            return Optional.of(Integer.parseInt(value));
+                        } catch (NumberFormatException e) {
+                            return Optional.empty();
+                        }
+                    }
+
+                    /** Recovered, and logged. */
+                    public static int parseOrZero(String value) {
+                        try {
+                            return Integer.parseInt(value);
+                        } catch (NumberFormatException e) {
+                            LOG.warning("unreadable number");
+                            return 0;
+                        }
+                    }
+
+                    /** Interrupt restored, then translated. */
+                    public static void pause(long millis) {
+                        try {
+                            Thread.sleep(millis);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException("interrupted", e);
+                        }
+                    }
+                }
+                """);
+
         int failures = 0;
         for (Path config : List.of(mainConfig, testConfig)) {
             String name = config.getFileName().toString();
@@ -314,6 +403,13 @@ public class CheckstyleConfigTest {
         failures += expectFlagged(jar, mainConfig, repeatedLiteral, "MultipleStringLiterals", mainName,
                 "code-quality.md: no magic strings — a literal of 5+ characters, 3+ times in one file.");
         failures += expectClean(jar, mainConfig, allowedLiterals, mainName);
+        for (Path file : emptyCatches.values()) {
+            failures += expectFlagged(jar, mainConfig, file, "EmptyCatchBlock", mainName,
+                    "error-handling.md § A caught exception is never silent: a comment is not a handler.");
+        }
+        failures += expectClean(jar, mainConfig, handledCatch, mainName);
+        // Main only: a test may catch and ignore on purpose, so the light config must not flag it.
+        failures += expectClean(jar, testConfig, emptyCatches.get("CommentedCatch"), testConfig.getFileName().toString());
         failures += expectClean(jar, testConfig, repeatedLiteral, testConfig.getFileName().toString());
         // Main only: test code holds § Comments by review, so the light config must not flag it.
         failures += expectClean(jar, testConfig, comments.get("LineComment"), testConfig.getFileName().toString());
@@ -331,7 +427,7 @@ public class CheckstyleConfigTest {
         System.out.println("✅ Both Checkstyle configs parse on Checkstyle " + version
                 + ", pass a clean file, and reject `record` and `permits` as names;"
                 + " checkstyle.xml rejects every comment but Javadoc and its two exceptions,"
-                + " and a literal repeated past S1192's threshold;"
+                + " a literal repeated past S1192's threshold, and an empty catch, commented or not;"
                 + " checkstyle-test.xml rejects a throw-assertion lambda with more than one call.");
     }
 

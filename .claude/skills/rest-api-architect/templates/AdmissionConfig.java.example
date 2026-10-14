@@ -63,16 +63,19 @@ public @interface InboundQuota {
 package com.exemplo.minhaapi.adapter.in.rest.admission;
 
 import java.time.Duration;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * The caller spent its quota. The inbound adapter's own, neither a domain nor an integration
  * family (`.claude/rules/error-handling.md`): nothing failed and nothing was called, and it never
  * reaches the application.
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class QuotaExceededException extends RuntimeException {
 
-    private final transient String limiter;
-    private final transient Duration retryAfter;
+    transient String limiter;
+    transient Duration retryAfter;
 
     public QuotaExceededException(String limiter, Duration retryAfter) {
         super("Quota " + limiter + " spent for this caller");
@@ -132,6 +135,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -139,10 +144,11 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /** Spends one permit of the caller's quota before the handler runs, or rejects at once. */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class InboundQuotaInterceptor implements HandlerInterceptor {
 
-    private final AdmissionProperties properties;
-    private final Cache<String, RateLimiter> limiters;
+    AdmissionProperties properties;
+    Cache<String, RateLimiter> limiters;
 
     InboundQuotaInterceptor(AdmissionProperties properties) {
         this.properties = properties;
@@ -199,6 +205,9 @@ class InboundQuotaInterceptor implements HandlerInterceptor {
 // --- AdmissionConfig.java
 package com.exemplo.minhaapi.adapter.in.rest.admission;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -210,13 +219,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AdmissionProperties.class)
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AdmissionConfig implements WebMvcConfigurer {
 
-    private final AdmissionProperties properties;
-
-    public AdmissionConfig(AdmissionProperties properties) {
-        this.properties = properties;
-    }
+    AdmissionProperties properties;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

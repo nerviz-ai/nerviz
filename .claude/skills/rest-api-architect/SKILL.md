@@ -264,7 +264,7 @@ skill.
 
    Then the case's own limits, each a row of § 8: a quota names its limiter (the case slug) on
    the handler method through `@InboundQuota`, the per-replica number and the window; a cap names
-   its `inbound-<slug>` bulkhead, its size below the request thread pool and the reason. Block 3
+   its `inbound-<slug>` bulkhead, its size below the scarcest resource the case holds and the reason. Block 3
    gains the 429 `RATE_LIMITED` or the 503 `SERVICE_BUSY` row, block 5 the case that proves it,
    and block 4's dependencies the resilience library when the build does not declare it.
 

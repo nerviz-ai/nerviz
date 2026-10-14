@@ -8,6 +8,8 @@
 package com.example.domain.model.pricing;
 
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 public interface DiscountPolicy {
 
@@ -33,9 +35,10 @@ public final class LoyaltyDiscount implements DiscountPolicy {
 }
 
 // --- the selector doesn't know the implementations: it receives them
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class DiscountCalculator {
 
-    private final List<DiscountPolicy> policies;
+    List<DiscountPolicy> policies;
 
     public DiscountCalculator(List<DiscountPolicy> policies) {
         this.policies = List.copyOf(policies);

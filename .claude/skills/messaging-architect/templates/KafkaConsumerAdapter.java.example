@@ -92,18 +92,18 @@ package com.example.demo.adapter.in.messaging.orderconfirmed;
 import com.example.demo.application.port.in.stock.ReserveStockUseCase;
 import com.example.demo.application.port.in.stock.ReserveStockCommand;
 import com.example.demo.application.port.out.ProcessedEventStore;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OrderConfirmedListener {
 
-    private final ReserveStockUseCase reserveStock;
-    private final ProcessedEventStore processedEvents;
-
-    public OrderConfirmedListener(ReserveStockUseCase reserveStock, ProcessedEventStore processedEvents) {
-        this.reserveStock = reserveStock;
-        this.processedEvents = processedEvents;
-    }
+    ReserveStockUseCase reserveStock;
+    ProcessedEventStore processedEvents;
 
     @KafkaListener(topics = "orders.order.confirmed", groupId = "inventory-service")
     public void onMessage(OrderConfirmedPayload payload, Acknowledgment ack) {

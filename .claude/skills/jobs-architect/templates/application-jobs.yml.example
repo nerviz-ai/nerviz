@@ -10,18 +10,16 @@
 spring:
   task:
     scheduling:
-      # A platform-thread scheduler has ONE thread by default: the second job waits for the
-      # first. Size it to the job count — or turn on virtual threads, and then these pool keys
-      # are ignored.
+      # BELOW JDK 21 ONLY. On 21 or later virtual threads are on in application.yml
+      # (.claude/rules/virtual-threads.md) and the scheduler ignores these pool keys — leave them
+      # out. A platform-thread scheduler has ONE thread by default: the second job waits for the
+      # first, so size it to the job count.
       pool:
         size: 2
       thread-name-prefix: job-
       shutdown:
         await-termination: true
         await-termination-period: PT30S
-  # threads:
-  #   virtual:
-  #     enabled: true
 
 app:
   jobs:

@@ -177,6 +177,12 @@ jobs:
       - name: doctor checks the agent instruction files against the blueprint, and never gates
         run: java .claude/.ci/AgentInstructionsTest.java
 
+      # Virtual threads are the norm on a JDK 21+ build (.claude/rules/virtual-threads.md), set in
+      # advance with no failure observed, and a profile may turn them off with a reason — so doctor
+      # warns from the build file's target JDK, Maven and Gradle, and never gates (0155).
+      - name: doctor warns when a JDK 21+ build lacks virtual threads, and never gates
+        run: java .claude/.ci/VirtualThreadsDoctorTest.java
+
       # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
       # the one gated line that reads code: it sweeps every source file with check's own match.
       # A sweep that matched nothing would read as a clean project, under any agent (0140).
@@ -333,6 +339,18 @@ jobs:
       # copies it. Reads its patterns from checkstyle.xml.example, so the two never disagree (0108).
       - name: exemplar bodies carry no comment but Javadoc
         run: java .claude/.ci/TemplateCommentsTest.java
+
+      # Every DEBUG line bank-app carried came from a template: a rejection logged where production
+      # never sees it, and a parser's exception that can echo the body. A template is never a case
+      # that asked for DEBUG (0157).
+      - name: exemplars log no DEBUG/TRACE and rejections at WARN without the exception
+        run: java .claude/.ci/TemplateLogLevelTest.java
+
+      # lombok.md once listed @RequiredArgsConstructor as allowed and never named @Slf4j, so the
+      # templates wrote the logger and 75 plain-assignment constructors by hand, and 73 files left
+      # out the @FieldDefaults the same norm required. The executor copies the shape it sees (0158).
+      - name: exemplars let Lombok write the logger, the plain constructor and the field modifiers
+        run: java .claude/.ci/TemplateLombokTest.java
 
       # An XML exemplar is copied in its own order, declaration included. logback-spring.xml's
       # `<?xml … ?>` once sat below its EXEMPLAR comment — a fatal parse error that turned every

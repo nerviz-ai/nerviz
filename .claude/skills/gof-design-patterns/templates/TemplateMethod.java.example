@@ -9,6 +9,9 @@
 // its keep only while both steps keep varying together.
 package com.example.application.export;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
 // --- the skeleton: fetch, validate, transform, write, finalize — fixed order, fixed count
 public abstract class OrderExportRoutine {
 
@@ -46,11 +49,12 @@ public abstract class OrderExportRoutine {
 }
 
 // --- variant 1: CSV to a local file — only transform() and write() differ
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 final class CsvFileExport extends OrderExportRoutine {
 
-    private final OrderRepositoryPort repository;
-    private final ExportLogPort exportLog;
-    private final CsvWriterPort writer;
+    OrderRepositoryPort repository;
+    ExportLogPort exportLog;
+    CsvWriterPort writer;
 
     CsvFileExport(OrderRepositoryPort repository, ExportLogPort exportLog, CsvWriterPort writer) {
         this.repository = repository;

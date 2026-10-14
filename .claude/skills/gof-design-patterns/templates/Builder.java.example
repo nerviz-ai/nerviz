@@ -16,15 +16,18 @@ package com.example.domain.model.order;
 import com.example.domain.exception.ValidationException;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class OrderBuilder {
 
-    private CustomerId customerId;
-    private final List<OrderLine> items = new ArrayList<>();
-    private Address shippingAddress;
-    private CouponCode couponCode;
-    private String giftMessage;
-    private OrderPriority priority = OrderPriority.STANDARD;
+    CustomerId customerId;
+    final List<OrderLine> items = new ArrayList<>();
+    Address shippingAddress;
+    CouponCode couponCode;
+    String giftMessage;
+    OrderPriority priority = OrderPriority.STANDARD;
 
     public OrderBuilder customer(CustomerId customerId) {
         this.customerId = customerId;

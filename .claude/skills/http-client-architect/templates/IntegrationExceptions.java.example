@@ -27,10 +27,11 @@
 // --- IntegrationException.java
 package com.exemplo.minhaapi.domain.exception;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public abstract class IntegrationException extends RuntimeException {
 
-    private final String errorCode;
-    private final String dependency;
+    String errorCode;
+    String dependency;
 
     protected IntegrationException(String errorCode, String dependency, String message, Throwable cause) {
         super(message, cause);
@@ -62,10 +63,13 @@ package com.exemplo.minhaapi.domain.exception;
 
 import java.time.Duration;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DependencyUnavailableException extends IntegrationException {
 
-    private final Duration retryAfter;
+    Duration retryAfter;
 
     public DependencyUnavailableException(String errorCode, String dependency, String message, Throwable cause) {
         this(errorCode, dependency, message, null, cause);

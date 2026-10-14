@@ -109,6 +109,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -123,6 +126,8 @@ import org.springframework.stereotype.Component;
  * transaction across the broker call.
  */
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OutboxEventMongoStore implements OutboxRelayGateway, OutboxRetentionGateway {
 
     private static final int MAX_ERROR_LENGTH = 500;
@@ -130,13 +135,8 @@ class OutboxEventMongoStore implements OutboxRelayGateway, OutboxRetentionGatewa
     /** Longer than the slowest send the producer's timeouts allow (the partial's § 1). */
     private static final Duration LEASE = Duration.ofSeconds(60);
 
-    private final MongoTemplate template;
-    private final Clock clock;
-
-    OutboxEventMongoStore(MongoTemplate template, Clock clock) {
-        this.template = template;
-        this.clock = clock;
-    }
+    MongoTemplate template;
+    Clock clock;
 
     /**
      * Oldest pending event first, one {@code findAndModify} per event: each call atomically takes
@@ -382,6 +382,9 @@ import com.example.demo.application.port.out.StoredResponse;
 import com.example.demo.domain.exception.ConflictException;
 import java.time.Duration;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
@@ -394,16 +397,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * session the way an aborted Postgres transaction does.
  */
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class IdempotencyKeyMongoStore implements IdempotencyKeyPort {
 
     private static final Duration TTL = Duration.ofHours(24);
     private static final Duration IN_PROGRESS_LEASE = Duration.ofMinutes(5);
 
-    private final IdempotencyKeyMongoRepository repository;
-
-    IdempotencyKeyMongoStore(IdempotencyKeyMongoRepository repository) {
-        this.repository = repository;
-    }
+    IdempotencyKeyMongoRepository repository;
 
     @Override
     public IdempotencyClaim claim(IdempotencyRequest request) {

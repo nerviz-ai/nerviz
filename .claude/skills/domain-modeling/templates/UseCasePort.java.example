@@ -8,7 +8,8 @@
  *        `.claude/rules/naming.md` (§ Architecture vocabulary — this exemplar is hexagonal:
  *          `<Verb><Noun>UseCase` port + `…Service`; clean architecture has a concrete
  *          `<Verb><Noun>UseCase` and no port; never an Impl suffix)
- *        `.claude/rules/code-quality.md` (constructor injection, private final fields)
+ *        `.claude/rules/lombok.md` (§ Generated boilerplate — the service's constructor is
+ *          `@RequiredArgsConstructor` over its final fields)
  *
  * WHAT THIS EXEMPLAR SHOWS:
  *  - an input port with **one** method. A fat interface is a smell: two methods here
@@ -64,19 +65,19 @@ import com.example.demo.domain.model.Email;
 import com.example.demo.domain.model.User;
 import com.example.demo.domain.model.UserId;
 import java.time.Clock;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CreateUserService implements CreateUserUseCase {
 
-    private final UserRepository userRepository;
-    private final Clock clock;
-
-    public CreateUserService(UserRepository userRepository, Clock clock) {
-        this.userRepository = userRepository;
-        this.clock = clock;
-    }
+    UserRepository userRepository;
+    Clock clock;
 
     @Override
     @Transactional

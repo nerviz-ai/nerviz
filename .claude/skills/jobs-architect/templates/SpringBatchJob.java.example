@@ -118,6 +118,9 @@ package com.example.demo.adapter.in.scheduling;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
@@ -128,19 +131,15 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(name = "app.jobs.import-price-list.enabled", matchIfMissing = true)
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class ImportPriceListTrigger {
 
     private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
 
-    private final JobOperator jobOperator;
-    private final Job importPriceListJob;
-    private final JobRunRecorder recorder;
-
-    ImportPriceListTrigger(JobOperator jobOperator, Job importPriceListJob, JobRunRecorder recorder) {
-        this.jobOperator = jobOperator;
-        this.importPriceListJob = importPriceListJob;
-        this.recorder = recorder;
-    }
+    JobOperator jobOperator;
+    Job importPriceListJob;
+    JobRunRecorder recorder;
 
     /**
      * Identifying parameter = business date: the same date twice is refused once complete, and

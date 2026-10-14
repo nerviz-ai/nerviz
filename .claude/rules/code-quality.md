@@ -33,12 +33,43 @@ Covers only what no other rule already covers. Layer SRP and DIP live in
   parameter, or collection. Empty collection, never `null`.
 - Mutability is an explicit decision: `record` or immutable class by default.
 - A hidden side effect is a bug — a function whose name says it queries doesn't write.
-- A `switch` over a sealed type lists every permitted subtype and has **no `default`**:
-  exhaustiveness is the compiler's job, and a `default` switches it off — the next subtype
-  added to `permits` compiles and falls into the `default` in silence. Checkstyle's
-  `MissingSwitchDefault` does not apply to a switch with pattern labels; it never requires
-  that `default`. A switch over an open type (`String`, an enum you don't own, a non-sealed
-  interface) keeps its `default`.
+
+## Branching on a closed set
+
+A closed set is an enum you own or a sealed type. A branch over one goes to exactly one of
+three places, the first that fits:
+
+1. **The type itself** — the behavior needs nothing outside the value. Data that differs per
+   constant is a constructor field; behavior is a method, with a body per constant or an
+   interface the enum implements. A question about the value is a method of the value
+   (`status.isFinal()`): asked in two places, or answered by comparing more than one
+   constant, it never stays an `==` at the call site. `@.claude/rules/value-objects.md`
+   § The criterion 4 is the same idea for a value object.
+2. **An exhaustive `switch` expression where the behavior lives** — the behavior needs a
+   collaborator (a port, a clock, a repository), or belongs to a layer the type must not
+   know: an adapter mapping a domain type to its own shape, a use case reacting to a result.
+   The domain type never learns about its adapters. The same `switch` in two adapters that
+   map to different shapes is not duplication; the same one twice in one layer, computing
+   the same thing, moves into the type.
+3. **Strategy** — an interface with one implementation per variant, chosen at run time —
+   once the variants grow, each brings its own dependencies, or a new one arrives without
+   editing the set (OCP above). Before the axis has varied once, it is speculation.
+
+How the `switch` is written:
+
+- A `switch` that computes a value is an **expression**: each arm yields the value or
+  builds the result. Locals declared before it, `null` or a placeholder, and assigned in its
+  arms are forbidden — that is a computed value written as mutation, and the compiler no
+  longer checks every arm assigns. The statement form stays only when every arm performs a
+  side effect and nothing is computed.
+- Over a closed set, a `switch` expression — or a statement with pattern labels — lists
+  every constant or permitted subtype and has **no `default`**: exhaustiveness is the
+  compiler's job, and a `default` switches it off — the next constant or subtype compiles
+  and falls into the `default` in silence. Checkstyle's `MissingSwitchDefault` skips both
+  shapes; it never requires that `default`. A statement over an enum with constant labels
+  is the one shape the compiler does not check: Checkstyle requires its `default`, and that
+  `default` throws `IllegalStateException`. A switch over an open type (`String`, an enum
+  you don't own, a non-sealed interface) keeps its `default`.
 
 ## Comments
 
@@ -52,7 +83,8 @@ Two exceptions, and nothing else:
 
 - **An otherwise empty body** — one `//` line saying why it is empty. An empty block with
   no text is a violation of its own (Sonar S108, S1186). Where a test fixture must carry
-  one, `@.claude/rules/testing.md` says so.
+  one, `@.claude/rules/testing.md` says so. Never a `catch`: a comment is not a handler —
+  `@.claude/rules/error-handling.md` § A caught exception is never silent.
 - **A tool directive** — `// NOSONAR`, `// CHECKSTYLE:OFF`/`ON`, `// spotless:off`/`on`,
   `// @formatter:off`/`on`. It addresses a tool, not a reader.
 
@@ -66,7 +98,8 @@ project's build:
 
 - **Checkstyle** (`config/checkstyle/checkstyle.xml`, `validate` phase) — length,
   parameters, complexity, nesting, magic numbers, a string literal of 5 or more characters
-  repeated 3 or more times in one file (outside annotations), generic `catch`, and § Comments: a `//`
+  repeated 3 or more times in one file (outside annotations), generic `catch`, an empty
+  `catch` even with a comment (`error-handling.md`'s check), and § Comments: a `//`
   or `/* */` outside its two exceptions, a `/** */` inside a body, a `TODO`. The numbers
   and the exceptions in that file and in this rule are the same: changing one side
   without the other is a bug. Test code has its own light set,

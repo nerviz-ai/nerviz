@@ -88,6 +88,8 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import java.util.Collection;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
@@ -95,10 +97,11 @@ import org.springframework.security.core.GrantedAuthority;
  * Before authentication: the presented key, no authorities. After: the client id as principal,
  * the key's roles as authorities, and the credential erased.
  */
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class ApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 
-    private final String principal;
-    private String presentedKey;
+    final String principal;
+    String presentedKey;
 
     private ApiKeyAuthenticationToken(String principal, String presentedKey, Collection<? extends GrantedAuthority> authorities) {
         super(authorities);
@@ -137,6 +140,9 @@ public final class ApiKeyAuthenticationToken extends AbstractAuthenticationToken
 package com.exemplo.minhaapi.adapter.in.rest.security;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 
@@ -145,13 +151,11 @@ import org.springframework.security.web.authentication.AuthenticationConverter;
  * `null` is the framework's contract for "nothing to authenticate", not a value that leaves
  * this adapter.
  */
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ApiKeyAuthenticationConverter implements AuthenticationConverter {
 
-    private final String header;
-
-    public ApiKeyAuthenticationConverter(String header) {
-        this.header = header;
-    }
+    String header;
 
     @Override
     public Authentication convert(HttpServletRequest request) {
@@ -173,6 +177,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
@@ -183,13 +190,11 @@ import org.springframework.security.core.authority.AuthorityUtils;
  * the same `BadCredentialsException` — an unknown id, a revoked key and a wrong secret are
  * indistinguishable to the caller.
  */
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ApiKeyAuthenticationProvider implements AuthenticationProvider {
 
-    private final ApiKeyRepository keys;
-
-    public ApiKeyAuthenticationProvider(ApiKeyRepository keys) {
-        this.keys = keys;
-    }
+    ApiKeyRepository keys;
 
     @Override
     public Authentication authenticate(Authentication authentication) {

@@ -10,6 +10,8 @@ import com.example.application.port.out.NotificationPort;
 import com.example.application.port.out.WarehousePort;
 import com.example.domain.model.order.OrderShipped;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 // --- each colleague knows only its own job, never the others
 public interface ShipmentReaction {
@@ -17,9 +19,10 @@ public interface ShipmentReaction {
     void reactTo(OrderShipped event);
 }
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class NotifyCustomerReaction implements ShipmentReaction {
 
-    private final NotificationPort notifications;
+    NotificationPort notifications;
 
     public NotifyCustomerReaction(NotificationPort notifications) {
         this.notifications = notifications;
@@ -31,9 +34,10 @@ public final class NotifyCustomerReaction implements ShipmentReaction {
     }
 }
 
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class ReleaseWarehouseHoldReaction implements ShipmentReaction {
 
-    private final WarehousePort warehouse;
+    WarehousePort warehouse;
 
     public ReleaseWarehouseHoldReaction(WarehousePort warehouse) {
         this.warehouse = warehouse;
@@ -50,9 +54,10 @@ public final class ReleaseWarehouseHoldReaction implements ShipmentReaction {
  * Colleagues are wired here, never against each other. Adding a third reaction touches
  * this list, not NotifyCustomerReaction or the other one.
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class OrderShippedMediator {
 
-    private final List<ShipmentReaction> reactions;
+    List<ShipmentReaction> reactions;
 
     public OrderShippedMediator(List<ShipmentReaction> reactions) {
         this.reactions = List.copyOf(reactions);

@@ -2,7 +2,8 @@
  * EXEMPLAR — output adapter: implements the ports declared in `10-domain.md` and
  * translates between aggregate and entity. Form reference; not a file to copy.
  * Rules: `.claude/rules/architecture-ddd.md` (adapter has no business logic;
- *                                             constructor injection, `private final`)
+ *                                             constructor injection — `@RequiredArgsConstructor`,
+ *                                             `.claude/rules/lombok.md`)
  *        `.claude/rules/persistence.md` (§ Boundary — zero `@Transactional` here)
  *        `.claude/rules/error-handling.md` (translation of constraint violation and
  *                                           concurrency failure)
@@ -41,20 +42,20 @@ import com.example.demo.domain.model.Email;
 import com.example.demo.domain.model.User;
 import com.example.demo.domain.model.UserId;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class UserRepositoryAdapter implements SaveUserPort, LoadUserPort, UserExistsPort {
 
-    private final UserJpaRepository repository;
-    private final UserPersistenceMapper mapper;
-
-    UserRepositoryAdapter(UserJpaRepository repository, UserPersistenceMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
-    }
+    UserJpaRepository repository;
+    UserPersistenceMapper mapper;
 
     /**
      * saveAndFlush, not save: `save` only registers the entity in the
@@ -101,19 +102,19 @@ import com.example.demo.application.port.out.SaveOrderPort;
 import com.example.demo.domain.exception.ConflictException;
 import com.example.demo.domain.exception.NotFoundException;
 import com.example.demo.domain.model.Order;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderRepositoryAdapter implements SaveOrderPort {
 
-    private final OrderJpaRepository repository;
-    private final OrderPersistenceMapper mapper;
-
-    OrderRepositoryAdapter(OrderJpaRepository repository, OrderPersistenceMapper mapper) {
-        this.repository = repository;
-        this.mapper = mapper;
-    }
+    OrderJpaRepository repository;
+    OrderPersistenceMapper mapper;
 
     /**
      * Load the managed entity instead of building a fresh detached one: the

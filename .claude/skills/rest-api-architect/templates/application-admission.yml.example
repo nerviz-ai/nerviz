@@ -24,7 +24,7 @@ app:
         period: 1m
 
 # A cap per use case, in the inbound namespace: never the name of an outbound instance, which is
-# the dependency's. No wait — a waiting request holds the thread the cap protects. The bulkhead
+# the dependency's. No wait — a waiting request holds what the cap protects. The bulkhead
 # aspect's default order (`Integer.MAX_VALUE - 1`) runs it ahead of `IdempotencyAspect`, which
 # declares none and so sorts last: a rejected call claims no key. `bulkhead-aspect-order` stays
 # unset, and `IdempotencyAspect` gets no `@Order` — either one flips the two (`0151` § Verified).

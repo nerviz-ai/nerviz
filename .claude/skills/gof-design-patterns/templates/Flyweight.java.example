@@ -6,12 +6,15 @@ package com.example.domain.model.pricing;
 import com.example.domain.exception.ValidationException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 // --- the shared, immutable state — one instance per currency code, never per Money
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public final class CurrencyFormat {
 
-    private final String symbol;
-    private final int decimalPlaces;
+    String symbol;
+    int decimalPlaces;
 
     private CurrencyFormat(String symbol, int decimalPlaces) {
         this.symbol = symbol;

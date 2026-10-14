@@ -77,6 +77,9 @@ package com.example.demo.adapter.out.cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
@@ -90,13 +93,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableCaching
 @EnableConfigurationProperties(CacheSettings.class)
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CaffeineCacheConfig implements CachingConfigurer {
 
-    private final MeterRegistry meters;
-
-    CaffeineCacheConfig(MeterRegistry meters) {
-        this.meters = meters;
-    }
+    MeterRegistry meters;
 
     /**
      * Static mode first ({@code setCacheNames} with an empty list), then one custom cache per
@@ -128,6 +129,8 @@ package com.example.demo.adapter.out.cache;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.function.Supplier;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.cache.interceptor.LoggingCacheErrorHandler;
 
 /**
@@ -136,9 +139,10 @@ import org.springframework.cache.interceptor.LoggingCacheErrorHandler;
  * caching shows only as a rate, so the counter is what an alarm reads
  * (`caching.md` § Failure, § Observability).
  */
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class CountingCacheErrorHandler extends LoggingCacheErrorHandler {
 
-    private final MeterRegistry meters;
+    MeterRegistry meters;
 
     CountingCacheErrorHandler(MeterRegistry meters) {
         super(false);

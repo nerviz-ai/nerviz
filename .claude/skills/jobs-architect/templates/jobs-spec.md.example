@@ -89,7 +89,7 @@ never DDL.
 | `app.outbox.prune.cron` | `0 30 3 * * *` | this partial |
 | `app.outbox.prune.batch-size` | `1000` | this partial |
 | `app.outbox.prune-after` | — | `20-persistence.md` § 1 (retention) — ships in this change, because its reader does |
-| `spring.task.scheduling.pool.size` | `2` | this partial — two jobs; a pool of one would make the prune wait for the relay |
+| `spring.task.scheduling.pool.size` | not set — the build targets JDK 21, so virtual threads are on and the key is read by nothing (`.claude/rules/virtual-threads.md`). Below 21: `2`, since a pool of one would make the prune wait for the relay | this partial |
 
 Full shape in `templates/application-jobs.yml.example`.
 

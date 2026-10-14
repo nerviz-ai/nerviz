@@ -139,6 +139,17 @@
                 value="java.lang.Exception, java.lang.RuntimeException, java.lang.Throwable"/>
     </module>
 
+    <!-- error-handling.md § A caught exception is never silent: no empty catch. A comment
+         does not make it non-empty — `commentFormat` matches nothing, which turns off the
+         module's default exemption for a commented block. EmptyBlock above never looks at a
+         catch (LITERAL_CATCH is not among its tokens). A catch that swallows the exception
+         behind a placeholder is held by review: no AST check tells it apart from an answer. -->
+    <module name="EmptyCatchBlock">
+      <property name="commentFormat" value="(?!)"/>
+      <message key="catch.block.empty"
+               value="error-handling.md § A caught exception is never silent: rethrow, restore the interrupt, return it as the answer of the call, or log it. A comment is not a handler."/>
+    </module>
+
     <!-- rest-api-architect's IdempotencyAspect.java.example (2nd+ `@Idempotent`
          endpoint): `aroundIdempotent` declares `throws Throwable` because
          `org.aspectj.lang.ProceedingJoinPoint#proceed()` does — that's the AspectJ API's

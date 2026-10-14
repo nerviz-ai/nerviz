@@ -161,21 +161,21 @@ import com.exemplo.minhaapi.domain.model.payment.IdempotencyKey;
 import com.exemplo.minhaapi.domain.model.payment.Money;
 import com.exemplo.minhaapi.domain.model.payment.PaymentId;
 import java.util.Optional;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 
 @Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class PaymentGatewayAdapter implements PaymentGatewayPort {
 
-    private final PaymentGatewayHttpService service;
-    private final PaymentGatewayMapper mapper;
-    private final HttpFailureTranslator failures = new HttpFailureTranslator("payment-gateway", "PAYMENT_GATEWAY");
-
-    PaymentGatewayAdapter(PaymentGatewayHttpService service, PaymentGatewayMapper mapper) {
-        this.service = service;
-        this.mapper = mapper;
-    }
+    PaymentGatewayHttpService service;
+    PaymentGatewayMapper mapper;
+    HttpFailureTranslator failures = new HttpFailureTranslator("payment-gateway", "PAYMENT_GATEWAY");
 
     @Override
     @IdempotentCall

@@ -148,6 +148,8 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PostLoad;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.Transient;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Persistable;
 
 /**
@@ -163,6 +165,7 @@ import org.springframework.data.domain.Persistable;
  * this class satisfies it.
  */
 @MappedSuperclass
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public abstract class AssignedIdEntity<T> implements Persistable<T> {
 
     /**
@@ -170,7 +173,7 @@ public abstract class AssignedIdEntity<T> implements Persistable<T> {
      * already-persisted instances flip it, so an update still goes through `merge()`.
      */
     @Transient
-    private boolean isNew = true;
+    boolean isNew = true;
 
     @Override
     public boolean isNew() {

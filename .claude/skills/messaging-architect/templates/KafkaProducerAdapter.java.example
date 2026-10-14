@@ -67,24 +67,25 @@ package com.example.demo.adapter.out.messaging.orderconfirmed;
 
 import com.example.demo.application.port.out.PublishOrderConfirmedPort;
 import com.example.demo.domain.event.OrderConfirmed;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.kafka.core.KafkaTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OrderConfirmedPublisher implements PublishOrderConfirmedPort {
 
     private static final String TOPIC = "orders.order.confirmed";
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final JsonMapper jsonMapper;
+    KafkaTemplate<String, String> kafkaTemplate;
 
     /**
-     * `JsonMapper` is the `@Primary` bean Boot's Jackson autoconfiguration registers (Jackson 3
-     * on Spring Boot 4) — injected, never `new`-ed, so the application's Jackson settings apply.
+     * The `@Primary` bean Boot's Jackson autoconfiguration registers (Jackson 3 on Spring Boot 4)
+     * — injected, never `new`-ed, so the application's Jackson settings apply.
      */
-    public OrderConfirmedPublisher(KafkaTemplate<String, String> kafkaTemplate, JsonMapper jsonMapper) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.jsonMapper = jsonMapper;
-    }
+    JsonMapper jsonMapper;
 
     @Override
     public void publish(OrderConfirmed event) {

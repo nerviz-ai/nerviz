@@ -98,18 +98,18 @@ import com.example.demo.application.port.in.outbox.PruneOutboxEvents;
 import com.example.demo.application.port.in.outbox.PruneOutboxEventsCommand;
 import com.example.demo.application.port.out.OutboxRetentionGateway;
 import java.time.Clock;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PruneOutboxEventsService implements PruneOutboxEvents {
 
-    private final OutboxRetentionGateway gateway;
-    private final Clock clock;
-
-    public PruneOutboxEventsService(OutboxRetentionGateway gateway, Clock clock) {
-        this.gateway = gateway;
-        this.clock = clock;
-    }
+    OutboxRetentionGateway gateway;
+    Clock clock;
 
     /**
      * The cutoff is computed once per run, so rows published while the run works are not chased.
@@ -135,6 +135,8 @@ package com.example.demo.adapter.in.scheduling;
 import com.example.demo.application.port.in.outbox.PruneOutboxEvents;
 import com.example.demo.application.port.in.outbox.PruneOutboxEventsCommand;
 import java.time.Duration;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import net.javacrumbs.shedlock.core.LockAssert;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
@@ -150,11 +152,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(name = "app.outbox.prune.enabled", matchIfMissing = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OutboxPruneJob {
 
-    private final PruneOutboxEvents pruneOutboxEvents;
-    private final PruneOutboxEventsCommand command;
-    private final JobRunRecorder recorder;
+    PruneOutboxEvents pruneOutboxEvents;
+    PruneOutboxEventsCommand command;
+    JobRunRecorder recorder;
 
     OutboxPruneJob(PruneOutboxEvents pruneOutboxEvents, JobRunRecorder recorder,
             @Value("${app.outbox.prune-after}") Duration retention,

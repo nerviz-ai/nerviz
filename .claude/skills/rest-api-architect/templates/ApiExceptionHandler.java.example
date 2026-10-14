@@ -24,13 +24,15 @@
  *
  * ─── VARIANT: project without `feature: observability` ───────────────────────────────
  *
- * Replace the constructor and the `currentTraceId()` of the class below with what follows,
- * and remove the `io.micrometer.tracing` imports. Everything else stays the same.
+ * Remove the `tracer` field and the `io.micrometer.tracing` imports, and replace the
+ * `currentTraceId()` of the class below with what follows. Everything else stays the same.
+ * With `30-rest.md` § 8 not `none` the `admission` field keeps `@RequiredArgsConstructor`;
+ * with no field left, `@RequiredArgsConstructor` and `@FieldDefaults` go too.
  *
  * The identifier stops correlating with a distributed trace and instead correlates
  * the response with this service's log line, and nothing else. This is a deliberate
  * degradation, allowed by `.claude/rules/observability.md` § Correlation, and the
- * constructor's Javadoc saying so is mandatory: without it nobody can tell this choice apart
+ * method's Javadoc saying so is mandatory: without it nobody can tell this choice apart
  * from a missing configuration. Its text:
  *
  *    Without a tracing bridge on the classpath there's no `Tracer` bean, and injecting it
@@ -40,13 +42,6 @@
  *    in the blueprint.
  *
  * The code:
- *
- *    public ApiExceptionHandler() {
- *        // no dependencies
- *    }
- *
- *    (With `30-rest.md` § 8 not `none`, it takes `AdmissionProperties admission` as its one
- *    parameter, like the class below.)
  *
  *    private String currentTraceId() {
  *        return UUID.randomUUID().toString();
@@ -77,8 +72,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -92,17 +89,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
+@Slf4j
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ApiExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
-
-    private final Tracer tracer;
-    private final AdmissionProperties admission;
-
-    public ApiExceptionHandler(Tracer tracer, AdmissionProperties admission) {
-        this.tracer = tracer;
-        this.admission = admission;
-    }
+    Tracer tracer;
+    AdmissionProperties admission;
 
     @ExceptionHandler(NotFoundException.class)
     public ProblemDetail handleNotFound(NotFoundException e, HttpServletRequest request) {
@@ -165,7 +158,7 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(QuotaExceededException.class)
     public ResponseEntity<ProblemDetail> handleQuotaExceeded(QuotaExceededException e, HttpServletRequest request) {
-        log.debug("Quota {} spent at {}", e.limiter(), request.getRequestURI());
+        log.warn("Quota {} spent at {} {}", e.limiter(), request.getMethod(), request.getRequestURI());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
         problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", "RATE_LIMITED");
@@ -201,7 +194,7 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(MissingIdempotencyKeyException.class)
     public ProblemDetail handleMissingIdempotencyKey(MissingIdempotencyKeyException e, HttpServletRequest request) {
-        log.debug("Missing/malformed Idempotency-Key at {}", request.getRequestURI());
+        log.warn("Missing/malformed Idempotency-Key at {} {}", request.getMethod(), request.getRequestURI());
         return invalidRequest(request, List.of(new Violation(IdempotencyKeyInterceptor.HEADER, e.getMessage())));
     }
 
@@ -217,7 +210,7 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(InvalidApiVersionException.class)
     public ProblemDetail handleUnsupportedApiVersion(InvalidApiVersionException e, HttpServletRequest request) {
-        log.debug("Unsupported API version at {}", request.getRequestURI());
+        log.warn("Unsupported API version at {} {}", request.getMethod(), request.getRequestURI());
         return invalidRequest(request, List.of(new Violation("version", "is not a supported API version")));
     }
 
@@ -232,7 +225,7 @@ public class ApiExceptionHandler {
                 e.getBindingResult().getFieldErrors().stream()
                         .map(ApiExceptionHandler::toViolation)
                         .toList();
-        log.debug("Bean validation failed at {}: {}", request.getRequestURI(), violations);
+        log.warn("Bean validation failed at {} {}: {}", request.getMethod(), request.getRequestURI(), violations);
         return invalidRequest(request, violations);
     }
 
@@ -245,18 +238,21 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(
             MethodArgumentTypeMismatchException e, HttpServletRequest request) {
-        log.debug("Type mismatch for {} at {}", e.getName(), request.getRequestURI());
+        log.warn("Type mismatch for {} at {} {}", e.getName(), request.getMethod(), request.getRequestURI());
         return invalidRequest(request, List.of(new Violation(e.getName(), "has an invalid format")));
     }
 
     /**
      * Malformed JSON, incompatible type, or unknown enum: 400 shape-wise, no
-     * per-field violations — deserialization stopped before there were any fields.
+     * per-field violations — deserialization stopped before there were any fields. The log
+     * line names the cause's type and never takes {@code e}: the parser's message can echo
+     * a fragment of the body it failed on (`.claude/rules/logging.md` § Format and level).
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadableBody(
             HttpMessageNotReadableException e, HttpServletRequest request) {
-        log.debug("Unreadable body at {}", request.getRequestURI(), e);
+        log.warn("Unreadable body at {} {}: {}", request.getMethod(), request.getRequestURI(),
+                e.getMostSpecificCause().getClass().getSimpleName());
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request body");
         problem.setInstance(URI.create(request.getRequestURI()));
