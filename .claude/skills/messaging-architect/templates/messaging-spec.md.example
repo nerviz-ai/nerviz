@@ -84,11 +84,23 @@ invisible.
 
 ## 4 · Retry and DLQ
 
-| Failure | Handling |
-|---|---|
-| Transient (broker timeout, connection reset) | 3 retries, exponential backoff (1s/2s/4s) |
-| Business rejection (typed domain exception) | No retry — straight to `orders.order.confirmed.dlq` |
-| Retries exhausted | `orders.order.confirmed.dlq`, monitored |
+| Decision | Value | Why |
+|---|---|---|
+| Retry mode | `blocking` | `00-use-case.md` § Concurrency: reservations of one order apply in order, and a later one supersedes an earlier — per-key order decides the outcome (`@.claude/rules/messaging.md` § Blocking or non-blocking) |
+| Attempts and backoff | 3 retries, 1 s / 2 s / 4 s | Seconds, well inside `max.poll.interval.ms` |
+| DLQ | `orders.order.confirmed.dlq`, source partition, monitored (WARN line + `messaging.dead.lettered{topic,reason}`) | `<topic>.dlq` |
+| Shared error handling | REUSE `listener.KafkaListenerErrorHandling` — or NEW on the project's first consumer | Classification is project-wide; this case adds no type to it |
+
+What the project-wide classification does with this case's failures — one row per exception the
+consumed use case can raise, read from its `00-use-case.md` error table and `10-domain.md`:
+
+| Failure | Type | Handling |
+|---|---|---|
+| Stock already reserved for this order with other lines | `ConflictException` (`STOCK_RESERVATION_CONFLICT`) | No retry — straight to the DLQ |
+| Another writer changed the stock row first | `ConcurrentUpdateException` (`STOCK_CONCURRENT_UPDATE`) | Retried |
+| Database unreachable, lock timeout | not a domain or integration family | Retried, then the DLQ |
+| Payload that does not convert | conversion failure | No retry — straight to the DLQ |
+| Same order already reserved | none — the use case returns a no-op, logged and counted | Committed, not dead-lettered |
 
 ## 5 · Configuration
 
@@ -99,7 +111,7 @@ re-discussed here — `@.claude/rules/messaging.md` § Configuration.
 |---|---|---|
 | `spring.kafka.consumer.group-id` | `inventory-service` | One stable id per logical consumer |
 | `spring.kafka.consumer.auto-offset-reset` | `earliest` | Losing an unprocessed order-confirmed event is worse than reprocessing one |
-| `spring.kafka.listener.ack-mode` | `manual` | Offset commits only after `reserve()` returns |
+| `spring.kafka.listener.ack-mode` | not set — Boot's `BATCH` | `reserve()` reaches no other system: redelivering a poll after a crash only re-reads what the dedupe already absorbs. `record` when a consumed use case has an `external HTTP` or `LLM` port, and never lowered once set |
 | `spring.kafka.bootstrap-servers` | `${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_EXTERNAL_PORT:29092}}` | Default has to be the address the HOST resolves — `./mvnw spring-boot:run` runs there. The compose `app` service overrides it with the internal listener, and the port matches the EXTERNAL listener `docker-architect` publishes |
 
 Full shape in `templates/application-kafka.yml.example`.

@@ -37,6 +37,7 @@ package com.example.demo.adapter.out.persistence.user;
 import com.example.demo.application.port.out.LoadUserPort;
 import com.example.demo.application.port.out.SaveUserPort;
 import com.example.demo.application.port.out.UserExistsPort;
+import com.example.demo.domain.exception.ConcurrentUpdateException;
 import com.example.demo.domain.exception.ConflictException;
 import com.example.demo.domain.model.Email;
 import com.example.demo.domain.model.User;
@@ -80,7 +81,7 @@ class UserRepositoryAdapter implements SaveUserPort, LoadUserPort, UserExistsPor
         } catch (DataIntegrityViolationException cause) {
             throw new ConflictException("USER_EMAIL_ALREADY_EXISTS", user.email().value(), cause);
         } catch (OptimisticLockingFailureException cause) {
-            throw new ConflictException("USER_CONCURRENT_UPDATE", user.id().value().toString(), cause);
+            throw new ConcurrentUpdateException("USER_CONCURRENT_UPDATE", user.id().value().toString(), cause);
         }
     }
 
@@ -99,7 +100,7 @@ class UserRepositoryAdapter implements SaveUserPort, LoadUserPort, UserExistsPor
 package com.example.demo.adapter.out.persistence.order;
 
 import com.example.demo.application.port.out.SaveOrderPort;
-import com.example.demo.domain.exception.ConflictException;
+import com.example.demo.domain.exception.ConcurrentUpdateException;
 import com.example.demo.domain.exception.NotFoundException;
 import com.example.demo.domain.model.Order;
 import lombok.AccessLevel;
@@ -134,7 +135,7 @@ class OrderRepositoryAdapter implements SaveOrderPort {
         try {
             return mapper.toDomain(repository.saveAndFlush(entity));
         } catch (OptimisticLockingFailureException cause) {
-            throw new ConflictException("ORDER_CONCURRENT_UPDATE", order.id().value().toString(), cause);
+            throw new ConcurrentUpdateException("ORDER_CONCURRENT_UPDATE", order.id().value().toString(), cause);
         }
     }
 }

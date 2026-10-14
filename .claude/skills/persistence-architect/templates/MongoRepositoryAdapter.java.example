@@ -63,6 +63,7 @@ import com.example.demo.application.port.out.CustomerOrdersPage;
 import com.example.demo.application.port.out.ListCustomerOrdersPort;
 import com.example.demo.application.port.out.LoadOrderPort;
 import com.example.demo.application.port.out.SaveOrderPort;
+import com.example.demo.domain.exception.ConcurrentUpdateException;
 import com.example.demo.domain.exception.ConflictException;
 import com.example.demo.domain.exception.NotFoundException;
 import com.example.demo.domain.model.CustomerId;
@@ -111,7 +112,7 @@ class OrderMongoRepositoryAdapter implements CreateOrderPort, SaveOrderPort, Loa
         try {
             return mapper.toDomain(repository.save(stored));
         } catch (OptimisticLockingFailureException cause) {
-            throw new ConflictException("ORDER_CONCURRENT_UPDATE", order.id().value().toString(), cause);
+            throw new ConcurrentUpdateException("ORDER_CONCURRENT_UPDATE", order.id().value().toString(), cause);
         }
     }
 

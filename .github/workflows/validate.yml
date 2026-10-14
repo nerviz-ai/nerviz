@@ -428,6 +428,14 @@ jobs:
       - name: admission exemplars keep one bounded limiter per caller and an inbound cap ahead of idempotency
         run: java .claude/.ci/AdmissionTemplateTest.java
 
+      # Every Kafka consumer trap is silent: a listener that loops and sleeps holds the partition and
+      # dead-letters on an interrupt, a forgotten acknowledge() leaves an offset behind, an
+      # optimistic-lock failure thrown as a plain ConflictException is dead-lettered unretried, a
+      # classification read from errorCode() has no non-blocking form, and an unconditional
+      # @LogExecution does not compile without commons logging. Keeps the consumer exemplars honest (0159).
+      - name: Kafka consumer exemplars leave retry and commit to the container and retry a lost race
+        run: java .claude/.ci/MessagingRetryTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0

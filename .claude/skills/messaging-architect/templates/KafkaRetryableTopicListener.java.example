@@ -1,0 +1,136 @@
+/*
+ * EXEMPLAR — non-blocking retry: a listener whose failed record is republished to a retry topic
+ * per attempt, so its partition moves on while the record waits. Form reference for the executor
+ * agent; not a file to copy verbatim.
+ * Rules: `.claude/rules/messaging.md` § Retry and DLQ › Blocking or non-blocking — this shape only
+ *        when the records do not depend on each other's order AND the wait is long; per-key order
+ *        is lost while a record retries. Otherwise `KafkaListenerErrorHandler.java.example`
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - `@RetryableTopic` with NO `include`/`exclude`: what retries is decided once per project, on
+ *    the retry-topic resolver, by the same `ListenerFailureClassification` the blocking handler
+ *    uses (`KafkaListenerErrorHandler.java.example`). The resolver retries only when the topic
+ *    allows it AND its own classifier does not call the failure fatal, so one table drives both;
+ *  - DLQ suffix `.dlq`, never the framework's `-dlt`; retry topics suffixed by index
+ *    (`<topic>.retry-0`, `-1`, …), so changing a delay never renames a topic — a rename is a
+ *    migration (rule § Topics and serialization). Partitions and replicas of the main topic, from
+ *    the same properties, so a key keeps its spread;
+ *  - the DLQ is published by `MonitoredDeadLetterPublisher` — the same log line, metric and
+ *    `errorCode` header as the blocking shape — and the framework's own DLQ consumer is never
+ *    started: nobody in this application reads its DLQ, as in the blocking shape;
+ *  - the delays run on a scheduler of their own (`RetryTopicSchedulerWrapper`), so a project that
+ *    schedules jobs never shares its threads with the retry topics;
+ *  - attempts and delays from `25-messaging.md` § 4: four attempts = the first delivery and three
+ *    retries, 1 min / 2 min / 4 min;
+ *  - the listener holds no `Acknowledgment` and no retry: it calls the use case and returns.
+ *
+ * WHAT'S NOT HERE: `@EnableKafkaRetryTopic` — extending `RetryTopicConfigurationSupport` replaces
+ * it, and having both registers the support twice. A `@DltHandler` — the DLQ is monitored at
+ * publish time, above.
+ *
+ * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the commons logging
+ * classes are installed: a `LogExecution` annotation exists under the project's commons package
+ * with more than a `package-info.java` beside it (the check `/new-feature-implement`'s pre-flight
+ * runs, and may have just installed it). Absent → neither the annotation nor the import, and never
+ * create it from here. Its parameters are logged through the masking mechanism
+ * (`.claude/rules/logging.md` § Masking mechanism): a payload with a masking candidate implements
+ * the masking interface, as a REST DTO does.
+ *
+ * Each `// --- <dir>/<File>.java` block is its own file, at that subpackage.
+ */
+
+// --- listener/KafkaRetryTopicConfiguration.java (declared once, by the first non-blocking listener)
+package com.example.demo.adapter.in.messaging.listener;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.function.Consumer;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
+import org.springframework.kafka.retrytopic.DefaultDestinationTopicResolver;
+import org.springframework.kafka.retrytopic.DestinationTopicResolver;
+import org.springframework.kafka.retrytopic.RetryTopicConfigurationSupport;
+import org.springframework.kafka.retrytopic.RetryTopicSchedulerWrapper;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+@Configuration
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+class KafkaRetryTopicConfiguration extends RetryTopicConfigurationSupport {
+
+    MeterRegistry meterRegistry;
+
+    @Override
+    protected Consumer<DestinationTopicResolver> configureDestinationTopicResolver() {
+        return resolver -> ListenerFailureClassification.applyTo((DefaultDestinationTopicResolver) resolver);
+    }
+
+    /**
+     * The DLQ goes through {@link MonitoredDeadLetterPublisher}. The factory replaces a publisher's
+     * own headers function after creating it, so the {@code errorCode} header is added back here.
+     */
+    @Override
+    protected Consumer<DeadLetterPublishingRecovererFactory> configureDeadLetterPublishingContainerFactory() {
+        return factory -> {
+            factory.setDeadLetterPublisherCreator((templateResolver, destinationResolver) ->
+                    new MonitoredDeadLetterPublisher(templateResolver, destinationResolver, meterRegistry));
+            factory.setHeadersFunction(MonitoredDeadLetterPublisher::errorCodeHeader);
+        };
+    }
+
+    @Bean
+    RetryTopicSchedulerWrapper retryTopicScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setThreadNamePrefix("kafka-retry-topic-");
+        scheduler.initialize();
+        return new RetryTopicSchedulerWrapper(scheduler);
+    }
+}
+
+// --- stockreplenished/StockReplenishedPayload.java (adapter-local — mirrors the producer side's shape)
+package com.example.demo.adapter.in.messaging.stockreplenished;
+
+import java.util.UUID;
+
+record StockReplenishedPayload(UUID productId, int quantity) {}
+
+// --- stockreplenished/StockReplenishedListener.java
+package com.example.demo.adapter.in.messaging.stockreplenished;
+
+import com.example.demo.application.port.in.catalog.RefreshAvailabilityCommand;
+import com.example.demo.application.port.in.catalog.RefreshAvailabilityUseCase;
+import com.example.demo.commons.logging.annotations.LogExecution;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.kafka.annotation.BackOff;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+class StockReplenishedListener {
+
+    RefreshAvailabilityUseCase refreshAvailability;
+
+    @LogExecution
+    @RetryableTopic(
+            attempts = "4",
+            backOff = @BackOff(delay = 60_000, multiplier = 2.0, maxDelay = 240_000),
+            retryTopicSuffix = ".retry",
+            dltTopicSuffix = ".dlq",
+            topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
+            numPartitions = "${app.kafka.topics.stock-replenished.partitions}",
+            replicationFactor = "${app.kafka.topics.stock-replenished.replicas}",
+            autoStartDltHandler = "false")
+    @KafkaListener(topics = "catalog.stock.replenished", groupId = "catalog-availability")
+    void onMessage(StockReplenishedPayload payload) {
+        refreshAvailability.refresh(new RefreshAvailabilityCommand(payload.productId(), payload.quantity()));
+    }
+}

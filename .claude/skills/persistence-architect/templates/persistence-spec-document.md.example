@@ -54,7 +54,7 @@ three values, `lines` at most 200 items, `placedAt` a date, `schemaVersion` an i
 **Transactions.** The case writes `orders` and appends `OrderPlaced` to `outbox_events` in one
 transaction, through `DocumentTransactions` on the `mongoTransactionManager`; the server is a
 replica set in every environment. A transient error retries the whole transaction up to three times,
-then `ConflictException`.
+then `ConcurrentUpdateException`.
 
 **Claim strategy — `outbox_events` only.** Lease per document by `findAndModify`
 (`claimedUntil`, 60 s), so `35-jobs.md` § 3's 2 replicas never take the same event inside the lease.

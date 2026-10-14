@@ -24,8 +24,9 @@
  *    shape this replaces: it cannot also carry the relay's already-serialized text without
  *    encoding it a second time (issue #58).
  *
- * WHAT'S NOT HERE: retry/backoff and DLQ wiring — that's `application-kafka.yml`'s
- * `DefaultErrorHandler`, not per-adapter code. Schema registry — not assumed until a use
+ * WHAT'S NOT HERE: retry of the send — the producer client's own (`acks=all`, idempotence,
+ * `application-kafka.yml.example`), not per-adapter code; retry and DLQ of whoever consumes —
+ * `KafkaListenerErrorHandler.java.example`, the other side's. Schema registry — not assumed until a use
  * case needs it (`.claude/rules/messaging.md` § Topics and serialization).
  *
  * PACKAGE: one subpackage per event flow — `…messaging.orderconfirmed`,

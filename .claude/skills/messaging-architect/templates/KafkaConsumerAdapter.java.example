@@ -2,16 +2,21 @@
  * EXEMPLAR — Kafka consumer adapter. Translates an inbound message into a call on the
  * target use case's inbound port; never touches the target aggregate directly.
  * Form reference for the executor agent; not a file to copy verbatim.
- * Rules: `.claude/rules/messaging.md` (idempotent consumer, manual ack, DLQ)
+ * Rules: `.claude/rules/messaging.md` (idempotent consumer, the container commits, DLQ)
  *        `.claude/rules/architecture-ddd.md` (Adapters: translate, no business logic)
  *
  * WHAT THIS EXEMPLAR SHOWS:
  *  - dedupe on the event's own identity before calling the use case — a redelivered
  *    message must not re-run the side effect;
- *  - manual acknowledgment: the offset only commits after the use case returns
- *    successfully, never before;
+ *  - no `Acknowledgment` parameter and no retry: the listener calls the use case and returns.
+ *    The container commits the offset after it returns (`BATCH`, Boot's default) and owns every
+ *    retry (`.claude/rules/messaging.md` § Configuration · § Retry and DLQ) — a loop, a sleep or
+ *    an `ack` call here is the shape this exemplar exists to prevent;
+ *  - `@LogExecution` on `onMessage` ONLY IF the commons logging classes are installed — see
+ *    COMMONS LOGGING below;
  *  - a business rejection (typed domain exception) does not retry — it's a poison
- *    message, route straight to the DLQ instead of exhausting retries first;
+ *    message, routed straight to the DLQ by the classification the error handler applies, not by
+ *    a catch here. A record the business wants ignored is a no-op the use case returns normally;
  *  - the listener takes its payload record TYPED, while the record value on the wire is JSON
  *    text read by `StringDeserializer` (`.claude/rules/messaging.md` § Topics and
  *    serialization). What turns one into the other is the single
@@ -21,9 +26,18 @@
  *    parse fails conversion, which `DefaultErrorHandler` classifies as not retryable: straight
  *    to the DLQ, like a business rejection.
  *
- * WHAT'S NOT HERE: the DLQ routing and retry backoff themselves — that's
- * `application-kafka.yml`'s `DefaultErrorHandler`, wired once per consumer group, not
- * per listener method.
+ * WHAT'S NOT HERE: the DLQ routing, the retry classification and the backoff — that's
+ * `KafkaListenerErrorHandler.java.example` (blocking, the default), or
+ * `KafkaRetryableTopicListener.java.example` (non-blocking, only when order does not matter and
+ * the wait is long), wired once per project, never per listener method.
+ *
+ * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the commons logging
+ * classes are installed: a `LogExecution` annotation exists under the project's commons package
+ * with more than a `package-info.java` beside it (the check `/new-feature-implement`'s pre-flight
+ * runs, and may have just installed it). Absent → neither the annotation nor the import, and never
+ * create it from here. Its parameters are logged through the masking mechanism
+ * (`.claude/rules/logging.md` § Masking mechanism): a payload with a masking candidate implements
+ * the masking interface, as a REST DTO does.
  *
  * PACKAGE: one subpackage per event flow — `…messaging.orderconfirmed`,
  * `…messaging.stockreserved` — never a single flat `…messaging` holding every flow
@@ -53,8 +67,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Shared listener wiring, so its own subpackage — not one flow's, and not the adapter root
- * (`.claude/rules/messaging.md` § Boundary). The `DefaultErrorHandler` +
- * `DeadLetterPublishingRecoverer` bean belongs in this same class. Exactly one
+ * (`.claude/rules/messaging.md` § Boundary). The error handling sits in the same subpackage —
+ * `KafkaListenerErrorHandler.java.example`. Exactly one
  * `RecordMessageConverter` bean in the context: autoconfiguration takes it only `getIfUnique`,
  * so a second one silently drops both and every listener falls back to the default converter,
  * which cannot build a typed parameter from JSON text.
@@ -74,7 +88,7 @@ package com.example.demo.adapter.in.messaging.orderconfirmed;
 import java.time.Instant;
 import java.util.UUID;
 
-public record OrderConfirmedPayload(UUID orderId, UUID customerId, Instant occurredAt) {}
+record OrderConfirmedPayload(UUID orderId, UUID customerId, Instant occurredAt) {}
 
 // --- ProcessedEventStore.java (dedupe port — persistence-architect owns the table)
 package com.example.demo.application.port.out;
@@ -92,29 +106,30 @@ package com.example.demo.adapter.in.messaging.orderconfirmed;
 import com.example.demo.application.port.in.stock.ReserveStockUseCase;
 import com.example.demo.application.port.in.stock.ReserveStockCommand;
 import com.example.demo.application.port.out.ProcessedEventStore;
+import com.example.demo.commons.logging.annotations.LogExecution;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Component;
 
-@RequiredArgsConstructor
+@Component
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class OrderConfirmedListener {
+class OrderConfirmedListener {
 
     ReserveStockUseCase reserveStock;
     ProcessedEventStore processedEvents;
 
+    @LogExecution
     @KafkaListener(topics = "orders.order.confirmed", groupId = "inventory-service")
-    public void onMessage(OrderConfirmedPayload payload, Acknowledgment ack) {
+    void onMessage(OrderConfirmedPayload payload) {
         String eventKey = payload.orderId() + ":OrderConfirmed";
         if (processedEvents.alreadyProcessed(eventKey)) {
-            ack.acknowledge();
             return;
         }
 
         reserveStock.reserve(new ReserveStockCommand(payload.orderId(), payload.customerId()));
         processedEvents.markProcessed(eventKey);
-        ack.acknowledge();
     }
 }

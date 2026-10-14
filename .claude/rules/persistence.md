@@ -86,8 +86,8 @@ in `@.claude/decisions/0005-persistence-rule-and-design.md`; the document family
 | Raised in the adapter | Becomes |
 |---|---|
 | A unique constraint or unique index violated (`DataIntegrityViolationException`, `DuplicateKeyException`) | `ConflictException` — duplicate |
-| `OptimisticLockingFailureException` (any subclass) | `ConflictException` — concurrent modification |
-| A document-store write conflict or transient transaction error (`TransientDataAccessException`) | Nothing in the adapter: it propagates so the transaction is retried whole where it opens (§ Document · Transactions); once the retries are spent, `ConflictException` — concurrent modification, never a duplicate |
+| `OptimisticLockingFailureException` (any subclass) | `ConcurrentUpdateException` (`<AGGREGATE>_CONCURRENT_UPDATE`) — concurrent modification (`@.claude/rules/error-handling.md` § Shape of the base classes) |
+| A document-store write conflict or transient transaction error (`TransientDataAccessException`) | Nothing in the adapter: it propagates so the transaction is retried whole where it opens (§ Document · Transactions); once the retries are spent, `ConcurrentUpdateException` — concurrent modification, never a duplicate |
 
 A constraint the client can fix by changing its input is the use case's business rule, checked
 before the write; the translation above is the backstop for the race the check cannot close.

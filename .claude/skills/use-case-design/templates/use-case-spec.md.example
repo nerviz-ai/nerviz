@@ -145,7 +145,9 @@ Invariants live in the aggregate, never in the caller —
 | name outside 2 to 120 characters | validation |
 | required field missing | shape — rejected in the adapter, never reaches the domain |
 
-Situations and kinds, never exception names or statuses. The exception class and
+Situations and kinds, never exception names or statuses. For a message trigger, a situation the
+business wants handled without a change takes the kind `not an error — no-op, logged and
+counted` — never "discarded": a consumer never drops a message. The exception class and
 `errorCode` belong to `10-domain.md` (`@.claude/rules/error-handling.md`); the HTTP
 mapping belongs to `30-rest.md` — the use case is transport-agnostic.
 

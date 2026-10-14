@@ -894,14 +894,26 @@ Form A and the consumer generate:
   declared (`Publish[Event]Port`); `KafkaTemplate`, partition key = aggregate id
 - `[Event]Payload.java` (`adapter/in/messaging`) — mirrors the producer's shape
 - `[Event]Listener.java` — `@KafkaListener`, dedupes via `ProcessedEventStore` before
-  calling the target use case's inbound port, manual `Acknowledgment` committed only
-  after that call returns. When the use case writes an audited aggregate (spec § 3 Audit not
-  `none`), the call runs inside `SystemActor.run("<consumer-name>", …)`
+  calling the target use case's inbound port, then returns: no `Acknowledgment`, no retry
+  loop, no `sleep`, no catch that drops the record — the container commits after the method
+  returns and owns every retry. `@RetryableTopic` only when the messaging block's `Retry mode`
+  is `non-blocking`. `@LogExecution` on the listener method **if and only if** the project's
+  commons package carries a `LogExecution` annotation (the pre-flight may have just installed
+  it); absent, neither the annotation nor its import, and never created here. When the use
+  case writes an audited aggregate (spec § 3 Audit not `none`), the call runs inside
+  `SystemActor.run("<consumer-name>", …)`
 - `ProcessedEventStore` port + its persistence adapter — only if Block 2 modeled the
   dedupe table per `25-messaging.md` step 5a. Missing table and the partial named the
   need → spec defect, stop and report; this block doesn't design schema
 - `application-kafka.yml` additions — bootstrap servers, producer `acks`/idempotence,
-  consumer group id, offset reset, `DefaultErrorHandler` (retry backoff + DLQ topic)
+  consumer group id, offset reset, and `listener.ack-mode` only when the messaging block says
+  `record`
+- the shared error handling in the `listener` subpackage, only when the messaging block says
+  NEW — `ListenerFailureClassification`, `MonitoredDeadLetterPublisher`,
+  `KafkaListenerErrorHandling`, shapes in
+  `.claude/skills/messaging-architect/templates/KafkaListenerErrorHandler.java.example`; plus
+  `KafkaRetryTopicConfiguration` from `KafkaRetryableTopicListener.java.example` on the first
+  `non-blocking` listener. REUSE → touch none of them
 
 Rules: `.claude/rules/messaging.md` (topic naming, idempotent consumer, retry/DLQ —
 a business rejection from the consumed use case skips retry and goes straight to the
@@ -914,8 +926,9 @@ the payload, `INFO` on success / `WARN` on a recovered failure.
 
 Validation — **Form A and the consumer**: payload is never the domain event, partition key is
 the aggregate id, the offset commits only after the use case returns, a business rejection
-routes to the DLQ without retrying, and the dedupe check runs before the use case is called,
-not after. Under Form B with no consumer in this project, four of those five are `n/a`, and a
+routes to the DLQ without retrying while `ConcurrentUpdateException` retries, the listener has no
+`Acknowledgment`, loop or `sleep`, and the dedupe check runs before the use case is called, not
+after. Under Form B with no consumer in this project, four of those six are `n/a`, and a
 block whose whole validation list is `n/a` validated nothing — use the Form B list below
 instead.
 
@@ -977,9 +990,9 @@ Compilation: `./mvnw -q -pl <messaging-adapter-module> test-compile` in multi-mo
 ```
 ✅ Block M: Messaging complete (steps M1-M4)
 - Producer: OrderConfirmedPublisher — topic orders.order.confirmed, key = orderId
-- Consumer: OrderConfirmedListener — group inventory-service, manual ack
+- Consumer: OrderConfirmedListener — group inventory-service, blocking retry, BATCH commit
 - Dedupe: ProcessedEventStore (table modeled in Block 2)
-- Config: acks=all, earliest, DefaultErrorHandler (3 retries → DLQ)
+- Config: acks=all, earliest; error handling REUSE (3 retries → .dlq)
 - Files: 5 classes, 0 errors
 ```
 

@@ -257,14 +257,16 @@ mother spec, it also isn't this skill.
    project.** `project-bootstrap` doesn't write it — it has no invariant to tie it to
    (`@.claude/decisions/0011-bootstrap-without-business-code.md`). So: search for
    `DomainException` in the project with `Grep`. If it doesn't exist, the partial's
-   invariants block opens with the line **"Exception family: NEW — five classes in the
-   `domain.exception` package"**, and names the five. If it already exists, write
+   invariants block opens with the line **"Exception family: NEW — six classes in the
+   `domain.exception` package"**, and names the six. If it already exists, write
    **REUSE** and name only the missing ones. Once per project, not once per use case —
    the second spec finds them and reuses them.
 
-   The form exemplars are `templates/DomainException.java.example` and the four typed
-   ones. Don't invent categories beyond the four: the taxonomy belongs to the rule, not
-   this skill.
+   The form exemplars are `templates/DomainException.java.example`, the four typed
+   ones, and `templates/ConcurrentUpdateException.java.example` — the one named subclass
+   the rule fixes, since the persistence adapter throws it on the first optimistic-lock
+   failure and a message listener's retry tells it apart by type. Don't invent categories
+   beyond the four: the taxonomy belongs to the rule, not this skill.
 
    Default every invariant to the plain typed family + a string `errorCode`. Promote to
    a named subclass (`OrderAlreadyPaidException extends ConflictException`, no new
@@ -303,7 +305,7 @@ question nobody asked.
 | Block | Details | Form exemplar |
 |---|---|---|
 | Aggregate and value objects | Root, fields, types, which VOs exist and why, which fields are sensitive (masking candidates), and — for every state field with more than one value — which method reaches each value or which named backlog case will; a class diagram of the root and its value objects, and a state diagram when a state field has more than one value | `Aggregate.java.example` · `ValueObject.java.example` · `ValueObjectCatalog.java.example` · `Enum.java.example` |
-| Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example` and the four typed ones · `@.claude/rules/error-handling.md` |
+| Invariants | Each rule, where it's enforced, which exception it raises; and the state of the exception family (NEW or REUSE) | `DomainGuards.java.example` · `DomainException.java.example`, the four typed ones and `ConcurrentUpdateException.java.example` · `@.claude/rules/error-handling.md` |
 | Ports | Input (`<Verb><Noun>UseCase`), command, output — complete signatures, each output port with its kind (`persistence` · `messaging` · `external HTTP` · `LLM` · `vector store` · `search index`) | `UseCasePort.java.example` · `Command.java.example` |
 | Events | Which event, which payload, which UC consumes it | `DomainEvent.java.example` |
 | Design patterns | Each pattern the domain or application adopts: the spec line or `file:line` that forces it, the classes it creates, the "When not" checked — step 5b | `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use |
@@ -312,9 +314,9 @@ The exemplars in `templates/` are **reference for form**, not files to copy: the
 record with a compact constructor, a static `of` factory, and total absence of
 framework. It's the executor that reads them when generating code.
 
-Thirteen exemplars, and the five of the exception family (`DomainException`, `NotFound`,
-`Validation`, `BusinessRuleViolation`, `Conflict`) arrived here when `project-bootstrap`
-stopped emitting business code. This skill owns the shape of the domain, and the
+Thirteen exemplars, and the six of the exception family (`DomainException`, `NotFound`,
+`Validation`, `BusinessRuleViolation`, `Conflict`, `ConcurrentUpdate`) — the first five
+arrived here when `project-bootstrap` stopped emitting business code. This skill owns the shape of the domain, and the
 exception is domain: transport-agnostic, no framework, with a stable `errorCode`.
 Record: `@.claude/decisions/0011-bootstrap-without-business-code.md`.
 

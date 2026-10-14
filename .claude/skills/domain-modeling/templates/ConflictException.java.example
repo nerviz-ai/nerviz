@@ -1,5 +1,6 @@
 /*
- * EXEMPLAR — conflicting state: duplicate, concurrent modification. The `cause`
+ * EXEMPLAR — conflicting state: duplicate, or a concurrent modification — the latter always
+ * through its named subclass `ConcurrentUpdateException`, never this class. The `cause`
  * constructor exists only to wrap a caught library/framework exception (e.g.
  * `DataIntegrityViolationException` from the persistence adapter) — never to rethrow a
  * generic one without translation. Taxonomy: `.claude/rules/error-handling.md`.
