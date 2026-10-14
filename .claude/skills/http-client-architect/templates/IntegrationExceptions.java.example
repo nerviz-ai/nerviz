@@ -27,6 +27,9 @@
 // --- IntegrationException.java
 package com.exemplo.minhaapi.domain.exception;
 
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public abstract class IntegrationException extends RuntimeException {
 

@@ -59,10 +59,17 @@ spring:
       # own parameter. A payload that doesn't parse fails conversion, which `DefaultErrorHandler`
       # treats as not retryable — straight to the DLQ, no `ErrorHandlingDeserializer` needed.
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    listener:
-      ack-mode: manual
-      # Backoff: 3 attempts, 1s / 2s / 4s, then DLQ — wired once in a
-      # DefaultErrorHandler + DeadLetterPublishingRecoverer bean, not per @KafkaListener.
+    # No `listener.ack-mode` line: Boot's default `BATCH` commits a poll's records after the
+    # listener processed all of them, a dead-lettered one included — never before. The listener
+    # takes no `Acknowledgment`. `record` only when `25-messaging.md` § 5 derived it — a consumed
+    # use case that reaches another system (an `external HTTP` or `LLM` port) — and once one
+    # consumer needs it, the project keeps it (`.claude/rules/messaging.md` § Configuration):
+    #
+    # listener:
+    #   ack-mode: record
+    #
+    # Retry and DLQ are beans, not properties: `KafkaListenerErrorHandler.java.example`
+    # (blocking, 3 retries, 1s / 2s / 4s, then `<topic>.dlq`) — wired once, never per listener.
 
 # FORM B ONLY — transactional outbox + relay (`.claude/rules/messaging.md` § Publication
 # timing). Omit this whole block under Form A, where there is no relay to configure.

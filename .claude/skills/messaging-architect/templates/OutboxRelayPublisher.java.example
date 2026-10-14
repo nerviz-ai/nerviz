@@ -60,8 +60,10 @@
  *
  * WHAT'S NOT HERE: the relay's trigger and the pruning job for published rows —
  * `jobs-architect/templates/OutboxRelayJob.java.example` and `OutboxPruneJob.java.example`,
- * no messaging decision in either — and retry/DLQ of the broker send itself, which stays
- * `application-kafka.yml`'s `DefaultErrorHandler`, same as Form A.
+ * no messaging decision in either — and retry of the broker send itself, which is the producer
+ * client's (`application-kafka.yml.example`) plus the row's own attempt count below. A
+ * `DefaultErrorHandler` is a consumer's (`KafkaListenerErrorHandler.java.example`), never the
+ * relay's.
  *
  * ONE SERIALIZATION, AT APPEND TIME. `OutboxAppender` turns the payload record into JSON text
  * with Boot's `JsonMapper` — the same conversion the Form A publisher does before `send` — and

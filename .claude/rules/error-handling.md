@@ -23,7 +23,7 @@ Typed family, not a flat `DomainException` with a status field:
 | `NotFoundException` | Referenced entity doesn't exist |
 | `ValidationException` | Invariant violated while constructing the aggregate/VO |
 | `BusinessRuleViolationException` | Well-formed input, violates a business rule |
-| `ConflictException` | Duplicate or concurrent modification |
+| `ConflictException` | Duplicate or concurrent modification — the concurrent one always as `ConcurrentUpdateException`, below |
 
 Domain `ValidationException` ≠ bean validation (`jakarta.validation` on the DTO): the
 DTO blocks structural shape before the use case; the exception blocks the aggregate's
@@ -48,6 +48,15 @@ goes": a named subclass only when the `errorCode` already repeats across two or 
 call sites, or a caller needs to `catch` it specifically rather than branch on
 `errorCode()`. A first occurrence stays the plain typed family with a string
 `errorCode`; `domain-modeling`'s own step decides when a repeat earns the subclass.
+
+One named subclass is fixed here instead of earned by that bar: `ConcurrentUpdateException
+extends ConflictException`, the concurrent modification — an optimistic-lock failure, or a
+document-store write conflict whose retries are spent. It is the one conflict that waiting fixes,
+and a retry policy that classifies by type cannot tell it apart from a duplicate through
+`errorCode()` (`@.claude/rules/messaging.md` § Retry and DLQ). It adds no state and keeps the
+`errorCode` its caller passes, `<AGGREGATE>_CONCURRENT_UPDATE` (e.g. `ORDER_CONCURRENT_UPDATE`),
+so every mapping of `ConflictException` covers it unchanged. The family is therefore six classes,
+not five: the root, the four typed ones, and this one.
 
 ## Integration families
 

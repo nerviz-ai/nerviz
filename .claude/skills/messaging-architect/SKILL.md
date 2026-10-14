@@ -270,8 +270,11 @@ still transport.
    instead of a hope.
 
 5. **Design the consumer adapter.** Translates the inbound payload into a call on the target
-   use case's inbound port. Dedupe on the event's own identity before calling it; manual
-   acknowledgment, offset commits only after the use case returns.
+   use case's inbound port. Dedupe on the event's own identity before calling it; no
+   `Acknowledgment` and no retry in the listener — the container commits after it returns and
+   owns every retry. `@LogExecution` on the listener method is not decided here: the commons
+   package may be installed by the implement run's pre-flight, after this design, so the
+   executor adds it then, only when that package carries it.
    Shape: `templates/KafkaConsumerAdapter.java.example`. When the use case it calls writes an
    audited aggregate — an `Audit` row other than `none` — the call runs under
    `SystemActor.run("<consumer-name>", …)`: a listener thread has no caller, and an audited write
@@ -284,14 +287,33 @@ still transport.
    `persistence-architect` needs to model it — this skill doesn't design tables,
    `20-persistence.md` does.
 
-6. **Fix retry and DLQ.** Backoff attempts and the DLQ topic name, per
-   `@.claude/rules/messaging.md` § Retry and DLQ. A business rejection (typed domain
-   exception from the consumed use case) skips retry and goes straight to the DLQ.
+6. **Fix retry and DLQ.** Per `@.claude/rules/messaging.md` § Retry and DLQ, into § 4 of the
+   partial. Asks nothing: every value below is derived from what is already written.
+
+   - **Retry mode — derived, never asked.** `blocking` when `00-use-case.md`'s `Concurrency`
+     or `Repetition` row makes per-key order decide the outcome (a state machine, first-wins, a
+     later record superseding an earlier), or when the backoff takes seconds. `non-blocking`
+     only when neither holds and the wait is long. The row cited is the `Why`.
+     Shapes: `templates/KafkaListenerErrorHandler.java.example` (blocking) ·
+     `templates/KafkaRetryableTopicListener.java.example` (non-blocking).
+   - **Classification — project-wide, never per case.** Search the project for
+     `ListenerFailureClassification`: absent → NEW, this case writes the shared error handling;
+     present → REUSE. List every exception the consumed use case can raise (its error table, its
+     `10-domain.md` ports) and the handling the rule's table gives it. A case that needs a type
+     retried differently from the table is a rule question, not a row: stop and report it.
+   - **`ConcurrentUpdateException`** — a consumed use case that writes a versioned aggregate
+     raises it; its row is "retried", never "straight to the DLQ".
+   - **Discard is no handling.** A record `00-use-case.md` calls "discarded" or "ignored" is a
+     no-op the use case returns normally, with its log line and metric — written as such in the
+     table, and a divergence to `10-domain.md` when the domain models it as an exception.
 
 7. **Fix the configuration.** Bootstrap servers, producer `acks`/idempotence, consumer group
    and offset reset, ack mode — from `templates/application-kafka.yml.example`. Mandatory
    values are the rule; what this skill decides is the per-use-case sizing (group id, offset
-   reset tolerance) from step 3.
+   reset tolerance) from step 3. **Ack mode is derived:** not set (Boot's `BATCH`) unless the
+   consumed use case has a port of kind `external HTTP` or `LLM` in `10-domain.md`, then
+   `record`; already `record` in the project → stays `record` (`@.claude/rules/messaging.md`
+   § Configuration).
 
    **JSON means JSON text on the wire, converted once per side** —
    `@.claude/rules/messaging.md` § Topics and serialization. The yml's `StringSerializer` /
@@ -398,8 +420,8 @@ asked.
 | Topic and delivery | Topic name, partition key, serialization, delivery semantics | `@.claude/rules/messaging.md` § Topics and serialization |
 | Producer adapter | The port from `10-domain.md`, **the publication form (A or B) and why**, the adapter, the payload shape, and — Form B only — that the case needs the shared outbox plus the delivery guarantee its relay must honour | `KafkaProducerAdapter.java.example` (A) · `OutboxRelayPublisher.java.example` (B) |
 | Consumer adapter and idempotency | The consuming use case, the listener, the dedupe key and table | `KafkaConsumerAdapter.java.example` |
-| Retry and DLQ | Backoff, DLQ topic, which failures skip retry | `@.claude/rules/messaging.md` § Retry and DLQ |
-| Configuration | Group id, offset reset, ack mode, with the decided value and why | `application-kafka.yml.example` |
+| Retry and DLQ | Retry mode (derived, with the row that decided it), attempts and backoff, DLQ topic and its monitoring, NEW or REUSE of the shared error handling, and every exception the consumed use case raises with the handling the project-wide table gives it | `@.claude/rules/messaging.md` § Retry and DLQ |
+| Configuration | Group id, offset reset, ack mode (derived — `BATCH` unless a consumed use case reaches another system), with the decided value and why | `application-kafka.yml.example` |
 | Schema requirements | Every table this transport needs that the domain didn't model — the shared `outbox_events` under Form B (step 4a), the shared dedupe table (step 5a) — one row each, stating **which table and which guarantee**, never a column name and never DDL. The outbox's columns and pacing belong to `20-persistence.md`; a column named here becomes a divergence there. `none` when there are none | `@.claude/rules/messaging.md` § Publication timing · § Retry and DLQ |
 | Declared dependencies | Build dependencies this transport needs and the project does not declare — the only list entitling the executor to touch `pom.xml`. `none` when there are none, and absence is not `none` | — |
 | Personal data | Every payload field matching `@.claude/rules/logging.md` § Masking candidates, with the form chosen — full value, reduced, or a reference — and, for a full value, the receiver and the reason. That is the `Recorded decision` `@.claude/rules/personal-data.md` § In transit requires. `none` when the payload carries none, and absence is not `none` | `@.claude/rules/personal-data.md` § How to verify, grep 1 |

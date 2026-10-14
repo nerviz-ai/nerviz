@@ -27,7 +27,7 @@ to refer to.
 
 ## 4.5 · Domain exception family — not here
 
-The five exemplars (`DomainException` and the four typed ones) live in
+The six exemplars (`DomainException`, the four typed ones and `ConcurrentUpdateException`) live in
 `.claude/skills/domain-modeling/templates/`. `domain-modeling` owns the shape of the
 domain, and the `10-domain.md` partial names the exceptions for each invariant; the
 code comes from the executor, with the first feature.

@@ -1,0 +1,198 @@
+/*
+ * EXEMPLAR — blocking retry and the DLQ for every `@KafkaListener` of the project, declared once
+ * in the shared listener subpackage. Form reference for the executor agent; not a file to copy
+ * verbatim.
+ * Rules: `.claude/rules/messaging.md` § Retry and DLQ (the classification table, blocking or
+ *        non-blocking) · § Configuration (the container commits, never the listener)
+ *        `.claude/rules/error-handling.md` (the families classified here)
+ *
+ * WHAT THIS EXEMPLAR SHOWS:
+ *  - the rule's classification table as TYPES, written once in `ListenerFailureClassification` and
+ *    applied to whatever classifies — this handler here, the retry-topic resolver in
+ *    `KafkaRetryableTopicListener.java.example`. Both extend Spring Kafka's `ExceptionClassifier`,
+ *    whose matcher walks up from the thrown class and through its causes and takes the NEAREST
+ *    entry: `ConcurrentUpdateException` retries although `DomainException` does not. Never
+ *    `errorCode()` in a `BackOff` function: the non-blocking shape has no such function, and a
+ *    misspelled code fails silently;
+ *  - conversion failures stay fatal through the classifier's own defaults — nothing to add;
+ *  - backoff: 3 retries, 1 s / 2 s / 4 s, the numbers `25-messaging.md` § 4 states;
+ *  - `MonitoredDeadLetterPublisher` sends to `<topic>.dlq`, same partition, puts the failure's
+ *    `errorCode` in a header for whoever reads the DLQ, and logs one WARN line and counts
+ *    `messaging.dead.lettered` (tags `topic`, `reason`) for every record that lands there — the
+ *    "monitored, not archived" of the rule. It counts at publish time, on the destination name,
+ *    so the non-blocking shape reuses it without counting its retry-topic hops;
+ *  - Boot hands the single `CommonErrorHandler` bean to its listener container factory: no
+ *    factory built by hand.
+ *
+ * WHAT'S NOT HERE: a retry inside a listener method — never (rule § Retry and DLQ); the
+ * non-blocking shape — `KafkaRetryableTopicListener.java.example`; the ack mode —
+ * `application-kafka.yml.example`, where the default `BATCH` needs no line.
+ *
+ * INTEGRATION FAMILIES: the `DependencyResponseException` entry exists only once the project has
+ * the integration families (`.claude/rules/error-handling.md` § Integration families). Until then
+ * drop it; the case that brings them adds it back. The other two families retry by default, which
+ * is what their `Retry-safe` column says for an idempotent consumer.
+ *
+ * Each `// --- <dir>/<File>.java` block is its own file, at that subpackage.
+ */
+
+// --- listener/ListenerFailureClassification.java
+package com.example.demo.adapter.in.messaging.listener;
+
+import com.example.demo.domain.exception.ConcurrentUpdateException;
+import com.example.demo.domain.exception.DependencyResponseException;
+import com.example.demo.domain.exception.DomainException;
+import org.springframework.kafka.listener.ExceptionClassifier;
+
+/** The one copy of `.claude/rules/messaging.md` § Retry and DLQ's table in code. */
+final class ListenerFailureClassification {
+
+    private ListenerFailureClassification() {}
+
+    static void applyTo(ExceptionClassifier classifier) {
+        classifier.addNotRetryableExceptions(DomainException.class, DependencyResponseException.class);
+        classifier.addRetryableExceptions(ConcurrentUpdateException.class);
+    }
+}
+
+// --- listener/MonitoredDeadLetterPublisher.java
+package com.example.demo.adapter.in.messaging.listener;
+
+import com.example.demo.domain.exception.DomainException;
+import com.example.demo.domain.exception.IntegrationException;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.springframework.kafka.core.KafkaOperations;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.support.converter.ConversionException;
+import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.messaging.converter.MessageConversionException;
+
+@Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+class MonitoredDeadLetterPublisher extends DeadLetterPublishingRecoverer {
+
+    static final String DLQ_SUFFIX = ".dlq";
+    static final String ERROR_CODE_HEADER = "errorCode";
+    static final String METRIC = "messaging.dead.lettered";
+    private static final String MALFORMED = "MALFORMED";
+    private static final String RETRIES_EXHAUSTED = "RETRIES_EXHAUSTED";
+
+    MeterRegistry meterRegistry;
+
+    MonitoredDeadLetterPublisher(
+            Function<ProducerRecord<?, ?>, ? extends KafkaOperations<?, ?>> templateResolver,
+            BiFunction<ConsumerRecord<?, ?>, Exception, TopicPartition> destinationResolver,
+            MeterRegistry meterRegistry) {
+        super(templateResolver, destinationResolver);
+        this.meterRegistry = meterRegistry;
+    }
+
+    /** `<topic>.dlq`, the source partition — the blocking shape's destination. */
+    static TopicPartition sameTopicDlq(ConsumerRecord<?, ?> consumerRecord, Exception exception) {
+        return new TopicPartition(consumerRecord.topic() + DLQ_SUFFIX, consumerRecord.partition());
+    }
+
+    /** The failure's code as a header, so a DLQ reader needs no stack trace to know the reason. */
+    static Headers errorCodeHeader(ConsumerRecord<?, ?> consumerRecord, Exception exception) {
+        RecordHeaders headers = new RecordHeaders();
+        headers.add(ERROR_CODE_HEADER, reasonOf(exception).getBytes(StandardCharsets.UTF_8));
+        return headers;
+    }
+
+    @Override
+    protected void publish(
+            ProducerRecord<Object, Object> outRecord,
+            KafkaOperations<Object, Object> kafkaTemplate,
+            ConsumerRecord<?, ?> inRecord) {
+        if (outRecord.topic().endsWith(DLQ_SUFFIX)) {
+            String reason = headerValue(outRecord.headers().lastHeader(ERROR_CODE_HEADER));
+            log.warn(
+                    "kafka record dead-lettered: topic={} partition={} offset={} reason={}",
+                    inRecord.topic(),
+                    inRecord.partition(),
+                    inRecord.offset(),
+                    reason);
+            meterRegistry.counter(METRIC, "topic", outRecord.topic(), "reason", reason).increment();
+        }
+        super.publish(outRecord, kafkaTemplate, inRecord);
+    }
+
+    /**
+     * The failure's code, walking its causes. A malformed payload is {@code MALFORMED}:
+     * {@code ConversionException} is what {@code StringJacksonJsonMessageConverter} throws on text
+     * that does not parse, the other two a deserializer's and a {@code @Payload} conversion's.
+     */
+    private static String reasonOf(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof DomainException domain) {
+                return domain.errorCode();
+            }
+            if (cause instanceof IntegrationException integration) {
+                return integration.errorCode();
+            }
+            if (cause instanceof ConversionException
+                    || cause instanceof MessageConversionException
+                    || cause instanceof DeserializationException) {
+                return MALFORMED;
+            }
+        }
+        return RETRIES_EXHAUSTED;
+    }
+
+    private static String headerValue(Header header) {
+        return header == null ? RETRIES_EXHAUSTED : new String(header.value(), StandardCharsets.UTF_8);
+    }
+}
+
+// --- listener/KafkaListenerErrorHandling.java
+package com.example.demo.adapter.in.messaging.listener;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
+
+/**
+ * Shared listener wiring, so the listener subpackage (`.claude/rules/messaging.md` § Boundary),
+ * next to the one `StringJacksonJsonMessageConverter` bean of `KafkaConsumerAdapter.java.example`.
+ */
+@Configuration
+class KafkaListenerErrorHandling {
+
+    private static final int MAX_RETRIES = 3;
+    private static final long INITIAL_INTERVAL_MS = 1_000L;
+    private static final double MULTIPLIER = 2.0;
+    private static final long MAX_INTERVAL_MS = 4_000L;
+
+    @Bean
+    DefaultErrorHandler kafkaListenerErrorHandler(KafkaTemplate<String, String> kafkaTemplate, MeterRegistry meterRegistry) {
+        MonitoredDeadLetterPublisher deadLetters = new MonitoredDeadLetterPublisher(
+                outRecord -> kafkaTemplate, MonitoredDeadLetterPublisher::sameTopicDlq, meterRegistry);
+        deadLetters.addHeadersFunction(MonitoredDeadLetterPublisher::errorCodeHeader);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(deadLetters, backOff());
+        ListenerFailureClassification.applyTo(errorHandler);
+        return errorHandler;
+    }
+
+    private static ExponentialBackOffWithMaxRetries backOff() {
+        ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(MAX_RETRIES);
+        backOff.setInitialInterval(INITIAL_INTERVAL_MS);
+        backOff.setMultiplier(MULTIPLIER);
+        backOff.setMaxInterval(MAX_INTERVAL_MS);
+        return backOff;
+    }
+}

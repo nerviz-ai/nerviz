@@ -1,0 +1,21 @@
+/*
+ * EXEMPLAR — concurrent modification: another writer changed the aggregate between this one's
+ * read and its write (an optimistic-lock failure, a document-store write conflict whose retries
+ * are spent). The one named subclass `.claude/rules/error-handling.md` § Shape of the base
+ * classes fixes instead of letting a repeat earn it: it is the only conflict waiting fixes, and a
+ * message listener's retry classifies by type (`.claude/rules/messaging.md` § Retry and DLQ) —
+ * a duplicate and a lost race must be two types for one to retry and the other to dead-letter.
+ * No state of its own; the caller passes `<AGGREGATE>_CONCURRENT_UPDATE`, so the 409 mapping of
+ * `ConflictException` covers it unchanged (`.claude/rules/api-rest.md`).
+ * Thrown by the persistence adapter, wrapping the framework exception it translates — never by
+ * the domain, which has no notion of a concurrent writer.
+ * Compiles as-is — not pseudo-code.
+ */
+package com.exemplo.minhaapi.domain.exception;
+
+public class ConcurrentUpdateException extends ConflictException {
+
+    public ConcurrentUpdateException(String errorCode, String message, Throwable cause) {
+        super(errorCode, message, cause);
+    }
+}

@@ -35,7 +35,7 @@
 // --- DocumentTransactions.java
 package com.example.demo.application.service;
 
-import com.example.demo.domain.exception.ConflictException;
+import com.example.demo.domain.exception.ConcurrentUpdateException;
 import java.time.Duration;
 import java.util.function.Supplier;
 import lombok.AccessLevel;
@@ -80,7 +80,7 @@ public class DocumentTransactions {
             return retry.execute(() -> transaction.execute(status -> work.get()));
         } catch (RetryException exhausted) {
             if (exhausted.getCause() instanceof TransientDataAccessException conflict) {
-                throw new ConflictException("CONCURRENT_UPDATE", "The write conflicted with another one; retry later", conflict);
+                throw new ConcurrentUpdateException("CONCURRENT_UPDATE", "The write conflicted with another one; retry later", conflict);
             }
             throw exhausted.getCause() instanceof RuntimeException failure
                     ? failure

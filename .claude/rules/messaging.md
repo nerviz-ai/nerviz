@@ -157,13 +157,46 @@ Form B's own boundaries:
 
 ## Retry and DLQ
 
-- Retry with backoff on a transient failure (connection reset, timeout). A fixed number of
-  attempts, not infinite
-- After retries are exhausted, the message goes to `<topic>.dlq` — never dropped silently
-- A business error (the use case rejects the message on a domain invariant) does not retry:
-  retrying doesn't fix a validation failure, it just delays the DLQ. Route it straight there
+- **The container retries, never the listener.** A loop, a `sleep` or a deferred rethrow inside
+  the listener method holds the partition exactly as the container's retry would, without its stop
+  handling, its per-record attempt count or its recoverer, and the failure never reaches the
+  classification below
+- A fixed number of attempts with backoff, not infinite. After the last one the record goes to
+  `<topic>.dlq` — never dropped silently
+- Which failure retries is decided **by type, once per project**, in the listener container's
+  error handling — never per listener, and never by reading `errorCode()`. The most specific type
+  wins: `ConcurrentUpdateException` retries although it is a `DomainException`
+
+  | Failure | Retried |
+  |---|---|
+  | A domain family — `NotFoundException`, `ValidationException`, `BusinessRuleViolationException`, `ConflictException` (`@.claude/rules/error-handling.md` § Taxonomy) | no — straight to the DLQ: waiting does not fix a business rejection |
+  | `ConcurrentUpdateException` | yes — the next attempt reloads the state, and the race it lost is over |
+  | An integration family | per the `Retry-safe` column of `@.claude/rules/error-handling.md` § Integration families, the consumer being idempotent; the listener is the one retrying layer (`@.claude/rules/http-client.md` § Retry) |
+  | A payload that does not convert to the listener's type | no — straight to the DLQ; the container's defaults already classify conversion failures as fatal |
+  | Anything else — a database unreachable, a lock timeout | yes, then the DLQ |
+
+- **A consumer never discards.** An exception that reaches the container is retried or
+  dead-lettered; catching it in the listener to drop the record is a silent catch
+  (`@.claude/rules/code-quality.md`). A record the business wants ignored — a duplicate, a verdict
+  after the final one — is a normal return of the use case, a no-op with its own log line and
+  metric, and its offset commits like any other
 - The DLQ is monitored, not archived: a message with no consumer is a production incident,
   not a log line
+
+### Blocking or non-blocking
+
+Blocking is the default. The container's error handler seeks back and redelivers the failed
+record after each backoff, and the records behind it in the partition wait: per-key order holds.
+Non-blocking republishes the failed record to one retry topic per delay and lets the partition
+move on: per-key order is lost for as long as the record retries.
+
+| Shape | When |
+|---|---|
+| Blocking | the order of records with the same key decides the outcome — a state machine, a first-wins rule, a later record that supersedes an earlier one — or the whole backoff takes seconds, well inside `max.poll.interval.ms` |
+| Non-blocking | records do not depend on each other's order and the wait is long — a dependency down for minutes — so holding the partition would stall every other key in it |
+
+Both shapes apply the table above and dead-letter to `<topic>.dlq`, never to the framework's own
+suffix. Non-blocking adds one topic per retry delay, declared and provisioned like the main one.
 
 ## Configuration
 
@@ -172,9 +205,18 @@ Form B's own boundaries:
 - `auto-offset-reset`: `earliest` in an environment where losing unprocessed messages is worse
   than reprocessing old ones; `latest` only when a gap on redeploy is acceptable. Decide per
   use case, not as a global default
-- Manual acknowledgment (`AckMode.MANUAL` or `RECORD`) when the consumer must guarantee the
-  use case ran before the offset commits. `AckMode.BATCH`'s auto-commit-before-processing is
-  a data-loss window under a crash mid-batch
+- **The container commits the offset after the listener returns — never the listener.** The
+  default ack mode, `BATCH`, commits a poll's records once all of them were processed, and a
+  dead-lettered record with them: nothing commits before processing, and a crash mid-poll
+  redelivers processed records, which the idempotent consumer absorbs. `enable-auto-commit` stays
+  `false`: with it on, the client commits on its own clock and the ack mode decides nothing
+- `RECORD` — one commit per record — when redelivering a whole poll costs more than a commit per
+  record: the use case reaches another system whose idempotency lives on that side, or a record
+  takes seconds to process. The setting is project-wide, so it only goes up: once one consumer
+  needs `RECORD` the project uses it, and a later consumer never lowers it
+- Manual acknowledgment only when the listener hands the record to another thread before it is
+  processed. A branch that returns without acknowledging leaves its offset to the next record's
+  commit, or to a redelivery when it was the last of its partition
 - Credentials come from the environment — `@.claude/rules/secrets.md`. Bootstrap servers
   with SASL/TLS come from the environment in any non-local profile
 
