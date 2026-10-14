@@ -1,21 +1,21 @@
 # UC-001 · Persistence
 
 > Partial of `docs/use-cases/UC-001-create-user/`. Owner: `persistence-architect`.
-> Inherits the aggregate and ports from `10-dominio.md` — doesn't reinvent them.
+> Inherits the aggregate and ports from `10-domain.md` — doesn't reinvent them.
 > Contains no code. Form references in
 > `.claude/skills/persistence-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/persistence.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Domain partial | `10-dominio.md` |
+| Mother spec | `00-use-case.md` |
+| Domain partial | `10-domain.md` |
 | Aggregate | `User` |
-| Storage family | relational — `00-caso-de-uso.md` § Storage |
-| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`) |
+| Storage family | relational — `00-use-case.md` § Storage |
+| Audit level | none — `00-use-case.md` § Audit (absent row = `none`) |
 | Engine | PostgreSQL 16 |
 | Expected volume at 12 months | ~200,000 rows |
-| Divergences from `10-dominio.md` | none |
+| Divergences from `10-domain.md` | none |
 
 ## 1 · Schema
 
@@ -59,7 +59,7 @@ exactly one deployment shape:
 | Strategy | Documented single instance — the exemplar's unlocked `SELECT`, no lease column |
 | Why | `35-jobs.md` § 3 records **1 replica** by deployment constraint, and its § 6 requires a documented single instance — read from there, not asked here. Stated so the next deployment change has something to contradict |
 | What it costs if the constraint breaks | Two instances publish the whole batch twice per pass. The consumer's dedupe absorbs it, and this is the paragraph to revisit before scaling out |
-| Who absorbs the duplicate | `processed_events` in this project — or, where the consumer is external, `25-mensageria.md` § 3 names it and says whether the guarantee is contracted, assumed or unknown |
+| Who absorbs the duplicate | `processed_events` in this project — or, where the consumer is external, `25-messaging.md` § 3 names it and says whether the guarantee is contracted, assumed or unknown |
 
 The other two answers are a **lease column** (`claimed_at`, one `UPDATE … WHERE event_id IN
 (SELECT … FOR UPDATE SKIP LOCKED) RETURNING …`) and **`FOR UPDATE SKIP LOCKED` at claim time**
@@ -89,9 +89,9 @@ together.
 
 ## 3 · Adapter and ports
 
-Each port declared in `10-dominio.md`, and how it's served.
+Each port declared in `10-domain.md`, and how it's served.
 
-| Port | Signature (from `10-dominio.md`) | Query | Fetch | Index serving it |
+| Port | Signature (from `10-domain.md`) | Query | Fetch | Index serving it |
 |---|---|---|---|---|
 | `SaveUserPort` | `User save(User user)` | `INSERT` / `UPDATE` by PK | — | `users_pkey` |
 | `LoadUserPort` | `Optional<User> byId(UserId id)` | `SELECT` by PK | — | `users_pkey` |
@@ -159,7 +159,7 @@ Full shape in `templates/application-persistence.yml.example`.
 none
 
 Build dependencies this layer needs and the project does not declare yet, one row each — the
-same block `25-mensageria.md` § 7 carries, and for the same reason: the executor may write
+same block `25-messaging.md` § 7 carries, and for the same reason: the executor may write
 `pom.xml` **only** for a dependency a spec names here (`agent_classes.executor`), so a
 requirement that never reaches this block leaves the run stuck at a missing type with nobody
 entitled to fix it.
@@ -173,21 +173,21 @@ Version column stays empty whenever the Boot parent manages it — never a versi
 
 ## Audit
 
-none — `00-caso-de-uso.md`'s `Audit` row is `none` for `User`.
+none — `00-use-case.md`'s `Audit` row is `none` for `User`.
 
 When the row says `stamps` or `history` (step 4c), this block holds, per aggregate:
 
 | Item | Decision |
 |---|---|
-| Level | `history` — `00-caso-de-uso.md` § Audit, chosen by: request ("we need to see who changed an order and what it was") |
+| Level | `history` — `00-use-case.md` § Audit, chosen by: request ("we need to see who changed an order and what it was") |
 | Stamps | `AuditStamps` embedded in `OrderEntity`; four columns in `orders`, in `V7__create_orders.sql` |
-| Actor | HTTP: `sub` of `32-seguranca.md` § 2. Job `order-expiry` (`35-jobs.md`): `system:order-expiry`, the trigger runs under `SystemActor` — requirement on `35-jobs.md` in § 1 |
+| Actor | HTTP: `sub` of `32-security.md` § 2. Job `order-expiry` (`35-jobs.md`): `system:order-expiry`, the trigger runs under `SystemActor` — requirement on `35-jobs.md` in § 1 |
 | Audited entities | `OrderEntity`, `OrderLineEntity` (the child, `@OrderColumn line_index`) |
 | Kept out of the history | `customer_email` — `@NotAudited`: personal data the history does not need |
 | Personal data kept in the history | none |
 | Tables | `orders_aud`, `order_lines_aud` in `V8__create_order_audit_tables.sql`; `revinfo` + `revinfo_seq` already exist (`V5`) |
 | Bulk writes over audited entities | none |
-| Read port | `LoadOrderHistoryPort` (`10-dominio.md` § 3) — `OrderHistoryAdapter` over `RevisionRepository`, newest first, paginated |
+| Read port | `LoadOrderHistoryPort` (`10-domain.md` § 3) — `OrderHistoryAdapter` over `RevisionRepository`, newest first, paginated |
 | Retention | 365 days (`app.audit.history.retain-for: P365D`) — the dispute window; `AuditHistoryRetentionGateway` gains the two tables |
 
 Exemplars: `AuditedEntity.java.example` · `AuditingConfig.java.example` ·
@@ -233,4 +233,4 @@ consolidation collects this section into `UC-NNN-spec.md`.
 3. `UserJpaRepository` (Spring Data)
 4. `UserRepositoryAdapter` (implements the three ports)
 5. Properties in `application.yml`
-6. Integration test against the real database (Testcontainers) — `40-testes.md`
+6. Integration test against the real database (Testcontainers) — `40-tests.md`

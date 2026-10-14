@@ -8,10 +8,10 @@ description: >
   and its prune job. Use when the request involves a cron or recurring job, a scheduled task,
   a batch run, a background job, ShedLock, Quartz, Spring Batch, a job running twice across
   replicas, a job that must catch up after downtime, or pruning/retention of a table. Piece of
-  the `/new-feature` pipeline: requires `00-caso-de-uso.md` in the given folder plus a
-  schedule trigger, a Form B outbox in `25-mensageria.md`, a reconciliation pass asked by
-  `28-cliente-http.md`, a search index rebuild asked by `23-busca.md`, a document backfill asked
-  by `20-persistencia.md`, an audit history to prune (an `Audit` row naming `history`), or a
+  the `/new-feature` pipeline: requires `00-use-case.md` in the given folder plus a
+  schedule trigger, a Form B outbox in `25-messaging.md`, a reconciliation pass asked by
+  `28-http-client.md`, a search index rebuild asked by `23-search.md`, a document backfill asked
+  by `20-persistence.md`, an audit history to prune (an `Audit` row naming `history`), or a
   deferred scheduled job — and stops without one of them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
@@ -41,16 +41,16 @@ and what `messaging-architect`'s Form B needs to actually deliver, this skill gi
 to.
 
 **Entry rule: a job needs something to run and a reason to run on a clock.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and runs only when at least one holds:
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and runs only when at least one holds:
 
 | Source | Condition | What it designs |
 |---|---|---|
-| `00-caso-de-uso.md` | The trigger is a schedule, a recurring run, a batch, or a background job | That job, calling the inbound port `10-dominio.md` declared — so `10-dominio.md` is required too |
-| `25-mensageria.md` | § 2 chose **Form B** (transactional outbox + relay) | The relay's schedule and the prune job — once per project, reused by every later case |
-| `28-cliente-http.md` | § 10 asks for a reconciliation pass over writes whose outcome is unknown | That pass, calling the inbound port that reads the provider and settles the state — `10-dominio.md` is required too |
-| `23-busca.md` | § 8 asks for a rebuild of a search projection | The rebuild job: on demand and after a version change, never two at once, paging the source through its port and writing through the rebuild port, ending in the alias swap — `search-architect`'s `SearchRebuild.java.example` is the adapter half |
-| `00-caso-de-uso.md` | The `Audit` row names `history` for an aggregate, and the project has no history prune job yet | `AuditHistoryPruneJob` — once per project, reused by every later history; read from the row because this skill runs before `persistence-architect` |
-| `20-persistencia.md` (document family) | § 4 asks for a backfill — a field a query filters or sorts on, or a new unique key, over documents older than the current `schemaVersion` | That bounded pass, idempotent per document, run once per shape change |
+| `00-use-case.md` | The trigger is a schedule, a recurring run, a batch, or a background job | That job, calling the inbound port `10-domain.md` declared — so `10-domain.md` is required too |
+| `25-messaging.md` | § 2 chose **Form B** (transactional outbox + relay) | The relay's schedule and the prune job — once per project, reused by every later case |
+| `28-http-client.md` | § 10 asks for a reconciliation pass over writes whose outcome is unknown | That pass, calling the inbound port that reads the provider and settles the state — `10-domain.md` is required too |
+| `23-search.md` | § 8 asks for a rebuild of a search projection | The rebuild job: on demand and after a version change, never two at once, paging the source through its port and writing through the rebuild port, ending in the alias swap — `search-architect`'s `SearchRebuild.java.example` is the adapter half |
+| `00-use-case.md` | The `Audit` row names `history` for an aggregate, and the project has no history prune job yet | `AuditHistoryPruneJob` — once per project, reused by every later history; read from the row because this skill runs before `persistence-architect` |
+| `20-persistence.md` (document family) | § 4 asks for a backfill — a field a query filters or sorts on, or a new unique key, over documents older than the current `schemaVersion` | That bounded pass, idempotent per document, run once per shape change |
 | Any partial's `Deferred` block | A row names a scheduled job as the missing piece | That job |
 
 None holds → stop and say so: a use case triggered by a request or a message has no schedule to
@@ -102,14 +102,14 @@ Two facts cross that line, one in each direction, and each has one owner:
 - **The replica count** is this skill's § 3. Persistence reads it to choose the claim strategy;
   it does not ask again.
 - **The retention window** is persistence's. This skill names the property the prune job reads
-  (`app.outbox.prune-after`); the value and its reason are `20-persistencia.md` § 1's. Because
+  (`app.outbox.prune-after`); the value and its reason are `20-persistence.md` § 1's. Because
   the job and the property are designed in the same run, the property ships with its reader —
   `@.claude/rules/scheduling.md` § Retention.
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md`, `10-dominio.md` when the trigger is a schedule,
-   `25-mensageria.md` when it exists, and the `Deferred` block of every partial already in the
+1. **Read the specs.** `00-use-case.md`, `10-domain.md` when the trigger is a schedule,
+   `25-messaging.md` when it exists, and the `Deferred` block of every partial already in the
    folder. Apply the entry rule; list the jobs this run designs.
 
 2. **Survey — every answer the project already gave is inherited, never re-asked.**
@@ -122,7 +122,7 @@ Two facts cross that line, one in each direction, and each has one owner:
    grep -rln "@EnableScheduling" --include='*.java' src/main 2>/dev/null
    # Decisions earlier use cases recorded
    find docs/use-cases -name '35-jobs.md' 2>/dev/null
-   grep -rn "Claim strategy\|Replicas" docs/use-cases/*/20-persistencia.md docs/use-cases/*/35-jobs.md 2>/dev/null
+   grep -rn "Claim strategy\|Replicas" docs/use-cases/*/20-persistence.md docs/use-cases/*/35-jobs.md 2>/dev/null
    ```
 
    And the active blueprint's `packages.map` entry ending in `.scheduling` — the package every
@@ -132,9 +132,9 @@ Two facts cross that line, one in each direction, and each has one owner:
    | Fact | Inherited from | Asked only when |
    |---|---|---|
    | Scheduling technology | A dependency in `pom.xml`, or an earlier `35-jobs.md` § 2 | Neither exists — first job of the project |
-   | Replica count | An earlier `35-jobs.md` § 3, else an earlier `20-persistencia.md` § 1 `Claim strategy` (documented single instance → 1; lease or `SKIP LOCKED` → more than one) | Neither exists |
+   | Replica count | An earlier `35-jobs.md` § 3, else an earlier `20-persistence.md` § 1 `Claim strategy` (documented single instance → 1; lease or `SKIP LOCKED` → more than one) | Neither exists |
    | Relay and prune jobs | A relay trigger already in `src/main` or an earlier `35-jobs.md` naming them | The project's first Form B — later cases reuse them and record the reuse |
-   | Delivery guarantee the relay owes | `25-mensageria.md` § 2 / § 6 | Never — that partial owns it |
+   | Delivery guarantee the relay owes | `25-messaging.md` § 2 / § 6 | Never — that partial owns it |
 
    **The relay in its pre-split shape is not reuse.** A project generated before
    `@.claude/decisions/0087-jobs-architect-skill.md` has `@Scheduled` on an `OutboxRelay` and a
@@ -158,11 +158,11 @@ Two facts cross that line, one in each direction, and each has one owner:
    | Axis | Decides | Skip when |
    |---|---|---|
    | **Replicas** — how many instances run this application in production? | Coordination (§ 3); the claim strategy persistence will pick | Step 2 inherited it |
-   | **Kind** — polling pass, calendar-anchored job, bulk run over many rows, fire-and-forget background task, schedule created at runtime from data | The column family in the matrix | `00-caso-de-uso.md` already says it |
+   | **Kind** — polling pass, calendar-anchored job, bulk run over many rows, fire-and-forget background task, schedule created at runtime from data | The column family in the matrix | `00-use-case.md` already says it |
    | **Missed run** — after downtime, is the missed fire skipped or caught up? | Whether a persistent scheduler (misfire) or a watermark is needed | The job is a polling pass: the next pass is the catch-up |
    | **Volume and restart** — how many rows per run, and if it fails halfway, does a rerun from zero cost something? | Spring Batch or not | Volume is one batch per pass |
    | **Retry per execution** — does a failed run need its own backoff, or is the next scheduled run the retry? | Whether the tool must carry retry | Polling pass — the next pass retries |
-   | **Operator control** — must someone pause, trigger by hand, or inspect runs without a deploy? | Whether a dashboard is a requirement (JobRunr) or actuator is enough | Nobody asked for it in `00-caso-de-uso.md` |
+   | **Operator control** — must someone pause, trigger by hand, or inspect runs without a deploy? | Whether a dashboard is a requirement (JobRunr) or actuator is enough | Nobody asked for it in `00-use-case.md` |
    | **License** — only when JobRunr is still a candidate after the rows above | LGPL OSS, or rule it out | JobRunr already eliminated |
 
    Every question states the cost in its option text — the tables a tool adds, the license, the
@@ -310,9 +310,9 @@ The exemplars in `templates/` are **reference for form**, not files to copy.
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory), `10-dominio.md` (when the
-trigger is a schedule), `25-mensageria.md` (when present), every partial's `Deferred` block,
-earlier cases' `35-jobs.md` and `20-persistencia.md` § 1, `pom.xml`, the active blueprint's
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory), `10-domain.md` (when the
+trigger is a schedule), `25-messaging.md` (when present), every partial's `Deferred` block,
+earlier cases' `35-jobs.md` and `20-persistence.md` § 1, `pom.xml`, the active blueprint's
 `packages.map`, `@.claude/rules/scheduling.md`, `@.claude/rules/architecture-ddd.md`,
 `@.claude/rules/observability.md`, and `references/tool-decision-matrix.md`.
 
@@ -322,7 +322,7 @@ earlier cases' `35-jobs.md` and `20-persistencia.md` § 1, `pom.xml`, the active
 poll interval included — coordination across instances and the replica count it rests on,
 overlap and missed-run policy, on/off properties, job metrics, and the outbox prune job.
 
-**Does not decide** the relay's form or its broker side (`25-mensageria.md`), any table, column,
-claim query, retention window or statement (`20-persistencia.md`), the use case boundary
-(`00-caso-de-uso.md`), or the tests (`40-testes.md`). Does not write Java, `pom.xml`, or
+**Does not decide** the relay's form or its broker side (`25-messaging.md`), any table, column,
+claim query, retention window or statement (`20-persistence.md`), the use case boundary
+(`00-use-case.md`), or the tests (`40-tests.md`). Does not write Java, `pom.xml`, or
 `application.yml` — the executor does, from this partial. Doesn't touch `.claude/rules/**`.

@@ -31,7 +31,7 @@ app:
     # a rolling deploy's two versions read different keys instead of each other's bytes.
     format-version: 1
     # One entry per cache name in CacheNames — a cache missing here fails on first use. The
-    # ttl is never longer than the freshness tolerance 00-caso-de-uso.md states for that read;
+    # ttl is never longer than the freshness tolerance 00-use-case.md states for that read;
     # maximum-size is read by the local provider only.
     caches:
       account-balance:

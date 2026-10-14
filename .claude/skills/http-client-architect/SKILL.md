@@ -7,11 +7,11 @@ description: >
   Reactor Netty), timeouts, the retry allowlist and the one retrying layer, circuit breaker and
   bulkhead, outbound authentication (OAuth2 client credentials, token relay, API key, Basic, mutual
   TLS, HMAC signing), how each failure maps to the integration exception families, and the
-  WireMock test cases — into the `28-cliente-http.md` partial. Use when the request involves
+  WireMock test cases — into the `28-http-client.md` partial. Use when the request involves
   calling an external API, a third-party or partner service, a payment gateway, a REST client, an
   HTTP client, RestClient, RestTemplate, WebClient, Feign, @HttpExchange, a timeout or retry on a
   remote call, a circuit breaker, or "the provider is down". Piece of the `/new-feature` pipeline:
-  requires `10-dominio.md` in the given folder with a port of kind `external HTTP`, and stops
+  requires `10-domain.md` in the given folder with a port of kind `external HTTP`, and stops
   without it.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(curl:*)
@@ -44,14 +44,14 @@ scope only to consume a stream the provider pushes; a WebFlux application has no
 project and is out of scope — say so and stop when the project's web starter is the reactive one.
 
 **Entry rule: without an outbound port there is nothing to implement.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` and treats them as a contract.
-It runs only when `10-dominio.md` § Ports declares at least one port of kind `external HTTP`.
-Without `10-dominio.md` it stops and tells the caller to run `/domain-modeling`; with it but no such
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` and treats them as a contract.
+It runs only when `10-domain.md` § Ports declares at least one port of kind `external HTTP`.
+Without `10-domain.md` it stops and tells the caller to run `/domain-modeling`; with it but no such
 port, it stops and says the case makes no outbound HTTP call. A port of that kind with no External
-calls block in `00-caso-de-uso.md` (written before the block existed) is not a reason to stop: ask
+calls block in `00-use-case.md` (written before the block existed) is not a reason to stop: ask
 step 3's questions and record the answers as a divergence.
 
-**Exit rule: writes no code.** It emits `28-cliente-http.md`. The adapter, the shared translator,
+**Exit rule: writes no code.** It emits `28-http-client.md`. The adapter, the shared translator,
 the engine configuration and the properties come from the executor agent, which reads the partial
 and the exemplars in `templates/`.
 
@@ -98,7 +98,7 @@ designed wrong multiplies load on a provider or charges a customer twice
 
 Two facts cross that line, and each has one owner:
 
-- **The idempotency key** is `10-dominio.md`'s: a value on the aggregate, created with the operation.
+- **The idempotency key** is `10-domain.md`'s: a value on the aggregate, created with the operation.
   This skill says the provider honors it and that the adapter sends it; if the domain partial has no
   such field while the call is a non-idempotent POST, that is a requirement upstream (§ 10), never
   a key generated in the adapter.
@@ -107,8 +107,8 @@ Two facts cross that line, and each has one owner:
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (External calls, trigger, side effects) and `10-dominio.md`
-   (§ Ports with their kind, the domain types, the outcomes and states). Without `10-dominio.md`,
+1. **Read the specs.** `00-use-case.md` (External calls, trigger, side effects) and `10-domain.md`
+   (§ Ports with their kind, the domain types, the outcomes and states). Without `10-domain.md`,
    stop. Apply the entry rule. Read `30-rest.md` too when it exists — the trigger's own deadline
    bounds the outbound timeouts.
 
@@ -120,7 +120,7 @@ Two facts cross that line, and each has one owner:
    # Outbound wiring already in the code
    grep -rnE "@HttpExchange|@ImportHttpServices|RestClient|WebClient|@FeignClient|RestTemplate|ClientHttpRequestFactoryBuilderCustomizer|HttpFailureTranslator|IntegrationException|@Retryable|@EnableResilientMethods" --include='*.java' src/main 2>/dev/null
    # Decisions earlier use cases recorded
-   find docs/use-cases -name '28-cliente-http.md' 2>/dev/null
+   find docs/use-cases -name '28-http-client.md' 2>/dev/null
    grep -rnE "spring\.http\.(clients|serviceclient)|spring\.security\.oauth2\.client|resilience4j\.|app\.http\." src/main/resources 2>/dev/null
    # Inbound security on disk — decides the OAuth2 client starter's impact
    grep -rnE "SecurityFilterChain" --include='*.java' src/main 2>/dev/null
@@ -140,7 +140,7 @@ Two facts cross that line, and each has one owner:
 
    **The OAuth2 client starter's side effect.** When § 4 needs it and the survey found no
    `SecurityFilterChain`, adding it turns on Boot's default chain and every endpoint but health
-   answers 401. That is a row in § 10 to `32-seguranca.md` and an impact the user decides now —
+   answers 401. That is a row in § 10 to `32-security.md` and an impact the user decides now —
    never a silent change of behavior.
 
 3. **Interview — only what step 2 did not settle.** `AskUserQuestion`, at most 4 questions per call
@@ -153,8 +153,8 @@ Two facts cross that line, and each has one owner:
    | **Idempotency** — does the provider honor an `Idempotency-Key` on writes, for how long; is the operation naturally idempotent | `@IdempotentCall`, § 10 key requirement | Read-only operations |
    | **Latency and quota** — measured or published p99/p99.9, rate limit, the load balancer's idle timeout | Timeouts, pool, bulkhead | Inherited for the provider |
    | **Failure tolerance** — may the use case fail fast when the provider is down, or must it degrade (and to what, decided by the business) | Breaker, bulkhead, fallback | — |
-   | **Authentication** — the scheme `00-caso-de-uso.md` recorded, plus what it needs: registration, scopes, key location, certificate source, signing spec link | § 4, through `references/client-decision-matrix.md` § 3 | Inherited for the provider |
-   | **Unknown outcome** — when a write times out after the retries, may the case stop there, or must the result be reconciled later | § 10 to `10-dominio.md` and `35-jobs.md` | Read-only, or naturally idempotent writes |
+   | **Authentication** — the scheme `00-use-case.md` recorded, plus what it needs: registration, scopes, key location, certificate source, signing spec link | § 4, through `references/client-decision-matrix.md` § 3 | Inherited for the provider |
+   | **Unknown outcome** — when a write times out after the retries, may the case stop there, or must the result be reconciled later | § 10 to `10-domain.md` and `35-jobs.md` | Read-only, or naturally idempotent writes |
 
    Never ask about statuses (`@.claude/rules/api-rest.md` decides), class names, or library versions
    (the Boot parent and `maven-metadata.xml` decide).
@@ -213,10 +213,10 @@ Two facts cross that line, and each has one owner:
     attempt count. `test-architect` turns them into tests with its own exemplar.
 
 13. **Hand the other partials what they need — § 10, requirements only.** A non-idempotent write
-    whose key the domain does not hold → the key on the aggregate (`10-dominio.md`) and its column
-    (`20-persistencia.md`). An unknown outcome that must be reconciled → the state on the aggregate
+    whose key the domain does not hold → the key on the aggregate (`10-domain.md`) and its column
+    (`20-persistence.md`). An unknown outcome that must be reconciled → the state on the aggregate
     and a reconciliation pass (`35-jobs.md`). The OAuth2 client starter in a project without a chain
-    → `32-seguranca.md`. Named by what they are, never DDL or a cron.
+    → `32-security.md`. Named by what they are, never DDL or a cron.
 
 13b. **Decide the design patterns of this layer.** Run
     `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use over what this case adds — an
@@ -224,7 +224,7 @@ Two facts cross that line, and each has one owner:
     usual symptom. The answer goes into `## Design patterns` — `none` when nothing matches, and
     absence is not `none`.
 
-14. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/28-cliente-http.md`, from
+14. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/28-http-client.md`, from
     `templates/http-client-spec.md.example`. Eleven numbered blocks plus `## Design patterns`, all
     mandatory, each `none` when empty — absence is not `none`.
 
@@ -262,23 +262,23 @@ adapter. The sources they follow are in `references/http-client-reference-links.
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else; an adapter written under `src/` is refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` (mandatory — stops
-without the second), `30-rest.md` and `32-seguranca.md` when present, earlier cases'
-`28-cliente-http.md`, `pom.xml` (or the Gradle build), `src/main/resources/application*.yml`, the
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` (mandatory — stops
+without the second), `30-rest.md` and `32-security.md` when present, earlier cases'
+`28-http-client.md`, `pom.xml` (or the Gradle build), `src/main/resources/application*.yml`, the
 outbound wiring on disk, the active blueprint's `packages.map`, `@.claude/rules/http-client.md`,
 `@.claude/rules/error-handling.md`, `@.claude/rules/api-rest.md`, `@.claude/rules/architecture-ddd.md`,
 `@.claude/rules/logging.md`, `@.claude/rules/observability.md`, and `references/`. Reads Maven
 Central's `maven-metadata.xml` for an unmanaged dependency's version.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/28-cliente-http.md`. Nothing else.
+**Writes** `docs/use-cases/UC-NNN-<slug>/28-http-client.md`. Nothing else.
 
 **Owns** each operation's client, timeouts, retry policy and failure table; the project's HTTP
 engine and pool; the retrying layer of each outbound call; breaker and bulkhead; the outbound
 authentication wiring; and the project-wide outbound setup.
 
-**Does not decide** the use case boundary or its External calls fact (`00-caso-de-uso.md`), the
-port, its domain types, the idempotency key field or the unknown-outcome state (`10-dominio.md`),
-tables and columns (`20-persistencia.md`), the reconciliation schedule (`35-jobs.md`), the inbound
-chain (`32-seguranca.md`), or the test shape (`40-testes.md`). Does not write Java, `pom.xml` or
+**Does not decide** the use case boundary or its External calls fact (`00-use-case.md`), the
+port, its domain types, the idempotency key field or the unknown-outcome state (`10-domain.md`),
+tables and columns (`20-persistence.md`), the reconciliation schedule (`35-jobs.md`), the inbound
+chain (`32-security.md`), or the test shape (`40-tests.md`). Does not write Java, `pom.xml` or
 `application.yml` — the executor does, from this partial. Doesn't touch `.claude/rules/**`. Does not
 design reactive (WebFlux) applications.

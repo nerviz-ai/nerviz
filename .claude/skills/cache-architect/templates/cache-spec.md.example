@@ -1,15 +1,15 @@
 # UC-005 · Cache
 
 > Partial of `docs/use-cases/UC-005-get-account-balance/`. Owner: `cache-architect`.
-> Inherits the freshness tolerance from `00-caso-de-uso.md` and the ports from `10-dominio.md` —
+> Inherits the freshness tolerance from `00-use-case.md` and the ports from `10-domain.md` —
 > doesn't redecide them. Contains no code. Form references in
 > `.claude/skills/cache-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/caching.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Why this partial exists | `00-caso-de-uso.md` § Freshness: "a balance may be up to 30 seconds old" |
+| Mother spec | `00-use-case.md` |
+| Why this partial exists | `00-use-case.md` § Freshness: "a balance may be up to 30 seconds old" |
 | Cache package | `adapter.out.cache` (blueprint `packages.map`) |
 | Divergences from other partials | none |
 
@@ -25,7 +25,7 @@ Authorization sits above this port, in the use case: a hit never skips it.
 
 | Decision | Value | Why |
 |---|---|---|
-| Provider | Redis | Replicas = 2 (inherited from `20-persistencia.md` § 1 `Claim strategy`). A local cache would evict on the writing instance only, and the other one would serve the old balance for a whole expiry — inside 30 s, but `references/provider-decision-matrix.md` § 2 row 2 picks the shared copy whenever an eviction must reach every instance |
+| Provider | Redis | Replicas = 2 (inherited from `20-persistence.md` § 1 `Claim strategy`). A local cache would evict on the writing instance only, and the other one would serve the old balance for a whole expiry — inside 30 s, but `references/provider-decision-matrix.md` § 2 row 2 picks the shared copy whenever an eviction must reach every instance |
 | Transaction-aware | yes | The write (`save`) runs inside the deposit and withdrawal use cases' transactions; the eviction waits for the commit |
 | Inherited? | no — first cache of this project | `pom.xml` carries no cache dependency; no earlier `22-cache.md` |
 
@@ -86,7 +86,7 @@ Every writer of the data each cache holds — not only this case's.
 | `spring.data.redis.password` | `${REDIS_PASSWORD}` — no default | `@.claude/rules/secrets.md` |
 | `spring.data.redis.timeout` / `connect-timeout` | `250ms` / `500ms` | this partial, § 5 |
 | `app.cache.format-version` | `1` | this partial, § 6 |
-| `app.cache.caches.account-balance.ttl` | `PT30S` | this partial, § 3 — bounded by `00-caso-de-uso.md` § Freshness |
+| `app.cache.caches.account-balance.ttl` | `PT30S` | this partial, § 3 — bounded by `00-use-case.md` § Freshness |
 
 Full shape in `templates/application-cache.yml.example`.
 
@@ -122,4 +122,4 @@ section into `UC-NNN-spec.md`.
 2. `CacheSettings`, `CacheNames`, `CountingCacheErrorHandler`, `RedisCacheConfig` in the cache package — once per project
 3. `CachedAccountRepository` and `CachedAccountRepositoryConfig` — after `AccountRepositoryPort` and its persistence adapter exist
 4. Properties in `application.yml`
-5. Tests — `40-testes.md`: a second read does not reach the adapter, `save` evicts after commit, two owners never share an entry
+5. Tests — `40-tests.md`: a second read does not reach the adapter, `save` evicts after commit, two owners never share an entry

@@ -81,8 +81,8 @@ Pinned to `opus`: the partial is what the executor implements verbatim. A pinned
 | Per-layer detail (annotations, columns, exact HTTP status) | Each layer has its own rule and owner | The partial specs — see § Structure |
 | **Path, verb, and HTTP status** | Fixing them here creates divergence: `api-rest.md` has URI and status rules this skill doesn't apply, and `30-rest.md` ends up correcting the parent spec's prose. Write the situation (`created`, `conflict with existing state`), not the number | `rest-api-architect`, in `30-rest.md` |
 | **Idempotency mechanism** (`Idempotency-Key`, key table) | `api-rest.md` requires it on creation `POST`s; deciding "no" here was overwritten downstream and cost a second persistence pass. Record the business fact — "does repeating the request create a duplicate?" — and mark the technical decision as delegated | `rest-api-architect`, in `30-rest.md` |
-| **Exception name and class** | A name fixed here gets demoted by `domain-modeling` (a subclass needs ≥ 2 call sites) and promoted back by a later case. Describe the situation (`email already in use`) and its kind (validation, not found, conflict, business rule) | `domain-modeling`, in `10-dominio.md` |
-| **Shape of a domain field** — value object, `enum`, or plain primitive | The criterion is `@.claude/rules/value-objects.md`, which this skill does not read: a closed set with no formation rule to validate is an `enum` by criterion 3, and calling it a value object here guarantees a divergence on every such field. Name the component and its role; leave the shape open | `domain-modeling`, in `10-dominio.md` |
+| **Exception name and class** | A name fixed here gets demoted by `domain-modeling` (a subclass needs ≥ 2 call sites) and promoted back by a later case. Describe the situation (`email already in use`) and its kind (validation, not found, conflict, business rule) | `domain-modeling`, in `10-domain.md` |
+| **Shape of a domain field** — value object, `enum`, or plain primitive | The criterion is `@.claude/rules/value-objects.md`, which this skill does not read: a closed set with no formation rule to validate is an `enum` by criterion 3, and calling it a value object here guarantees a divergence on every such field. Name the component and its role; leave the shape open | `domain-modeling`, in `10-domain.md` |
 
 If the user asks for one of these, say which piece owns it and stop. Don't improvise
 the decision.
@@ -123,7 +123,7 @@ the decision.
    | Trigger, payload, response | Who initiates, what data comes in, what goes out and in what shape. **For an HTTP trigger, also over which protocol** — REST, GraphQL, or both over the same input port — asked with the criteria of `@.claude/rules/api-graphql.md` § Choosing the inbound protocol, REST by default; the answer ends the `Trigger` row in its closed phrase (`inbound REST adapter` · `inbound GraphQL adapter` · `inbound REST and GraphQL adapters`), and a choice already written there by an earlier design step is kept, never re-asked. The protocol is per use case, not per project |
    | Access — **always asked when the trigger is HTTP**, REST or GraphQL | Who may execute it: anyone, any authenticated caller, named roles or groups, only the owner of the resource — and whether someone (a support or admin role) may act on another's resource. The answer is the `Access` row; it is what decides whether `security-architect` runs |
    | Side effects | Writes, external calls, publications — the boundary already counted in step 2, now confirmed |
-   | External calls — **always asked when a side effect reaches a system this service does not own** | Per system: what it is and what the case asks of it (read, or a write with an effect over there); its documentation link and whether it publishes an OpenAPI document; **how it authenticates this service** — as this service itself (an authorization server issues it a token), on behalf of the user who made the request, a static key, a username and password, a client certificate, a signature over each request, or none — and the credential's owner; whether it accepts an idempotency key on writes; what the business wants when it is down (fail now, or degrade to a named alternative); and, for a write, what happens when its result is unknown (stop, or reconcile later). The answers are the `External calls` row; a port of kind `external HTTP` in `10-dominio.md` is what then decides whether `http-client-architect` runs. Never asked as library, timeout or retry questions |
+   | External calls — **always asked when a side effect reaches a system this service does not own** | Per system: what it is and what the case asks of it (read, or a write with an effect over there); its documentation link and whether it publishes an OpenAPI document; **how it authenticates this service** — as this service itself (an authorization server issues it a token), on behalf of the user who made the request, a static key, a username and password, a client certificate, a signature over each request, or none — and the credential's owner; whether it accepts an idempotency key on writes; what the business wants when it is down (fail now, or degrade to a named alternative); and, for a write, what happens when its result is unknown (stop, or reconcile later). The answers are the `External calls` row; a port of kind `external HTTP` in `10-domain.md` is what then decides whether `http-client-architect` runs. Never asked as library, timeout or retry questions |
    | Invariants and errors | Rules the domain guarantees, and the situation each violation produces — described, never named as an exception |
    | Repetition, transaction, concurrency | Does repeating the request create a duplicate (business fact)? Where does the transaction open and close? What business key could collide? |
    | Storage — **asked only when the request leaves it unclear** | Per aggregate the case writes or reads as its source: `relational` or `document (MongoDB)`; and whether the case searches that data through a search engine. **Recorded, not asked, when the request states it or it is inferred without ambiguity**: the request names the family or the engine ("store orders in MongoDB", "search the catalog in Elasticsearch"); the aggregate already lives in a table or a collection (step 4 reads it); the case extends data already persisted; the request names full-text search over named fields. **Never an inference**: a loose word — "document", "flexible", "fast", "scalable", "schemaless", "JSON". Unclear → one `AskUserQuestion`, a factual question with no criteria and no recommendation: *Will this data be persisted in SQL or NoSQL?* · `SQL (relational)` · `NoSQL (document, MongoDB)`. MongoDB is the only document engine in scope, so no engine question follows — it is recorded. The relational engine (Postgres, MySQL, Oracle) is never asked here: `persistence-architect` asks it. A search engine is asked only when the request names a search but no engine: *Which search engine holds the search index?* · `Elasticsearch` · `OpenSearch`. Whether the case wants a search index at all is never asked. The answers are the `Storage` and `Search index` rows, each with who chose |
@@ -209,11 +209,11 @@ the decision.
    the top (`UC-001` when there's none); the slug is kebab-case, from the trigger's verb
    and noun.
 8. **Generate** from `templates/use-case-spec.md.example` into
-   `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`. Create the folder; don't create the
+   `docs/use-cases/UC-NNN-<slug>/00-use-case.md`. Create the folder; don't create the
    empty partials.
 
    **The template is the only source of the file's shape.** An existing
-   `00-caso-de-uso.md` is read in step 4 as a contract — aggregate, names — never as a
+   `00-use-case.md` is read in step 4 as a contract — aggregate, names — never as a
    format exemplar: a spec written by an older version keeps lines the template has since
    dropped, and copying one revives them.
 
@@ -234,17 +234,17 @@ One folder per use case. One file per owner — nobody edits another's file.
 
 ```
 docs/use-cases/UC-001-create-user/
-├── 00-caso-de-uso.md    ← this skill. Boundary, flow, canonical names
-├── 10-dominio.md        ← domain-modeling
-├── 20-persistencia.md   ← persistence-architect
-├── 30-rest.md           ← rest-api-architect
-├── 40-testes.md         ← test-architect
+├── 00-use-case.md        ← this skill. Boundary, flow, canonical names
+├── 10-domain.md          ← domain-modeling
+├── 20-persistence.md     ← persistence-architect
+├── 30-rest.md            ← rest-api-architect
+├── 40-tests.md           ← test-architect
 └── UC-001-spec.md        ← /new-feature: consolidated spec, carries `status:`
 ```
 
 `docs/use-cases/BACKLOG.md` sits beside the folders: the use cases a split left for later.
 
-While the partials don't exist yet, `00-caso-de-uso.md` stands on its own: the
+While the partials don't exist yet, `00-use-case.md` stands on its own: the
 component table already names every file to create and who details it. It's an
 incomplete spec, not an invalid one. Which partials exist is read from the folder, never
 written into this file: a status line here goes stale the moment the next partial lands.
@@ -275,7 +275,7 @@ transaction opens, what doesn't go in the signatures), `@.claude/rules/naming.md
 the active blueprint's `packages.map` and naming convention, and this
 skill's `references/scope-boundary.md` before counting effects.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and appends to
+**Writes** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and appends to
 `docs/use-cases/BACKLOG.md`. Only those. The `10-` through `40-` partials belong to the
 layer skills; the consolidated `UC-NNN-spec.md` belongs to the `/new-feature`
 orchestrator.
@@ -300,7 +300,7 @@ storage family and the search engine the request states or the user answers.
 **Does not** reproduce rules. Cites by path; what the rule already says isn't repeated
 in the spec.
 
-**Also carries** `examples/` — twelve complete `00-caso-de-uso.md` fixtures for testing
+**Also carries** `examples/` — twelve complete `00-use-case.md` fixtures for testing
 `/new-feature` and `java-spring-boot-developer`, indexed in `examples/README.md`. Meta-repo
 documentation, not this skill's runtime output: the `export` manifest keeps only
 `SKILL.md`, `templates/` and `references/`, so this directory does not travel.

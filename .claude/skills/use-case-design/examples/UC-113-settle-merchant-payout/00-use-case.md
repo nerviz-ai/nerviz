@@ -115,7 +115,7 @@ already exists and serves.
 - Payout approval → the use case upstream of this one, already settled elsewhere.
 - Reversing a settlement → a compensating use case with its own event, not this one.
 - Pruning, monitoring, or alerting on whatever durable mechanism `messaging-architect`
-  chooses → operational concern, named in `25-mensageria.md`, not a business rule here.
+  chooses → operational concern, named in `25-messaging.md`, not a business rule here.
 
 ## Implementation order
 

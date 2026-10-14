@@ -54,7 +54,7 @@ both directions. See § Design patterns.
 
 **Reads (only):**
 - `UC-NNN-spec.md` — source of truth for every decision; where it and a partial disagree, the spec wins
-- The partials each block cites (`10-dominio.md`, `20-persistencia.md`, …) — for detail only.
+- The partials each block cites (`10-domain.md`, `20-persistence.md`, …) — for detail only.
   The spec is consolidated by reference: it holds the decisions, the partial holds the tables
   and the migration SQL
 - `pom.xml` — module structure
@@ -74,18 +74,18 @@ both directions. See § Design patterns.
   types, every child field with I/O batched, a ceiling on every page, errors as data on mutations,
   a resolver that returns nothing for what it does not own, the demand limits on, introspection
   and GraphiQL off outside development
-- `.claude/rules/authorization.md` — Block S, only when `32-seguranca.md` exists: deny by
+- `.claude/rules/authorization.md` — Block S, only when `32-security.md` exists: deny by
   default, no security type in the domain or application, ownership decided in the use case,
   method-security denials kept out of the 500 fallback
 - `.claude/rules/http-client.md`, `.claude/rules/error-handling.md` § Integration families —
-  Block H, only when `28-cliente-http.md` exists: one retrying layer, the retry allowlist, no
+  Block H, only when `28-http-client.md` exists: one retrying layer, the retry allowlist, no
   transport type past the adapter, tolerant remote DTOs, no credential in a versioned file
-- `.claude/rules/ai.md` — Block A, only when `29-ia.md` exists: the AI library only in the AI
+- `.claude/rules/ai.md` — Block A, only when `29-ai.md` exists: the AI library only in the AI
   package, one chat client per port from the auto-configured builder with its model, options and
   timeout, prompts as resources, every unusable answer as the port's "could not decide" value,
   content logging off, one retrying layer
 - `.claude/rules/messaging.md`, `.claude/rules/observability.md` — Block M, only when
-  `25-mensageria.md` exists. `observability.md` is cited here as well as in Block 3 on
+  `25-messaging.md` exists. `observability.md` is cited here as well as in Block 3 on
   purpose: a Form B relay that dead-letters with nothing but a `log.warn` makes loss silent
   and permanent, which is the property Form B was chosen to avoid (lessons-learned-013 § 6)
 - `.claude/rules/scheduling.md`, `.claude/rules/observability.md` — Block J, only when
@@ -483,7 +483,7 @@ depends on the other aggregate's outbound port — widening a class to `public` 
 test compile is the wrong fix.
 
 **Document family** — an aggregate whose `Storage` is `document (MongoDB)`, read from § 3 and
-`20-persistencia.md`. The exemplars are `.claude/skills/persistence-architect/templates/Mongo*.java.example`,
+`20-persistence.md`. The exemplars are `.claude/skills/persistence-architect/templates/Mongo*.java.example`,
 `DocumentTransactions.java.example` and `application-mongodb.yml.example`, in place of the JPA ones:
 - `[Aggregate]Document.java` with `@Document("<collection>")`, `@TypeAlias`, `@Version Long` and
   `schemaVersion`; the embedded children as records; `[Aggregate]MongoRepository`; the adapter with
@@ -502,7 +502,7 @@ Validation, document family: no `@DBRef`/`@DocumentReference` across aggregates,
 `MongoCustomConversions` bean, no `spring.data.mongodb.uri`, the `outbox_events` and
 `idempotency_keys` of this family from `MongoSharedCollections.java.example`.
 
-**Audit** — when `20-persistencia.md` § Audit is not `none`. The exemplars are
+**Audit** — when `20-persistence.md` § Audit is not `none`. The exemplars are
 `.claude/skills/persistence-architect/templates/Audit*.java.example`,
 `SystemActor.java.example`, `V1__create_audit_tables.sql.example` and
 `application-audit.yml.example`:
@@ -540,12 +540,12 @@ Compilation: `./mvnw -q -pl <persistence-module> test-compile` in multi-module, 
 
 **Runs only when the spec carries the outbound HTTP block** — `grep -m1 -E '^## [0-9.]+ Outbound HTTP' <spec>`,
 and the block is not `none`. No match, or `none` → skip to Block A. Read the outbound HTTP block of
-spec.md, then `28-cliente-http.md`. It runs right after Block 2 because an adapter compiles against
+spec.md, then `28-http-client.md`. It runs right after Block 2 because an adapter compiles against
 the outbound port and the domain types, and nothing upstream compiles against it. § 2 decides the
 client exemplar of each dependency in `.claude/skills/http-client-architect/templates/` — never a
 second client for a provider because a call looked easier with it:
 
-| `28-cliente-http.md` § 2 | Exemplar |
+| `28-http-client.md` § 2 | Exemplar |
 |---|---|
 | HTTP interface (`@HttpExchange`) | `HttpExchangeAdapter.java.example` |
 | `RestClient` direct | `RestClientAdapter.java.example` |
@@ -564,7 +564,7 @@ second client for a provider because a call looked easier with it:
   is not rewritten
 - **H2 · Adapters** — per dependency, its subpackage of `[http]`: remote DTOs (tolerant), the
   client (interface and group configuration, or the qualified `RestClient`), the mapper, and the
-  adapter implementing the port `10-dominio.md` declared. Per row of § 1: the domain outcomes it
+  adapter implementing the port `10-domain.md` declared. Per row of § 1: the domain outcomes it
   names, `@IdempotentCall` exactly on the methods § 1 marks idempotent, `@Retryable` with the
   shared predicate and § 5's numbers only when § 5 names the adapter as the retrying layer, and
   `ResilientHttpCall` only when § 5 names a breaker or a bulkhead. The idempotency key comes from
@@ -600,11 +600,11 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [http]>` in mu
 
 **Runs only when the spec carries the AI block** — `grep -m1 -E '^## [0-9.]+ AI' <spec>`, and the
 block is not `none`. No match, or `none` → skip to Block 3. Read the AI block of spec.md, then
-`29-ia.md`, then `.claude/rules/ai.md`. It runs right after Block H because an AI adapter compiles
+`29-ai.md`, then `.claude/rules/ai.md`. It runs right after Block H because an AI adapter compiles
 against the outbound port, the domain types and the integration families, and nothing upstream
 compiles against it. The exemplars are in `.claude/skills/ai-architect/templates/`:
 
-| Port kind (`29-ia.md` § 1) | Exemplar |
+| Port kind (`29-ai.md` § 1) | Exemplar |
 |---|---|
 | `LLM` | `StructuredOutputAdapter.java.example` + the two `.st.example` prompts |
 | `vector store` | `SemanticSearchAdapter.java.example` |
@@ -618,7 +618,7 @@ compiles against it. The exemplars are in `.claude/skills/ai-architect/templates
   the version § 10 recorded, the starters with none. A REUSE component gets only its new bean or
   `app.ai` entry
 - **A2 · Adapters and prompts** — per port, in `[ai]`: the answer type with the closed fields § 3
-  names, the adapter implementing the port `10-dominio.md` declared, every unusable answer § 3
+  names, the adapter implementing the port `10-domain.md` declared, every unusable answer § 3
   lists mapped to the port's "could not decide" value, every provider exception through the
   translator. The prompt resources of § 3 in `src/main/resources/prompts/`, the input only in the
   named variables. Per `vector store` port: the search with § 3's threshold and ceiling, returning
@@ -626,7 +626,7 @@ compiles against it. The exemplars are in `.claude/skills/ai-architect/templates
 - **A3 · Configuration** — the properties of § 11 in `application.yml` (shape in
   `application-ai.yml.example`): the key as a placeholder with no default, the SDK's `max-retries`
   as § 6 says, every content-logging flag `false`, the store's `initialize-schema: false`. The
-  store's migration is Block 2's, from `20-persistencia.md`
+  store's migration is Block 2's, from `20-persistence.md`
 
 Rules: `.claude/rules/ai.md`, `.claude/rules/error-handling.md` § Integration families,
 `.claude/rules/architecture-ddd.md` § Adapters, `.claude/rules/personal-data.md` § In transit,
@@ -656,12 +656,12 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [ai]>` in mult
 
 **Runs only when the spec carries the search block** — `grep -m1 -E '^## [0-9.]+ Search' <spec>`,
 and the block is not `none`. No match, or `none` → skip to Block 3. Read the search block of
-spec.md, then `23-busca.md`, then `.claude/rules/search.md`. It runs after Block A because a search
+spec.md, then `23-search.md`, then `.claude/rules/search.md`. It runs after Block A because a search
 adapter compiles against the `search index` port and the integration families, and nothing upstream
 compiles against it. The exemplars are in `.claude/skills/search-architect/templates/`; the adapter
 code is the same for Elasticsearch and OpenSearch — only the dependency and the properties differ.
 
-- **I1 · Index** — the mapping file of `23-busca.md` § 2 at its path under
+- **I1 · Index** — the mapping file of `23-search.md` § 2 at its path under
   `src/main/resources/search/`, verbatim; once per project, in `[search]/shared/`,
   `SearchIndexDefinition` and the public `SearchIndexBootstrap`
   (`SearchIndexBootstrap.java.example`); per projection, the search document
@@ -818,12 +818,12 @@ Compilation: `./mvnw -q test-compile` (or `-pl <module that holds [graphql]>` in
 
 **Runs only when the spec carries the security block** — `grep -m1 -E '^## [0-9.]+ Security' <spec>`,
 and the block is not `none`. No match, or `none` → skip to Block M. Read the security block of
-spec.md, then `32-seguranca.md`. Servlet only: a project whose web starter is the reactive one
+spec.md, then `32-security.md`. Servlet only: a project whose web starter is the reactive one
 is a spec defect — stop and report. § 2's mechanism decides the exemplars in
 `.claude/skills/security-architect/templates/` — never a second mechanism because a class looked
 easier with it:
 
-| `32-seguranca.md` § 2 | Exemplars |
+| `32-security.md` § 2 | Exemplars |
 |---|---|
 | Resource server, signed token | `SecurityConfig.java.example` + `JwtResourceServerConfig.java.example` |
 | Resource server, opaque token | `SecurityConfig.java.example` + `OpaqueTokenResourceServerConfig.java.example` |
@@ -842,7 +842,7 @@ easier with it:
 - **S2 · Endpoints** — per row of § 1: the request rule in the chain, or the method-security
   annotation (or the meta-annotation § 1 names) on the **controller implementation**, never on
   the `Api` contract interface. Per ownership row of § 5: the controller resolves the actor from
-  the principal attribute § 5 names into the value object `10-dominio.md` declared, and passes
+  the principal attribute § 5 names into the value object `10-domain.md` declared, and passes
   it in the command — `CurrentActorResolution.java.example`. The ownership check itself is
   Block 1's, already in the use case
 - **S3 · Configuration** — the properties of § 9 in `application.yml` (shape in
@@ -877,12 +877,12 @@ in multi-module) ✅
 ### Block M: Messaging (steps M1-M4, conditional)
 
 **Runs only when the spec carries the messaging block** — i.e., `new-feature`'s messaging
-step wasn't skipped and `25-mensageria.md` exists. Check with
+step wasn't skipped and `25-messaging.md` exists. Check with
 `grep -m1 -E '^## [0-9.]+ Messaging' <spec>` — the heading's text, not its number: the template
 numbers it `3.5`, and a check on `^## 6` matched no spec ever written. No match, or the block
 reads `none` → skip to Block J. Don't fabricate a messaging block a spec never asked for.
 
-Read the messaging block of spec.md, then `25-mensageria.md`. Which publication form it chose decides what is
+Read the messaging block of spec.md, then `25-messaging.md`. Which publication form it chose decides what is
 generated: **Form A** (publish after commit) plus any consumer is the list immediately below;
 **Form B** (transactional outbox + relay) is the sub-block after it, and the two are not
 variants of one shape.
@@ -898,7 +898,7 @@ Form A and the consumer generate:
   after that call returns. When the use case writes an audited aggregate (spec § 3 Audit not
   `none`), the call runs inside `SystemActor.run("<consumer-name>", …)`
 - `ProcessedEventStore` port + its persistence adapter — only if Block 2 modeled the
-  dedupe table per `25-mensageria.md` step 5a. Missing table and the partial named the
+  dedupe table per `25-messaging.md` step 5a. Missing table and the partial named the
   need → spec defect, stop and report; this block doesn't design schema
 - `application-kafka.yml` additions — bootstrap servers, producer `acks`/idempotence,
   consumer group id, offset reset, `DefaultErrorHandler` (retry backoff + DLQ topic)
@@ -921,7 +921,7 @@ instead.
 
 #### Form B — outbox and relay (when the messaging block chose it)
 
-`25-mensageria.md` chooses Form B when the event must not be lost between the commit and the
+`25-messaging.md` chooses Form B when the event must not be lost between the commit and the
 publish. It is a **different set of classes**, not the Form A publisher with a table added, and
 everything below has a shape exemplar: nothing here is for the executor to infer
 (lessons-learned-013 § 2, where an unsupervised run invented all of it).
@@ -947,7 +947,7 @@ from `35-jobs.md`:
 - The messaging adapter binds nothing of `app.outbox.*`: `batch-size` and `max-attempts` are
   bound in Block J by the relay job's `OutboxProperties`, which builds the command. The service
   itself is a `@Service`, never built by hand in a `@Configuration`. **One `app.outbox` map in
-  `application.yml`**: Block M writes the two keys `20-persistencia.md` names, Block J merges its
+  `application.yml`**: Block M writes the two keys `20-persistence.md` names, Block J merges its
   own into the same map — never a second `app:` root
 - The dependency of § 7 in `pom.xml` — `spring-boot-starter-kafka`, because Spring Boot 4
   autoconfigures no Kafka from `spring-kafka` alone. One `<dependency>`, no version when the
@@ -966,7 +966,7 @@ Validation — **Form B**, each item checkable and none of them optional:
   not;
 - dead-lettering is a named operation (`markDeadLettered`), never `markFailed(…, maxAttempts =
   0)` arriving at the same state by arithmetic;
-- the claim strategy is the one `20-persistencia.md` states — that partial owns it. A claim
+- the claim strategy is the one `20-persistence.md` states — that partial owns it. A claim
   whose name promises a lock the query does not take is a divergence to report, not to fix
   here.
 
@@ -1031,7 +1031,7 @@ Validation, each item checkable:
 - every trigger's only project dependency is an inbound port (plus `JobRunRecorder`);
 - every cron names its zone; every job has its `enabled` property off in the test profile;
 - a lock's bounds match § 3, and no lock wraps the relay when § 3 says the claim coordinates;
-- a property § 8 attributes to `20-persistencia.md` (`app.outbox.prune-after` among them)
+- a property § 8 attributes to `20-persistence.md` (`app.outbox.prune-after` among them)
   ships with the job that reads it — and a job whose property has no value to read fails the
   boot, it does not run on a number nobody chose.
 
@@ -1127,7 +1127,7 @@ Read § 5 of spec.md, then the partial it cites for the step at hand. Generates:
 - When Block M ran **Form B**: `RelayOutboxEventsServiceTest.java` (fake gateway and sender)
   and `KafkaOutboxEventSenderTest.java` (mocked `KafkaTemplate`) — unit, no broker. Sent, send
   failure, the failed row that exhausts its attempts, and the unroutable-event-type dead-letter
-  path. The broker-level test may be deferred by `40-testes.md`; these are not deferrable, and
+  path. The broker-level test may be deferred by `40-tests.md`; these are not deferrable, and
   their absence is what left the class carrying the durability guarantee as the project's
   largest coverage hole (lessons-learned-013 § 8.1)
 - When Block G ran: every case of `31-graphql.md` § 10 at the level it names — mapping, errors,
@@ -1136,19 +1136,19 @@ Read § 5 of spec.md, then the partial it cites for the step at hand. Generates:
   access, depth and introspection over HTTP through the real chain
   (`GraphQlHttpIT.java.example`); the schema compatibility test against `src/test/graphql/`
   (`GraphQlSchemaCompatibilityTest.java.example`), created by the project's first GraphQL case
-- When Block S ran: every case of `32-seguranca.md` § 10 — each protected endpoint without a
+- When Block S ran: every case of `32-security.md` § 10 — each protected endpoint without a
   credential (401), without the authority (403, or the 404 ownership chose) and with it; each
   public one with no credential; each ownership row at the use case with another actor — through
   the real filter chain, never with the security filters switched off
   (`.claude/skills/test-architect/templates/SecuredControllerTest.java.example`,
   `.claude/rules/authorization.md` § Tests). Existing controller tests the impact section names
   are updated in the same step: they import the chain and send a credential
-- When Block H ran: every case of `28-cliente-http.md` § 9 — through the outbound port against a
+- When Block H ran: every case of `28-http-client.md` § 9 — through the outbound port against a
   stub server on a real socket, never `MockRestServiceServer`; the attempt count asserted on the
   stub, the family and `errorCode` on the exception
   (`.claude/skills/test-architect/templates/HttpClientAdapterIT.java.example`,
   `.claude/rules/http-client.md` § Tests)
-- When Block A ran: every case of `29-ia.md` § 8 at the level it names — the answers through the
+- When Block A ran: every case of `29-ai.md` § 8 at the level it names — the answers through the
   adapter with a scripted stub `ChatModel` (`AiAdapterContractTest.java.example`), the wiring
   against a stub server speaking the provider's protocol with the attempt count asserted
   (`AiProviderIT.java.example`), a store against the real `pgvector/pgvector` engine with a stub

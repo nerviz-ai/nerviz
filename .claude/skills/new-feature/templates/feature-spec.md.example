@@ -13,21 +13,21 @@ file wins** and the losing value is listed in § Resolved divergences.
 
 | Partial | Owner | Status |
 |---|---|---|
-| `00-caso-de-uso.md` | `use-case-design` | ✅ |
-| `10-dominio.md` | `domain-modeling` | ✅ |
+| `00-use-case.md` | `use-case-design` | ✅ |
+| `10-domain.md` | `domain-modeling` | ✅ |
 | `30-rest.md` | `rest-api-architect` | ✅ |
-| `32-seguranca.md` | `security-architect` | ✅ |
-| `28-cliente-http.md` | `http-client-architect` | — not applicable (no port of kind `external HTTP`) |
-| `20-persistencia.md` | `persistence-architect` | ✅ |
-| `25-mensageria.md` | `messaging-architect` | — not applicable (no external delivery) |
+| `32-security.md` | `security-architect` | ✅ |
+| `28-http-client.md` | `http-client-architect` | — not applicable (no port of kind `external HTTP`) |
+| `20-persistence.md` | `persistence-architect` | ✅ |
+| `25-messaging.md` | `messaging-architect` | — not applicable (no external delivery) |
 | `35-jobs.md` | `jobs-architect` | — not applicable (no Form B, no scheduled trigger) |
-| `40-testes.md` | `test-architect` | ✅ |
+| `40-tests.md` | `test-architect` | ✅ |
 
 ---
 
 ## 1. Use case
 
-Detail: `00-caso-de-uso.md`.
+Detail: `00-use-case.md`.
 
 | Decision | Value |
 |---|---|
@@ -41,7 +41,7 @@ Detail: `00-caso-de-uso.md`.
 
 ## 2. Domain model — implement first
 
-Detail: `10-dominio.md` § 1-4.
+Detail: `10-domain.md` § 1-4.
 
 | Decision | Value |
 |---|---|
@@ -56,13 +56,13 @@ Detail: `10-dominio.md` § 1-4.
 
 ## 3. Persistence — implement after 2
 
-Detail: `20-persistencia.md` § 1-5. Migration SQL — or, for a `document (MongoDB)` aggregate, the
+Detail: `20-persistence.md` § 1-5. Migration SQL — or, for a `document (MongoDB)` aggregate, the
 collection's schema declaration: § 4 of that partial — the executor materializes it verbatim.
 
 | Decision | Value |
 |---|---|
-| Storage family | relational — `00-caso-de-uso.md` § Storage |
-| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`); otherwise the level per aggregate and `20-persistencia.md` § Audit |
+| Storage family | relational — `00-use-case.md` § Storage |
+| Audit level | none — `00-use-case.md` § Audit (absent row = `none`); otherwise the level per aggregate and `20-persistence.md` § Audit |
 | Table | `users`, one per aggregate root |
 | Business key | `UNIQUE (email)` |
 | Concurrency | `@Version` optimistic lock |
@@ -73,16 +73,16 @@ collection's schema declaration: § 4 of that partial — the executor materiali
 
 ## 3.3 Outbound HTTP — conditional, implement after 2
 
-none — `10-dominio.md` declares no port of kind `external HTTP`. When present: one line per
+none — `10-domain.md` declares no port of kind `external HTTP`. When present: one line per
 dependency (client, engine, read timeout, retrying layer, authentication scheme), the shared
-setup NEW / REUSE, and the dependencies of `28-cliente-http.md` § 8 — detail in
-`28-cliente-http.md`. Implemented by the executor's Block H, right after Block 2.
+setup NEW / REUSE, and the dependencies of `28-http-client.md` § 8 — detail in
+`28-http-client.md`. Implemented by the executor's Block H, right after Block 2.
 
 ---
 
 ## 3.4 Cache — conditional, implement after 3 and 3.3
 
-none — `00-caso-de-uso.md`'s `Freshness` row reads `none`: a create returns what it just
+none — `00-use-case.md`'s `Freshness` row reads `none`: a create returns what it just
 wrote. When present: the provider, one line per cached read (port method, cache name, key,
 expiry next to the tolerance it serves), every writer that must evict and its path, and the
 dependencies of `22-cache.md` § 8 — detail in `22-cache.md`. Implemented by the executor's
@@ -92,7 +92,7 @@ Block C, after Block J.
 
 ## 3.5 Messaging — conditional
 
-none — `10-dominio.md` names no external delivery.
+none — `10-domain.md` names no external delivery.
 
 ---
 
@@ -107,21 +107,21 @@ Block J, after Block M.
 
 ## 3.7 AI — conditional, implement after 2 and 3.3
 
-none — `10-dominio.md` declares no port of kind `LLM` or `vector store`. When present: the
+none — `10-domain.md` declares no port of kind `LLM` or `vector store`. When present: the
 provider, one line per AI port (model, answer type, "could not decide" value, timeout, retrying
 layer), the fields sent to the provider, the store and its embedding model, and the dependencies
-of `29-ia.md` § 10 — detail in `29-ia.md`. Implemented by the executor's Block A, right after
+of `29-ai.md` § 10 — detail in `29-ai.md`. Implemented by the executor's Block A, right after
 Block H.
 
 ---
 
 ## 3.8 Search — conditional, implement after 2 and 3
 
-none — `00-caso-de-uso.md`'s `Search index` reads `none`. When present: the projection and its
-alias and version, the mapping file of `23-busca.md` § 2 (materialized verbatim), one line per
+none — `00-use-case.md`'s `Search index` reads `none`. When present: the projection and its
+alias and version, the mapping file of `23-search.md` § 2 (materialized verbatim), one line per
 query (match, filters, sort, page ceiling), the indexer's write rules or the rebuild's steps for
-this kind of case, the lag next to `Freshness`, and the dependencies of `23-busca.md` § 9 — detail
-in `23-busca.md`. Implemented by the executor's Block I, after Block A.
+this kind of case, the lag next to `Freshness`, and the dependencies of `23-search.md` § 9 — detail
+in `23-search.md`. Implemented by the executor's Block I, after Block A.
 
 ---
 
@@ -137,13 +137,13 @@ Detail: `30-rest.md` § 1-5, § 7 and § 8.
 | Pagination | none — no collection |
 | Dependencies | springdoc (version already in `pom.xml`), tracing bridge, validation |
 | Versioning | project setup NEW — `ApiVersioningConfig` (prefix `/api/v{version}`, supported `1`) + `ApiVersionObservationConvention`; later cases: `inherited from UC-NNN` or the version, deprecation or sunset § 7 lists |
-| Admission | none — `00-caso-de-uso.md` has no `Admission` row. Otherwise `30-rest.md` § 8: the setup (NEW `AdmissionConfig` + `app.admission`, or `inherited from UC-NNN`), each `@InboundQuota` and `@Bulkhead` with its numbers, the 429/503 rows |
+| Admission | none — `00-use-case.md` has no `Admission` row. Otherwise `30-rest.md` § 8: the setup (NEW `AdmissionConfig` + `app.admission`, or `inherited from UC-NNN`), each `@InboundQuota` and `@Bulkhead` with its numbers, the 429/503 rows |
 
 ---
 
 ## 4.1 GraphQL — conditional, implement right after 4
 
-none — `00-caso-de-uso.md`'s `Trigger` names no GraphQL adapter. When present: one line per root
+none — `00-use-case.md`'s `Trigger` names no GraphQL adapter. When present: one line per root
 field (kind, input port, return), the connections with their ceilings, the batch loads and the batch
 ports they asked for, where each failure lands (`userErrors` or top-level), the personal-data
 fields of the output types, the project setup NEW or inherited, and the dependencies of
@@ -155,7 +155,7 @@ Block S.
 
 ## 4.5 Security — conditional, implement right after 4
 
-Detail: `32-seguranca.md` § 1-10. When step 3b was skipped: `none` and the skip row — e.g.
+Detail: `32-security.md` § 1-10. When step 3b was skipped: `none` and the skip row — e.g.
 "authenticated, covered by the chain's deny-by-default".
 
 | Decision | Value |
@@ -174,7 +174,7 @@ Implemented by the executor's Block S.
 
 ## 5. Tests — validates 1-4
 
-Detail: `40-testes.md` § 1-5.
+Detail: `40-tests.md` § 1-5.
 
 | Decision | Value |
 |---|---|
@@ -182,7 +182,7 @@ Detail: `40-testes.md` § 1-5.
 | Slice | `UserController` — `@WebMvcTest`, one case per status in § 4 |
 | Integration | `UserRepositoryAdapter` against a real database (Testcontainers) |
 | Coverage gate | 80% lines / 70% branches |
-| Test dependencies | none — `40-testes.md` § 5. When present, one row each, applied by the executor |
+| Test dependencies | none — `40-tests.md` § 5. When present, one row each, applied by the executor |
 
 ---
 
@@ -220,7 +220,7 @@ touches none of them.
 
 | Service | Image | Decision | Detail | Decided in |
 |---|---|---|---|---|
-| `postgres` | `postgres:<tag>` | `exists` | — | `20-persistencia.md` |
+| `postgres` | `postgres:<tag>` | `exists` | — | `20-persistence.md` |
 
 ---
 
@@ -229,14 +229,14 @@ touches none of them.
 Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is marked
 `n/a` with the reason — never deleted.
 
-- [ ] 1. Domain exceptions (`10-dominio.md` § 2)
+- [ ] 1. Domain exceptions (`10-domain.md` § 2)
 - [ ] 2. Value objects + constructor validation
 - [ ] 3. Aggregate + invariants
 - [ ] 4. Events — n/a, none
 - [ ] 5. Use case command
 - [ ] 6. Use case (port and implementation per the blueprint vocabulary)
 - [ ] 7. Output ports
-- [ ] 8. Migration — materialize from `20-persistencia.md` § 4
+- [ ] 8. Migration — materialize from `20-persistence.md` § 4
 - [ ] 9. Persistence entity
 - [ ] 10. Spring Data interface
 - [ ] 11. Repository adapter
@@ -259,7 +259,7 @@ differently; empty when there were none.
 
 | Fact | Discarded value | Adopted value | Decided by |
 |---|---|---|---|
-| Invalid payload status | `422` (`00-caso-de-uso.md`) | `400` | `30-rest.md` — `422` is reserved for business-rule violations |
+| Invalid payload status | `422` (`00-use-case.md`) | `400` | `30-rest.md` — `422` is reserved for business-rule violations |
 
 <!--
 HOW TO USE THIS:

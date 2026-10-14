@@ -1,6 +1,6 @@
 /*
  * EXEMPLAR — output adapter over MongoDB: the Spring Data interface, the adapter implementing the
- * ports declared in `10-dominio.md`, and the mapper. Form reference; not a file to copy.
+ * ports declared in `10-domain.md`, and the mapper. Form reference; not a file to copy.
  * Rules: `.claude/rules/persistence.md` (§ Boundary, § Queries, § Translation, § Document
  *        (MongoDB)) · `.claude/rules/architecture-ddd.md` (adapter has no business logic)
  *        · `.claude/rules/error-handling.md`

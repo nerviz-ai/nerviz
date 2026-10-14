@@ -423,7 +423,7 @@ coluna ou de claim que derrubaria uma garantia declarada para o pipeline em vez 
 resolvida por precedência (`.claude/decisions/0087-jobs-architect-skill.md`).
 
 **Cache precisa de uma tolerância que o negócio declarou, e mora num pacote só.** O
-`cache-architect` só roda quando a linha `Freshness` de `00-caso-de-uso.md` diz quão velha uma
+`cache-architect` só roda quando a linha `Freshness` de `00-use-case.md` diz quão velha uma
 resposta pode ser — um spec aprovado antes dessa linha existir nunca o dispara, e "a query
 parece lenta" não é tolerância. O cache é um decorator do port de saída no pacote `.cache` do
 blueprint, registrado como o bean `@Primary` do port pelo nome do bean delegado: um
@@ -433,29 +433,29 @@ escritor que contorna o port (um `UPDATE` em massa, um job, outro serviço) não
 desligado; cache HTTP é do `rest-api-architect` (`.claude/decisions/0144-cache-architect-skill.md`).
 
 **Um modelo ou um vector store é um port só, e quatro parciais são donas das suas peças.** O
-`ai-architect` só roda quando `10-dominio.md` declara um port do tipo `LLM` ou `vector store`, e
-`29-ia.md` é dona do provedor, do modelo, dos prompts, do tipo da resposta, dos dados enviados, do
+`ai-architect` só roda quando `10-domain.md` declara um port do tipo `LLM` ou `vector store`, e
+`29-ai.md` é dona do provedor, do modelo, dos prompts, do tipo da resposta, dos dados enviados, do
 timeout e da única camada de retry. O port, o valor "não consegui decidir" e o estado de revisão
-continuam sendo de `10-dominio.md`; a migration do vector store é de `20-persistencia.md`
-(`29-ia.md` § 9 só pede); um gatilho de reindexação ou um job de ingestão é de
-`25-mensageria.md` ou `35-jobs.md`. O Spring AI mora só no pacote `.ai`, então
+continuam sendo de `10-domain.md`; a migration do vector store é de `20-persistence.md`
+(`29-ai.md` § 9 só pede); um gatilho de reindexação ou um job de ingestão é de
+`25-messaging.md` ou `35-jobs.md`. O Spring AI mora só no pacote `.ai`, então
 `org.springframework.ai..` num módulo `application` é violação de fronteira
 (`.claude/decisions/0145-ai-architect-skill.md`).
 
 **Uma operação GraphQL é um input port só, e quatro parciais são donas das suas peças.** O
-`graphql-api-architect` só roda quando a linha `Trigger` de `00-caso-de-uso.md` termina em
+`graphql-api-architect` só roda quando a linha `Trigger` de `00-use-case.md` termina em
 `inbound GraphQL adapter` ou `inbound REST and GraphQL adapters`, e `31-graphql.md` é dono dos
 root fields, dos tipos, dos payloads, das connections e dos limites do projeto. Um port de batch
-que ele precisa chega como requisito de `31-graphql.md` § 9 e vira o port de `10-dominio.md` na
+que ele precisa chega como requisito de `31-graphql.md` § 9 e vira o port de `10-domain.md` na
 consolidação; o statement de batch e o índice que a ordem de uma connection precisa são de
-`20-persistencia.md`; quem pode ler cada root field e cada campo sensível são as linhas de acesso
-de `32-seguranca.md`, nunca de `31-graphql.md`. O snapshot do schema do
+`20-persistence.md`; quem pode ler cada root field e cada campo sensível são as linhas de acesso
+de `32-security.md`, nunca de `31-graphql.md`. O snapshot do schema do
 `GraphQlSchemaCompatibilityTest` fica em `src/test/graphql/`: em `src/test/resources` ele estaria
 no classpath de teste. O Spring for GraphQL mora só no pacote `.graphql`
 (`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
 
 **A família de storage é um dado do caso de uso, e nenhum passo do pipeline a pondera.** O
-`use-case-design` a registra na linha `Storage` de `00-caso-de-uso.md` — por agregado,
+`use-case-design` a registra na linha `Storage` de `00-use-case.md` — por agregado,
 `relational` ou `document (MongoDB)` — a partir do pedido, ou de uma única pergunta factual
 ("SQL ou NoSQL?"), e nunca defende uma das duas; essa entrevista de decisão é de uma skill de
 solution-design planejada. O `persistence-architect` para sem a linha. O MongoDB precisa de
@@ -466,10 +466,10 @@ declara os dois (`.claude/rules/persistence.md` § Document (MongoDB),
 `.claude/decisions/0147-document-storage-and-search-architect.md`).
 
 **Um índice de busca é uma projeção, e cinco parciais são donas das suas peças.** O
-`search-architect` só roda quando a linha `Search index` de `00-caso-de-uso.md` nomeia uma
-projeção, e `23-busca.md` é dono do documento, do mapping, do alias, da consulta, das regras de
+`search-architect` só roda quando a linha `Search index` de `00-use-case.md` nomeia uma
+projeção, e `23-search.md` é dono do documento, do mapping, do alias, da consulta, das regras de
 escrita do indexer, do adapter de rebuild e do lag. A versão da fonte e o evento de outbox são de
-`20-persistencia.md`; o consumer do indexer é de `25-mensageria.md`; o job de rebuild é de
+`20-persistence.md`; o consumer do indexer é de `25-messaging.md`; o job de rebuild é de
 `35-jobs.md`. Um cache sobre um port de busca recebe o `Freshness` do caso menos o lag, nunca ele
 inteiro. O Spring Data Elasticsearch e o OpenSearch moram só no pacote `.search`, então seus
 imports num módulo `application` são violação de fronteira (`.claude/rules/search.md`,
@@ -514,7 +514,7 @@ JPQL (`@Modifying`), `CriteriaUpdate`, `CriteriaDelete` ou SQL nativo muda as li
 pelos listeners do Envers: o histórico fica sem a mudança, sem erro, sem teste vermelho. Nenhum
 hook cobre isso — não houve falha observada que justifique um. O que existe é o `grep` de
 `.claude/rules/persistence.md` § How to verify e a lista de bulk writes que o § Audit do
-`20-persistencia.md` registra. O mesmo vale para o ator: uma passada de job ou consumer sem
+`20-persistence.md` registra. O mesmo vale para o ator: uma passada de job ou consumer sem
 `SystemActor` falha na escrita, por desenho — o ator nunca é `null`. Design:
 `.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
@@ -532,7 +532,7 @@ aparece de novo lá (`.claude/rules/api-rest.md` § Versioning,
 `.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
 
 **Um limite de admissão só existe quando o caso de uso o declara, e a cota é por réplica.** Sem
-a linha `Admission` em `00-caso-de-uso.md`, nenhum designer propõe cota nem bulkhead — e o
+a linha `Admission` em `00-use-case.md`, nenhum designer propõe cota nem bulkhead — e o
 `use-case-design` nunca pergunta. O `RateLimiter` do Resilience4j guarda estado na JVM: cada
 réplica aplica a cota dividida pelo número de réplicas, e com um balanceador desigual o limite é
 aproximado; cota exata entre réplicas é da borda. Três armadilhas silenciosas: um

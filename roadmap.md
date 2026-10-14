@@ -69,13 +69,13 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `rest-api-architect`
 - [x] `test-architect`
 - [x] `security-architect` (optional step after REST, fires when the use case's `Access` row
-      asks for it — `32-seguranca.md`; see 0112)
+      asks for it — `32-security.md`; see 0112)
 - [x] `new-feature` orchestrator + consolidation (designs only; ends with an approved spec)
 - [x] `new-feature-implement` (implements an approved spec in a clean session: pre-flight,
       then the executor in three chained block groups — `domain`, `adapters`, `tests`; see
       0130 and 0135)
 - [x] `http-client-architect` (optional step after security, fires when the domain declares
-      an `external HTTP` port — `28-cliente-http.md`; see 0121)
+      an `external HTTP` port — `28-http-client.md`; see 0121)
 - [x] `messaging-architect` (optional step, fires when an event needs external delivery)
 - [x] `jobs-architect` (optional step — scheduling technology, cadence, coordination, the
       outbox relay's schedule and its prune job; see 0087)
@@ -84,20 +84,20 @@ copied inside them — exactly the duplication this design exists to avoid.
       `22-cache.md`, `rules/caching.md`; see 0144)
 - [x] `ai-architect` (optional step 3d after outbound HTTP, fires when the domain declares a
       port of kind `LLM` or `vector store` — structured output and semantic search with Spring AI
-      behind an `.ai` adapter, `29-ia.md`, `rules/ai.md`; see 0145)
-- [x] `graphql-api-architect` (optional step 3g right after REST, fires when `00-caso-de-uso.md`'s
+      behind an `.ai` adapter, `29-ai.md`, `rules/ai.md`; see 0145)
+- [x] `graphql-api-architect` (optional step 3g right after REST, fires when `00-use-case.md`'s
       `Trigger` row names an inbound GraphQL adapter — schema-first Spring for GraphQL on the
       servlet stack, `31-graphql.md`, `rules/api-graphql.md`; REST is skipped when GraphQL is
       the only adapter; see 0146)
 - [x] MongoDB as the document family of `persistence-architect`, chosen per use case in
-      `00-caso-de-uso.md`'s `Storage` row, and `search-architect` (optional step 3e after AI,
+      `00-use-case.md`'s `Storage` row, and `search-architect` (optional step 3e after AI,
       fires when the `Search index` row names a projection — an Elasticsearch or OpenSearch index
-      kept as a rebuildable projection, `23-busca.md`, `rules/search.md`; see 0147)
+      kept as a rebuildable projection, `23-search.md`, `rules/search.md`; see 0147)
 - [x] Design patterns decided at design time — each design skill writes a `## Design patterns`
       section into its own partial, consolidated into the spec before approval (see 0089)
-- [x] Mermaid diagrams in the specs — a `sequenceDiagram` under `00-caso-de-uso.md`'s
+- [x] Mermaid diagrams in the specs — a `sequenceDiagram` under `00-use-case.md`'s
       `## Flow` and a `flowchart TD` of its outcomes, a `classDiagram` and, when the aggregate has a lifecycle, a `stateDiagram-v2`
-      in `10-dominio.md`; drawn from the spec's own text, rendered by GitHub, no new
+      in `10-domain.md`; drawn from the spec's own text, rendered by GitHub, no new
       dependency (see 0143)
 - [x] `docker-architect` (chained on demand by persistence/test/messaging)
 - [x] Compose service decided at design time — `persistence-architect` and `messaging-architect`

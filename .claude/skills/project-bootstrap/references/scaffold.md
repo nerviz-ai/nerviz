@@ -29,7 +29,7 @@ to refer to.
 
 The five exemplars (`DomainException` and the four typed ones) live in
 `.claude/skills/domain-modeling/templates/`. `domain-modeling` owns the shape of the
-domain, and the `10-dominio.md` partial names the exceptions for each invariant; the
+domain, and the `10-domain.md` partial names the exceptions for each invariant; the
 code comes from the executor, with the first feature.
 
 The bootstrap doesn't write them because it has no invariant to tie them to: five

@@ -1,8 +1,8 @@
 /*
  * EXEMPLAR — how the identity of the caller crosses from the security framework into the use
- * case, for an ownership row of `32-seguranca.md` § 5. Three pieces, three owners:
+ * case, for an ownership row of `32-security.md` § 5. Three pieces, three owners:
  *
- *   - `Actor` (application layer) is `10-dominio.md`'s: the command carries it, and it holds no
+ *   - `Actor` (application layer) is `10-domain.md`'s: the command carries it, and it holds no
  *     framework type. Shown here only so the resolver has something to build.
  *   - `CurrentActorResolver` (this package) is the only class that reads an `Authentication` to
  *     produce it. Mechanism-agnostic: the authentication's name is the principal the mechanism
@@ -18,16 +18,16 @@
  * mechanism; the resolver keeps the controller identical if § 2 changes.
  *
  * The identity value's type (`UUID` here, a `CustomerId` value object built by the use case)
- * follows `10-dominio.md`. A principal name that is not a valid identity means a misconfigured
+ * follows `10-domain.md`. A principal name that is not a valid identity means a misconfigured
  * provider: the resolver raises an authentication failure (401) instead of guessing.
  */
 
-// --- Actor.java (application layer — declared by 10-dominio.md)
+// --- Actor.java (application layer — declared by 10-domain.md)
 package com.exemplo.minhaapi.application.port.in.order;
 
 import java.util.UUID;
 
-/** Who is executing the command. `support` is the override `00-caso-de-uso.md`'s `Access` granted. */
+/** Who is executing the command. `support` is the override `00-use-case.md`'s `Access` granted. */
 public record Actor(UUID customerId, boolean support) {}
 
 // --- CurrentActorResolver.java

@@ -1,7 +1,7 @@
 /*
  * EXEMPLAR — mechanism "resource server, opaque token": the caller sends
  * `Authorization: Bearer <token>` and this application asks the identity provider's
- * introspection endpoint whether the token is active, on every request. `32-seguranca.md` § 2.
+ * introspection endpoint whether the token is active, on every request. `32-security.md` § 2.
  *
  * WHAT BOOT ALREADY DOES: with `spring.security.oauth2.resourceserver.opaquetoken.introspection-uri`,
  * `client-id` and `client-secret` set, Boot builds the introspector — no bean here. The client

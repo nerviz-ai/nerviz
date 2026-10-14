@@ -11,7 +11,7 @@ description: >
   case states one. Use when the request involves GraphQL, a schema or `.graphqls` file, a query or
   mutation, a resolver, `@QueryMapping`, `@BatchMapping`, DataLoader, N+1 in GraphQL, a connection or
   cursor, GraphQL errors, or a rate limit on the GraphQL endpoint. Piece of the `/new-feature` pipeline:
-  requires `10-dominio.md` and a `00-caso-de-uso.md` whose `Trigger` names a GraphQL adapter in the
+  requires `10-domain.md` and a `00-use-case.md` whose `Trigger` names a GraphQL adapter in the
   given folder — and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(curl:*)
@@ -41,8 +41,8 @@ project — the limits every operation runs under. What `domain-modeling` left a
 skill gives a GraphQL shape, next to or instead of the REST shape `rest-api-architect` gives it.
 
 **Entry rule: no GraphQL trigger, no GraphQL design.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` and runs only when the `Trigger`
-row names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters`. Without `10-dominio.md`,
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` and runs only when the `Trigger`
+row names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters`. Without `10-domain.md`,
 stop and say to run `/domain-modeling`; with a trigger that names no GraphQL adapter, stop and say
 so — the protocol is the use case's choice, never this skill's.
 
@@ -106,13 +106,13 @@ shapes the GraphQL layer of the case being designed (step 12b).
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (trigger, `Access`, Components table, response shape),
-   `10-dominio.md` (input ports and their signatures, read models, exception table with `errorCode`),
+1. **Read the specs.** `00-use-case.md` (trigger, `Access`, Components table, response shape),
+   `10-domain.md` (input ports and their signatures, read models, exception table with `errorCode`),
    and — when present — `30-rest.md` (the REST operations over the same ports). Apply the entry rule
    and the scope rule. List the operations the case needs, each with the input port it calls.
 
    **A port that returns an entity, or a read model a field would complete lazily, is a divergence**,
-   not something to work around here: `10-dominio.md` is `domain-modeling`'s to change, and the
+   not something to work around here: `10-domain.md` is `domain-modeling`'s to change, and the
    operation stays undesigned until the port returns a complete read model.
 
 2. **Survey — every answer the project already gave is inherited, never re-asked.**
@@ -150,7 +150,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
 
    | Axis | Decides | Skip when |
    |---|---|---|
-   | **Which fields and children the client reads** — the screens or callers, and what each selects | § 2, and which children are batch loads | The response shape of `00-caso-de-uso.md` already lists them |
+   | **Which fields and children the client reads** — the screens or callers, and what each selects | § 2, and which children are batch loads | The response shape of `00-use-case.md` already lists them |
    | **Does the list grow without bound** | § 4 — a connection, and its order | Never a plain list for a growing set |
    | **Each output field that matches a masking candidate** — full, reduced or a reference, and who reads it | § 8, and a field-level check | No field matches |
    | **Does an input update part of an object** — may the client clear a field | § 3 — `ArgumentValue` per field | The case creates or acts, never edits fields |
@@ -170,7 +170,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
    pages backwards; the order ends in a unique key; the default and maximum page come from § 6.
 
 7. **Fix the batch loads — § 5.** Every child field that costs I/O, the batch port it needs — keys
-   in, map out — and what a missing key answers. A batch port `10-dominio.md` does not declare is a
+   in, map out — and what a missing key answers. A batch port `10-domain.md` does not declare is a
    **requirement** in § 9, never invented as if it existed.
 
 8. **Decide or inherit the project setup — § 6.** First GraphQL case: every limit of
@@ -179,7 +179,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
    cases: `inherited from UC-NNN`, and a change only with a reason and a row in
    `## Impact on approved use cases`.
 
-8b. **Admission — § 6's `Admission` rows.** Only when `00-caso-de-uso.md`'s `Admission` row is not
+8b. **Admission — § 6's `Admission` rows.** Only when `00-use-case.md`'s `Admission` row is not
    `none`; no row, the rows read `none`. A limit is never proposed (`@.claude/rules/inbound-admission.md`
    § When a limit exists). The project's admission setup — where the quota is enforced, replicas, the
    caller's key, the 503 wait — is asked exactly as `@.claude/skills/rest-api-architect/SKILL.md`
@@ -195,7 +195,7 @@ shapes the GraphQL layer of the case being designed (step 12b).
    `application-admission.yml.example`, in the GraphQL package's `admission` subpackage when the
    project has no REST adapter.
 
-9. **Fix the error map — § 7.** Each exception of `10-dominio.md` the operations can raise, where it
+9. **Fix the error map — § 7.** Each exception of `10-domain.md` the operations can raise, where it
    lands (`userErrors` or top-level), its classification and `errorCode`, per
    `@.claude/rules/api-graphql.md` § Errors. Form: `templates/GraphQlExceptionResolver.java.example`.
 
@@ -204,9 +204,9 @@ shapes the GraphQL layer of the case being designed (step 12b).
     requires. A field in clear for a narrower audience than the operation's needs a field-level
     check — a row for `security-architect` in § 9.
 
-11. **Requirements to other partials — § 9.** The batch ports to `10-dominio.md`; one statement per
-    batch port and the order's index to `20-persistencia.md`; one access row per root field and per
-    sensitive field to `32-seguranca.md`. Each a row, never an edit of another partial.
+11. **Requirements to other partials — § 9.** The batch ports to `10-domain.md`; one statement per
+    batch port and the order's index to `20-persistence.md`; one access row per root field and per
+    sensitive field to `32-security.md`. Each a row, never an edit of another partial.
 
 12. **Test cases, dependencies and configuration — § 10, § 11, § 12.** § 10 lists every case
     `@.claude/rules/api-graphql.md` § Tests names, by level — slice, HTTP through the real chain,
@@ -278,7 +278,7 @@ The test shapes are `test-architect`'s: `GraphQlControllerTest.java.example`,
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory), `10-dominio.md`
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory), `10-domain.md`
 (mandatory), `30-rest.md` (when present), the `31-graphql.md` of earlier cases, `pom.xml`, the schema
 files under `src/main/resources/graphql/`, the active blueprint's `packages.map`, the Initializr's
 metadata, `@.claude/rules/api-graphql.md`, `@.claude/rules/authorization.md`,
@@ -294,8 +294,8 @@ payloads and `userErrors`, connections and their ceilings, batch loads and the b
 for, the GraphQL error map, the personal-data decision per output field, the project's GraphQL setup,
 the GraphQL endpoint's quota and each root field's cap, and GraphQL dependencies and configuration.
 
-**Does not decide** the input ports, their read models or the exceptions (`10-dominio.md`), the
-trigger or the `Access` row (`00-caso-de-uso.md`), the REST operations (`30-rest.md`), the access
-rule of each field and the filter chain (`32-seguranca.md`), the batch statements and indexes
-(`20-persistencia.md`), or the tests (`40-testes.md`). Does not write Java, schema files, `pom.xml`
+**Does not decide** the input ports, their read models or the exceptions (`10-domain.md`), the
+trigger or the `Access` row (`00-use-case.md`), the REST operations (`30-rest.md`), the access
+rule of each field and the filter chain (`32-security.md`), the batch statements and indexes
+(`20-persistence.md`), or the tests (`40-tests.md`). Does not write Java, schema files, `pom.xml`
 or `application.yml` — the executor does, from this partial. Doesn't touch `.claude/rules/**`.

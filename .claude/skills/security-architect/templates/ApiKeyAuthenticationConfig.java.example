@@ -20,7 +20,7 @@
  * unauthenticated; the chain's deny-by-default answers 401.
  *
  * WHERE THE KEYS COME FROM: an outbound port, implemented by the persistence adapter —
- * `32-seguranca.md` § 7 asks `persistence-architect` for the store. Issuing and revoking keys is
+ * `32-security.md` § 7 asks `persistence-architect` for the store. Issuing and revoking keys is
  * a use case of its own.
  */
 

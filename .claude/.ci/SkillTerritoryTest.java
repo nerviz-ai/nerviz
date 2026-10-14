@@ -39,7 +39,7 @@ public class SkillTerritoryTest {
 
         failures += run(hook, "write", session,
                 "{\"session_id\":\"%s\",\"tool_input\":"
-                        + "{\"file_path\":\"docs/use-cases/UC-001-x/00-caso-de-uso.md\"}}",
+                        + "{\"file_path\":\"docs/use-cases/UC-001-x/00-use-case.md\"}}",
                 0, "inside the territory — allowed");
 
         // The regression this file exists for.
@@ -286,7 +286,7 @@ public class SkillTerritoryTest {
 
         failures += run(hook, "write", implement,
                 "{\"session_id\":\"%s\",\"tool_input\":"
-                        + "{\"file_path\":\"docs/use-cases/UC-002-y/00-caso-de-uso.md\"}}",
+                        + "{\"file_path\":\"docs/use-cases/UC-002-y/00-use-case.md\"}}",
                 2, "docs/use-cases/ is not the implement thread's — blocked");
 
         failures += run(hook, "write", implement,

@@ -1,7 +1,7 @@
 /*
  * EXEMPLAR — the DEFAULT engine under every `RestClient` and HTTP interface of the project: Apache
  * HttpClient 5 with a pool sized on purpose. One bean, project-wide, written by the first use case
- * whose `28-cliente-http.md` § 3 declares it NEW; REUSE afterwards, CHANGE when a new dependency
+ * whose `28-http-client.md` § 3 declares it NEW; REUSE afterwards, CHANGE when a new dependency
  * needs a bigger per-route limit.
  * Form reference for the executor agent; not a file to copy verbatim.
  * Rules: `.claude/rules/http-client.md` § Engine and pool, § Timeouts

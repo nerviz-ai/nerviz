@@ -1,18 +1,18 @@
 # UC-001 · Messaging
 
 > Partial of `docs/use-cases/UC-001-create-user/`. Owner: `messaging-architect`.
-> Inherits the event from `10-dominio.md` — doesn't redefine it.
+> Inherits the event from `10-domain.md` — doesn't redefine it.
 > Contains no code. Form references in
 > `.claude/skills/messaging-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/messaging.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Domain partial | `10-dominio.md` |
+| Mother spec | `00-use-case.md` |
+| Domain partial | `10-domain.md` |
 | Event | `OrderConfirmed` |
 | Broker | Kafka |
-| Divergences from `10-dominio.md` | none |
+| Divergences from `10-domain.md` | none |
 
 ## 1 · Topic and delivery
 
@@ -27,11 +27,11 @@
 
 ## 2 · Producer adapter
 
-Port declared in `10-dominio.md`: `PublishOrderConfirmedPort`.
+Port declared in `10-domain.md`: `PublishOrderConfirmedPort`.
 
 | Property | Value | Why |
 |---|---|---|
-| Publication form | **A — publish after commit** | `10-dominio.md` § Events marks the event `Durability: loss tolerable`: a missed reservation is caught by the next stock reconciliation, so no row survives what a commit already recorded. Form B's table, gateway, and relay would be cost with no failure to prevent — `@.claude/rules/messaging.md` § Publication timing |
+| Publication form | **A — publish after commit** | `10-domain.md` § Events marks the event `Durability: loss tolerable`: a missed reservation is caught by the next stock reconciliation, so no row survives what a commit already recorded. Form B's table, gateway, and relay would be cost with no failure to prevent — `@.claude/rules/messaging.md` § Publication timing |
 
 | Port | Signature | Adapter | Payload |
 |---|---|---|---|
@@ -216,4 +216,4 @@ consolidation collects this section into `UC-NNN-spec.md`.
 5. Properties in `application.yml`
 6. `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` bean, once per consumer group, next
    to the one `StringJacksonJsonMessageConverter` bean — skip both when the project already has them
-7. Integration test against a real broker (Testcontainers) — `40-testes.md`
+7. Integration test against a real broker (Testcontainers) — `40-tests.md`

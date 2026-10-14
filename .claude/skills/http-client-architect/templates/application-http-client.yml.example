@@ -1,4 +1,4 @@
-# EXEMPLAR — the outbound HTTP properties of `28-cliente-http.md` § 7, merged into the project's
+# EXEMPLAR — the outbound HTTP properties of `28-http-client.md` § 7, merged into the project's
 # `application.yml` (one `spring:` root, one `app:` root, one `resilience4j:` root — never a second
 # one). Keep only the blocks the partial's decisions use; the others are here to show the shape.
 #

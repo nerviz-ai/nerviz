@@ -1,6 +1,6 @@
 /*
  * EXEMPLAR — web-slice test of an endpoint behind the project's filter chain, for the cases
- * `32-seguranca.md` § 10 lists. Same level and suffix as `ControllerTest.java.example` (no `IT`:
+ * `32-security.md` § 10 lists. Same level and suffix as `ControllerTest.java.example` (no `IT`:
  * no database, no network). Shape owned here; the cases are `security-architect`'s.
  *
  * THE REAL CHAIN, NEVER FILTERS OFF: `@WebMvcTest` does not pick up `@Configuration` classes, so
@@ -24,7 +24,7 @@
  * actor.
  *
  * DEPENDENCIES: the security test starter (`spring-boot-starter-security-test` in Boot 4, which
- * brings the MockMvc integration `jwt()` and `@WithMockUser` need) — declared in `40-testes.md`
+ * brings the MockMvc integration `jwt()` and `@WithMockUser` need) — declared in `40-tests.md`
  * § 5, never inferred. Do not assert an exact authority set on an authenticated principal: the
  * framework adds a factor authority (`FACTOR_BEARER`, `FACTOR_PASSWORD`) of its own.
  */

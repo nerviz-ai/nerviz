@@ -83,7 +83,7 @@ already exists and serves.
 |---|---|---|---|
 | channel unavailable after retries exhausted | `NotificationDeliveryFailedException` | External | recorded as failed, event acknowledged (not re-queued indefinitely) |
 
-No REST surface — this use case has no HTTP error mapping; `40-testes.md` covers the
+No REST surface — this use case has no HTTP error mapping; `40-tests.md` covers the
 retry/audit/rate-limit behavior instead.
 
 ## Expected tests

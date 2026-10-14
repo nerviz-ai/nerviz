@@ -5,7 +5,7 @@ description: >
   who may call each endpoint or GraphQL field (public, authenticated, role, group, scope, or only the resource's
   owner), how the caller authenticates (OAuth2 resource server with JWT, opaque-token
   introspection, users owned by the application, API key), the project-wide filter chain, 401
-  and 403 bodies, CORS, Actuator and Swagger exposure — into the `32-seguranca.md` partial. Use
+  and 403 bodies, CORS, Actuator and Swagger exposure — into the `32-security.md` partial. Use
   when the request involves securing an endpoint, roles, groups, permissions, "only admins",
   "only the owner can", "the user can only see their own", JWT, Keycloak, Auth0, Cognito,
   OAuth2, API key, 401/403, CORS, or protecting Actuator. Servlet only — not WebFlux. Piece of
@@ -43,14 +43,14 @@ application (WebFlux, `SecurityWebFilterChain`) has another filter model and is 
 here — say so and stop when the project's web starter is the reactive one.
 
 **Entry rule: without `30-rest.md` or `31-graphql.md` there is nothing to protect.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md` and whichever inbound partials the
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md`, `10-domain.md` and whichever inbound partials the
 `Trigger` names — `30-rest.md`, `31-graphql.md`, or both — and treats them as a contract. Without the
 partial its trigger names it stops and tells the caller to run `/rest-api-architect` or
 `/graphql-api-architect` — access rules written before the operations exist protect a guess.
 
 It runs when at least one holds, and only then:
 
-| `00-caso-de-uso.md` § `Access` | Project on disk | What it designs |
+| `00-use-case.md` § `Access` | Project on disk | What it designs |
 |---|---|---|
 | A role, a group, a scope, or the owner | any | The rules of this case — plus the project-wide setup when none exists yet |
 | Authenticated | no `SecurityFilterChain` yet | The project-wide setup — the first secured case |
@@ -58,11 +58,11 @@ It runs when at least one holds, and only then:
 
 None holds — public in an unsecured project, or authenticated in a project whose chain already
 denies by default — stop and say which: there is nothing to add, and the consolidated spec
-records that the case is covered. An `00-caso-de-uso.md` with no `Access` row (written before
+records that the case is covered. An `00-use-case.md` with no `Access` row (written before
 the row existed) is not a reason to stop: ask the question in step 3, and record the answer as
 a divergence.
 
-**Exit rule: writes no code.** It emits `32-seguranca.md`. The configuration classes, the
+**Exit rule: writes no code.** It emits `32-security.md`. The configuration classes, the
 annotations on the controllers and the handlers come from the executor agent, which reads the
 partial and the exemplars in `templates/`.
 
@@ -106,7 +106,7 @@ Design record: `@.claude/decisions/0112-security-architect-skill.md` (this repos
 
 Two facts cross that line, and each has one owner:
 
-- **The actor in the command** is `10-dominio.md`'s. This skill names where the controller reads
+- **The actor in the command** is `10-domain.md`'s. This skill names where the controller reads
   it from (the principal's claim) in § 5; if the domain partial has no actor while `Access` is
   the owner, that is a requirement to report upstream, never a command field added here.
 - **The 401 and 403 rows** of the error map are this partial's § 6. `30-rest.md`'s error map
@@ -114,7 +114,7 @@ Two facts cross that line, and each has one owner:
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (its `Access` row and trigger), `10-dominio.md`
+1. **Read the specs.** `00-use-case.md` (its `Access` row and trigger), `10-domain.md`
    (command fields, the ownership invariant when there is one), `30-rest.md` (endpoints,
    `operationId`s, error map, the OpenAPI block) and `31-graphql.md` (root fields, § 8's sensitive
    fields, § 9's access rows) — each when the trigger names it. Without the one it names, stop. Apply
@@ -129,7 +129,7 @@ Two facts cross that line, and each has one owner:
    grep -rnE "SecurityFilterChain|@EnableMethodSecurity|oauth2ResourceServer|opaqueToken|httpBasic|UserDetailsService|ApiKey" --include='*.java' src/main 2>/dev/null
    grep -rnE "@PreAuthorize|@PostAuthorize|@Secured|@RolesAllowed" --include='*.java' src/main 2>/dev/null
    # Decisions earlier use cases recorded
-   find docs/use-cases -name '32-seguranca.md' 2>/dev/null
+   find docs/use-cases -name '32-security.md' 2>/dev/null
    grep -rnE "spring\.security|springdoc|management\.endpoints|app\.security" src/main/resources 2>/dev/null
    ```
 
@@ -139,7 +139,7 @@ Two facts cross that line, and each has one owner:
 
    | Fact | Inherited from | Asked only when |
    |---|---|---|
-   | Mechanism | The starters in the build, the chain on disk, or an earlier `32-seguranca.md` § 2 | None exists — first secured case of the project |
+   | Mechanism | The starters in the build, the chain on disk, or an earlier `32-security.md` § 2 | None exists — first secured case of the project |
    | Where roles and groups live in the token, prefixes, audience | The converter on disk or an earlier § 3 | Same |
    | Role and group catalog | Constants on disk (`Roles`, `Groups`) or earlier § 3 | A name `Access` uses is not in it yet — added, not asked |
    | OpenAPI / Swagger exposure, Actuator operator role, CORS origins, headers | The chain on disk or an earlier § 4 | Same as mechanism |
@@ -225,11 +225,11 @@ Two facts cross that line, and each has one owner:
    | Properties | `application-security.yml.example` |
 
 7. **Fix ownership — § 5.** When `Access` is the owner: the aggregate's owner field and the
-   invariant from `10-dominio.md` (cited, not redesigned), the outcome when the actor is not the
+   invariant from `10-domain.md` (cited, not redesigned), the outcome when the actor is not the
    owner — the not-found exception the domain already raises for an absent aggregate, so
    existence is not revealed (`@.claude/rules/authorization.md` § Failure responses) — and the
    override, when step 3 granted one, as the role the command carries. Missing in
-   `10-dominio.md` → a requirement to `domain-modeling` in § 11, and the report says the folder
+   `10-domain.md` → a requirement to `domain-modeling` in § 11, and the report says the folder
    is not consistent until that partial is updated.
 
 8. **Fix failure responses — § 6.** 401 and 403 per endpoint — and for a GraphQL row, 401 from the
@@ -271,7 +271,7 @@ Two facts cross that line, and each has one owner:
     `if` over authentication types the usual symptom. The answer goes into `## Design
     patterns` — `none` when nothing matches, and absence is not `none`.
 
-13. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/32-seguranca.md`, from
+13. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/32-security.md`, from
     `templates/security-spec.md.example`. Eleven numbered blocks plus `## Design patterns`,
     all mandatory, each `none` when empty — absence is not `none`.
 
@@ -294,7 +294,7 @@ Two facts cross that line, and each has one owner:
 | 8 · Declared dependencies | Coordinates, version empty when managed |
 | 9 · Configuration | Every property, its value per profile, the environment variable behind each secret |
 | 10 · Contract test cases | Per endpoint: anonymous, without authority, with authority; per ownership row, the other actor |
-| 11 · Deferred and requirements to other partials | Same shape as every partial's `Deferred`, plus each requirement upstream (an actor `10-dominio.md` lacks) |
+| 11 · Deferred and requirements to other partials | Same shape as every partial's `Deferred`, plus each requirement upstream (an actor `10-domain.md` lacks) |
 | Design patterns | Each pattern adopted — step 12b. `none` when none |
 
 Plus `## Impact on approved use cases` and `## Implementation order`, as in every partial.
@@ -309,23 +309,23 @@ links they follow are in `references/servlet-reference-links.md`.
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else; a `SecurityConfig` written under `src/` is refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md`, `10-dominio.md`, and `30-rest.md` or
-`31-graphql.md` (mandatory — stops without the one the trigger names), earlier cases' `32-seguranca.md`, `pom.xml` (or the Gradle
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md`, `10-domain.md`, and `30-rest.md` or
+`31-graphql.md` (mandatory — stops without the one the trigger names), earlier cases' `32-security.md`, `pom.xml` (or the Gradle
 build), `src/main/resources/application*.yml`, the security wiring on disk, the active
 blueprint's `packages.map`, `@.claude/rules/authorization.md`, `@.claude/rules/api-rest.md`,
 `@.claude/rules/api-graphql.md` (§ Access, when the trigger names GraphQL),
 `@.claude/rules/architecture-ddd.md`, `@.claude/rules/logging.md`,
 `@.claude/rules/observability.md`, and `references/`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/32-seguranca.md`. Nothing else.
+**Writes** `docs/use-cases/UC-NNN-<slug>/32-security.md`. Nothing else.
 
 **Owns** the project's authentication mechanism, the claims-to-authorities mapping and the
 role and group catalog, each endpoint's access rule and where it is enforced, the `permitAll`
 list and its reasons, the project-wide filter chain, the 401 and 403 responses, CORS, and the
 OpenAPI and Actuator exposure.
 
-**Does not decide** the use case boundary or its `Access` fact (`00-caso-de-uso.md`), the
-actor field, the owner field or the ownership invariant (`10-dominio.md`), endpoints and domain
-error rows (`30-rest.md`), tables and columns (`20-persistencia.md`), or the test shape
-(`40-testes.md`). Does not write Java, `pom.xml` or `application.yml` — the executor does, from
+**Does not decide** the use case boundary or its `Access` fact (`00-use-case.md`), the
+actor field, the owner field or the ownership invariant (`10-domain.md`), endpoints and domain
+error rows (`30-rest.md`), tables and columns (`20-persistence.md`), or the test shape
+(`40-tests.md`). Does not write Java, `pom.xml` or `application.yml` — the executor does, from
 this partial. Doesn't touch `.claude/rules/**`. Does not design reactive (WebFlux) security.

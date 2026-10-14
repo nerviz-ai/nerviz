@@ -32,7 +32,7 @@ Never chosen for new code, and why:
 
 | # | Question | If yes | Exemplar |
 |---|---|---|---|
-| 1 | Does the project already pin an engine (`spring.http.clients.imperative.factory`, an engine customizer on disk, an earlier `28-cliente-http.md` § 3)? | **Inherit it** | — |
+| 1 | Does the project already pin an engine (`spring.http.clients.imperative.factory`, an engine customizer on disk, an earlier `28-http-client.md` § 3)? | **Inherit it** | — |
 | 2 | Is there a recorded reason not to add a dependency (image size policy, a platform that forbids it)? | **JDK `HttpClient`** — and its keep-alive set by `jdk.httpclient.keepalive.timeout` at JVM start | `JdkHttpClientConfig.java.example` |
 | 3 | Does a provider require HTTP/2 — it refuses HTTP/1.1, or the case multiplexes many concurrent calls to one host over one connection? | **JDK `HttpClient`** — Apache HttpClient 5's classic API, the one `RestClient` drives, speaks HTTP/1.1 only | `JdkHttpClientConfig.java.example` |
 | 4 | Anything else | **Apache HttpClient 5** — pool per route, lease timeout, eviction, engine retry off | `ApacheHttpClient5Config.java.example` |

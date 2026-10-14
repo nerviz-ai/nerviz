@@ -5,7 +5,7 @@
 --
 -- ONE TABLE, SHARED BY THE WHOLE PROJECT — not per event type, not per aggregate, and
 -- never with a foreign key to one. Same nature as `idempotency_keys`: created the first
--- time a use case's `25-mensageria.md` fixes Form B (transactional outbox + relay), reused
+-- time a use case's `25-messaging.md` fixes Form B (transactional outbox + relay), reused
 -- by every event after that. `messaging-architect` states the requirement in that partial's
 -- § 2; this skill's step 4b models it, once.
 --

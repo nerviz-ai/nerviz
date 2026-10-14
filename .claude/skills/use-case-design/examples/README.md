@@ -1,6 +1,6 @@
 # Example use-case specs
 
-Thirteen complete `00-caso-de-uso.md` — the artifact this skill emits (§ Procedure step
+Thirteen complete `00-use-case.md` — the artifact this skill emits (§ Procedure step
 7, `templates/use-case-spec.md.example`) — written as fixtures to exercise the
 `/new-feature` pipeline and the `java-spring-boot-developer` executor end to end.
 

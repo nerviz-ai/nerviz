@@ -1,8 +1,8 @@
 # UC-007 · Persistence
 
 > Partial of `docs/use-cases/UC-007-place-order/`. Owner: `persistence-architect`.
-> Document family: the `Order` aggregate lives in MongoDB, per `00-caso-de-uso.md` § Storage.
-> Inherits the aggregate and ports from `10-dominio.md` — doesn't reinvent them.
+> Document family: the `Order` aggregate lives in MongoDB, per `00-use-case.md` § Storage.
+> Inherits the aggregate and ports from `10-domain.md` — doesn't reinvent them.
 > Contains no code but the schema declaration. Form references in
 > `.claude/skills/persistence-architect/templates/` (`Mongo*.java.example`).
 > Rules applied, never reproduced: `@.claude/rules/persistence.md` § Boundary, § Queries,
@@ -10,13 +10,13 @@
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Domain partial | `10-dominio.md` |
+| Mother spec | `00-use-case.md` |
+| Domain partial | `10-domain.md` |
 | Aggregate | `Order` |
-| Storage family | document (MongoDB) — `00-caso-de-uso.md` § Storage |
-| Audit level | none — `00-caso-de-uso.md` § Audit (absent row = `none`) |
+| Storage family | document (MongoDB) — `00-use-case.md` § Storage |
+| Audit level | none — `00-use-case.md` § Audit (absent row = `none`) |
 | Expected volume at 12 months | ~2,000,000 documents |
-| Divergences from `10-dominio.md` | none |
+| Divergences from `10-domain.md` | none |
 
 ## 1 · Schema
 
@@ -75,7 +75,7 @@ Aggregate `Order` → document `OrderDocument` in `adapter/out/persistence/order
 
 ## 3 · Adapter and ports
 
-| Port | Signature (from `10-dominio.md`) | Operation | Index serving it |
+| Port | Signature (from `10-domain.md`) | Operation | Index serving it |
 |---|---|---|---|
 | `CreateOrderPort` | `Order create(Order order)` | insert (`version` null) — `DuplicateKeyException` → `ORDER_ALREADY_EXISTS` | `_id_`, `ux_orders_order_number` |
 | `SaveOrderPort` | `Order save(Order order)` | load, mutate, save with the stored version — `OptimisticLockingFailureException` → `ORDER_CONCURRENT_UPDATE` | `_id_` |
@@ -117,7 +117,7 @@ Full shape in `templates/application-mongodb.yml.example`; client and transactio
 
 ## Audit
 
-none — `00-caso-de-uso.md`'s `Audit` row is `none` for this aggregate.
+none — `00-use-case.md`'s `Audit` row is `none` for this aggregate.
 
 The document family takes `stamps` only (`@.claude/rules/persistence.md` § Auditing · Document):
 a `DocumentAuditStamps stamps` field on the document, filled by `@EnableMongoAuditing` keyed on
@@ -126,7 +126,7 @@ its `@Version` — `AuditedEntity.java.example` (last block) and `AuditingConfig
 
 | Item | Decision |
 |---|---|
-| Level | `stamps` — `00-caso-de-uso.md` § Audit |
+| Level | `stamps` — `00-use-case.md` § Audit |
 | Actor | as the relational shape: the principal, `anonymous`, or `system:<name>` under `SystemActor` |
 
 ## Compose services
@@ -150,4 +150,4 @@ none
 3. `OrderDocument`, `OrderLineDocument`, `OrderStatus`, `OrderCollection`
 4. `OrderMongoRepository`, `OrderDocumentMapper`, `OrderMongoRepositoryAdapter` — after the ports exist
 5. Properties in `application.yml`
-6. Tests — `40-testes.md`: the unique index exists, a duplicate number is a conflict, an update raises the version, shape 1 is upcast, a failed transaction leaves nothing
+6. Tests — `40-tests.md`: the unique index exists, a duplicate number is a conflict, an update raises the version, shape 1 is upcast, a failed transaction leaves nothing

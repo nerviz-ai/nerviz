@@ -1,5 +1,5 @@
 /*
- * EXEMPLAR — output adapter: implements the ports declared in `10-dominio.md` and
+ * EXEMPLAR — output adapter: implements the ports declared in `10-domain.md` and
  * translates between aggregate and entity. Form reference; not a file to copy.
  * Rules: `.claude/rules/architecture-ddd.md` (adapter has no business logic;
  *                                             constructor injection, `private final`)

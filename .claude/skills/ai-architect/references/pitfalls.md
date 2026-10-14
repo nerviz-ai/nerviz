@@ -39,7 +39,7 @@ D = `https://docs.spring.io/spring-ai/reference/` · S = `https://github.com/spr
 | Pitfall | Prevented by | Source |
 |---|---|---|
 | `.entity(Class)` is best effort: the format instructions are a request, not a guarantee | `ai.md` § Output | D `api/structured-output-converter.html` |
-| `validateSchema()` re-asks the model with the validation error, up to 3 attempts by default — each one a billed call | `ai.md` § Output, `29-ia.md` § 6 | D `api/structured-output/validation.html` |
+| `validateSchema()` re-asks the model with the validation error, up to 3 attempts by default — each one a billed call | `ai.md` § Output, `29-ai.md` § 6 | D `api/structured-output/validation.html` |
 | Native structured output (`useProviderStructuredOutput()`, `AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT`) is ignored without error when the options do not implement `StructuredOutputChatOptions` | `ai.md` § Output (validation, not native, is the default) | D `api/structured-output/native.html` |
 | OpenAI rejects a top-level array in a schema | `ai.md` § Output | D `api/structured-output/native.html` |
 | An unparseable answer raises `tools.jackson.core.JacksonException` from the converter; an empty one returns `null` — neither is a provider failure | `ai.md` § Output, `StructuredOutputAdapter.java.example` | S `spring-ai-model/.../BeanOutputConverter.java` · `AiAdapterContractTest`, observed |

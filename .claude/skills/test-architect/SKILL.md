@@ -2,11 +2,11 @@
 name: test-architect
 description: >
   Designs the tests for an already-modeled use case — what test exists at what level,
-  what data, what error cases — into the `40-testes.md` partial, and installs the
+  what data, what error cases — into the `40-tests.md` partial, and installs the
   architecture tests in a project that doesn't yet have them. Use when the request
   involves writing or designing tests, coverage, ArchUnit, boundary tests, integration
   tests, or "this is missing tests". Piece of the `/new-feature` pipeline: in design
-  mode requires `10-dominio.md` in the given folder and stops without it.
+  mode requires `10-domain.md` in the given folder and stops without it.
 argument-hint: "[path to the UC-NNN-<slug> folder, or empty to install ArchUnit]"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, Agent
 model: opus
@@ -31,18 +31,18 @@ Two things, and the argument decides which:
 
 | Mode | When | Produces |
 |---|---|---|
-| **design** | the target above is a `UC-NNN-<slug>` folder | `docs/use-cases/UC-NNN-<slug>/40-testes.md` |
+| **design** | the target above is a `UC-NNN-<slug>` folder | `docs/use-cases/UC-NNN-<slug>/40-tests.md` |
 | **setup** | the target above is empty | ArchUnit installed in the project (version in the POM, `ArchitectureTest.java` with the translated packages) and the coverage gate wired up (JaCoCo's `check` execution) — done by delegating to the `archunit-installer` agent |
 
 They're not two disguised pieces: they share the rule, the vocabulary, and the
 exemplars. Setup mode runs **once per project**; design mode runs once per use case.
 
-**Design mode entry rule: without `10-dominio.md`, there's nothing to test.** Reads
-`00-caso-de-uso.md` and `10-dominio.md` and treats them as a contract. Without the
+**Design mode entry rule: without `10-domain.md`, there's nothing to test.** Reads
+`00-use-case.md` and `10-domain.md` and treats them as a contract. Without the
 domain partial, it stops and tells the caller to run `/domain-modeling` — designing
 tests before the invariants exist produces tests for the form, not the business.
 
-**Exit rule: writes no test code.** Design mode emits `40-testes.md`; the files in
+**Exit rule: writes no test code.** Design mode emits `40-tests.md`; the files in
 `src/test/**` come from the executor agent, which reads the partial and the exemplars
 in `templates/`. Inherits D15 — `@.claude/decisions/0003-skill-domain-modeling.md`.
 
@@ -87,11 +87,11 @@ Pinned to `opus`: the partial is what the executor implements verbatim. A pinned
 
 | Piece | Acts when | Produces |
 |---|---|---|
-| `use-case-design` | Before the domain exists | `00-caso-de-uso.md` |
-| `domain-modeling` | After the parent spec | `10-dominio.md` — invariants and exceptions |
-| `persistence-architect` | After the domain | `20-persistencia.md` — queries and indexes to check |
+| `use-case-design` | Before the domain exists | `00-use-case.md` |
+| `domain-modeling` | After the parent spec | `10-domain.md` — invariants and exceptions |
+| `persistence-architect` | After the domain | `20-persistence.md` — queries and indexes to check |
 | `rest-api-architect` | In parallel | `30-rest.md` — **the HTTP contract's cases** |
-| **this piece** | After all of them | `40-testes.md` |
+| **this piece** | After all of them | `40-tests.md` |
 
 The single point of contact, and it must be respected: the HTTP contract's cases —
 status, error code, body shape — belong to `30-rest.md` (D16). This partial **cites
@@ -100,15 +100,15 @@ what's left to cover outside of transport.
 
 ## Procedure — design mode
 
-1. **Read the partials.** `00-caso-de-uso.md` and `10-dominio.md` are mandatory;
-   without the second, stop. Read `20-persistencia.md`, `30-rest.md`, `31-graphql.md`, `28-cliente-http.md`,
-   `29-ia.md`, `23-busca.md`, `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
+1. **Read the partials.** `00-use-case.md` and `10-domain.md` are mandatory;
+   without the second, stop. Read `20-persistence.md`, `30-rest.md`, `31-graphql.md`, `28-http-client.md`,
+   `29-ai.md`, `23-search.md`, `35-jobs.md` and `22-cache.md` when they exist. Extract: each invariant and its matching exception, each port, each query,
    the HTTP contract's case table, and each job of `35-jobs.md` § 1 — a job is tested through
    the inbound port it calls, never by waiting for a scheduler, and the test profile's
    switches (`@.claude/rules/scheduling.md` § Triggers) get one context test proving no
    trigger runs under it.
 
-   **`32-seguranca.md`, when it exists, fixes cases this partial must test — all of § 10.**
+   **`32-security.md`, when it exists, fixes cases this partial must test — all of § 10.**
    Every protected endpoint is proven three ways (no credential, without the authority, with
    it) and every public one with no credential, through the real filter chain
    (`@.claude/rules/authorization.md` § Tests) — shape in `templates/SecuredControllerTest.java.example`,
@@ -132,7 +132,7 @@ what's left to cover outside of transport.
    error's classification, not only that there are errors. `spring-boot-starter-graphql-test` goes
    into § 5 when the build does not declare it — managed by the Boot parent.
 
-   **`28-cliente-http.md`, when it exists, fixes cases this partial must test — all of § 9.**
+   **`28-http-client.md`, when it exists, fixes cases this partial must test — all of § 9.**
    Every outbound adapter is tested through its port against a real socket, never
    `MockRestServiceServer` (`@.claude/rules/http-client.md` § Tests) — shape in
    `templates/HttpClientAdapterIT.java.example`: one `IT` class per remote system, the attempt
@@ -141,14 +141,14 @@ what's left to cover outside of transport.
    build does not declare it — not managed by the Boot parent, so its version is the `<release>`
    of its `maven-metadata.xml`, read at design time; never from memory.
 
-   **The document family, when `20-persistencia.md` stores an aggregate in MongoDB:** the
+   **The document family, when `20-persistence.md` stores an aggregate in MongoDB:** the
    persistence integration test runs against a single-node replica set
    (`templates/MongoPersistenceIT.java.example` — `.withReplicaSet()`, the image through
    `DockerImageName.parse`), imports the schema initializer, and proves that every unique index of
    § 1 exists, that a duplicate business key is a conflict, that an update raises the version, that
    an older shape is upcast, and that a failed transaction leaves nothing written.
 
-   **An audited aggregate, when `20-persistencia.md` § Audit is not `none`:** an integration test
+   **An audited aggregate, when `20-persistence.md` § Audit is not `none`:** an integration test
    against the real engine that **commits** — `@SpringBootTest` with `TransactionTemplate`, never a
    rolled-back `@DataJpaTest`, which sees no history and passes for the wrong reason
    (`templates/AuditHistoryIT.java.example`). Cases, each only where § Audit has the item: the
@@ -158,14 +158,14 @@ what's left to cover outside of transport.
    leaving no revision; the prune keeping the current version. The context starting is itself the
    check that the `_aud` migrations match the mapping (`ddl-auto: validate`).
 
-   **`23-busca.md`, when it exists, fixes cases this partial must test** — against the real engine
+   **`23-search.md`, when it exists, fixes cases this partial must test** — against the real engine
    (`templates/SearchIndexIT.java.example`, the same image and tag as the compose service): the
    alias exists at startup, each § 3 query finds by its match fields and pages by its cursor, a
    tombstone is never returned; for an indexer case, an older event is acknowledged as stale and a
    delete followed by a late write stays deleted; for a rebuild case, an event written during the
    rebuild survives the alias swap. Refresh only in the test's fixture.
 
-   **`29-ia.md`, when it exists, fixes cases this partial must test — all of § 8, at the level
+   **`29-ai.md`, when it exists, fixes cases this partial must test — all of § 8, at the level
    each row names.** No case calls a real model (`@.claude/rules/ai.md` § Tests). Answers: through
    the adapter with a scripted stub `ChatModel` that records every prompt — never a Mockito mock,
    which answers `null` to the schema-validation retry nobody stubbed — and the production
@@ -175,7 +175,7 @@ what's left to cover outside of transport.
    (`templates/AiProviderIT.java.example`). A store: against the real `pgvector/pgvector` engine
    through the project's migration, with a `@Primary` stub `EmbeddingModel` returning fixed vectors
    of the store's real dimension count (`templates/VectorStoreIT.java.example`). `wiremock-spring-boot`
-   goes into § 5 as for `28-cliente-http.md`; the pgvector image tag is pinned like every other
+   goes into § 5 as for `28-http-client.md`; the pgvector image tag is pinned like every other
    container's, and `ArchHook.java compose` compares it with the compose file's.
 
    **`22-cache.md`, when it exists, fixes cases this partial must test — three per cached read
@@ -234,7 +234,7 @@ what's left to cover outside of transport.
    in the distribution, not thoroughness.
 
    **A unique business key requires its own integration test.** For each `UNIQUE` that
-   `20-persistencia.md` declares over a business key, name a test in the adapter that
+   `20-persistence.md` declares over a business key, name a test in the adapter that
    saves the same value twice and **asserts the domain exception's `errorCode`, not
    just its type**. It's the only test that tells apart an adapter that translates the
    violation from one that lets it leak: without a flush inside the adapter the
@@ -274,10 +274,10 @@ what's left to cover outside of transport.
    module per engine or broker started. Check the build file first; a dependency already
    there is not repeated. The executor adds exactly these and nothing else.
 
-7. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/40-testes.md`, from
+7. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/40-tests.md`, from
    `templates/test-spec.md.example`. Five blocks, all mandatory.
 
-8. **Report and stop.** File path, invariants from `10-dominio.md` left without a
+8. **Report and stop.** File path, invariants from `10-domain.md` left without a
    named test (if any, it's a gap to close before implementing), and what's left for
    the folder to be complete. Don't invoke anyone.
 
@@ -320,7 +320,7 @@ question nobody asked.
 | Block | Fixes | Shape exemplar |
 |---|---|---|
 | Distribution by level | Each behavior, the level it's tested at, and why | `DomainTest.java.example` |
-| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-seguranca.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-cliente-http.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ia.md` exists) · `SearchIndexIT.java.example` (when `23-busca.md` exists) · `PersistenceIT.java.example`, or `MongoPersistenceIT.java.example` for an aggregate of the document family · `AuditHistoryIT.java.example` (when `20-persistencia.md` § Audit is not `none`) · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) · `AdmissionIT.java.example` (when `30-rest.md` § 8 or `31-graphql.md` § 6 states a limit) |
+| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-security.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-http-client.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ai.md` exists) · `SearchIndexIT.java.example` (when `23-search.md` exists) · `PersistenceIT.java.example`, or `MongoPersistenceIT.java.example` for an aggregate of the document family · `AuditHistoryIT.java.example` (when `20-persistence.md` § Audit is not `none`) · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) · `AdmissionIT.java.example` (when `30-rest.md` § 8 or `31-graphql.md` § 6 states a limit) |
 | Data and doubles | Factories, meaningful fields, substituted ports, clock | `TestFixtures.java.example` |
 | Coverage and gaps | Invariants with no test, and what's deliberately left uncovered | `@.claude/rules/testing.md` § Coverage |
 | Test dependencies | Test-scoped libraries the build doesn't declare yet — the executor's only license to add them | `@.claude/rules/testing.md` § Asynchronous effects |
@@ -348,19 +348,19 @@ bypasses as an executor.
 
 **Unfiltered Bash:** setup mode verifies with `./mvnw` goals that depend on the build shape, plus `curl` for the Testcontainers image tag and `java …ArchHook.java` — a fixed list trails the build. Writes stay under `guard`/`guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md`
-(mandatory in design mode — stops without the second), `20-persistencia.md`,
-`30-rest.md`, `31-graphql.md`, `32-seguranca.md`, `28-cliente-http.md`, `29-ia.md`, `23-busca.md`, `35-jobs.md` and `22-cache.md` when they
-exist, `@.claude/rules/search.md` § Tests when `23-busca.md` does, `@.claude/rules/ai.md` § Tests when `29-ia.md` does, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md`
+(mandatory in design mode — stops without the second), `20-persistence.md`,
+`30-rest.md`, `31-graphql.md`, `32-security.md`, `28-http-client.md`, `29-ai.md`, `23-search.md`, `35-jobs.md` and `22-cache.md` when they
+exist, `@.claude/rules/search.md` § Tests when `23-search.md` does, `@.claude/rules/ai.md` § Tests when `29-ai.md` does, `@.claude/rules/scheduling.md` when `35-jobs.md` does, `@.claude/rules/caching.md` § Tests
 when `22-cache.md` does, `@.claude/rules/authorization.md` § Tests
-when `32-seguranca.md` does, `@.claude/rules/http-client.md` § Tests when `28-cliente-http.md` does,
+when `32-security.md` does, `@.claude/rules/http-client.md` § Tests when `28-http-client.md` does,
 `@.claude/rules/testing.md`,
 `@.claude/rules/error-handling.md`, `@.claude/rules/naming.md`,
 `@.claude/rules/code-quality.md`, `@.claude/rules/architecture-ddd.md`,
 `@.claude/rules/logging.md` (masking test requirement for fields `30-rest.md` marked
 sensitive), and the active blueprint's `packages.map`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/40-testes.md` in design mode, directly. Setup
+**Writes** `docs/use-cases/UC-NNN-<slug>/40-tests.md` in design mode, directly. Setup
 mode writes nothing itself — it delegates to `archunit-installer`, which writes
 `<main-module>/src/test/java/**/ArchitectureTest.java`, the ArchUnit entries in the
 POM, the `jacoco-maven-plugin`'s `check` execution, and — the one exception, a single

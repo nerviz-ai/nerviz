@@ -5,11 +5,11 @@ description: >
   a rebuildable projection of a source of truth: the search document and its strict mapping, the
   versioned index behind an alias, the query and its cursor, the indexer that writes each change
   with the source's version, the rebuild with the alias swap, and the lag the projection consumes
-  of the case's freshness — into the `23-busca.md` partial. Use when the request involves full-text
+  of the case's freshness — into the `23-search.md` partial. Use when the request involves full-text
   or faceted search, Elasticsearch, OpenSearch, a search index, a mapping, an alias, a reindex, an
   indexer consuming change events, or a read that searches by words, filters and facets. Piece of
-  the `/new-feature` pipeline: requires `00-caso-de-uso.md` in the given folder with a `Search
-  index` row that names an engine, plus `10-dominio.md` — and stops without them.
+  the `/new-feature` pipeline: requires `00-use-case.md` in the given folder with a `Search
+  index` row that names an engine, plus `10-domain.md` — and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*), Bash(curl:*)
 model: opus
@@ -36,19 +36,19 @@ alias, the query a reader runs and how it pages, the indexer that keeps the copy
 source, the rebuild that recreates it from the source, and how old an answer can be because of it.
 
 **Entry rule: an engine named by the use case, and a domain to read.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and runs only when its `Search index` row names a
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and runs only when its `Search index` row names a
 projection and its engine (`Order → Elasticsearch projection`). The row reads `none`, or is missing,
 or names no engine → stop and say so, and tell the caller to run `/use-case-design`: the engine is a
-fact the request or the user states there, never chosen here. `10-dominio.md` is required too — the
+fact the request or the user states there, never chosen here. `10-domain.md` is required too — the
 query side implements a port of kind `search index` it declares, and the indexer consumes an event
 it names.
 
 **What this skill never weighs: whether the case should have a search index at all, or which engine.**
-Both are recorded in `00-caso-de-uso.md` before this skill runs. A projection that this design finds
+Both are recorded in `00-use-case.md` before this skill runs. A projection that this design finds
 unworkable — a field the source does not have, a lag larger than the freshness the case states — is
 a divergence to report, not a reason to pick another engine.
 
-**Exit rule: it doesn't write code.** It emits `23-busca.md`, with the mapping file inside it as a
+**Exit rule: it doesn't write code.** It emits `23-search.md`, with the mapping file inside it as a
 JSON block headed by its target path. The Java classes and the mapping file come from the executor,
 which reads the partial and the `templates/` exemplars.
 
@@ -96,7 +96,7 @@ index) are `persistence-architect`'s: they are the aggregate's storage, not a pr
 ## The three kinds of case
 
 A search projection is never designed by one use case. The boundary test of
-`use-case-design/references/scope-boundary.md` separates three, each with its own `23-busca.md`:
+`use-case-design/references/scope-boundary.md` separates three, each with its own `23-search.md`:
 
 | Case | `Trigger` | What this skill designs in it |
 |---|---|---|
@@ -109,8 +109,8 @@ inherits them; a case that changes a field's type writes the next version and re
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (`Trigger`, `Storage`, `Search index`, `Freshness`, the
-   Components table), `10-dominio.md` (the `search index` port, the read projection, the change
+1. **Read the specs.** `00-use-case.md` (`Trigger`, `Storage`, `Search index`, `Freshness`, the
+   Components table), `10-domain.md` (the `search index` port, the read projection, the change
    event). Apply the entry rule. Name which of the three kinds this case is.
 
 2. **Survey — every answer the project already gave is inherited, never re-asked.**
@@ -120,7 +120,7 @@ inherits them; a case that changes a field's type writes the next version and re
    find src/main/resources/search -name '*.json' 2>/dev/null | sort
    grep -rln "data.elasticsearch.annotations.Document" --include='*.java' src/main 2>/dev/null
    # Earlier search partials
-   find docs/use-cases -name '23-busca.md' 2>/dev/null
+   find docs/use-cases -name '23-search.md' 2>/dev/null
    # The search dependency already in the build
    grep -nE "spring-boot-starter-data-elasticsearch|spring-data-opensearch" pom.xml
    ```
@@ -130,9 +130,9 @@ inherits them; a case that changes a field's type writes the next version and re
 
    | Fact | Inherited from | Asked only when |
    |---|---|---|
-   | Engine of the project | `00-caso-de-uso.md` `Search index`; a search dependency in `pom.xml` | Never asked here. A case naming the other engine than the project's → divergence, stop |
-   | Projection document and mapping (§ 1, § 2) | The latest `search/<alias>-v<N>.json` and an earlier `23-busca.md` | First case of the projection |
-   | The source's version field and change event | `20-persistencia.md` and `10-dominio.md` of the source's cases | Neither declares one — § 8 requires it |
+   | Engine of the project | `00-use-case.md` `Search index`; a search dependency in `pom.xml` | Never asked here. A case naming the other engine than the project's → divergence, stop |
+   | Projection document and mapping (§ 1, § 2) | The latest `search/<alias>-v<N>.json` and an earlier `23-search.md` | First case of the projection |
+   | The source's version field and change event | `20-persistence.md` and `10-domain.md` of the source's cases | Neither declares one — § 8 requires it |
 
 3. **Interview — only what steps 1 and 2 did not settle.** `AskUserQuestion`, at most 4 questions per
    call and **never fewer than 2 real options** per question (`@CLAUDE.md` § Known pitfalls). Business
@@ -177,14 +177,14 @@ inherits them; a case that changes a field's type writes the next version and re
    over this port may use; `cache-architect` reads it.
 
 10. **Failure — § 7.** The unavailable family for an unreachable engine or a missing alias, and what
-    the read does then, from `00-caso-de-uso.md`'s errors — fail, or degrade as the case states.
+    the read does then, from `00-use-case.md`'s errors — fail, or degrade as the case states.
 
 11. **Requirements to other partials — § 8.** By what they are, the final form decided by each owner:
-    - `10-dominio.md` — the `search index` port and its read projection; the change event carrying the
+    - `10-domain.md` — the `search index` port and its read projection; the change event carrying the
       snapshot and the source version
-    - `20-persistencia.md` — the source's version field, and the event written to the outbox with the
+    - `20-persistence.md` — the source's version field, and the event written to the outbox with the
       state change
-    - `25-mensageria.md` — the indexer's consumer: one partition key per aggregate, at-least-once, the
+    - `25-messaging.md` — the indexer's consumer: one partition key per aggregate, at-least-once, the
       stale result acknowledged, a bounded retry and a dead letter
     - `35-jobs.md` — the rebuild job: on demand and after a version change, a bounded batch, never two
       at once
@@ -225,7 +225,7 @@ inherits them; a case that changes a field's type writes the next version and re
     `external` answer makes that address the host default of the engine's `uris` in § 10. Do **not**
     invoke `docker-architect` and do not edit `docker-compose.yml`.
 
-14. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/23-busca.md`, from
+14. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/23-search.md`, from
     `templates/search-spec.md.example`. Eleven numbered blocks plus `## Compose services` and
     `## Design patterns`, all mandatory, each `none` when there is nothing — absence is not `none`.
 
@@ -270,20 +270,20 @@ The exemplars in `templates/` are **reference for form**, not files to copy:
 **Class:** design — the territory is `skill_classes.design` in `@.claude/schemas/extensions.json`, and
 `ArchHook.java guard` enforces it. Writes inside the use case folder and nothing else.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory), `10-dominio.md` (mandatory),
-`20-persistencia.md` of the source's cases, earlier `23-busca.md`, `src/main/resources/search/`,
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory), `10-domain.md` (mandatory),
+`20-persistence.md` of the source's cases, earlier `23-search.md`, `src/main/resources/search/`,
 `pom.xml`, `docker-compose.yml`, the active blueprint's `packages.map`, `@.claude/rules/search.md`,
 `@.claude/rules/architecture-ddd.md`, `@.claude/rules/error-handling.md`, `@.claude/rules/secrets.md`,
 `@.claude/skills/docker-architect/references/compose-service-decision.md`, and this skill's
 `references/`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/23-busca.md`. Nothing else — the mapping file lives inside it.
+**Writes** `docs/use-cases/UC-NNN-<slug>/23-search.md`. Nothing else — the mapping file lives inside it.
 
 **Owns** the search document and its mapping, the index versions and the alias, the query shape and
 its cursor, the indexer's write rules, the rebuild's adapter and alias swap, the lag the projection
 consumes, the search dependency and its version, and the search compose row.
 
-**Does not decide** whether the case has a search index or which engine (`00-caso-de-uso.md`), the
-port or the event (`10-dominio.md`), the consumer (`25-mensageria.md`), when the rebuild runs
-(`35-jobs.md`), the source's schema (`20-persistencia.md`), or the tests (`40-testes.md`). Does not
+**Does not decide** whether the case has a search index or which engine (`00-use-case.md`), the
+port or the event (`10-domain.md`), the consumer (`25-messaging.md`), when the rebuild runs
+(`35-jobs.md`), the source's schema (`20-persistence.md`), or the tests (`40-tests.md`). Does not
 write Java, `pom.xml`, `application.yml` or `docker-compose.yml`. Doesn't touch `.claude/rules/**`.

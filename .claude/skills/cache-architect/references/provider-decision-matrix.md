@@ -23,7 +23,7 @@ Apply the rows in order; the first that matches decides.
 
 | # | When | Choose | Why |
 |---|---|---|---|
-| 1 | No freshness tolerance stated in `00-caso-de-uso.md` | nothing — stop | `@.claude/rules/caching.md` § Boundary: no tolerance, no cache |
+| 1 | No freshness tolerance stated in `00-use-case.md` | nothing — stop | `@.claude/rules/caching.md` § Boundary: no tolerance, no cache |
 | 2 | More than one instance, and a write must reach every instance before the tolerance runs out | Redis | A local cache evicts on the writing instance only |
 | 3 | More than one instance, and the tolerance covers a whole expiry of drift per instance — or nothing in this service writes the data (an external rate, a reference table loaded once) | Caffeine | No network hop, no server to run; each instance converges within the expiry |
 | 4 | One instance, by written deployment constraint | Caffeine | Same, with no drift at all |
@@ -33,7 +33,7 @@ Apply the rows in order; the first that matches decides.
 A tie goes to the provider already in `pom.xml`, then to Caffeine — no infrastructure.
 
 **Replicas** come from the same places `jobs-architect` reads them: an earlier `22-cache.md`
-§ 2, `35-jobs.md` § 3, `20-persistencia.md` § 1 `Claim strategy`. Asked only when none exists.
+§ 2, `35-jobs.md` § 3, `20-persistence.md` § 1 `Claim strategy`. Asked only when none exists.
 
 ## 3 · What each choice costs
 

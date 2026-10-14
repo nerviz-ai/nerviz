@@ -2,7 +2,7 @@
  * EXEMPLAR — the project-wide pieces every outbound HTTP adapter shares: the translation of a
  * transport or status failure into the integration families, the retry allowlist, and the
  * composition with a circuit breaker and a bulkhead. Written once, by the first use case whose
- * `28-cliente-http.md` § 6 declares them NEW; REUSE afterwards.
+ * `28-http-client.md` § 6 declares them NEW; REUSE afterwards.
  * Form reference for the executor agent; not a file to copy verbatim.
  * Rules: `.claude/rules/http-client.md` (Failures, Retry, Resilience)
  *        `.claude/rules/error-handling.md` § Integration families
@@ -219,7 +219,7 @@ import java.time.Duration;
 import java.util.function.Supplier;
 
 /**
- * Bulkhead, then circuit breaker, then translation — used only when `28-cliente-http.md` § 5
+ * Bulkhead, then circuit breaker, then translation — used only when `28-http-client.md` § 5
  * names a breaker or a bulkhead for this dependency. Without either, the adapter calls
  * {@link HttpFailureTranslator#call(Supplier)} directly. Both instances come from the
  * Resilience4j registries, configured by name in `application-http-client.yml`.

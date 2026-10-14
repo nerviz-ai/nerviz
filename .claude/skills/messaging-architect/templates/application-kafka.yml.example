@@ -1,7 +1,7 @@
 # EXEMPLAR — Kafka producer/consumer configuration.
 # Rules: `.claude/rules/messaging.md` § Delivery semantics, § Configuration
 # Mandatory values come from the rule; sizing (group id, offset reset) is this skill's
-# per-use-case call, fixed in the `25-mensageria.md` partial, not re-decided here.
+# per-use-case call, fixed in the `25-messaging.md` partial, not re-decided here.
 #
 # THE DEPENDENCY THAT MAKES THIS FILE DO ANYTHING. Every property below is read by Spring
 # Boot's Kafka autoconfiguration, and in Spring Boot 4 that autoconfiguration is NOT in

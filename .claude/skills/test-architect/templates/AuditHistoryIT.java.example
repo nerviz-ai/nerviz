@@ -1,7 +1,7 @@
 /*
  * EXEMPLAR — integration test of an audited aggregate: the stamps, the history read through its
  * port, the actor of each kind of caller, the bulk write that leaves no revision, and the prune.
- * Compilable shape; the aggregate's names come from `20-persistencia.md` § Audit.
+ * Compilable shape; the aggregate's names come from `20-persistence.md` § Audit.
  * Rules: `.claude/rules/persistence.md` (§ Auditing) · `.claude/rules/testing.md` (§ Database in
  *        integration tests)
  *
@@ -19,7 +19,7 @@
  * cleared after each test: a context left behind makes the next test's "no authentication" case
  * pass for the wrong reason.
  *
- * CASES, from `20-persistencia.md` § Audit — drop the ones the case does not have (no read port,
+ * CASES, from `20-persistence.md` § Audit — drop the ones the case does not have (no read port,
  * no bulk write, retention "forever"):
  *   - create, update, delete → three changes, newest first, each with its actor and kind;
  *   - the stamps on the live row, created kept on update;

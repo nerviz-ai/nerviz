@@ -42,7 +42,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Expiry and size per cache, from `app.cache.caches.<name>`. The expiry is never longer than
- * the freshness tolerance `00-caso-de-uso.md` states for the read the cache serves — the
+ * the freshness tolerance `00-use-case.md` states for the read the cache serves — the
  * partial records both numbers side by side. {@code maximumSize} is read by the local
  * provider only; {@code formatVersion} by the distributed one only.
  */

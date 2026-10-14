@@ -2,10 +2,10 @@
 name: domain-modeling
 description: >
   Details the domain and application layer of an already-designed use case — aggregate,
-  value objects, invariants, ports, and events — into the `10-dominio.md` partial. Use
+  value objects, invariants, ports, and events — into the `10-domain.md` partial. Use
   when the request involves modeling the domain, defining an aggregate or value object,
   designing a use case's ports, or detailing a spec already created by `use-case-design`.
-  Piece of the `/new-feature` pipeline: requires `00-caso-de-uso.md` in the given folder
+  Piece of the `/new-feature` pipeline: requires `00-use-case.md` in the given folder
   and stops without it.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*)
@@ -31,11 +31,11 @@ Details the **interior** of a use case: what the mother spec named, this skill g
 shape to. Signatures, types, invariants, and where each lives.
 
 **Entry rule: without a mother spec, there's nothing to detail.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and treats it as a contract. Without
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and treats it as a contract. Without
 that file, it stops and tells you to run `/use-case-design` — modeling a domain from a
 loose request reinvents the boundary the mother spec exists to fix.
 
-**Exit rule: it doesn't write code.** It emits `10-dominio.md`. The Java classes come
+**Exit rule: it doesn't write code.** It emits `10-domain.md`. The Java classes come
 from the executor agent, which reads the partial and the `templates/` exemplars.
 
 ## How it's invoked
@@ -65,8 +65,8 @@ division is by **moment**, not by folder:
 
 | Piece | When it acts | What it produces |
 |---|---|---|
-| `use-case-design` | Before the domain exists | Canonical names and boundary — `00-caso-de-uso.md` |
-| **this skill** | After the mother spec, before code exists | Signatures and invariants — `10-dominio.md` |
+| `use-case-design` | Before the domain exists | Canonical names and boundary — `00-use-case.md` |
+| **this skill** | After the mother spec, before code exists | Signatures and invariants — `10-domain.md` |
 | `gof-design-patterns` | Standalone, outside a feature run, on code that already hurts | Refactor of real code (`file:line` that hurts) |
 
 The pattern decision for the case being designed is this skill's, for the domain and
@@ -77,7 +77,7 @@ mother spec, it also isn't this skill.
 
 ## Procedure
 
-1. **Read the mother spec.** Without `00-caso-de-uso.md` in the given folder, stop and
+1. **Read the mother spec.** Without `00-use-case.md` in the given folder, stop and
    report. Extract: canonical names, trigger, effects, listed invariants, error table,
    and the component-table rows marked `Detailed by: domain-modeling`.
 2. **Read the existing code.** `Glob`/`Grep` the project for the canonical names. The
@@ -154,7 +154,7 @@ mother spec, it also isn't this skill.
    forbids is the third option: a value with no method and no named case, where the gap is
    discovered later by whoever adds a precondition on it.
 4c. **`Access` = the owner makes ownership an invariant of this case.** When
-   `00-caso-de-uso.md`'s `Access` row says only the owner may execute it, the check is a
+   `00-use-case.md`'s `Access` row says only the owner may execute it, the check is a
    business rule, never a request rule (`@.claude/rules/authorization.md` § Boundary), and this
    partial carries its three pieces:
 
@@ -174,7 +174,7 @@ mother spec, it also isn't this skill.
    outbound port takes it as a parameter — the filter is in the query, not applied after
    loading everyone's rows.
 
-4d. **An external call becomes a port of kind `external HTTP`.** When `00-caso-de-uso.md`'s
+4d. **An external call becomes a port of kind `external HTTP`.** When `00-use-case.md`'s
    `External calls` row names a system this case calls over HTTP, the partial carries:
 
    - **the outbound port**, kind `external HTTP`, in domain types only — named for the
@@ -215,7 +215,7 @@ mother spec, it also isn't this skill.
    Model, prompt, store and timeouts are not this partial's: `ai-architect` reads this port.
 
 4f. **A search over words, filters or facets becomes a port of kind `search index`.** Only when
-   `00-caso-de-uso.md`'s `Search index` row names a projection — never inferred here. The partial
+   `00-use-case.md`'s `Search index` row names a projection — never inferred here. The partial
    carries:
 
    - **for the read case, the outbound port** named for the capability (`OrderSearch`), taking the
@@ -233,7 +233,7 @@ mother spec, it also isn't this skill.
    (`@.claude/rules/search.md` § Boundary).
 
 4g. **Reading an aggregate's history is a port of kind `persistence`.** Only when the case shows
-   earlier versions and `00-caso-de-uso.md`'s `Audit` row says `history` for that aggregate —
+   earlier versions and `00-use-case.md`'s `Audit` row says `history` for that aggregate —
    never inferred here, and nothing in this partial for a case that only writes an audited
    aggregate: the stamps and the history are written by the adapter, with no port. The partial
    carries the outbound port named for the capability (`LoadOrderHistoryPort`), taking the
@@ -270,7 +270,7 @@ mother spec, it also isn't this skill.
    when a symptom earns a design pattern.
 
    **A second call site found in a later use case** promotes the exception here, in this
-   case's `10-dominio.md`, under `## Impact on approved use cases` — never by editing the
+   case's `10-domain.md`, under `## Impact on approved use cases` — never by editing the
    earlier case's partial or spec, which are approved and immutable.
 5b. **Decide the design patterns of the domain and application.** Run
    `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use over what this case adds —
@@ -280,15 +280,15 @@ mother spec, it also isn't this skill.
    class it creates into § 5 Components to create — `none` when nothing matches, and absence
    is not `none`.
 6. **Generate** from `templates/domain-spec.md.example` to
-   `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. The diagrams of block 1 — the `classDiagram`, and the
+   `docs/use-cases/UC-NNN-<slug>/10-domain.md`. The diagrams of block 1 — the `classDiagram`, and the
    `stateDiagram-v2` whenever *State reachability* is not `none` — are drawn last, from the
    tables already written, per `@.claude/rules/spec-diagrams.md`. Syntax and the renderer's
    traps: `references/mermaid-class-and-state.md`; a shape the base template does not show (a
    child entity with a multiplicity, a sealed type, final states):
    `templates/domain-diagram-variants.md.example`.
 7. **Report and stop.** File path, divergences found against the mother spec, and what's
-   missing for the folder to be complete (`20-persistencia.md`, `30-rest.md`,
-   `40-testes.md`). Don't invoke anyone.
+   missing for the folder to be complete (`20-persistence.md`, `30-rest.md`,
+   `40-tests.md`). Don't invoke anyone.
 
 ## What the partial contains
 
@@ -319,7 +319,7 @@ Record: `@.claude/decisions/0011-bootstrap-without-business-code.md`.
 `@.claude/schemas/extensions.json` and `ArchHook.java guard` enforces it. Writes inside the
 use case folder and nothing else; a write anywhere outside is refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory — stops without
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory — stops without
 it), `@.claude/rules/architecture-ddd.md` (Domain and Application sections),
 `@.claude/rules/value-objects.md` (criterion for which field becomes a value object),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
@@ -328,12 +328,12 @@ masking candidates), `@.claude/rules/spec-diagrams.md` (the diagrams of block 1)
 `references/mermaid-class-and-state.md`, `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
 owner — step 4c), and the active blueprint's `packages.map`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/10-dominio.md`. Only that file.
+**Writes** `docs/use-cases/UC-NNN-<slug>/10-domain.md`. Only that file.
 
 **Does not write Java code.** The classes in `domain/**` and `application/**` come from
 the executor agent — the exception family included: this skill owns the **shape** (the
 `templates/` exemplars) and the **state** (NEW or REUSE, in the partial), not the
-writing. Does not touch `00-caso-de-uso.md` (`use-case-design`), the other partials, or
+writing. Does not touch `00-use-case.md` (`use-case-design`), the other partials, or
 `.claude/rules/**`.
 
 **Does not collide with `gof-design-patterns`.** That skill owns the catalog and, invoked
@@ -342,4 +342,4 @@ domain of the case being designed, and writes the decision into the partial — 
 Different artifacts, one owner of each.
 
 **Does not** decide persistence, mapping, or transport technology —
-`20-persistencia.md` and `30-rest.md` have their own owners.
+`20-persistence.md` and `30-rest.md` have their own owners.

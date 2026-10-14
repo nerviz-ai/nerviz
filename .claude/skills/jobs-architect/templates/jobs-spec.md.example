@@ -1,14 +1,14 @@
 # UC-003 · Jobs
 
 > Partial of `docs/use-cases/UC-003-initiate-kyc-verification/`. Owner: `jobs-architect`.
-> Inherits the relay's form and guarantee from `25-mensageria.md` — doesn't redecide them.
+> Inherits the relay's form and guarantee from `25-messaging.md` — doesn't redecide them.
 > Contains no code. Form references in `.claude/skills/jobs-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/scheduling.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Why this partial exists | `25-mensageria.md` § 2 chose **Form B** — the relay and the prune need a schedule |
+| Mother spec | `00-use-case.md` |
+| Why this partial exists | `25-messaging.md` § 2 chose **Form B** — the relay and the prune need a schedule |
 | Scheduling package | `infrastructure.scheduling` (blueprint `packages.map`) |
 | Divergences from other partials | none |
 
@@ -36,7 +36,7 @@ pass, nothing to restart from. **JobRunr** — no operator-UI requirement; LGPL 
 
 | Fact | Value | Source |
 |---|---|---|
-| Replicas in production | 2 | asked in this run — no earlier `35-jobs.md`, no `Claim strategy` in any `20-persistencia.md` |
+| Replicas in production | 2 | asked in this run — no earlier `35-jobs.md`, no `Claim strategy` in any `20-persistence.md` |
 
 | Job | Mechanism | Bounds |
 |---|---|---|
@@ -47,7 +47,7 @@ pass, nothing to restart from. **JobRunr** — no operator-UI requirement; LGPL 
 
 | Guarantee | Value |
 |---|---|
-| Body idempotent | Relay: a row sent and not marked is re-sent; the consumer's dedupe absorbs it (`25-mensageria.md` § 3). Prune: deleting already-deleted rows deletes nothing |
+| Body idempotent | Relay: a row sent and not marked is re-sent; the consumer's dedupe absorbs it (`25-messaging.md` § 3). Prune: deleting already-deleted rows deletes nothing |
 | Per-pass bound | Relay: batch size from persistence. Prune: 1 000 rows per statement, loop until a statement deletes fewer |
 | One failing item | Relay: marked failed, counted, the pass continues. Prune: a failing statement ends the pass; the next night retries |
 | Missed run | Neither needs catch-up: the relay's next pass reads every pending row, the prune's next run reads every expired row |
@@ -58,7 +58,7 @@ pass, nothing to restart from. **JobRunr** — no operator-UI requirement; LGPL 
 |---|---|---|
 | `jobs.execution` (timer, tags `job`, `outcome`) | both | failure rate above zero for 15 min |
 | `jobs.last_success.seconds` (gauge, tag `job`) | both | relay: older than 5 min · prune: older than 26 h |
-| `outbox.events.dead_lettered`, `outbox.pending.age.seconds` | relay | names and alarms are `25-mensageria.md`'s; `OutboxRelayJob` records them from each pass's outcome |
+| `outbox.events.dead_lettered`, `outbox.pending.age.seconds` | relay | names and alarms are `25-messaging.md`'s; `OutboxRelayJob` records them from each pass's outcome |
 
 ## 6 · Schema requirements
 
@@ -84,11 +84,11 @@ never DDL.
 |---|---|---|
 | `app.outbox.enabled` | `true`; `false` in `application-test.yml` | this partial |
 | `app.outbox.poll-interval` | `PT1S` | this partial |
-| `app.outbox.batch-size`, `app.outbox.max-attempts` | — | `20-persistencia.md` |
+| `app.outbox.batch-size`, `app.outbox.max-attempts` | — | `20-persistence.md` |
 | `app.outbox.prune.enabled` | `true`; `false` in `application-test.yml` | this partial |
 | `app.outbox.prune.cron` | `0 30 3 * * *` | this partial |
 | `app.outbox.prune.batch-size` | `1000` | this partial |
-| `app.outbox.prune-after` | — | `20-persistencia.md` § 1 (retention) — ships in this change, because its reader does |
+| `app.outbox.prune-after` | — | `20-persistence.md` § 1 (retention) — ships in this change, because its reader does |
 | `spring.task.scheduling.pool.size` | `2` | this partial — two jobs; a pool of one would make the prune wait for the relay |
 
 Full shape in `templates/application-jobs.yml.example`.
@@ -120,4 +120,4 @@ none
 3. `OutboxRelayJob` — after `RelayOutboxEvents` exists (messaging block)
 4. `OutboxPruneJob` — after `PruneOutboxEvents` and the gateway's bounded delete exist
 5. Properties in `application.yml`, and the two `enabled: false` lines in `application-test.yml`
-6. Tests — `40-testes.md`
+6. Tests — `40-tests.md`

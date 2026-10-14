@@ -40,31 +40,31 @@ use case number or slug — `use-case-design` does.
 - `docs/use-cases/UC-NNN-<slug>/*.md` — the partials of the case being run
 
 **Writes (indirectly via layer skills):**
-- `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `docs/use-cases/BACKLOG.md` — via
+- `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `docs/use-cases/BACKLOG.md` — via
   `use-case-design`
-- `docs/use-cases/UC-NNN-<slug>/10-dominio.md` — via `domain-modeling`
-- `docs/use-cases/UC-NNN-<slug>/20-persistencia.md` — via `persistence-architect`,
+- `docs/use-cases/UC-NNN-<slug>/10-domain.md` — via `domain-modeling`
+- `docs/use-cases/UC-NNN-<slug>/20-persistence.md` — via `persistence-architect`,
   migration SQL included as a code block, never as a file under `src/`
-- `docs/use-cases/UC-NNN-<slug>/25-mensageria.md` — via `messaging-architect`, only if
-  `10-dominio.md`'s Events block names external (Kafka) delivery
+- `docs/use-cases/UC-NNN-<slug>/25-messaging.md` — via `messaging-architect`, only if
+  `10-domain.md`'s Events block names external (Kafka) delivery
 - `docs/use-cases/UC-NNN-<slug>/35-jobs.md` — via `jobs-architect`, only if
-  `25-mensageria.md` chose Form B or `00-caso-de-uso.md`'s trigger is a schedule
-- `docs/use-cases/UC-NNN-<slug>/30-rest.md` — via `rest-api-architect`, unless `00-caso-de-uso.md`'s
+  `25-messaging.md` chose Form B or `00-use-case.md`'s trigger is a schedule
+- `docs/use-cases/UC-NNN-<slug>/30-rest.md` — via `rest-api-architect`, unless `00-use-case.md`'s
   `Trigger` names `inbound GraphQL adapter` alone (step 3)
 - `docs/use-cases/UC-NNN-<slug>/31-graphql.md` — via `graphql-api-architect`, only if the `Trigger`
   names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` (step 3g)
-- `docs/use-cases/UC-NNN-<slug>/32-seguranca.md` — via `security-architect`, only if
-  `00-caso-de-uso.md`'s `Access` asks for something the project's filter chain does not
+- `docs/use-cases/UC-NNN-<slug>/32-security.md` — via `security-architect`, only if
+  `00-use-case.md`'s `Access` asks for something the project's filter chain does not
   already give (step 3b)
-- `docs/use-cases/UC-NNN-<slug>/28-cliente-http.md` — via `http-client-architect`, only if
-  `10-dominio.md` § Ports declares a port of kind `external HTTP` (step 3c)
-- `docs/use-cases/UC-NNN-<slug>/29-ia.md` — via `ai-architect`, only if `10-dominio.md` § Ports
+- `docs/use-cases/UC-NNN-<slug>/28-http-client.md` — via `http-client-architect`, only if
+  `10-domain.md` § Ports declares a port of kind `external HTTP` (step 3c)
+- `docs/use-cases/UC-NNN-<slug>/29-ai.md` — via `ai-architect`, only if `10-domain.md` § Ports
   declares a port of kind `LLM` or `vector store` (step 3d)
-- `docs/use-cases/UC-NNN-<slug>/23-busca.md` — via `search-architect`, only if
-  `00-caso-de-uso.md`'s `Search index` row names a projection (step 3e)
+- `docs/use-cases/UC-NNN-<slug>/23-search.md` — via `search-architect`, only if
+  `00-use-case.md`'s `Search index` row names a projection (step 3e)
 - `docs/use-cases/UC-NNN-<slug>/22-cache.md` — via `cache-architect`, only if
-  `00-caso-de-uso.md`'s `Freshness` row states a tolerance (step 5b)
-- `docs/use-cases/UC-NNN-<slug>/40-testes.md` — via `test-architect`
+  `00-use-case.md`'s `Freshness` row states a tolerance (step 5b)
+- `docs/use-cases/UC-NNN-<slug>/40-tests.md` — via `test-architect`
 
 **Writes outside `docs/`: none.** A run is docs-only, and that is enforced, not promised:
 `ArchHook.java guard` refuses a `Skill` call to a `build`-class skill — `docker-architect`
@@ -92,39 +92,39 @@ Git happens only through `git-publish`, behind its two confirmations, at the end
 below. No end of this flow is left without an explicit git instruction.
 
 **Integrates with (sequence ordered by depends-on):**
-1. `use-case-design` — invoked for a new case; skipped on resume when `00-caso-de-uso.md` exists
-2. `domain-modeling` — invoked if `10-dominio.md` is missing (depends on 1)
+1. `use-case-design` — invoked for a new case; skipped on resume when `00-use-case.md` exists
+2. `domain-modeling` — invoked if `10-domain.md` is missing (depends on 1)
 3. `rest-api-architect` — invoked if `30-rest.md` is missing (depends on 2). Skipped when
-   `00-caso-de-uso.md`'s `Trigger` names `inbound GraphQL adapter` alone
+   `00-use-case.md`'s `Trigger` names `inbound GraphQL adapter` alone
 3g. `graphql-api-architect` — invoked if the `Trigger` names `inbound GraphQL adapter` or
    `inbound REST and GraphQL adapters` and `31-graphql.md` is missing (depends on 1, 2; reads 3 when
    present). Skipped when the case has no GraphQL trigger
-3b. `security-architect` — invoked per step 3b's table when `32-seguranca.md` is missing
+3b. `security-architect` — invoked per step 3b's table when `32-security.md` is missing
    (depends on 1, 2, 3). Skipped when `Access` is public in a project with no filter chain, or
    authenticated in one whose chain already denies by default
-3c. `http-client-architect` — invoked if `10-dominio.md` § Ports declares a port of kind
-   `external HTTP` and `28-cliente-http.md` is missing (depends on 1, 2; reads 3 and 3b when
+3c. `http-client-architect` — invoked if `10-domain.md` § Ports declares a port of kind
+   `external HTTP` and `28-http-client.md` is missing (depends on 1, 2; reads 3 and 3b when
    present). Skipped when the case calls no other system over HTTP
-3d. `ai-architect` — invoked if `10-dominio.md` § Ports declares a port of kind `LLM` or
-   `vector store` and `29-ia.md` is missing (depends on 1, 2; reads 3, 3b and 3c when present).
+3d. `ai-architect` — invoked if `10-domain.md` § Ports declares a port of kind `LLM` or
+   `vector store` and `29-ai.md` is missing (depends on 1, 2; reads 3, 3b and 3c when present).
    Skipped when the case asks no model and searches no store
-3e. `search-architect` — invoked if `00-caso-de-uso.md`'s `Search index` row names a projection and
-   `23-busca.md` is missing (depends on 1, 2). Skipped when the row reads `none`, or the case
+3e. `search-architect` — invoked if `00-use-case.md`'s `Search index` row names a projection and
+   `23-search.md` is missing (depends on 1, 2). Skipped when the row reads `none`, or the case
    predates it
-4. `messaging-architect` — invoked if `10-dominio.md`'s Events block names external
-   (Kafka) delivery and `25-mensageria.md` is missing (depends on 2). Skipped entirely
+4. `messaging-architect` — invoked if `10-domain.md`'s Events block names external
+   (Kafka) delivery and `25-messaging.md` is missing (depends on 2). Skipped entirely
    when the event, if any, stays in-process — not every use case needs it
-5. `jobs-architect` — invoked if `25-mensageria.md` chose Form B, the trigger is a
-   schedule, `28-cliente-http.md` § 10 asks for a reconciliation pass, or `29-ia.md` § 9 asks
-   for an ingestion or re-index job, or `23-busca.md` § 8 asks for a rebuild job, or the `Audit`
+5. `jobs-architect` — invoked if `25-messaging.md` chose Form B, the trigger is a
+   schedule, `28-http-client.md` § 10 asks for a reconciliation pass, or `29-ai.md` § 9 asks
+   for an ingestion or re-index job, or `23-search.md` § 8 asks for a rebuild job, or the `Audit`
    row names `history` with no history prune job in the project yet, and `35-jobs.md`
    is missing (depends on 1, 3c, 3d, 3e, 4).
    Skipped otherwise
-6. `persistence-architect` — invoked if `20-persistencia.md` is missing (depends on 2, 3, 3b, 3c, 3d, 3e, 4, 5)
-6b. `cache-architect` — invoked if `00-caso-de-uso.md`'s `Freshness` row states a tolerance and
+6. `persistence-architect` — invoked if `20-persistence.md` is missing (depends on 2, 3, 3b, 3c, 3d, 3e, 4, 5)
+6b. `cache-architect` — invoked if `00-use-case.md`'s `Freshness` row states a tolerance and
    `22-cache.md` is missing (depends on 1, 2, 6; reads 3c, 3e and 5 when present). Skipped when the
    row reads `none` — every case that only writes, and every read that must see the last write
-7. `test-architect` — invoked if `40-testes.md` is missing (depends on 2,3,3b,3c,3d,3e,4,5,6,6b)
+7. `test-architect` — invoked if `40-tests.md` is missing (depends on 2,3,3b,3c,3d,3e,4,5,6,6b)
 
 **Why REST and messaging both run before persistence.** The order follows who generates
 requirements for whom. REST generates schema requirements — `Idempotency-Key` on a
@@ -134,11 +134,11 @@ persistence ran twice.
 
 Messaging is the same shape and was learned the same way: a transactional outbox needs the
 shared `outbox_events` table, a consumer needs the shared dedupe table, and neither is
-visible from the domain partial alone. With messaging after persistence, `20-persistencia.md` was
+visible from the domain partial alone. With messaging after persistence, `20-persistence.md` was
 written without the relay's retry columns and its partial index, and persistence ran twice
 again. Messaging depends only on step 2, so running it before persistence costs nothing —
 and persistence then reads both requirement lists, `30-rest.md` block 4 and
-`25-mensageria.md` § 6, in its first pass.
+`25-messaging.md` § 6, in its first pass.
 
 Jobs sits between them for the same reason. The scheduling technology it picks brings tables
 (`shedlock`, `QRTZ_*`, `BATCH_*`), the relay's claim depends on how many instances run the
@@ -157,7 +157,7 @@ root field and per sensitive field for security — none visible before `31-grap
 Security runs right after REST and GraphQL, for the same two reasons in opposite directions. It needs the
 endpoints `30-rest.md` fixed — access rules written before them protect a guess — and it can
 generate schema requirements: users owned by the application need a credentials store, an
-API key needs a key store, both invisible to persistence until `32-seguranca.md` § 7 exists.
+API key needs a key store, both invisible to persistence until `32-security.md` § 7 exists.
 Ownership is not one of them: it is an invariant `domain-modeling` already modeled from the
 `Access` row (`@.claude/decisions/0112-security-architect-skill.md`).
 
@@ -165,27 +165,27 @@ The HTTP client runs right after security and before messaging, for the same rea
 direction: it generates requirements for the steps after it. A non-idempotent write to another
 system needs its idempotency key persisted with the operation, and an unknown outcome needs a
 reconciliation pass — a column persistence cannot see and a job scheduling cannot see until
-`28-cliente-http.md` § 10 exists. It reads the trigger's deadline from `30-rest.md` and whether a
-filter chain exists from `32-seguranca.md`, so it waits for both
+`28-http-client.md` § 10 exists. It reads the trigger's deadline from `30-rest.md` and whether a
+filter chain exists from `32-security.md`, so it waits for both
 (`@.claude/decisions/0121-http-client-architect-skill.md`).
 
 The AI ports run right after the HTTP client and before messaging, for the same reason: a vector
 store needs its table and extensions created by a migration, and the records it mirrors need a
 re-index on every change and a first fill — a schema fact for persistence and a trigger for
-messaging or jobs, invisible to all three until `29-ia.md` § 9 exists. It reads the trigger's
+messaging or jobs, invisible to all three until `29-ai.md` § 9 exists. It reads the trigger's
 deadline from `30-rest.md`, so it waits for REST, and it needs nothing messaging, jobs or
 persistence decide (`@.claude/decisions/0145-ai-architect-skill.md`).
 
 The search projection runs right after the AI ports, before messaging, for the same reason: an
 index is fed by the source's change events, rebuilt by a job and keyed on the source's version —
 a consumer for messaging, a rebuild for jobs, a version field and an outbox event for persistence,
-invisible to all three until `23-busca.md` § 8 exists. Whether the case has a search index, and on
-which engine, is `00-caso-de-uso.md`'s row; this orchestrator never decides it
+invisible to all three until `23-search.md` § 8 exists. Whether the case has a search index, and on
+which engine, is `00-use-case.md`'s row; this orchestrator never decides it
 (`@.claude/decisions/0147-document-storage-and-search-architect.md`).
 
 The cache runs after persistence, the one step here that generates no requirement for anyone
 before it: a cache adds no table and no column. It wraps an outbound port, so it waits for the
-adapters behind it — `20-persistencia.md`'s query and `28-cliente-http.md`'s call — and it
+adapters behind it — `20-persistence.md`'s query and `28-http-client.md`'s call — and it
 lists every writer of the data it holds, which only the finished partials name. Tests run
 after it, because a cached read owes three tests no other layer asks for
 (`@.claude/decisions/0144-cache-architect-skill.md`).
@@ -364,12 +364,12 @@ holds several use cases, it asks the user which one to design, designs that one,
 writes the rest to `docs/use-cases/BACKLOG.md`. This run continues with the one it
 created — never with the others.
 
-**Output:** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` — its folder name is the
+**Output:** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` — its folder name is the
 `UC-NNN-<slug>` every later step uses.
 
 ### Short path — checked right after step 1
 
-A trivial case doesn't need five partials. Check all nine against `00-caso-de-uso.md`
+A trivial case doesn't need five partials. Check all nine against `00-use-case.md`
 and the approved specs:
 
 | Criterion | Unmet when |
@@ -391,18 +391,18 @@ short spec and take steps 2–6. One criterion unmet → steps 2–6.
 
 ### Step 2: Domain (depends on 1)
 
-If `10-dominio.md` is missing: **invoke** `/domain-modeling UC-NNN`.
+If `10-domain.md` is missing: **invoke** `/domain-modeling UC-NNN`.
 If it exists: read, validate (four blocks: aggregate, VOs, invariants, ports).
 
 **Output:** "✅ Domain ready" or a list of gaps.
 
 ### Step 3: REST (depends on 1,2)
 
-Read the closing phrase of `00-caso-de-uso.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
+Read the closing phrase of `00-use-case.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
 skip this step. Any other phrase, or none (a case written before the phrase existed) → if
 `30-rest.md` is missing: **invoke** `/rest-api-architect UC-NNN`.
 If it exists: read, validate (eight blocks: resources, DTOs, errors, pagination, idempotency,
-personal data, versioning, admission — `none` unless `00-caso-de-uso.md` has an `Admission` row).
+personal data, versioning, admission — `none` unless `00-use-case.md` has an `Admission` row).
 
 **Output:** "✅ REST ready", "— skipped (GraphQL only)", or gaps.
 
@@ -424,8 +424,8 @@ executor to add the GraphQL starter to `pom.xml`; § 10 is what step 6 turns int
 
 ### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)
 
-Read `00-caso-de-uso.md`'s `Access` row, and whether the project already has a filter chain
-(`grep -rl "SecurityFilterChain" --include='*.java' src/main`). If `32-seguranca.md` is missing,
+Read `00-use-case.md`'s `Access` row, and whether the project already has a filter chain
+(`grep -rl "SecurityFilterChain" --include='*.java' src/main`). If `32-security.md` is missing,
 **invoke** `/security-architect UC-NNN` when any holds:
 
 | `Access` | Filter chain on disk | Why it runs |
@@ -437,9 +437,9 @@ Read `00-caso-de-uso.md`'s `Access` row, and whether the project already has a f
 Otherwise skip: public in an unsecured project, or authenticated behind a chain that already
 denies by default — the spec's security block says which. A GraphQL trigger is not a skip when
 `31-graphql.md` § 9 asks for a field-level row: a sensitive field narrower than its operation is
-this case's rule whatever the `Access` row says. An `00-caso-de-uso.md` with an HTTP
+this case's rule whatever the `Access` row says. An `00-use-case.md` with an HTTP
 trigger and no `Access` row (written before the row existed) is not a skip: invoke it, it asks.
-If `32-seguranca.md` exists: read, validate (eleven blocks: access per endpoint, mechanism,
+If `32-security.md` exists: read, validate (eleven blocks: access per endpoint, mechanism,
 authorities, project-wide setup, ownership, failure responses, schema requirements, declared
 dependencies, configuration, contract test cases, deferred).
 
@@ -450,12 +450,12 @@ starter to `pom.xml`; § 10 is what step 6 turns into tests.
 
 ### Step 3c: Outbound HTTP (depends on 1, 2, conditional)
 
-Read `10-dominio.md` § Ports. If it declares a port of kind `external HTTP` and
-`28-cliente-http.md` is missing: **invoke** `/http-client-architect UC-NNN`. No such port → skip
+Read `10-domain.md` § Ports. If it declares a port of kind `external HTTP` and
+`28-http-client.md` is missing: **invoke** `/http-client-architect UC-NNN`. No such port → skip
 this step. An output port with **no kind** is not a skip: stop and ask `domain-modeling` for it —
 a kind left out is how an external call reaches the executor with nobody having decided its
-timeout. A port of that kind whose `00-caso-de-uso.md` has no `External calls` row (written
-before the row existed) is not a skip either: invoke it, it asks. If `28-cliente-http.md` exists:
+timeout. A port of that kind whose `00-use-case.md` has no `External calls` row (written
+before the row existed) is not a skip either: invoke it, it asks. If `28-http-client.md` exists:
 read, validate (eleven blocks: operations, client, engine and pool, outbound authentication,
 retry and resilience, project-wide setup, configuration, declared dependencies, contract test
 cases, requirements to other partials, deferred).
@@ -468,11 +468,11 @@ add a client, engine or resilience dependency to `pom.xml`; § 9 is what step 6 
 
 ### Step 3d: AI (depends on 1, 2, conditional)
 
-Read `10-dominio.md` § Ports. If it declares a port of kind `LLM` or `vector store` and
-`29-ia.md` is missing: **invoke** `/ai-architect UC-NNN`. No such port → skip this step. A port
+Read `10-domain.md` § Ports. If it declares a port of kind `LLM` or `vector store` and
+`29-ai.md` is missing: **invoke** `/ai-architect UC-NNN`. No such port → skip this step. A port
 of kind `LLM` whose return type has no "could not decide" value, or no review state it leads to,
 is not a skip: stop and ask `domain-modeling` for it — the adapter would have nowhere to put an
-answer it cannot use. If `29-ia.md` exists: read, validate (twelve blocks: AI ports, provider and
+answer it cannot use. If `29-ai.md` exists: read, validate (twelve blocks: AI ports, provider and
 models, prompts and output, data sent, vector store, failure and retry, observability, test
 cases, requirements to other partials, declared dependencies, configuration, deferred).
 
@@ -485,11 +485,11 @@ ingestion job; § 10 is the only list that entitles the executor to add a Spring
 
 ### Step 3e: Search (depends on 1, 2, conditional)
 
-Read `00-caso-de-uso.md`'s `Search index` row. If it names a projection and its engine and
-`23-busca.md` is missing: **invoke** `/search-architect UC-NNN`. `none`, or a spec older than the
+Read `00-use-case.md`'s `Search index` row. If it names a projection and its engine and
+`23-search.md` is missing: **invoke** `/search-architect UC-NNN`. `none`, or a spec older than the
 row → skip this step. A row that names a projection but no engine is not a skip: stop and send the
 case back to `use-case-design`, which asks the one factual question — this orchestrator never picks
-an engine. If `23-busca.md` exists: read, validate (eleven blocks: projection, index, queries,
+an engine. If `23-search.md` exists: read, validate (eleven blocks: projection, index, queries,
 writes, rebuild, lag, failure, requirements to other partials, declared dependencies,
 configuration, deferred).
 
@@ -502,10 +502,10 @@ and change event; § 9 is the only list that entitles the executor to add a sear
 
 ### Step 4: Messaging (depends on 2, conditional)
 
-Read `10-dominio.md`'s Events block. If it names external (Kafka) delivery for the
-event and `25-mensageria.md` is missing: **invoke** `/messaging-architect UC-NNN`. If
+Read `10-domain.md`'s Events block. If it names external (Kafka) delivery for the
+event and `25-messaging.md` is missing: **invoke** `/messaging-architect UC-NNN`. If
 the event is absent or stays in-process, skip this step — not every use case needs it.
-If `25-mensageria.md` exists: read, validate (nine blocks: topic and delivery, producer,
+If `25-messaging.md` exists: read, validate (nine blocks: topic and delivery, producer,
 consumer and idempotency, retry/DLQ, configuration, schema requirements, declared
 dependencies, personal data, deferred).
 
@@ -522,9 +522,9 @@ approved anyway, so consolidation gates the same thing for every path.
 ### Step 4b: Jobs (depends on 1, 3d, 3e, 4, conditional)
 
 Invoke `/jobs-architect UC-NNN` if `35-jobs.md` is missing and at least one holds:
-`25-mensageria.md` § 2 chose **Form B**, `00-caso-de-uso.md`'s trigger is a schedule, a
-recurring run, a batch or a background job, `28-cliente-http.md` § 10 asks for a reconciliation
-pass, `29-ia.md` § 9 asks for an ingestion or re-index job, `23-busca.md` § 8 asks for a rebuild job, `00-caso-de-uso.md`'s `Audit` row names `history` and the project has no history prune job yet, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
+`25-messaging.md` § 2 chose **Form B**, `00-use-case.md`'s trigger is a schedule, a
+recurring run, a batch or a background job, `28-http-client.md` § 10 asks for a reconciliation
+pass, `29-ai.md` § 9 asks for an ingestion or re-index job, `23-search.md` § 8 asks for a rebuild job, `00-use-case.md`'s `Audit` row names `history` and the project has no history prune job yet, or a partial's `Deferred` block names a scheduled job. None holds → skip this step. If `35-jobs.md` exists: read, validate (nine blocks: jobs,
 technology, coordination, execution guarantees, observability, schema requirements, declared
 dependencies, configuration, deferred).
 
@@ -537,18 +537,18 @@ add a scheduling dependency to `pom.xml`.
 
 ### Step 5: Persistence (depends on 1,2,3,3g,3b,3c,3d,3e,4,4b)
 
-If `20-persistencia.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
+If `20-persistence.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
 every schema requirement list in the same pass — `30-rest.md` block 4 (the idempotency
 table among them) when step 3 ran, when step 3g ran `31-graphql.md` § 9 (one statement per batch
-port, bounded by § 6's max batch, and the index each connection's order needs), when step 3b ran `32-seguranca.md` § 7 (a credentials or API-key store),
-when step 3c ran `28-cliente-http.md` § 10 (a stored idempotency key, an unknown-outcome state),
-when step 3d ran `29-ia.md` § 9 (a vector store's table, its extensions and its index),
-when step 3e ran `23-busca.md` § 8 (the source's version and its change event in the outbox),
-when step 4 ran `25-mensageria.md` § 6 (the shared outbox table, the
+port, bounded by § 6's max batch, and the index each connection's order needs), when step 3b ran `32-security.md` § 7 (a credentials or API-key store),
+when step 3c ran `28-http-client.md` § 10 (a stored idempotency key, an unknown-outcome state),
+when step 3d ran `29-ai.md` § 9 (a vector store's table, its extensions and its index),
+when step 3e ran `23-search.md` § 8 (the source's version and its change event in the outbox),
+when step 4 ran `25-messaging.md` § 6 (the shared outbox table, the
 dedupe table), and when step 4b ran `35-jobs.md` § 3 and § 6 (the replica count its claim
 strategy must meet, the scheduling tables, the prune's bounded delete). If it exists: read, validate (seven blocks: schema, mapping, adapter and
 ports, migrations, configuration, declared dependencies, deferred). § 6 is the persistence twin
-of `25-mensageria.md` § 7,
+of `25-messaging.md` § 7,
 and the same rule holds: it is the only list that entitles the executor to touch `pom.xml` —
 and consolidation checks it again, for the paths that never take this step.
 
@@ -556,14 +556,14 @@ and consolidation checks it again, for the paths that never take this step.
 
 ### Step 5b: Cache (depends on 1, 2, 5, conditional)
 
-Invoke `/cache-architect UC-NNN` if `22-cache.md` is missing and `00-caso-de-uso.md`'s
+Invoke `/cache-architect UC-NNN` if `22-cache.md` is missing and `00-use-case.md`'s
 `Freshness` row states a tolerance — a duration an answer may be old. The row reads `none`, or
 the case predates the row → skip this step: no tolerance, no cache
 (`@.claude/rules/caching.md` § Boundary). If `22-cache.md` exists: read, validate (ten blocks:
 cached reads, provider, expiry and size, invalidation, failure and load, serialization,
 observability, declared dependencies, configuration, deferred).
 
-Every expiry in § 3 is at most the tolerance it serves — minus `23-busca.md` § 6's lag when the
+Every expiry in § 3 is at most the tolerance it serves — minus `23-search.md` § 6's lag when the
 cached read is a search projection — and every writer of the cached data
 has a § 4 row — a writer named in another approved case's Components table and missing from
 § 4 is a gap. § 8 is the only list that entitles the executor to add a cache dependency to
@@ -573,14 +573,14 @@ has a § 4 row — a writer named in another approved case's Components table an
 
 ### Step 6: Tests (depends on 1,2,3,3g,3b,3c,3d,3e,4,5,5b)
 
-If `40-testes.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
+If `40-tests.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
 If it exists: read, validate (five blocks: pyramid, cases, fixtures, coverage, test dependencies).
-When step 3b ran, every case of `32-seguranca.md` § 10 has a test row — a missing one is a gap.
+When step 3b ran, every case of `32-security.md` § 10 has a test row — a missing one is a gap.
 When step 3g ran, every case of `31-graphql.md` § 10 has a test row at the level it names, and the
 schema snapshot test exists — a missing one is a gap, and so is an access case placed in the
 GraphQL slice, where no filter chain runs.
-When step 3c ran, every case of `28-cliente-http.md` § 9 has a test row — a missing one is a gap.
-When step 3d ran, every case of `29-ia.md` § 8 has a test row at the level it names — a missing
+When step 3c ran, every case of `28-http-client.md` § 9 has a test row — a missing one is a gap.
+When step 3d ran, every case of `29-ai.md` § 8 has a test row at the level it names — a missing
 one is a gap, and so is any row that calls a real model.
 When step 5b ran, every cached read of `22-cache.md` § 1 has three test rows — a second read
 not reaching the source, an eviction by every writer of § 4 that goes through the port, and
@@ -598,7 +598,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
 
 1. **Resolve divergences before consolidating.** The partials are written by different
    skills, and downstream corrects upstream: `30-rest.md` fixes the path and status
-   that `00-caso-de-uso.md` had sketched, `20-persistencia.md` fixes the key that the
+   that `00-use-case.md` had sketched, `20-persistence.md` fixes the key that the
    domain described in prose. Stacking both versions and explaining in a note which one
    wins pushes the work onto the reader — and the note ends up two hundred lines away
    from where it matters.
@@ -609,22 +609,22 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
    | Fact | Who wins |
    |---|---|
    | HTTP path, verb, status, body shape | `30-rest.md` — except the 401 and 403 rows, below |
-   | GraphQL root fields and the port each calls, types, fields and nullability, inputs, payloads and `userErrors`, connections and their ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field, below. A batch port it asked for becomes `10-dominio.md`'s port by consolidation, with `31-graphql.md` as who asked; the batch statement and its index are `20-persistencia.md`'s |
-   | Who may call each endpoint, GraphQL root field and sensitive field, the authentication mechanism, the claims-to-authorities mapping, the `permitAll` list and its reasons, the 401 and 403 rows, CORS, OpenAPI and Actuator exposure, where the controller reads the actor from | `32-seguranca.md`. The actor field, the owner field and the ownership invariant stay `10-dominio.md`'s; an owner-only `Access` whose domain partial has no actor is not settled by precedence: **stop and ask** |
-   | Table, column, key, index, migration | `20-persistencia.md` — including every table or column another partial *asked for*: the requirement is born in `30-rest.md` block 4 or `25-mensageria.md` § 6, the final form (name, type, nullability, index, migration) is always this one's |
-   | Topic, serialization, delivery guarantee, consumer retry and DLQ | `25-mensageria.md` |
-   | Outbox table, its columns, the claim query, and the values the columns encode (batch size, backoff, attempt ceiling, retention window, the prune's statement) | `20-persistencia.md` — the whole table is its territory. `25-mensageria.md` declares the **guarantee** those values have to deliver, never the columns; a § 6 row naming columns is reported as a divergence and the guarantee is what carries over |
-   | Client, engine and pool, timeouts, the retrying layer and its policy, breaker and bulkhead, outbound authentication, the failure table of each remote operation | `28-cliente-http.md`. The outbound port, its domain types, the idempotency key field and the unknown-outcome state stay `10-dominio.md`'s; the column and the reconciliation schedule are persistence's and jobs's, as for every requirement |
-   | Scheduling technology, a job's trigger and cadence (the relay's poll interval included), coordination across instances and the replica count, overlap and missed-run policy, on/off property, job metrics, the prune job | `35-jobs.md`. A claim strategy in `20-persistencia.md` that does not meet `35-jobs.md` § 3's replica count is not settled by precedence — it is a guarantee dropped by a shape decision: **stop and ask** |
-   | Provider and model of each AI port, its prompt resources and answer type, what each unusable answer becomes, the fields sent to the provider, the store and its embedding model, the timeout and retrying layer of each AI port | `29-ia.md`. The port, its "could not decide" value and the review state stay `10-dominio.md`'s; a timeout above the trigger's deadline, or a personal-data field sent in clear without a named receiver, is not settled by precedence: **stop and ask** |
-   | The search document and its mapping, the index version and alias, the query and its cursor, the indexer's write rules, the rebuild's alias swap, the lag the projection consumes, the search dependency | `23-busca.md`. Whether the case has a search index, its engine and the freshness tolerance stay `00-caso-de-uso.md`'s; a lag larger than the tolerance is not settled by precedence: **stop and ask** |
-   | Storage family of each aggregate | `00-caso-de-uso.md` — never a design partial, and never this orchestrator. An aggregate the code already stores in the other family is not settled by precedence: **stop and ask** |
-   | Audit level of each aggregate | `00-caso-de-uso.md` — never a design partial. An aggregate the code already audits at a higher level than the row asks is not settled by precedence (a history cannot be switched off without losing it): **stop and ask** |
-   | Which reads are cached, each cache key, the cache provider, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md`. The freshness tolerance stays `00-caso-de-uso.md`'s; an expiry longer than it is not settled by precedence — it serves answers older than the business allowed: **stop and ask** |
-   | Aggregate name, value object, port, event | `10-dominio.md` |
-   | Exception class and `errorCode` | `10-dominio.md` |
-   | Use case boundary, invariants, error situations | `00-caso-de-uso.md` |
-   | Name and level of each test | `40-testes.md` |
+   | GraphQL root fields and the port each calls, types, fields and nullability, inputs, payloads and `userErrors`, connections and their ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field, below. A batch port it asked for becomes `10-domain.md`'s port by consolidation, with `31-graphql.md` as who asked; the batch statement and its index are `20-persistence.md`'s |
+   | Who may call each endpoint, GraphQL root field and sensitive field, the authentication mechanism, the claims-to-authorities mapping, the `permitAll` list and its reasons, the 401 and 403 rows, CORS, OpenAPI and Actuator exposure, where the controller reads the actor from | `32-security.md`. The actor field, the owner field and the ownership invariant stay `10-domain.md`'s; an owner-only `Access` whose domain partial has no actor is not settled by precedence: **stop and ask** |
+   | Table, column, key, index, migration | `20-persistence.md` — including every table or column another partial *asked for*: the requirement is born in `30-rest.md` block 4 or `25-messaging.md` § 6, the final form (name, type, nullability, index, migration) is always this one's |
+   | Topic, serialization, delivery guarantee, consumer retry and DLQ | `25-messaging.md` |
+   | Outbox table, its columns, the claim query, and the values the columns encode (batch size, backoff, attempt ceiling, retention window, the prune's statement) | `20-persistence.md` — the whole table is its territory. `25-messaging.md` declares the **guarantee** those values have to deliver, never the columns; a § 6 row naming columns is reported as a divergence and the guarantee is what carries over |
+   | Client, engine and pool, timeouts, the retrying layer and its policy, breaker and bulkhead, outbound authentication, the failure table of each remote operation | `28-http-client.md`. The outbound port, its domain types, the idempotency key field and the unknown-outcome state stay `10-domain.md`'s; the column and the reconciliation schedule are persistence's and jobs's, as for every requirement |
+   | Scheduling technology, a job's trigger and cadence (the relay's poll interval included), coordination across instances and the replica count, overlap and missed-run policy, on/off property, job metrics, the prune job | `35-jobs.md`. A claim strategy in `20-persistence.md` that does not meet `35-jobs.md` § 3's replica count is not settled by precedence — it is a guarantee dropped by a shape decision: **stop and ask** |
+   | Provider and model of each AI port, its prompt resources and answer type, what each unusable answer becomes, the fields sent to the provider, the store and its embedding model, the timeout and retrying layer of each AI port | `29-ai.md`. The port, its "could not decide" value and the review state stay `10-domain.md`'s; a timeout above the trigger's deadline, or a personal-data field sent in clear without a named receiver, is not settled by precedence: **stop and ask** |
+   | The search document and its mapping, the index version and alias, the query and its cursor, the indexer's write rules, the rebuild's alias swap, the lag the projection consumes, the search dependency | `23-search.md`. Whether the case has a search index, its engine and the freshness tolerance stay `00-use-case.md`'s; a lag larger than the tolerance is not settled by precedence: **stop and ask** |
+   | Storage family of each aggregate | `00-use-case.md` — never a design partial, and never this orchestrator. An aggregate the code already stores in the other family is not settled by precedence: **stop and ask** |
+   | Audit level of each aggregate | `00-use-case.md` — never a design partial. An aggregate the code already audits at a higher level than the row asks is not settled by precedence (a history cannot be switched off without losing it): **stop and ask** |
+   | Which reads are cached, each cache key, the cache provider, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md`. The freshness tolerance stays `00-use-case.md`'s; an expiry longer than it is not settled by precedence — it serves answers older than the business allowed: **stop and ask** |
+   | Aggregate name, value object, port, event | `10-domain.md` |
+   | Exception class and `errorCode` | `10-domain.md` |
+   | Use case boundary, invariants, error situations | `00-use-case.md` |
+   | Name and level of each test | `40-tests.md` |
    | A design pattern and the classes it creates | The partial of the layer those classes live in. Two partials adopting different patterns for the same class is not settled by precedence: **stop and ask** |
 
    `UC-NNN-spec.md` carries **a single value per fact** — the winner — across all
@@ -638,16 +638,16 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
    stack it.
 
    **A downstream partial never edits an upstream one's fact — it asks for it.** A requirement
-   born downstream and landing upstream — `20-persistencia.md` bounding the producer's send
-   time so the outbox lease outlives any send, a value `25-mensageria.md` owns — travels as a
+   born downstream and landing upstream — `20-persistence.md` bounding the producer's send
+   time so the outbox lease outlives any send, a value `25-messaging.md` owns — travels as a
    named requirement in the downstream partial, and this step resolves it like any other
    divergence: the owner's block in `UC-NNN-spec.md` carries the new value, and
    `## Resolved divergences` records who asked. Carried silently into the owner's block, it is
    a fact with two authors and no record of the second.
 
    **And one shape the table resolves only in appearance:** a column decision that changes
-   behaviour. `20-persistencia.md` wins on the column, always — but when dropping a column
-   also drops a guarantee `25-mensageria.md` declared (no `next_attempt_at`, so per-row
+   behaviour. `20-persistence.md` wins on the column, always — but when dropping a column
+   also drops a guarantee `25-messaging.md` declared (no `next_attempt_at`, so per-row
    exponential backoff becomes a fixed repoll), the winner is not the answer. That is a
    divergence the table doesn't resolve: **stop and ask**, and record which guarantee the
    chosen shape delivers. A precedence rule written for table shape must never be what
@@ -677,7 +677,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      `file:line` is not consolidated — the pipeline stops and asks
    - **A row that adds a precondition must name its satisfier, or consolidation stops.** Any
      row making an earlier case require a state it did not require before — a status, a flag, a
-     related record — carries the `Satisfied by` column `00-caso-de-uso.md` already asks for:
+     related record — carries the `Satisfied by` column `00-use-case.md` already asks for:
      an approved `UC-NNN`, this case, or a backlog row **by its `BL-NN`**. Missing or vague, the
      pipeline stops and asks; it is not filled in by inference. A `UC` number is not a valid
      answer for a backlog case — it has none until it is designed, and two reports of a real run
@@ -688,9 +688,9 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      on every real call is not a detail the reader should have to find in a test fixture
      (lessons-learned-013 § 5)
    - **A partial that applies must carry its declared-dependency section, or consolidation
-     stops.** `20-persistencia.md` § 6 always; `31-graphql.md` § 11 whenever step 3g ran; `32-seguranca.md` § 8 whenever step 3b ran;
-     `28-cliente-http.md` § 8 whenever step 3c ran; `29-ia.md` § 10 whenever step 3d ran; `23-busca.md` § 9 whenever step 3e ran;
-     `25-mensageria.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-testes.md` § 5 always. The
+     stops.** `20-persistence.md` § 6 always; `31-graphql.md` § 11 whenever step 3g ran; `32-security.md` § 8 whenever step 3b ran;
+     `28-http-client.md` § 8 whenever step 3c ran; `29-ai.md` § 10 whenever step 3d ran; `23-search.md` § 9 whenever step 3e ran;
+     `25-messaging.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-tests.md` § 5 always. The
      value `none` is legitimate and common — most cases need no new dependency — but **absence
      is not `none`**: one says the design skill decided nothing was needed, the other says
      nobody looked, and the executor cannot tell them apart. Steps 4 and 5 validate the same
@@ -701,13 +701,13 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      every run passes, which is why the check belongs here as well, exactly like `Satisfied by`
      above
    - **A partial that needs a container must carry `## Compose services`, or consolidation
-     stops.** `20-persistencia.md` always; `25-mensageria.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran; `29-ia.md` whenever step 3d ran; `23-busca.md` whenever step 3e ran. `none` is
+     stops.** `20-persistence.md` always; `25-messaging.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran; `29-ai.md` whenever step 3d ran; `23-search.md` whenever step 3e ran. `none` is
      valid (H2, no broker) and absence is not. Every row goes into the spec's
      `## Infrastructure` with the partial that decided it, shaped by
      `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
      this one's report, has nothing to add and nothing to name — the broker of issue #119
    - **A personal-data field crossing the process boundary in clear carries a recorded
-     decision, or consolidation stops.** `25-mensageria.md` § 8, `30-rest.md` § 6, `31-graphql.md` § 8 and `29-ia.md` § 4 each list
+     decision, or consolidation stops.** `25-messaging.md` § 8, `30-rest.md` § 6, `31-graphql.md` § 8 and `29-ai.md` § 4 each list
      the fields of the payload, the response body and the GraphQL output types that match
      `@.claude/rules/logging.md` § Masking candidates, with the form chosen. A `full value` row
      without a named receiver and a reason is not consolidated: the pipeline stops and asks, and
@@ -738,7 +738,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      altered case ever learns it changed — immutability keeps the text and loses the
      history
    - Order: implementation order (depends-on)
-   - **Every `permitAll` carries its reason, or consolidation stops.** `32-seguranca.md` § 1
+   - **Every `permitAll` carries its reason, or consolidation stops.** `32-security.md` § 1
      lists the public paths of the project after this case, each with a reason; a public row
      with none, or a first secured case whose `## Impact on approved use cases` does not say
      what happens to the endpoints earlier cases published without a chain, is not consolidated
@@ -750,11 +750,11 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      `31-graphql.md`; a spec with § 4.5 runs the executor's
      conditional Block S (steps S1-S3, right after REST), which generates the filter chain, the
      mechanism wiring, the method-security annotations and the actor resolution from
-     `32-seguranca.md`; a spec with § 3.3 runs the executor's conditional Block H (steps H1-H3,
+     `32-security.md`; a spec with § 3.3 runs the executor's conditional Block H (steps H1-H3,
      right after Block 2), which generates the outbound adapters, the shared translator and the
-     engine configuration from `28-cliente-http.md`; a spec with § 6 runs the executor's
+     engine configuration from `28-http-client.md`; a spec with § 6 runs the executor's
      conditional Block M (steps M1-M4, between REST and Tests), which generates the Kafka
-     producer/consumer adapters from `25-mensageria.md`; a spec with § 7 runs Block J (steps
+     producer/consumer adapters from `25-messaging.md`; a spec with § 7 runs Block J (steps
      J1-J3, right after Block M), which generates the scheduling wiring and triggers from
      `35-jobs.md`; a spec with § 3.4 runs Block C (steps C1-C3, right after Block J), which
      generates the cache wiring and the port decorators from `22-cache.md`. None touches the fixed
@@ -854,7 +854,7 @@ Structure (5 blocks, implementation order — plus outbound HTTP, cache, GraphQL
   evict) — present only when step 5b ran; "none" otherwise. Implemented by the executor's
   Block C, last among the production blocks
 - Block 3.5 (conditional): Messaging (producer/consumer, delivery semantics, retry/DLQ)
-  — present only when `10-dominio.md` named external delivery for the event; "none"
+  — present only when `10-domain.md` named external delivery for the event; "none"
   otherwise. See the known gap above — the executor doesn't consume this block yet
 - Block 3.6 (conditional): Jobs (technology, triggers, coordination, replica count) —
   present only when step 4b ran; "none" otherwise. Implemented by the executor's Block J

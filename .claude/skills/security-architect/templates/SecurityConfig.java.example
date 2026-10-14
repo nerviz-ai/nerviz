@@ -3,7 +3,7 @@
  * `.claude/rules/authorization.md` requires. Mechanism-agnostic: the authentication itself
  * comes from one `AuthenticationMechanism` bean (`JwtResourceServerConfig`,
  * `OpaqueTokenResourceServerConfig`, `LocalUsersSecurityConfig` or `ApiKeyAuthenticationConfig`),
- * so this class does not change when `32-seguranca.md` § 2 picks another mechanism.
+ * so this class does not change when `32-security.md` § 2 picks another mechanism.
  * Compilable against the Spring Security generation the Boot parent manages — servlet only.
  *
  * PACKAGE. The blueprint's `.config` entry plus `.security` (`infrastructure.config.security`
@@ -47,7 +47,7 @@
  * mechanism would be configured twice; applied only by the framework, this class could not
  * hand it the two handlers.
  *
- * One `@PreAuthorize` per endpoint row of `32-seguranca.md` § 1 that says "method security";
+ * One `@PreAuthorize` per endpoint row of `32-security.md` § 1 that says "method security";
  * one `requestMatchers` line here per row that says "chain". Adding a public endpoint means
  * adding its path to `PUBLIC_ENDPOINTS` together with the reason recorded in § 1.
  */
@@ -75,7 +75,7 @@ public class SecurityConfig {
 
     private static final String[] API_DOCS = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
 
-    /** Each path here is a public row of `32-seguranca.md` § 1, with its reason recorded there. */
+    /** Each path here is a public row of `32-security.md` § 1, with its reason recorded there. */
     private static final String[] PUBLIC_ENDPOINTS = {};
 
     @Bean
@@ -138,7 +138,7 @@ package com.exemplo.minhaapi.adapter.in.rest.security;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
 /**
- * The one way this project's callers prove who they are — `32-seguranca.md` § 2. Exactly one
+ * The one way this project's callers prove who they are — `32-security.md` § 2. Exactly one
  * bean per filter chain. `challengeScheme()` is the scheme a 401 names in `WWW-Authenticate`.
  */
 public interface AuthenticationMechanism {
@@ -160,7 +160,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * `app.security.*` — the project-wide access facts of `32-seguranca.md` § 4. Defaults are the
+ * `app.security.*` — the project-wide access facts of `32-security.md` § 4. Defaults are the
  * rule's defaults: API docs public, operator role for the actuator, no CORS.
  */
 @ConfigurationProperties("app.security")

@@ -72,8 +72,8 @@ given a use case folder.
 
 3. **Invoke `docker-architect`** through the `Skill` tool, with the use case folder as the
    argument. Pass the services still missing as context, one per line: service, image tag, and
-   the partial that decided it. The skill reads `20-persistencia.md`, `25-mensageria.md` and
-   `40-testes.md` from the folder, and verifies tags, healthchecks and the advertised
+   the partial that decided it. The skill reads `20-persistence.md`, `25-messaging.md` and
+   `40-tests.md` from the folder, and verifies tags, healthchecks and the advertised
    listeners on its own. Do not repeat its procedure here.
 
 4. **Check the result.** Run `java .claude/hooks/ArchHook.java compose` and keep the lines it

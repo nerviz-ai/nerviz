@@ -1,7 +1,7 @@
 # UC-001 · Tests
 
 > Partial of `docs/use-cases/UC-001-create-user/`. Owner: `test-architect`.
-> Inherits the invariants from `10-dominio.md`, the queries from `20-persistencia.md`, and
+> Inherits the invariants from `10-domain.md`, the queries from `20-persistence.md`, and
 > the contract cases from `30-rest.md` — doesn't reinvent them.
 > Contains no code. Reference shapes in `.claude/skills/test-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/testing.md`.
@@ -10,7 +10,7 @@
 |---|---|
 | Partials read | `00`, `10`, `20`, `30` |
 | Engine in integration tests | PostgreSQL 16, ephemeral container |
-| Invariants from `10-dominio.md` | 4 |
+| Invariants from `10-domain.md` | 4 |
 | Invariants with a named test | 4 |
 
 ## 1 · Distribution by level
@@ -69,7 +69,7 @@ real constructor that validates.
 
 ## 4 · Coverage and gaps
 
-| Invariant from `10-dominio.md` | Test that guarantees it |
+| Invariant from `10-domain.md` | Test that guarantees it |
 |---|---|
 | Email has a valid format | `EmailTest.rejectsInvalidAddress` |
 | Name between 1 and 120 characters | `UserTest.rejectsEmptyName` · `rejectsNameAboveLimit` |

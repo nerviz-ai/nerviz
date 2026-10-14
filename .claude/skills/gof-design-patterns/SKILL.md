@@ -73,7 +73,7 @@ before writing its partial, and records the answer there — the layer that owns
 owns the pattern that shapes them. This section is read, never invoked: a design run cannot
 reach a `build`-class skill, and it needs no writer here.
 
-1. **Forces in the spec.** Read the lines of `00-caso-de-uso.md` and of the upstream partials
+1. **Forces in the spec.** Read the lines of `00-use-case.md` and of the upstream partials
    that this layer implements, for the forces § Catalog lists: variants or rules the spec
    enumerates, a cross-cutting concern over several implementations, construction with
    invariants, a predicate used both to decide and to query.
@@ -89,7 +89,7 @@ reach a `build`-class skill, and it needs no writer here.
 
    | Force or symptom | Pattern | Classes and interfaces it creates | "When not" checked |
    |---|---|---|---|
-   | spec line (`00-caso-de-uso.md` § 5, row 2) or `file:line` | the row's pattern | names per `@.claude/rules/naming.md` | why it does not apply |
+   | spec line (`00-use-case.md` § 5, row 2) or `file:line` | the row's pattern | names per `@.claude/rules/naming.md` | why it does not apply |
 
    `none — no force in the spec, no symptom on disk` when empty; absence is not `none`. The
    classes a row creates also go into the partial's own components or adapter table, so the

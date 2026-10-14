@@ -1,5 +1,5 @@
 /*
- * EXEMPLAR — integration test of a port of kind `vector store`, for the search cases `29-ia.md`
+ * EXEMPLAR — integration test of a port of kind `vector store`, for the search cases `29-ai.md`
  * § 8 lists. Suffix `IT`: it runs against a real pgvector database. Shape owned here; the cases are
  * `ai-architect`'s.
  *

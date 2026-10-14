@@ -35,7 +35,7 @@ with `exit 2`, `permissions.ask` prompts, or consolidation stops:
 
 - **A run writes only under `docs/`.** Territory is an allowlist, deny by default: each
   pipeline skill writes only its class's `write_allow` (`skill_classes` in
-  `.claude/schemas/extensions.json`). Migration SQL lives inside `20-persistencia.md`;
+  `.claude/schemas/extensions.json`). Migration SQL lives inside `20-persistence.md`;
   every file under `src/` comes from the executor.
 - **A design run materializes no file outside `docs/`.** `guard` refuses the *call* itself
   to a `build`-class skill — `docker-architect` included — while the run is open. A missing
@@ -119,38 +119,38 @@ sequenceDiagram
     NF->>NF: input table → new case · worktree decided · project checks
     NF->>UC: description, as is
     UC-->>U: several use cases? one question: which one now
-    UC-->>NF: 00-caso-de-uso.md (others → BACKLOG.md)
+    UC-->>NF: 00-use-case.md (others → BACKLOG.md)
     alt short path (8 criteria met)
         NF->>NF: UC-NNN-spec.md from feature-spec-short
     else full path
-        NF->>DOM: 10-dominio.md
+        NF->>DOM: 10-domain.md
         NF->>REST: 30-rest.md (+ schema requirements), skipped when the Trigger names a GraphQL adapter alone
         opt Trigger names an inbound GraphQL adapter
             NF->>GQL: 31-graphql.md
         end
         opt Access asks for something the filter chain doesn't already give
-            NF->>SEC: 32-seguranca.md
+            NF->>SEC: 32-security.md
         end
-        opt 10-dominio.md declares a port of kind external HTTP
-            NF->>HTTP: 28-cliente-http.md
+        opt 10-domain.md declares a port of kind external HTTP
+            NF->>HTTP: 28-http-client.md
         end
-        opt 10-dominio.md declares a port of kind LLM or vector store
-            NF->>AI: 29-ia.md
+        opt 10-domain.md declares a port of kind LLM or vector store
+            NF->>AI: 29-ai.md
         end
         opt Search index row names a projection
-            NF->>SRCH: 23-busca.md
+            NF->>SRCH: 23-search.md
         end
         opt external event delivery
-            NF->>MSG: 25-mensageria.md
+            NF->>MSG: 25-messaging.md
         end
         opt scheduled trigger, outbox relay (Form B), or a deferred job
             NF->>JOBS: 35-jobs.md
         end
-        NF->>PER: 20-persistencia.md (reads schema requirements, SQL inside)
+        NF->>PER: 20-persistence.md (reads schema requirements, SQL inside)
         opt Freshness states a tolerance
             NF->>CACHE: 22-cache.md
         end
-        NF->>TST: 40-testes.md
+        NF->>TST: 40-tests.md
         NF->>NF: resolve divergences, consolidate by reference (status: draft)
     end
     NF-->>U: Approve spec?
@@ -199,28 +199,28 @@ sequenceDiagram
 
 | Order | Skill/Agent | Depends on | File it produces |
 |---|---|---|---|
-| 1 | `use-case-design` | — | `00-caso-de-uso.md`, `BACKLOG.md` entries — owns number and slug. Its `Storage` row records, per aggregate, `relational` or `document (MongoDB)`, and its `Search index` row names a search projection or `none`; both come from the request, or from one bare factual question ("SQL or NoSQL?") — never weighed, that decision belongs to a planned solution-design skill |
-| 2 | `domain-modeling` | 1 | `10-dominio.md` — owns exception names |
+| 1 | `use-case-design` | — | `00-use-case.md`, `BACKLOG.md` entries — owns number and slug. Its `Storage` row records, per aggregate, `relational` or `document (MongoDB)`, and its `Search index` row names a search projection or `none`; both come from the request, or from one bare factual question ("SQL or NoSQL?") — never weighed, that decision belongs to a planned solution-design skill |
+| 2 | `domain-modeling` | 1 | `10-domain.md` — owns exception names |
 | 3 | `rest-api-architect` | 1, 2 | `30-rest.md` — including the schema requirements transport creates; skipped when the `Trigger` names an inbound GraphQL adapter alone |
-| optional | `graphql-api-architect` | 1, 2, and 3 when present, when `00-caso-de-uso.md`'s `Trigger` row ends in `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` (step 3 is skipped when it names the GraphQL adapter alone) | `31-graphql.md` — root fields and the input port each calls, types and nullability, mutation inputs and payloads with `userErrors`, connections with a page ceiling, `@BatchMapping` child fields and the batch ports they ask for, the error map, field-level access, personal data per output field, and on the project's first GraphQL case the demand limits and setup. Its spec block is `## 4.1 GraphQL`, implemented by the executor's Block G (G1-G3), right after Block 3 and before Block S. The protocol itself is chosen by `use-case-design` with the criteria of `.claude/rules/api-graphql.md` § Choosing the inbound protocol |
-| optional | `security-architect` | 1, 2, 3, and `00-caso-de-uso.md`'s `Access` row | `32-seguranca.md` — mechanism, access per endpoint, the `permitAll` list, ownership, 401/403, CORS/Actuator/OpenAPI exposure |
-| optional | `http-client-architect` | 2, when `10-dominio.md` declares a port of kind `external HTTP` | `28-cliente-http.md` — client and engine, timeouts, retrying layer and resilience, outbound authentication, the integration failure table per operation, declared dependencies, and the WireMock test cases |
-| optional | `ai-architect` | 2, when `10-dominio.md` declares a port of kind `LLM` or `vector store` | `29-ia.md` — provider and model per port, the prompts as `classpath:/prompts/` resources, the answer type with closed fields and what an unusable answer becomes, which fields go to the provider, the vector store and who re-indexes it, timeout and the one retrying layer, the failure table, metrics, the `pgvector` image variant of the `postgres` compose row. Its spec block is `## 3.7 AI`, implemented by the executor's Block A, right after Block H |
-| optional | `search-architect` | 1, 2, when `00-caso-de-uso.md`'s `Search index` row names a projection | `23-busca.md` — the search document and its strict mapping, the versioned index behind an alias, the query and its cursor, the indexer's write rules with the source's version, the rebuild with the alias swap, the lag it consumes of `Freshness`, the failure table, and the engine's compose row. Its spec block is `## 3.8 Search`, implemented by the executor's Block I, right after Block A. The source's version and outbox event are `20-persistencia.md`'s, the indexer consumer `25-mensageria.md`'s, the rebuild job `35-jobs.md`'s; norms in `.claude/rules/search.md` |
-| optional | `messaging-architect` | 2, if external delivery | `25-mensageria.md` |
-| optional | `jobs-architect` | 1 (schedule trigger), messaging's Form B, a reconciliation pass `28-cliente-http.md` § 10 asks for, or a deferred job | `35-jobs.md` — tool, trigger/cadence, cluster coordination, overlap/misfire, gate property, job metrics; owns the outbox relay's schedule and the prune job |
-| 4 | `persistence-architect` | 1, 2, 3, security, http-client, and messaging/jobs when they ran | `20-persistencia.md` — in the family the `Storage` row records (it stops without the row): migration SQL inside it for relational, or collections, indexes and validators ensured at startup, `@Version` and transactions on a replica set for document (MongoDB); stamps or an Envers history when the `Audit` row asks (stamps only on MongoDB); reads `32-seguranca.md` § 7 (a credentials or API-key store) when security-architect ran, `28-cliente-http.md` § 10 (a stored idempotency key or an unknown-outcome column) when http-client-architect ran, and `35-jobs.md`'s tool tables (`shedlock`, `QRTZ_*`, `BATCH_*`) as schema requirements and its replica count for the outbox claim strategy, when jobs-architect ran |
-| optional | `cache-architect` | 1, 2, 4, when `00-caso-de-uso.md`'s `Freshness` row states a tolerance | `22-cache.md` — which reads are cached and the key of each, Caffeine or Redis, expiry and size per cache next to the tolerance, every writer that must evict, failure and load without the cache, serialization, metrics, the `redis` compose row |
-| 5 | `test-architect` | 1–4, and cache, GraphQL, AI and search when they ran | `40-testes.md` — three cases per cached read when `22-cache.md` exists; the controller slice test, the HTTP IT and the schema snapshot test when `31-graphql.md` exists; the adapter contract test, the provider IT and, with a store, the vector store IT when `29-ia.md` exists; the MongoDB IT on a replica set for a document aggregate, and the search index IT when `23-busca.md` exists |
+| optional | `graphql-api-architect` | 1, 2, and 3 when present, when `00-use-case.md`'s `Trigger` row ends in `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` (step 3 is skipped when it names the GraphQL adapter alone) | `31-graphql.md` — root fields and the input port each calls, types and nullability, mutation inputs and payloads with `userErrors`, connections with a page ceiling, `@BatchMapping` child fields and the batch ports they ask for, the error map, field-level access, personal data per output field, and on the project's first GraphQL case the demand limits and setup. Its spec block is `## 4.1 GraphQL`, implemented by the executor's Block G (G1-G3), right after Block 3 and before Block S. The protocol itself is chosen by `use-case-design` with the criteria of `.claude/rules/api-graphql.md` § Choosing the inbound protocol |
+| optional | `security-architect` | 1, 2, 3, and `00-use-case.md`'s `Access` row | `32-security.md` — mechanism, access per endpoint, the `permitAll` list, ownership, 401/403, CORS/Actuator/OpenAPI exposure |
+| optional | `http-client-architect` | 2, when `10-domain.md` declares a port of kind `external HTTP` | `28-http-client.md` — client and engine, timeouts, retrying layer and resilience, outbound authentication, the integration failure table per operation, declared dependencies, and the WireMock test cases |
+| optional | `ai-architect` | 2, when `10-domain.md` declares a port of kind `LLM` or `vector store` | `29-ai.md` — provider and model per port, the prompts as `classpath:/prompts/` resources, the answer type with closed fields and what an unusable answer becomes, which fields go to the provider, the vector store and who re-indexes it, timeout and the one retrying layer, the failure table, metrics, the `pgvector` image variant of the `postgres` compose row. Its spec block is `## 3.7 AI`, implemented by the executor's Block A, right after Block H |
+| optional | `search-architect` | 1, 2, when `00-use-case.md`'s `Search index` row names a projection | `23-search.md` — the search document and its strict mapping, the versioned index behind an alias, the query and its cursor, the indexer's write rules with the source's version, the rebuild with the alias swap, the lag it consumes of `Freshness`, the failure table, and the engine's compose row. Its spec block is `## 3.8 Search`, implemented by the executor's Block I, right after Block A. The source's version and outbox event are `20-persistence.md`'s, the indexer consumer `25-messaging.md`'s, the rebuild job `35-jobs.md`'s; norms in `.claude/rules/search.md` |
+| optional | `messaging-architect` | 2, if external delivery | `25-messaging.md` |
+| optional | `jobs-architect` | 1 (schedule trigger), messaging's Form B, a reconciliation pass `28-http-client.md` § 10 asks for, or a deferred job | `35-jobs.md` — tool, trigger/cadence, cluster coordination, overlap/misfire, gate property, job metrics; owns the outbox relay's schedule and the prune job |
+| 4 | `persistence-architect` | 1, 2, 3, security, http-client, and messaging/jobs when they ran | `20-persistence.md` — in the family the `Storage` row records (it stops without the row): migration SQL inside it for relational, or collections, indexes and validators ensured at startup, `@Version` and transactions on a replica set for document (MongoDB); stamps or an Envers history when the `Audit` row asks (stamps only on MongoDB); reads `32-security.md` § 7 (a credentials or API-key store) when security-architect ran, `28-http-client.md` § 10 (a stored idempotency key or an unknown-outcome column) when http-client-architect ran, and `35-jobs.md`'s tool tables (`shedlock`, `QRTZ_*`, `BATCH_*`) as schema requirements and its replica count for the outbox claim strategy, when jobs-architect ran |
+| optional | `cache-architect` | 1, 2, 4, when `00-use-case.md`'s `Freshness` row states a tolerance | `22-cache.md` — which reads are cached and the key of each, Caffeine or Redis, expiry and size per cache next to the tolerance, every writer that must evict, failure and load without the cache, serialization, metrics, the `redis` compose row |
+| 5 | `test-architect` | 1–4, and cache, GraphQL, AI and search when they ran | `40-tests.md` — three cases per cached read when `22-cache.md` exists; the controller slice test, the HTTP IT and the schema snapshot test when `31-graphql.md` exists; the adapter contract test, the provider IT and, with a store, the vector store IT when `29-ai.md` exists; the MongoDB IT on a replica set for a document aggregate, and the search index IT when `23-search.md` exists |
 | — | `new-feature` (consolidation) | all above | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | `approved` spec | code and migrations in `src/**` |
 | 7 | `compose-service-installer` (agent) | `implemented` code, and a `materialize` row in `## Infrastructure` | the service block in `docker-compose.yml`, written by `docker-architect` |
 | — | `git-publish` | end of flow | commit + push, behind two gates |
 
-**Diagrams in the spec.** `00-caso-de-uso.md` carries two. A `sequenceDiagram` under `## Flow`
+**Diagrams in the spec.** `00-use-case.md` carries two. A `sequenceDiagram` under `## Flow`
 draws who calls whom on the path that succeeds, one message per step of the numbered list. A
 `flowchart TD` under the **Out** table draws every check of the flow and where it ends, one end
-node per situation of the table. `10-dominio.md` carries a `classDiagram` of the
+node per situation of the table. `10-domain.md` carries a `classDiagram` of the
 aggregate and its value objects and, when a state field has more than one value, a
 `stateDiagram-v2` of the *State reachability* table. They are Mermaid blocks inside the
 markdown, which GitHub renders in the PR. There is no `.drawio` or `.excalidraw` file, and
@@ -320,19 +320,19 @@ writes one spec where every row names its source — an approved spec or a rule.
 | Fact | Who wins |
 |---|---|
 | HTTP path, verb, status, body shape | `30-rest.md` |
-| Client, engine and pool, timeouts, retrying layer, breaker and bulkhead, outbound authentication | `28-cliente-http.md` |
-| GraphQL root fields and the port each calls, types, nullability, inputs, payloads and `userErrors`, connections and ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field (`32-seguranca.md`'s). A batch port it asked for becomes `10-dominio.md`'s port at consolidation; the batch statement and the index a connection's order needs are `20-persistencia.md`'s |
-| Table, column, key, index, migration | `20-persistencia.md` |
-| Topic, serialization, delivery guarantee, consumer retry/DLQ | `25-mensageria.md` |
-| The outbox table, its columns, the claim query, attempt ceiling/backoff, and retention window | `20-persistencia.md` — messaging **declares** that the case needs an outbox and which guarantee the relay must honour, and never a column name. A § 6 row naming columns is a divergence, and a column decision that would drop the declared guarantee **stops** the pipeline instead of being settled by precedence |
-| Scheduling tool, trigger and cadence, cluster coordination, overlap/misfire handling, job metrics, the prune job | `35-jobs.md` — including the outbox relay's own poll interval and coordination, which no longer lives in `20-persistencia.md` |
-| Which reads are cached, each key, Caffeine or Redis, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md` — the freshness tolerance stays `00-caso-de-uso.md`'s, and an expiry longer than it **stops** the pipeline instead of being settled by precedence |
-| Provider, model, prompt resources, answer type and its closed fields, which fields reach the provider, timeout and the retrying layer | `29-ia.md` — the port, its "could not decide" value and the review state stay `10-dominio.md`'s; the vector store's migration is `20-persistencia.md`'s (`29-ia.md` § 9 only asks); a re-index trigger or an ingestion job is `25-mensageria.md`'s or `35-jobs.md`'s |
-| The search document, its mapping and alias, the query and cursor, the indexer's write rules, the rebuild and the lag | `23-busca.md` — the lag is at most `Freshness`, and a larger one is a divergence. The source's version and change event are `20-persistencia.md`'s; the indexer consumer is `25-mensageria.md`'s and the rebuild job `35-jobs.md`'s |
-| Aggregate name, value object, port, event | `10-dominio.md` |
-| Exception class and `errorCode` | `10-dominio.md` |
-| Use case boundary, invariants, error situations | `00-caso-de-uso.md` |
-| Name and level of each test | `40-testes.md` |
+| Client, engine and pool, timeouts, retrying layer, breaker and bulkhead, outbound authentication | `28-http-client.md` |
+| GraphQL root fields and the port each calls, types, nullability, inputs, payloads and `userErrors`, connections and ceilings, batch loads, the GraphQL error map, the project's GraphQL limits | `31-graphql.md` — except who may read each field (`32-security.md`'s). A batch port it asked for becomes `10-domain.md`'s port at consolidation; the batch statement and the index a connection's order needs are `20-persistence.md`'s |
+| Table, column, key, index, migration | `20-persistence.md` |
+| Topic, serialization, delivery guarantee, consumer retry/DLQ | `25-messaging.md` |
+| The outbox table, its columns, the claim query, attempt ceiling/backoff, and retention window | `20-persistence.md` — messaging **declares** that the case needs an outbox and which guarantee the relay must honour, and never a column name. A § 6 row naming columns is a divergence, and a column decision that would drop the declared guarantee **stops** the pipeline instead of being settled by precedence |
+| Scheduling tool, trigger and cadence, cluster coordination, overlap/misfire handling, job metrics, the prune job | `35-jobs.md` — including the outbox relay's own poll interval and coordination, which no longer lives in `20-persistence.md` |
+| Which reads are cached, each key, Caffeine or Redis, expiry and size per cache, the writers that must evict, cache serialization and metrics | `22-cache.md` — the freshness tolerance stays `00-use-case.md`'s, and an expiry longer than it **stops** the pipeline instead of being settled by precedence |
+| Provider, model, prompt resources, answer type and its closed fields, which fields reach the provider, timeout and the retrying layer | `29-ai.md` — the port, its "could not decide" value and the review state stay `10-domain.md`'s; the vector store's migration is `20-persistence.md`'s (`29-ai.md` § 9 only asks); a re-index trigger or an ingestion job is `25-messaging.md`'s or `35-jobs.md`'s |
+| The search document, its mapping and alias, the query and cursor, the indexer's write rules, the rebuild and the lag | `23-search.md` — the lag is at most `Freshness`, and a larger one is a divergence. The source's version and change event are `20-persistence.md`'s; the indexer consumer is `25-messaging.md`'s and the rebuild job `35-jobs.md`'s |
+| Aggregate name, value object, port, event | `10-domain.md` |
+| Exception class and `errorCode` | `10-domain.md` |
+| Use case boundary, invariants, error situations | `00-use-case.md` |
+| Name and level of each test | `40-tests.md` |
 | A design pattern and the classes it creates | The partial of the layer those classes live in — two partials adopting different patterns for the same class **stops** the pipeline |
 
 The spec is consolidated **by reference**: each block holds the final decisions and
