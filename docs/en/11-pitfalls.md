@@ -580,3 +580,11 @@ both. Design: `.claude/decisions/0082-rules-without-paths-load-at-launch.md`.
 decided on the date, not what holds today: no `paths`, outside `00-index.md`, and it does not
 travel to the generated project. A new record supersedes the old one; the old one is not
 rewritten.
+
+**`arch-adopt` refuses a project built on a Spring Boot line below the floor — and does not refuse one whose line it cannot read.**
+`export` reads the destination's build (`doctor.platform.build_files`, `line_patterns`) and
+exits 2 before writing a byte when the line is below `doctor.platform.min_line`: the norms,
+exemplars and the `tools.jackson..` allowlist this `.claude/` ships do not apply to an older
+line. There is no flag to bypass it. A version held in a property, a corporate parent or a
+catalog no pattern reads is not refused, because a refusal needs evidence; `doctor` prints
+`Platform ⚪` there. Design: `.claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md`.

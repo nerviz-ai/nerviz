@@ -154,6 +154,19 @@
         "spring.threads.virtual.enabled": "true",
         "spring.main.keep-alive": "true"
       }
+    },
+    "$comment_platform": "Read by `export` (the refusal) and by `doctor` (the `Platform` line, never gated). The Spring Boot line of a project is the build's own: every file of `build_files` at the project root that exists is read, and the first `line_patterns` match (group 1, `major.minor`) is the line. A line below `min_line` makes `export` exit 2 before it writes a byte — the norms, exemplars and `tools.jackson..` allowlist this `.claude/` ships are written for `min_line` and later, and an older project received them with no warning. Nothing detected — no build file, a version held in a property or a catalog no pattern reads — never refuses: a refusal needs evidence, and `doctor` says ⚪ instead. The floor is data so that raising it, or a migration step that runs before `arch-adopt`, changes this file and no Java (invariant 10). Design: .claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md",
+    "platform": {
+      "min_line": "4.0",
+      "build_files": ["pom.xml", "build.gradle", "build.gradle.kts", "gradle/libs.versions.toml"],
+      "line_patterns": [
+        "<artifactId>spring-boot-starter-parent</artifactId>\\s*<version>\\s*(\\d+\\.\\d+)",
+        "<artifactId>spring-boot-dependencies</artifactId>\\s*<version>\\s*(\\d+\\.\\d+)",
+        "<spring-boot\\.version>\\s*(\\d+\\.\\d+)",
+        "id\\s*\\(?\\s*['\"]org\\.springframework\\.boot['\"]\\s*\\)?\\s*version\\s*['\"](\\d+\\.\\d+)",
+        "org\\.springframework\\.boot:spring-boot-(?:dependencies|gradle-plugin):(\\d+\\.\\d+)",
+        "(?i)\\bspring[-_]?boot\\s*=\\s*\"(\\d+\\.\\d+)"
+      ]
     }
   },
 

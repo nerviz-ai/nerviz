@@ -183,6 +183,12 @@ jobs:
       - name: doctor warns when a JDK 21+ build lacks virtual threads, and never gates
         run: java .claude/.ci/VirtualThreadsDoctorTest.java
 
+      # arch-adopt installed this .claude/ into a Boot 3 project with no warning, and what it
+      # wrote does not apply there. `export` now refuses a build below `doctor.platform.min_line`
+      # before writing a byte, and doctor reports the same line, never gated (0161).
+      - name: export refuses a Spring Boot line below the floor, and doctor reports it
+        run: java .claude/.ci/PlatformLineTest.java
+
       # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
       # the one gated line that reads code: it sweeps every source file with check's own match.
       # A sweep that matched nothing would read as a clean project, under any agent (0140).

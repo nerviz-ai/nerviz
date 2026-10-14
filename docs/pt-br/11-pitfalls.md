@@ -592,3 +592,12 @@ duas. Design: `.claude/decisions/0082-rules-without-paths-load-at-launch.md`.
 **`.claude/decisions/` não é norma nem documentação viva.** Registra o que foi decidido na
 data, não o que vale hoje: sem `paths`, fora do `00-index.md`, e não viaja para o projeto
 gerado. Um registro novo substitui o antigo; o antigo não é reescrito.
+
+**O `arch-adopt` recusa um projeto numa linha do Spring Boot abaixo do piso — e não recusa um cuja linha ele não consegue ler.**
+O `export` lê o build do destino (`doctor.platform.build_files`, `line_patterns`) e sai com 2
+antes de escrever um byte quando a linha está abaixo de `doctor.platform.min_line`: as normas,
+os exemplares e a allowlist `tools.jackson..` que este `.claude/` entrega não valem para uma
+linha mais antiga. Não há flag para contornar. Uma versão guardada numa propriedade, num parent
+corporativo ou num catálogo que nenhum padrão lê não é recusada, porque recusar exige
+evidência; o `doctor` imprime `Platform ⚪` nesse caso. Decisão:
+`.claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md`.
