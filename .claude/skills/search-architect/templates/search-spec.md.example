@@ -1,17 +1,17 @@
 # UC-012 · Search
 
 > Partial of `docs/use-cases/UC-012-search-orders/`. Owner: `search-architect`.
-> Inherits the engine and the freshness tolerance from `00-caso-de-uso.md` and the port from
-> `10-dominio.md` — doesn't redecide them. Contains no code; the mapping file is the one block
+> Inherits the engine and the freshness tolerance from `00-use-case.md` and the port from
+> `10-domain.md` — doesn't redecide them. Contains no code; the mapping file is the one block
 > written in full. Form references in `.claude/skills/search-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/search.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
+| Mother spec | `00-use-case.md` |
 | Kind of case | read — `Trigger`: inbound REST adapter |
-| Why this partial exists | `00-caso-de-uso.md` § Search index: "Order → Elasticsearch projection" |
-| Source of truth | `Order`, `Storage`: relational (UC-003, `20-persistencia.md`) |
+| Why this partial exists | `00-use-case.md` § Search index: "Order → Elasticsearch projection" |
+| Source of truth | `Order`, `Storage`: relational (UC-003, `20-persistence.md`) |
 | Search package | `adapter.out.search` (blueprint `packages.map`) |
 | Divergences from other partials | none |
 
@@ -95,14 +95,14 @@ none — the rebuild is UC-014-rebuild-orders-index.
 
 | Port method | Engine unreachable or alias missing | The read |
 |---|---|---|
-| `search` | `DependencyUnavailableException` (`ORDER_SEARCH_UNAVAILABLE`) | fails — `00-caso-de-uso.md` § Errors: "search temporarily unavailable"; no fallback to the database |
+| `search` | `DependencyUnavailableException` (`ORDER_SEARCH_UNAVAILABLE`) | fails — `00-use-case.md` § Errors: "search temporarily unavailable"; no fallback to the database |
 
 ## 8 · Requirements to other partials
 
 | Partial | Requirement |
 |---|---|
-| `10-dominio.md` | Port `SearchOrdersPort`, kind `search index`, returning `OrderSearchPage`; event `OrderChanged` carrying the order snapshot and the source version (UC-013 consumes it) |
-| `20-persistencia.md` (UC-003) | `Order` keeps a version that grows on every write, and `OrderChanged` is appended to the outbox in the same transaction |
+| `10-domain.md` | Port `SearchOrdersPort`, kind `search index`, returning `OrderSearchPage`; event `OrderChanged` carrying the order snapshot and the source version (UC-013 consumes it) |
+| `20-persistence.md` (UC-003) | `Order` keeps a version that grows on every write, and `OrderChanged` is appended to the outbox in the same transaction |
 | `22-cache.md` | none in this case; a cache would be bounded by § 6's remainder |
 
 ## 9 · Declared dependencies
@@ -149,4 +149,4 @@ none — one adapter per port, no repeated skeleton yet.
 3. `orders-v1.json`, `OrderSearchDocument`, `OrderSearchIndex`
 4. `OrderSearchAdapter` — after `SearchOrdersPort` exists
 5. Properties in `application.yml`
-6. Tests — `40-testes.md`: the alias exists at startup, a word finds the order, a tombstoned order is never returned, the cursor reads the next page
+6. Tests — `40-tests.md`: the alias exists at startup, a word finds the order, a tombstoned order is never returned, the cursor reads the next page

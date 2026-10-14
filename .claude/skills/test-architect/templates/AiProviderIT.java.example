@@ -1,6 +1,6 @@
 /*
  * EXEMPLAR — integration test of an AI port's wiring against a stub server that speaks the model
- * provider's protocol, for the failure cases `29-ia.md` § 8 lists. Suffix `IT`: it opens real
+ * provider's protocol, for the failure cases `29-ai.md` § 8 lists. Suffix `IT`: it opens real
  * sockets. Shape owned here; the cases are `ai-architect`'s.
  *
  * WHAT ONLY THIS TEST PROVES: the starter, the properties and the SDK's HTTP layer as the project
@@ -12,7 +12,7 @@
  * SDK appends `chat/completions` to the base URL, with no `/v1` of its own) with a body shaped like
  * the provider's. No test of the build calls a real model — `.claude/rules/ai.md` § Tests. When the
  * provider changes its response shape, this body is updated from its API reference, and the date
- * goes in `40-testes.md`.
+ * goes in `40-tests.md`.
  *
  * THE MANDATORY CASES, one test each:
  *   happy path        — the suggestion mapped AND the request verified: model, key header, the ticket

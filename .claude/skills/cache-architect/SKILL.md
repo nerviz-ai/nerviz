@@ -7,8 +7,8 @@ description: >
   is gone, serialization and metrics — into the `22-cache.md` partial, as a decorator of an
   outbound port. Use when the request involves a cache, @Cacheable or @CacheEvict, Caffeine,
   Redis as a cache, a stale read, a cache hit ratio, a cache stampede, or a read that must be
-  faster than its source. Piece of the `/new-feature` pipeline: requires `00-caso-de-uso.md` in
-  the given folder with a `Freshness` row that states a tolerance, plus `10-dominio.md` — and
+  faster than its source. Piece of the `/new-feature` pipeline: requires `00-use-case.md` in
+  the given folder with a `Freshness` row that states a tolerance, plus `10-domain.md` — and
   stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
@@ -33,15 +33,15 @@ $ARGUMENTS
 Designs **which reads are answered from a copy, and how the copy stays honest**: the key that
 keeps one caller's answer away from another, where the copy lives, how long it may live, who
 must throw it away when the data changes, and what happens when the cache is gone. The business
-already said how stale an answer may be — that is the `Freshness` row of `00-caso-de-uso.md`. This
+already said how stale an answer may be — that is the `Freshness` row of `00-use-case.md`. This
 skill turns that number into a cache, or into the finding that no cache is needed.
 
 **Entry rule: no tolerance, no cache.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and runs only when its `Freshness` row states a
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and runs only when its `Freshness` row states a
 tolerance — a duration an answer may be old ("a balance up to 30 seconds old"). The row reads
 `none` (always current), or is missing → stop and say so: a cache without a stated tolerance is a
 staleness bug waiting for its first write, and "the query looks slow" is a reason to measure, not a
-tolerance (`@.claude/rules/caching.md` § Boundary). `10-dominio.md` is required too: the cache
+tolerance (`@.claude/rules/caching.md` § Boundary). `10-domain.md` is required too: the cache
 decorates an outbound port it declares, and without one there is nothing to wrap.
 
 **Exit rule: it doesn't write code.** It emits `22-cache.md`. The Java classes come from the
@@ -91,12 +91,12 @@ the rest of the turn keeps `/new-feature` on the model that designed it
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (the `Freshness` row and the Components table),
-   `23-busca.md` when the cached port is of kind `search index` — its § 6 lag comes out of the
+1. **Read the specs.** `00-use-case.md` (the `Freshness` row and the Components table),
+   `23-search.md` when the cached port is of kind `search index` — its § 6 lag comes out of the
    tolerance first, and only the remainder bounds this cache's expiry; a remainder of zero or less
    means no cache, recorded as such —
-   `10-dominio.md` (the outbound ports and the records they return), `20-persistencia.md` and
-   `28-cliente-http.md` when present (the adapter behind each port), `35-jobs.md` when present.
+   `10-domain.md` (the outbound ports and the records they return), `20-persistence.md` and
+   `28-http-client.md` when present (the adapter behind each port), `35-jobs.md` when present.
    Apply the entry rule. List the reads the tolerance covers, each as a port method.
 
 2. **Survey — every answer the project already gave is inherited, never re-asked.**
@@ -108,7 +108,7 @@ the rest of the turn keeps `/new-feature` on the model that designed it
    grep -rnE "@(Cacheable|CacheEvict|CachePut|Caching)\b|@EnableCaching|CacheManager" --include='*.java' src/main 2>/dev/null
    # Decisions earlier use cases recorded
    find docs/use-cases -name '22-cache.md' 2>/dev/null
-   grep -rn "Replicas\|Claim strategy" docs/use-cases/*/35-jobs.md docs/use-cases/*/20-persistencia.md docs/use-cases/*/22-cache.md 2>/dev/null
+   grep -rn "Replicas\|Claim strategy" docs/use-cases/*/35-jobs.md docs/use-cases/*/20-persistence.md docs/use-cases/*/22-cache.md 2>/dev/null
    ```
 
    And the active blueprint's `packages.map` entry ending in `.cache` — the package every
@@ -118,7 +118,7 @@ the rest of the turn keeps `/new-feature` on the model that designed it
    | Fact | Inherited from | Asked only when |
    |---|---|---|
    | Provider | A dependency in `pom.xml`, or an earlier `22-cache.md` § 2 | Neither exists — first cache of the project |
-   | Replica count | An earlier `22-cache.md` § 2, `35-jobs.md` § 3, else `20-persistencia.md` § 1 `Claim strategy` | None exists |
+   | Replica count | An earlier `22-cache.md` § 2, `35-jobs.md` § 3, else `20-persistence.md` § 1 `Claim strategy` | None exists |
    | Cache wiring (`@EnableCaching`, manager, error handler) | Already in the cache package | First cache of the project |
 
    **A cache annotation outside the cache package is not reuse.** A project that annotated a
@@ -136,7 +136,7 @@ the rest of the turn keeps `/new-feature` on the model that designed it
    |---|---|---|
    | **Replicas** — how many instances serve this read in production? | Provider (§ 2) | Step 2 inherited it |
    | **Who else writes this data** — another use case, a job, a consumer, a bulk statement, another service? | § 4, one row per writer | The Components tables of every approved case already answer it — read them and list, then ask only "anything else?" |
-   | **Does the result depend on who asks** — the caller, the tenant, a role, the locale? | The key (§ 1) — and, when the port does not take that input as a parameter, a divergence: `10-dominio.md` is `domain-modeling`'s to change, and the read stays uncached until it does | The port method already takes every such input |
+   | **Does the result depend on who asks** — the caller, the tenant, a role, the locale? | The key (§ 1) — and, when the port does not take that input as a parameter, a divergence: `10-domain.md` is `domain-modeling`'s to change, and the read stays uncached until it does | The port method already takes every such input |
    | **Without the cache** — can the source take the full read rate, or must load be shed? | § 5 | Nothing in the case suggests the source is the bottleneck — record "holds" and why |
    | **Absence** — is "not found" asked often, and may it be served stale? | Whether absence is cached, with its own expiry | The read never returns absence |
 
@@ -155,7 +155,7 @@ the rest of the turn keeps `/new-feature` on the model that designed it
    | Cache name | One per kind of value, kebab-case, added to `CacheNames` |
    | Key | The SpEL expression, naming every input that changes the result — the caller included when the result depends on it, always as a port parameter, never read from a context |
    | Value | The record the port returns, when it is a record of plain components; otherwise the cache-local `…CacheEntry` record the decorator maps to |
-   | Freshness tolerance | Copied from `00-caso-de-uso.md` — the bound for § 3; for a search projection, the tolerance minus `23-busca.md` § 6's lag |
+   | Freshness tolerance | Copied from `00-use-case.md` — the bound for § 3; for a search projection, the tolerance minus `23-search.md` § 6's lag |
    | Absence cached | no, or yes with its own expiry |
    | Concurrent misses | `sync`, or per caller — never `sync` with `unless` (the framework refuses it) |
 
@@ -250,8 +250,8 @@ The exemplars in `templates/` are **reference for form**, not files to copy:
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory), `10-dominio.md`
-(mandatory), `20-persistencia.md`, `28-cliente-http.md` and `35-jobs.md` (when present), the
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory), `10-domain.md`
+(mandatory), `20-persistence.md`, `28-http-client.md` and `35-jobs.md` (when present), the
 Components tables and `22-cache.md` of earlier cases, `pom.xml`, `docker-compose.yml`, the active
 blueprint's `packages.map`, `@.claude/rules/caching.md`, `@.claude/rules/architecture-ddd.md`,
 `@.claude/rules/observability.md`, `@.claude/rules/secrets.md`,
@@ -264,8 +264,8 @@ blueprint's `packages.map`, `@.claude/rules/caching.md`, `@.claude/rules/archite
 size per cache, the list of writers that must evict, failure and load handling of the cache, the
 cache serialization and format version, cache metrics, and the `redis` compose row.
 
-**Does not decide** the freshness tolerance (`00-caso-de-uso.md`), the port or the record it
-returns (`10-dominio.md`), the query or the call behind the port (`20-persistencia.md`,
-`28-cliente-http.md`), the replica count when a partial already recorded it, or the tests
-(`40-testes.md`). Does not write Java, `pom.xml`, `application.yml` or `docker-compose.yml` — the
+**Does not decide** the freshness tolerance (`00-use-case.md`), the port or the record it
+returns (`10-domain.md`), the query or the call behind the port (`20-persistence.md`,
+`28-http-client.md`), the replica count when a partial already recorded it, or the tests
+(`40-tests.md`). Does not write Java, `pom.xml`, `application.yml` or `docker-compose.yml` — the
 executor and `docker-architect` do, from this partial. Doesn't touch `.claude/rules/**`.

@@ -12,7 +12,7 @@
 #  - `max-retries` is THE retrying layer (the OpenAI SDK's own: 408, 409, 429, 5xx, I/O). Spring
 #    AI 2.0's OpenAI models do not read `spring.ai.retry.*` — writing it here would look like a
 #    setting and do nothing. A port whose trigger already retries (a listener, a job) runs on 0:
-#    `29-ia.md` § 6 says which;
+#    `29-ai.md` § 6 says which;
 #  - models and options are per port, under `app.ai.ports` — read by `AiClientConfig`. The
 #    starter's `spring.ai.openai.chat.model` is left unset on purpose: no port runs on it;
 #  - every content-logging flag is written as false, so a reviewer sees it was decided;
@@ -57,7 +57,7 @@ app:
   ai:
     ports:
       ticket-classifier:
-        # Chosen in 29-ia.md § 2 from the provider's list that day. A reasoning model rejects
+        # Chosen in 29-ai.md § 2 from the provider's list that day. A reasoning model rejects
         # temperature: drop the line for one, never leave it to fail at the first call.
         model: gpt-4.1-mini
         # A classification wants the most likely label, not variety.
@@ -70,6 +70,6 @@ app:
         timeout: 4s
     search:
       product-search:
-        # Measured on the labelled sample of 29-ia.md § 3: below it, unrelated products appear.
+        # Measured on the labelled sample of 29-ai.md § 3: below it, unrelated products appear.
         similarity-threshold: 0.75
         max-results: 20

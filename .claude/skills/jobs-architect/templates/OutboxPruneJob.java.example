@@ -11,7 +11,7 @@
  *
  * WHO OWNS WHAT:
  *  - the retention WINDOW (`app.outbox.prune-after`) and the DELETE statement — including that a
- *    dead-lettered row is never pruned — are `persistence-architect`'s, in `20-persistencia.md`;
+ *    dead-lettered row is never pruned — are `persistence-architect`'s, in `20-persistence.md`;
  *    this file only names the property and calls the port;
  *  - the cadence, the batch per statement, the lock and the gate are this job's (`35-jobs.md`).
  *
@@ -47,7 +47,7 @@
  * bounded delete over the published-at index — is in
  * `persistence-architect/templates/OutboxEventStore.java.example`.
  *
- * TESTS (`40-testes.md`): the service, unit, with a gateway fake that returns full batches then a
+ * TESTS (`40-tests.md`): the service, unit, with a gateway fake that returns full batches then a
  * short one — proves the loop stops; the gateway, integration, proves a pending and a
  * dead-lettered row survive a delete whose cutoff is in the future.
  */
@@ -66,7 +66,7 @@ package com.example.demo.application.port.in.outbox;
 
 import java.time.Duration;
 
-/** `retention` is `20-persistencia.md`'s window; `batchSize` is `35-jobs.md`'s. */
+/** `retention` is `20-persistence.md`'s window; `batchSize` is `35-jobs.md`'s. */
 public record PruneOutboxEventsCommand(Duration retention, int batchSize) {
 
     public PruneOutboxEventsCommand {
@@ -85,7 +85,7 @@ public interface OutboxRetentionGateway {
 
     /**
      * Deletes at most {@code limit} PUBLISHED rows published before {@code cutoff}. Never a pending
-     * row, never a dead-lettered one — the statement is `20-persistencia.md`'s and says so.
+     * row, never a dead-lettered one — the statement is `20-persistence.md`'s and says so.
      * Returns how many it deleted.
      */
     int deletePublishedBefore(Instant cutoff, int limit);
@@ -145,7 +145,7 @@ import org.springframework.stereotype.Component;
 /**
  * `@Value` and not `OutboxProperties`: two keys for one job, and the relay's record binds the
  * relay's numbers only — the prune's keys are not added to it. `prune-after` has no default in the
- * placeholder on purpose: the window is a decision `20-persistencia.md` § 1 records, and a missing
+ * placeholder on purpose: the window is a decision `20-persistence.md` § 1 records, and a missing
  * property must fail the boot rather than prune on a number nobody chose.
  */
 @Component

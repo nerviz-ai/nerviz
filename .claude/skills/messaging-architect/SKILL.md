@@ -3,10 +3,10 @@ name: messaging-architect
 description: >
   Designs the Kafka producer/consumer adapter for an already-modeled domain event —
   topic, partition key, serialization, consumer group, delivery semantics, retries and
-  DLQ — into the `25-mensageria.md` partial. Use when the request involves publishing a
+  DLQ — into the `25-messaging.md` partial. Use when the request involves publishing a
   domain event to Kafka, consuming a Kafka topic, designing a producer or consumer
   adapter, deciding topic/partition/serialization, or wiring retry/DLQ for a message
-  listener. Piece of the `/new-feature` pipeline: requires `10-dominio.md` in the given
+  listener. Piece of the `/new-feature` pipeline: requires `10-domain.md` in the given
   folder with an Events block that names external delivery, and stops without it.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
@@ -33,14 +33,14 @@ key, serialization, delivery semantics, retry and DLQ, and the two adapters that
 What `domain-modeling` already named as an event with a consumer, this skill gives a broker
 transport to.
 
-**Entry rule: without `10-dominio.md` naming an event for external delivery, there's nothing
-to transport.** This skill reads `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and
-`10-dominio.md` and treats them as a contract. Without the domain partial, it stops and tells
+**Entry rule: without `10-domain.md` naming an event for external delivery, there's nothing
+to transport.** This skill reads `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and
+`10-domain.md` and treats them as a contract. Without the domain partial, it stops and tells
 you to run `/domain-modeling`. If the domain partial's Events block is "none," or names only
 a sibling use case in the same process, it also stops: an in-process call has no broker to
 design — designing Kafka config for it would be scope no one asked for.
 
-**Exit rule: it doesn't write code.** It emits `25-mensageria.md`. The Java classes come from
+**Exit rule: it doesn't write code.** It emits `25-messaging.md`. The Java classes come from
 the executor agent, which reads the partial and the `templates/` exemplars.
 
 **Rule rule: the rules don't live here.** Idempotent consumer, `acks=all`, topic naming,
@@ -63,7 +63,7 @@ Form 1, motivated by axis 2 (chained by `/new-feature`, also invocable by hand) 
 (`domain-modeling` already owns the event; this skill only owns its transport). The closest
 rejected form was a fourth option in the same decision — a dedicated "domain events" skill —
 which failed invariant 2: `domain-modeling` already asks whether the aggregate emits an event
-and already writes the Events block of `10-dominio.md`. A subagent was never viable either: it
+and already writes the Events block of `10-domain.md`. A subagent was never viable either: it
 fails the § 5 counter-test in `claude-code-architect-designer`'s decision matrix on all three
 points — the interview over topic/partitioning/DLQ is the heart of the task, the reference
 content fits in `templates/`, and the partial it produces is short.
@@ -76,13 +76,13 @@ The division is by **moment and artifact**, not technology:
 
 | Piece | When it acts | What it produces |
 |---|---|---|
-| `use-case-design` | Before the domain exists | `00-caso-de-uso.md` — boundary and canonical names |
-| `domain-modeling` | After the mother spec | `10-dominio.md` — aggregate, invariants, ports, **and the event itself** |
+| `use-case-design` | Before the domain exists | `00-use-case.md` — boundary and canonical names |
+| `domain-modeling` | After the mother spec | `10-domain.md` — aggregate, invariants, ports, **and the event itself** |
 | `rest-api-architect` | After the domain partial | `30-rest.md` — transport, no schema, plus the schema requirements it creates |
-| **this skill** | After the domain partial, only when an event needs external delivery — and **before** `persistence-architect` | `25-mensageria.md`, § 6 included |
+| **this skill** | After the domain partial, only when an event needs external delivery — and **before** `persistence-architect` | `25-messaging.md`, § 6 included |
 | `jobs-architect` | After this skill, when § 2 chose Form B | `35-jobs.md` — the relay's schedule, coordination across instances, the prune job |
-| `persistence-architect` | After this skill and `jobs-architect` | `20-persistencia.md` + migration — builds what § 6 of both partials asked for |
-| `test-architect` | After all of them | `40-testes.md` |
+| `persistence-architect` | After this skill and `jobs-architect` | `20-persistence.md` + migration — builds what § 6 of both partials asked for |
+| `test-architect` | After all of them | `40-tests.md` |
 
 `domain-modeling` decides **whether** an event exists and **who consumes it**. This skill
 never redefines the event or its payload's business meaning — it only decides how it travels.
@@ -100,12 +100,12 @@ still transport.
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` and `10-dominio.md` from the folder in
+1. **Read the specs.** `00-use-case.md` and `10-domain.md` from the folder in
    the target above. Without the second, stop. Extract: the event's name, payload fields, the
    consuming use case, and whether that consumer is external (another service, another
    deployable) — that's what makes this skill apply at all.
 
-   When the consuming case is a search projection's indexer — its `23-busca.md` exists — read its
+   When the consuming case is a search projection's indexer — its `23-search.md` exists — read its
    **§ 8** too: the consumer it requires is fixed there, by guarantee — one partition key per
    aggregate, at-least-once, a stale write acknowledged and never retried, a bounded retry and a
    dead letter. The search document and its write rules are `search-architect`'s; this skill
@@ -137,11 +137,11 @@ still transport.
    call and **never fewer than 2 real options per question**: one option isn't a question —
    decide it and record the decision in the partial, since the runtime rejects the whole
    batch over a single one (`@CLAUDE.md` § Known pitfalls). Don't re-ask what
-   `00-caso-de-uso.md` or `10-dominio.md` already answered.
+   `00-use-case.md` or `10-domain.md` already answered.
 
    | Axis | Decides |
    |---|---|
-   | **Publication timing** — must the event survive a broker outage between the commit and the publish? | Form A (publish after commit) or Form B (transactional outbox + relay), per `@.claude/rules/messaging.md` § Publication timing. Read the `Durability` column of `10-dominio.md` § Events **first**: when it already answers, record the form and don't ask again |
+   | **Publication timing** — must the event survive a broker outage between the commit and the publish? | Form A (publish after commit) or Form B (transactional outbox + relay), per `@.claude/rules/messaging.md` § Publication timing. Read the `Durability` column of `10-domain.md` § Events **first**: when it already answers, record the form and don't ask again |
    | Partition key candidate (which field must stay ordered) | Whether the aggregate id is enough, or a composite key is needed |
    | Consumer group id, new or existing | Reuse vs. a fresh subscription with its own offset |
    | `auto-offset-reset` tolerance (losing vs. reprocessing on redeploy) | `earliest` or `latest` |
@@ -161,7 +161,7 @@ still transport.
    makes a schema registry a deliberate upgrade — "not assumed until a use case actually
    needs it". So:
 
-   - **No trigger written in `00-caso-de-uso.md` or `10-dominio.md` → don't ask.** Record
+   - **No trigger written in `00-use-case.md` or `10-domain.md` → don't ask.** Record
      `JSON` in the partial together with the rule's condition, in one line, and move on. A
      rule default is not a question, and "the consumer is another team" is not by itself the
      trigger — the trigger is that both sides need the contract validated **at build time**.
@@ -251,7 +251,7 @@ still transport.
    The guarantee has a second half, and it is the one a real run left unstated: **at-least-once
    only holds if something absorbs the duplicate.** § 6's row names the attempts and the DLQ;
    § 3 names who dedupes (step 3's axis). The claim query itself — locked, leased, or explicitly
-   single-instance — is `persistence-architect`'s decision and belongs in `20-persistencia.md`;
+   single-instance — is `persistence-architect`'s decision and belongs in `20-persistence.md`;
    what this skill must not do is accept a method *named* like a claim as proof that a claim
    happens. A gateway method called `claimPending` implemented as an unlocked `SELECT` is the
    shape that shipped, and two relay instances then publish the whole batch twice, every pass.
@@ -282,7 +282,7 @@ still transport.
    (`processed_events` or equivalent), shared by every listener in the project, modeled once.
    If missing, add it as a second row of **§ 6 · Schema requirements** and flag that
    `persistence-architect` needs to model it — this skill doesn't design tables,
-   `20-persistencia.md` does.
+   `20-persistence.md` does.
 
 6. **Fix retry and DLQ.** Backoff attempts and the DLQ topic name, per
    `@.claude/rules/messaging.md` § Retry and DLQ. A business rejection (typed domain
@@ -328,7 +328,7 @@ still transport.
    an `## Impact on approved use cases` row. The answer goes into `## Design patterns` —
    `none` when nothing matches, and absence is not `none`.
 
-8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/25-mensageria.md`, from
+8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/25-messaging.md`, from
    `templates/messaging-spec.md.example`. Nine numbered blocks plus `## Compose services` and `## Design patterns`, all mandatory — § 6 through § 9
    included, each written as `none` when there is nothing to ask for.
 
@@ -383,8 +383,8 @@ still transport.
     "none"), **and, when the consumer is not in this project, whether its idempotency is
     contracted, assumed or unknown** — the last two are findings the person who asked for the
     feature has to see, not partial content to be read later,
-    and what's missing for the folder to be complete (`20-persistencia.md`,
-    `40-testes.md`, and `35-jobs.md` under Form B). Don't invoke anyone else — under Form B
+    and what's missing for the folder to be complete (`20-persistence.md`,
+    `40-tests.md`, and `35-jobs.md` under Form B). Don't invoke anyone else — under Form B
     `jobs-architect` runs next and reads § 2 and § 6; then `persistence-architect` reads § 6 in
     its first pass.
 
@@ -396,11 +396,11 @@ asked.
 | Block | Fixes | Form exemplar |
 |---|---|---|
 | Topic and delivery | Topic name, partition key, serialization, delivery semantics | `@.claude/rules/messaging.md` § Topics and serialization |
-| Producer adapter | The port from `10-dominio.md`, **the publication form (A or B) and why**, the adapter, the payload shape, and — Form B only — that the case needs the shared outbox plus the delivery guarantee its relay must honour | `KafkaProducerAdapter.java.example` (A) · `OutboxRelayPublisher.java.example` (B) |
+| Producer adapter | The port from `10-domain.md`, **the publication form (A or B) and why**, the adapter, the payload shape, and — Form B only — that the case needs the shared outbox plus the delivery guarantee its relay must honour | `KafkaProducerAdapter.java.example` (A) · `OutboxRelayPublisher.java.example` (B) |
 | Consumer adapter and idempotency | The consuming use case, the listener, the dedupe key and table | `KafkaConsumerAdapter.java.example` |
 | Retry and DLQ | Backoff, DLQ topic, which failures skip retry | `@.claude/rules/messaging.md` § Retry and DLQ |
 | Configuration | Group id, offset reset, ack mode, with the decided value and why | `application-kafka.yml.example` |
-| Schema requirements | Every table this transport needs that the domain didn't model — the shared `outbox_events` under Form B (step 4a), the shared dedupe table (step 5a) — one row each, stating **which table and which guarantee**, never a column name and never DDL. The outbox's columns and pacing belong to `20-persistencia.md`; a column named here becomes a divergence there. `none` when there are none | `@.claude/rules/messaging.md` § Publication timing · § Retry and DLQ |
+| Schema requirements | Every table this transport needs that the domain didn't model — the shared `outbox_events` under Form B (step 4a), the shared dedupe table (step 5a) — one row each, stating **which table and which guarantee**, never a column name and never DDL. The outbox's columns and pacing belong to `20-persistence.md`; a column named here becomes a divergence there. `none` when there are none | `@.claude/rules/messaging.md` § Publication timing · § Retry and DLQ |
 | Declared dependencies | Build dependencies this transport needs and the project does not declare — the only list entitling the executor to touch `pom.xml`. `none` when there are none, and absence is not `none` | — |
 | Personal data | Every payload field matching `@.claude/rules/logging.md` § Masking candidates, with the form chosen — full value, reduced, or a reference — and, for a full value, the receiver and the reason. That is the `Recorded decision` `@.claude/rules/personal-data.md` § In transit requires. `none` when the payload carries none, and absence is not `none` | `@.claude/rules/personal-data.md` § How to verify, grep 1 |
 | Deferred | One row per item this partial decided **not** to do in this run: what was decided, what is missing, the norm that requires it (by path), and the intended owner — `checklist` or `backlog`. `none` when nothing was deferred, absence is not `none`. Consolidation resolves the owner and is what writes the `BACKLOG.md` line | — |
@@ -416,13 +416,13 @@ executor agent that reads them when generating code.
 use case folder and nothing else: the broker service belongs to `docker-architect`, and a
 write to the compose file is refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` (mandatory —
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` (mandatory —
 stops without the second, or without its Events block naming external delivery),
 `@.claude/rules/messaging.md`, `@.claude/rules/architecture-ddd.md` (Adapters section),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`, `@.claude/rules/lombok.md`,
 and the active blueprint's `packages.map`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/25-mensageria.md`. Nothing else.
+**Writes** `docs/use-cases/UC-NNN-<slug>/25-messaging.md`. Nothing else.
 
 **Does not write Java code.** The publisher, listener, and payload classes come from the
 executor agent.
@@ -444,12 +444,12 @@ correction to a partial already written. Form B's relay reads that state through
 
 **Owns the publication form** (after-commit vs. outbox + relay), from step 3's first axis.
 `domain-modeling` records whether the event tolerates being lost — the `Durability` column of
-`10-dominio.md` § Events; this skill turns that property into a transport decision. A form
+`10-domain.md` § Events; this skill turns that property into a transport decision. A form
 chosen upstream of the `Durability` column is a divergence to report, not to adopt silently.
 
-**Does not decide** the use case boundary (`00-caso-de-uso.md`), whether an event exists or
-its payload's business meaning (`10-dominio.md`, `domain-modeling`'s call), the transport for
-synchronous HTTP (`30-rest.md`), or the tests (`40-testes.md`). Doesn't touch
+**Does not decide** the use case boundary (`00-use-case.md`), whether an event exists or
+its payload's business meaning (`10-domain.md`, `domain-modeling`'s call), the transport for
+synchronous HTTP (`30-rest.md`), or the tests (`40-tests.md`). Doesn't touch
 `.claude/rules/**`.
 
 **Does not cover in-process Spring events** (`ApplicationEventPublisher`/`@EventListener`) —

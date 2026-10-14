@@ -7,7 +7,7 @@
  *
  * PASSWORDS: the delegating encoder stores `{bcrypt}…` today and verifies older encodings
  * after the default changes. Adaptive and slow on purpose — and HTTP Basic pays one hash per
- * request, the cost `32-seguranca.md` § 2 writes next to the choice. Never a plain, reversible
+ * request, the cost `32-security.md` § 2 writes next to the choice. Never a plain, reversible
  * or fast-digest encoder (`.claude/rules/authorization.md` § Mechanism).
  *
  * THE COMPROMISED-PASSWORD CHECK IS NOT A BEAN HERE: registered as a bean, the framework runs
@@ -20,7 +20,7 @@
  * needs CSRF on, and a different mechanism is the better answer.
  *
  * WHERE THE USERS COME FROM: an outbound port of the application layer, implemented by the
- * persistence adapter — `32-seguranca.md` § 7 asks `persistence-architect` for the store. The
+ * persistence adapter — `32-security.md` § 7 asks `persistence-architect` for the store. The
  * security wiring never touches a repository or an entity.
  */
 

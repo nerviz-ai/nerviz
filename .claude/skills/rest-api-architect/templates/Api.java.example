@@ -16,7 +16,7 @@
  * operation fully documented, and that's a lot of annotation weight. Separating the
  * contract (this file) from the implementation (`Controller.java.example`) keeps the
  * business method body free of documentation noise, and gives the contract a single
- * file reviewers check against `10-dominio.md`'s ports without wading through
+ * file reviewers check against `10-domain.md`'s ports without wading through
  * `createUser.handle(...)` logic — and, unlike an earlier version of this exemplar,
  * without wondering which file actually decides the `/users` mapping, its `version`, or whether `@Valid`
  * fires: that's answered by one file now, the controller.

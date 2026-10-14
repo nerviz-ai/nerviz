@@ -412,7 +412,7 @@ declared guarantee stops the pipeline instead of being settled by precedence
 (`.claude/decisions/0087-jobs-architect-skill.md`).
 
 **A cache needs a tolerance the business stated, and lives in one package.** `cache-architect`
-runs only when `00-caso-de-uso.md`'s `Freshness` row states how old an answer may be — a
+runs only when `00-use-case.md`'s `Freshness` row states how old an answer may be — a
 spec approved before that row existed never triggers it, and "the query looks slow" is not a
 tolerance. The cache is a decorator of the outbound port in the blueprint's `.cache` package,
 wired as the port's `@Primary` bean by the delegate's bean name: a `@Cacheable` on a
@@ -422,28 +422,28 @@ fails at startup. Hibernate's second-level cache stays off; HTTP caching is
 `rest-api-architect`'s (`.claude/decisions/0144-cache-architect-skill.md`).
 
 **A model or a vector store is one port, and four partials own its pieces.** `ai-architect` runs
-only when `10-dominio.md` declares a port of kind `LLM` or `vector store`, and `29-ia.md` owns
+only when `10-domain.md` declares a port of kind `LLM` or `vector store`, and `29-ai.md` owns
 the provider, the model, the prompts, the answer type, the data sent, the timeout and the one
 retrying layer. The port, its "could not decide" value and the review state stay
-`10-dominio.md`'s; the vector store's migration is `20-persistencia.md`'s (`29-ia.md` § 9 only
-asks); a re-index trigger or an ingestion job is `25-mensageria.md`'s or `35-jobs.md`'s. Spring
+`10-domain.md`'s; the vector store's migration is `20-persistence.md`'s (`29-ai.md` § 9 only
+asks); a re-index trigger or an ingestion job is `25-messaging.md`'s or `35-jobs.md`'s. Spring
 AI lives in the `.ai` package alone, so `org.springframework.ai..` in an `application` module
 is a boundary violation (`.claude/decisions/0145-ai-architect-skill.md`).
 
 **A GraphQL operation is one input port, and four partials own its pieces.**
-`graphql-api-architect` runs only when `00-caso-de-uso.md`'s `Trigger` row ends in `inbound
+`graphql-api-architect` runs only when `00-use-case.md`'s `Trigger` row ends in `inbound
 GraphQL adapter` or `inbound REST and GraphQL adapters`, and `31-graphql.md` owns the root
 fields, the types, the payloads, the connections and the project's limits. A batch port it
-needs arrives as a requirement from `31-graphql.md` § 9 and becomes `10-dominio.md`'s port at
+needs arrives as a requirement from `31-graphql.md` § 9 and becomes `10-domain.md`'s port at
 consolidation; the batch statement and the index a connection's order needs are
-`20-persistencia.md`'s; who may read each root field and each sensitive field is
-`32-seguranca.md`'s access rows, never `31-graphql.md`'s. The schema snapshot of
+`20-persistence.md`'s; who may read each root field and each sensitive field is
+`32-security.md`'s access rows, never `31-graphql.md`'s. The schema snapshot of
 `GraphQlSchemaCompatibilityTest` lives in `src/test/graphql/`: under `src/test/resources` it
 would sit on the test classpath. Spring for GraphQL lives in the `.graphql` package alone
 (`.claude/rules/api-graphql.md`, `.claude/decisions/0146-graphql-api-architect-skill.md`).
 
 **The storage family is a datum of the use case, and no step of the pipeline weighs it.**
-`use-case-design` records it in `00-caso-de-uso.md`'s `Storage` row — per aggregate,
+`use-case-design` records it in `00-use-case.md`'s `Storage` row — per aggregate,
 `relational` or `document (MongoDB)` — from the request, or from one bare factual question
 ("SQL or NoSQL?"), and never argues for either; that decision interview belongs to a planned
 solution-design skill. `persistence-architect` stops without the row. MongoDB needs a replica set
@@ -454,10 +454,10 @@ transaction manager, so the shape that keeps JPA beside MongoDB declares both
 `.claude/decisions/0147-document-storage-and-search-architect.md`).
 
 **A search index is a projection, and five partials own its pieces.** `search-architect` runs only
-when `00-caso-de-uso.md`'s `Search index` row names a projection, and `23-busca.md` owns the
+when `00-use-case.md`'s `Search index` row names a projection, and `23-search.md` owns the
 document, the mapping, the alias, the query, the indexer's write rules, the rebuild adapter and
-the lag. The source's version and the outbox event are `20-persistencia.md`'s; the indexer's
-consumer is `25-mensageria.md`'s; the rebuild job is `35-jobs.md`'s. A cache over a search port
+the lag. The source's version and the outbox event are `20-persistence.md`'s; the indexer's
+consumer is `25-messaging.md`'s; the rebuild job is `35-jobs.md`'s. A cache over a search port
 gets the case's `Freshness` minus the lag, never the whole of it. Spring Data Elasticsearch and
 OpenSearch live in the `.search` package alone, so their imports in an `application` module are a
 boundary violation (`.claude/rules/search.md`,
@@ -501,7 +501,7 @@ rows. Seen in issue #111. Design:
 `UPDATE`/`DELETE` (`@Modifying`), `CriteriaUpdate`, `CriteriaDelete` or native SQL changes the rows
 without passing through Envers' listeners: the history misses the change, with no error and no red
 test. No hook covers it — no observed failure justifies one. What exists is the `grep` of
-`.claude/rules/persistence.md` § How to verify and the list of bulk writes `20-persistencia.md`'s
+`.claude/rules/persistence.md` § How to verify and the list of bulk writes `20-persistence.md`'s
 § Audit records. The same goes for the actor: a job or consumer pass without `SystemActor` fails the
 write, by design — the actor is never `null`. Design:
 `.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
@@ -520,7 +520,7 @@ baseline is not listed there again (`.claude/rules/api-rest.md` § Versioning,
 `.claude/decisions/0150-api-versioning-in-rest-api-architect.md`).
 
 **An admission limit exists only when the use case states it, and the quota is per replica.**
-Without an `Admission` row in `00-caso-de-uso.md`, no designer proposes a quota or a bulkhead — and
+Without an `Admission` row in `00-use-case.md`, no designer proposes a quota or a bulkhead — and
 `use-case-design` never asks. Resilience4j's `RateLimiter` keeps its state in the JVM: each replica
 enforces the quota divided by the replica count, and behind an uneven balancer the limit is
 approximate; a quota exact across replicas is the edge's. Three silent traps: a

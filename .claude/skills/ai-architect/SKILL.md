@@ -3,13 +3,13 @@ name: ai-architect
 description: >
   Designs the outbound AI ports of an already-scoped use case — a language model asked for a
   structured answer (classify, extract, moderate) or an embedding model and a vector store asked
-  for the nearest items (semantic search, duplicate detection) — into the `29-ia.md` partial: the
+  for the nearest items (semantic search, duplicate detection) — into the `29-ai.md` partial: the
   prompt resources, the answer type with closed fields and what an unusable answer becomes, which
   fields go to the provider, the store and who re-indexes it, timeout and the one retrying layer,
   failure families, metrics, configuration and test cases, with Spring AI only in the adapter. Use
   when the request involves Spring AI, ChatClient, an LLM, OpenAI or Anthropic from Java, a prompt,
   structured output, embeddings, pgvector or a vector store. Piece of the `/new-feature` pipeline:
-  requires `00-caso-de-uso.md` and a `10-dominio.md` declaring a port of kind `LLM` or
+  requires `00-use-case.md` and a `10-domain.md` declaring a port of kind `LLM` or
   `vector store` in the given folder — and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*), Bash(curl:*)
@@ -36,12 +36,12 @@ prompt as a versioned resource, the answer as a type whose closed fields the mod
 the "could not decide" value every unusable answer becomes, the fields that cross to the provider
 and the ones that never do, the store a semantic search reads and who keeps it current, and how a
 slow, refusing or absent provider reaches the caller. The domain already said what the port means
-and which state waits for a person — that is `10-dominio.md`. This skill makes the model's side of
+and which state waits for a person — that is `10-domain.md`. This skill makes the model's side of
 that port honest.
 
 **Entry rule: no AI port, no AI design.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/10-dominio.md` and runs only when § Ports declares an output port of
-kind `LLM` or `vector store`. None → stop and say so. `00-caso-de-uso.md` is required too: the
+`docs/use-cases/UC-NNN-<slug>/10-domain.md` and runs only when § Ports declares an output port of
+kind `LLM` or `vector store`. None → stop and say so. `00-use-case.md` is required too: the
 trigger and its deadline bound every timeout here.
 
 **Scope rule: structured answers and semantic search, nothing else.** A case whose port needs the
@@ -51,7 +51,7 @@ answer generated over retrieved passages, images, audio or transcription is outs
 decides between narrowing the case with `use-case-design` and deferring it. Never design it here
 half-way.
 
-**Exit rule: it doesn't write code.** It emits `29-ia.md`. The Java classes, prompts and properties
+**Exit rule: it doesn't write code.** It emits `29-ai.md`. The Java classes, prompts and properties
 come from the executor agent, which reads the partial and the `templates/` exemplars.
 
 **Rule rule: the rules don't live here.** Boundary, wiring, prompts, output, data sent, semantic
@@ -90,21 +90,21 @@ rest of the turn keeps `/new-feature` on the model that designed it
 | `domain-modeling` | The port, its kind, its domain types, the "could not decide" value and the review state it leads to | Anything about the model or the store |
 | `http-client-architect` | The integration families' classes, when the project has them first | The AI port's timeout, retry or translation |
 | `messaging-architect` / `jobs-architect` | The trigger that re-indexes a store on a record's change, an ingestion or backfill job | The store, the embedding |
-| `persistence-architect` | The store's migration — its final name, number and placement | The table's shape the library reads (`29-ia.md` § 9 hands it over) |
+| `persistence-architect` | The store's migration — its final name, number and placement | The table's shape the library reads (`29-ai.md` § 9 hands it over) |
 | **this skill** | Provider and model per port, prompt resources and variables, answer type, data sent, store and embedding model, timeout and retrying layer per port, failure translation, metrics, AI dependencies and configuration, the `postgres` image row for a store | The port, the review state, the trigger, the tests' code |
 | `test-architect` | Which test proves each case of § 8, at what level | — |
 | `docker-architect` | The compose block of the database image § Compose services names | — |
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` (trigger, Components table), `10-dominio.md` (§ Ports
+1. **Read the specs.** `00-use-case.md` (trigger, Components table), `10-domain.md` (§ Ports
    with their kinds, the domain types, the review state), and — when present — `30-rest.md` (the
-   request deadline), `25-mensageria.md` and `35-jobs.md` (whether the trigger already retries),
-   `32-seguranca.md` (who is asking). Apply the entry rule and the scope rule. List the AI ports,
+   request deadline), `25-messaging.md` and `35-jobs.md` (whether the trigger already retries),
+   `32-security.md` (who is asking). Apply the entry rule and the scope rule. List the AI ports,
    each as a port method with its kind.
 
    **A port of kind `LLM` with no "could not decide" value in its return type, or no review state
-   it leads to, is a divergence**, not something to invent here: `10-dominio.md` is
+   it leads to, is a divergence**, not something to invent here: `10-domain.md` is
    `domain-modeling`'s to change, and the port stays undesigned until it does — an adapter with
    nowhere to put an unusable answer throws it, or worse, guesses.
 
@@ -118,7 +118,7 @@ rest of the turn keeps `/new-feature` on the model that designed it
    # AI code already in the project, outside the AI package or inside it
    grep -rlnE "import (org\.springframework\.ai|com\.openai|com\.anthropic)\." --include='*.java' src/main 2>/dev/null
    # Decisions earlier use cases recorded
-   find docs/use-cases -name '29-ia.md' 2>/dev/null
+   find docs/use-cases -name '29-ai.md' 2>/dev/null
    ```
 
    And the active blueprint's `packages.map` entry ending in `.ai` — the package every AI adapter,
@@ -135,10 +135,10 @@ rest of the turn keeps `/new-feature` on the model that designed it
 
    | Fact | Inherited from | Asked only when |
    |---|---|---|
-   | Provider | A starter in `pom.xml`, or an earlier `29-ia.md` § 2 | Neither exists — first AI port of the project |
-   | Store and embedding model | An earlier `29-ia.md` § 5 | First store of the project |
+   | Provider | A starter in `pom.xml`, or an earlier `29-ai.md` § 2 | Neither exists — first AI port of the project |
+   | Store and embedding model | An earlier `29-ai.md` § 5 | First store of the project |
    | Project-wide pieces (`AiProperties`, `AiClientConfig`, `AiFailureTranslator`) | Already in the AI package | First AI port |
-   | Integration families | The domain exception package (`28-cliente-http.md` may have created them) | Never asked — created NEW when absent |
+   | Integration families | The domain exception package (`28-http-client.md` may have created them) | Never asked — created NEW when absent |
 
 3. **Interview — only what steps 1 and 2 did not settle.** `AskUserQuestion`, at most 4 questions
    per call and **never fewer than 2 real options** per question; an axis with one sensible answer
@@ -171,13 +171,13 @@ rest of the turn keeps `/new-feature` on the model that designed it
    index), the distance, the item id (the source record's id, so a write replaces), and **one row per
    writer** of the mirrored records — its path to `ProductEmbeddings`-style `index`/`remove`. A
    writer that cannot call it (another service, a bulk statement) goes to § 9 as a requirement on
-   `25-mensageria.md` or `35-jobs.md`; a first fill of an existing table is an ingestion job, also § 9.
+   `25-messaging.md` or `35-jobs.md`; a first fill of an existing table is an ingestion job, also § 9.
 
 7. **Failure and retry — § 6.** Per port: the timeout, per attempt, from a measured number and under
    the trigger's deadline; the retrying layer — the provider SDK's `max-retries`, set to `0` when the
    trigger already retries (`@.claude/rules/http-client.md` § Retry); the attempts that follow. Then
    the failure table — the three integration families of `@.claude/rules/error-handling.md`, and what
-   each becomes for our caller, read from `00-caso-de-uso.md`'s alternative flows. The project-wide
+   each becomes for our caller, read from `00-use-case.md`'s alternative flows. The project-wide
    pieces, NEW or REUSE.
 
 8. **Observability and tests — § 7 and § 8.** The library's metrics and the alarm each exists for,
@@ -185,9 +185,9 @@ rest of the turn keeps `/new-feature` on the model that designed it
    by level: contract (stub `ChatModel`), provider IT (WireMock), store IT (real pgvector, stub
    `EmbeddingModel`). No case calls a real model.
 
-9. **Requirements to other partials — § 9.** The store's migration to `20-persistencia.md` (shape:
+9. **Requirements to other partials — § 9.** The store's migration to `20-persistence.md` (shape:
    `templates/vector-store-migration.sql.example`); a re-index trigger or an ingestion job to
-   `25-mensageria.md` or `35-jobs.md`; a missing review state to `10-dominio.md`. Each a row, never an
+   `25-messaging.md` or `35-jobs.md`; a missing review state to `10-domain.md`. Each a row, never an
    edit of another partial.
 
 10. **Declare dependencies and configuration — § 10 and § 11.** `spring-ai-bom` imported, with the
@@ -223,7 +223,7 @@ rest of the turn keeps `/new-feature` on the model that designed it
     `postgres` at all, the question as usual. A chat model alone → `none`. Do **not** invoke
     `docker-architect` and do not edit `docker-compose.yml`.
 
-12. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/29-ia.md`, from
+12. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/29-ai.md`, from
     `templates/ai-spec.md.example`. Twelve numbered blocks plus `## Compose services` and
     `## Design patterns`, all mandatory, each written as `none` when there is nothing — absence is not
     `none`. § 12 `Deferred` follows the same shape as every other partial's.
@@ -265,7 +265,7 @@ run against the classpath the Initializr resolved on the day it was written:
 | `templates/AiClientConfig.java.example` | `AiProperties`, one `ChatClient` per port from the auto-configured builder, per-port options with the timeout, `AiFailureTranslator` |
 | `templates/application-ai.yml.example` | Key placeholder, base URL, the SDK's retries, content logging off, the store's settings, `app.ai.*` per port |
 | `templates/ticket-classifier-system.st.example`, `ticket-classifier-user.st.example` | A system prompt naming the input as data, a user prompt holding only the delimited variable |
-| `templates/vector-store-migration.sql.example` | The store's schema as a migration — handed to `20-persistencia.md` |
+| `templates/vector-store-migration.sql.example` | The store's schema as a migration — handed to `20-persistence.md` |
 | `templates/ai-spec.md.example` | The partial |
 
 ## Contract
@@ -274,9 +274,9 @@ run against the classpath the Initializr resolved on the day it was written:
 `@.claude/schemas/extensions.json`, and `ArchHook.java guard` enforces it. Writes inside the use
 case folder and nothing else.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (mandatory), `10-dominio.md`
-(mandatory), `30-rest.md`, `25-mensageria.md`, `35-jobs.md`, `32-seguranca.md` (when present), the
-Components tables and `29-ia.md` of earlier cases, `pom.xml`, `docker-compose.yml`, the active
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (mandatory), `10-domain.md`
+(mandatory), `30-rest.md`, `25-messaging.md`, `35-jobs.md`, `32-security.md` (when present), the
+Components tables and `29-ai.md` of earlier cases, `pom.xml`, `docker-compose.yml`, the active
 blueprint's `packages.map`, the Initializr's metadata, `@.claude/rules/ai.md`,
 `@.claude/rules/http-client.md`, `@.claude/rules/error-handling.md`,
 `@.claude/rules/personal-data.md`, `@.claude/rules/secrets.md`, `@.claude/rules/observability.md`,
@@ -284,7 +284,7 @@ blueprint's `packages.map`, the Initializr's metadata, `@.claude/rules/ai.md`,
 `@.claude/skills/docker-architect/references/compose-service-decision.md`, and this skill's
 `references/`.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/29-ia.md`. Nothing else.
+**Writes** `docs/use-cases/UC-NNN-<slug>/29-ai.md`. Nothing else.
 
 **Owns** the provider and the model and options of each AI port, the prompt resources and their
 variables, the answer type and what each unusable answer becomes, the fields sent to the provider,
@@ -292,9 +292,9 @@ the store, its embedding model and the list of writers that must re-index, the t
 retrying layer of each AI port, the translation of provider failures, AI metrics, AI dependencies
 and configuration, and the `postgres` image row a store needs.
 
-**Does not decide** the port, its domain types or the review state (`10-dominio.md`), the trigger
-and its deadline (`00-caso-de-uso.md`, `30-rest.md`), a re-index trigger or an ingestion job
-(`25-mensageria.md`, `35-jobs.md`), the migration's final form (`20-persistencia.md`), or the tests
-(`40-testes.md`). Does not write Java, prompts, `pom.xml`, `application.yml` or
+**Does not decide** the port, its domain types or the review state (`10-domain.md`), the trigger
+and its deadline (`00-use-case.md`, `30-rest.md`), a re-index trigger or an ingestion job
+(`25-messaging.md`, `35-jobs.md`), the migration's final form (`20-persistence.md`), or the tests
+(`40-tests.md`). Does not write Java, prompts, `pom.xml`, `application.yml` or
 `docker-compose.yml` — the executor and `docker-architect` do, from this partial. Doesn't touch
 `.claude/rules/**`.

@@ -43,7 +43,7 @@ public class MethodSecurityConfig {
 // --- Roles.java
 package com.exemplo.minhaapi.adapter.in.rest.security;
 
-/** Every role an endpoint names, without the `ROLE_` prefix. One constant per row of `32-seguranca.md` § 3. */
+/** Every role an endpoint names, without the `ROLE_` prefix. One constant per row of `32-security.md` § 3. */
 public final class Roles {
 
     public static final String SUPPORT = "SUPPORT";

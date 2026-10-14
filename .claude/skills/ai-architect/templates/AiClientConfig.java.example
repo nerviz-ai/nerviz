@@ -2,7 +2,7 @@
  * EXEMPLAR — the project-wide AI wiring every port of kind `LLM` shares: one `ChatClient` per port,
  * built from the auto-configured builder, with its model and options named in configuration; the
  * prompt delimiters; and the translation of a provider failure into the integration families.
- * Written once, by the first use case whose `29-ia.md` § 6 declares them NEW; REUSE afterwards,
+ * Written once, by the first use case whose `29-ai.md` § 6 declares them NEW; REUSE afterwards,
  * adding one bean and one `app.ai.ports` entry per new port.
  * Form reference for the executor agent; not a file to copy verbatim.
  * Rules: `.claude/rules/ai.md` (§ Wiring, § Prompts, § Failure and retry)

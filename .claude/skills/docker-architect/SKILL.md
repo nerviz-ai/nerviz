@@ -4,7 +4,7 @@ description: >
   Extends a project's docker-compose.yml and Dockerfile after project-bootstrap's base
   generation — adds the database or messaging service a modeled use case needs, keeps
   the compose-side image tag consistent with the one test-architect pins in
-  TestcontainersConfiguration.java, and syncs with 20-persistencia.md / 40-testes.md.
+  TestcontainersConfiguration.java, and syncs with 20-persistence.md / 40-tests.md.
   Also owns the observability backend behind the OTLP collector: Jaeger, or Grafana +
   Tempo + Prometheus. Use when the request involves adding a service to docker-compose,
   containerizing a new dependency, configuring Testcontainers at the compose level,
@@ -99,9 +99,9 @@ pin lasts for the rest of the turn it fires in
 | Piece | Owns | Doesn't touch |
 |---|---|---|
 | `project-bootstrap` | Base `Dockerfile` + `docker-compose.yml` (`app` service), once, at generation. Also *decides when* to call this skill for a feature already active in the blueprint (`persistence-jpa`, `observability`) — never writes the service block itself | Any service a use case adds later; the shape of any service block, ever |
-| **this skill** | Every service block in `docker-compose.yml`/`Dockerfile` — the ones `project-bootstrap` calls it for at generation, and the ones added later by hand or chained from a UC-driven skill | The engine choice itself — that's `20-persistencia.md`'s call, this skill reads it |
-| `persistence-architect` | Engine choice, schema, datasource properties (`20-persistencia.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
-| `messaging-architect` | Broker choice, topic, consumer group (`25-mensageria.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
+| **this skill** | Every service block in `docker-compose.yml`/`Dockerfile` — the ones `project-bootstrap` calls it for at generation, and the ones added later by hand or chained from a UC-driven skill | The engine choice itself — that's `20-persistence.md`'s call, this skill reads it |
+| `persistence-architect` | Engine choice, schema, datasource properties (`20-persistence.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
+| `messaging-architect` | Broker choice, topic, consumer group (`25-messaging.md`) | `docker-compose.yml`, and this skill — records the decision in `## Compose services` instead |
 | `test-architect` | The pinned image tag inside `TestcontainersConfiguration.java` (one line, Java side) | The compose-side service definition — invokes this skill instead, and both should agree on the same tag |
 
 **The OTLP signal contract has two owners, one per half**, and that is what made
@@ -128,10 +128,10 @@ that project: read `<path>/docker-compose.yml` instead.
    `project-bootstrap`.
 
 2. **Find out what's needed.**
-   - If the target above names a `UC-NNN-<slug>` folder: read `20-persistencia.md` for the
-     engine and version, `25-mensageria.md` for the broker and topic, `22-cache.md` for a `redis`
-     row, `29-ia.md` for a `postgres` row whose image is `pgvector/pgvector`, `23-busca.md` for an
-     `elasticsearch` or `opensearch` row, and `40-testes.md`
+   - If the target above names a `UC-NNN-<slug>` folder: read `20-persistence.md` for the
+     engine and version, `25-messaging.md` for the broker and topic, `22-cache.md` for a `redis`
+     row, `29-ai.md` for a `postgres` row whose image is `pgvector/pgvector`, `23-search.md` for an
+     `elasticsearch` or `opensearch` row, and `40-tests.md`
      for whether `testcontainers` is active and which image tag `test-architect` already
      pinned in `TestcontainersConfiguration.java`
      (`grep -rn "DockerImageName.parse" src/test`).
@@ -358,15 +358,15 @@ that project: read `<path>/docker-compose.yml` instead.
 
 | Engine | Template | When **not** |
 |---|---|---|
-| PostgreSQL | `templates/postgres-service.yml.example` | Engine chosen in `20-persistencia.md` isn't Postgres — or, at bootstrap time, when `persistence-jpa` isn't active in the blueprint |
-| PostgreSQL with pgvector | `templates/postgres-service.yml.example`, its `VARIANT — a vector store` | `29-ia.md` declares no vector store. Same `postgres` service, variables and volume; only the image is `pgvector/pgvector`. On a project whose `postgres` already exists, the change is that block's `image:` line — never a second database service. The extension itself is created by the project's migration, not here |
-| MySQL | `templates/mysql-service.yml.example` | Engine chosen in `20-persistencia.md` isn't MySQL |
-| MongoDB | `templates/mongo-service.yml.example` | No aggregate of the document family in `20-persistencia.md`. Always a single-node replica set with a keyfile — never a standalone server, which refuses the transactions the outbox and idempotency need; the healthcheck initiates the set once. Needs `MONGO_PASSWORD` in `.env` (step 4.5). An `external` MongoDB must be a replica set too |
-| Elasticsearch | `templates/elasticsearch-service.yml.example` | `23-busca.md` names no Elasticsearch projection. Single node, authentication on, HTTP TLS off locally; the tag's major matches the client's. Needs `SEARCH_PASSWORD` in `.env` |
-| OpenSearch | `templates/opensearch-service.yml.example` | `23-busca.md` names no OpenSearch projection. Single node, security plugin on, HTTP TLS off locally; the admin password must be strong or the container exits. Needs `SEARCH_PASSWORD` in `.env` |
-| Kafka | `templates/kafka-service.yml.example` | Broker chosen in `25-mensageria.md` isn't Kafka, or there is none |
+| PostgreSQL | `templates/postgres-service.yml.example` | Engine chosen in `20-persistence.md` isn't Postgres — or, at bootstrap time, when `persistence-jpa` isn't active in the blueprint |
+| PostgreSQL with pgvector | `templates/postgres-service.yml.example`, its `VARIANT — a vector store` | `29-ai.md` declares no vector store. Same `postgres` service, variables and volume; only the image is `pgvector/pgvector`. On a project whose `postgres` already exists, the change is that block's `image:` line — never a second database service. The extension itself is created by the project's migration, not here |
+| MySQL | `templates/mysql-service.yml.example` | Engine chosen in `20-persistence.md` isn't MySQL |
+| MongoDB | `templates/mongo-service.yml.example` | No aggregate of the document family in `20-persistence.md`. Always a single-node replica set with a keyfile — never a standalone server, which refuses the transactions the outbox and idempotency need; the healthcheck initiates the set once. Needs `MONGO_PASSWORD` in `.env` (step 4.5). An `external` MongoDB must be a replica set too |
+| Elasticsearch | `templates/elasticsearch-service.yml.example` | `23-search.md` names no Elasticsearch projection. Single node, authentication on, HTTP TLS off locally; the tag's major matches the client's. Needs `SEARCH_PASSWORD` in `.env` |
+| OpenSearch | `templates/opensearch-service.yml.example` | `23-search.md` names no OpenSearch projection. Single node, security plugin on, HTTP TLS off locally; the admin password must be strong or the container exits. Needs `SEARCH_PASSWORD` in `.env` |
+| Kafka | `templates/kafka-service.yml.example` | Broker chosen in `25-messaging.md` isn't Kafka, or there is none |
 | Redis (cache) | `templates/redis-service.yml.example` | `22-cache.md` § 2 chose Caffeine, or the cache is `external`. No volume and no persistence on purpose — a cache is recomputed from its source — and `allkeys-lru` under a memory limit, so a full cache evicts instead of refusing writes. Needs `REDIS_PASSWORD` in `.env` (step 4.5) |
-| Schema Registry (Confluent) | `templates/schema-registry-service.yml.example` | `25-mensageria.md` kept the JSON default — which is the rule's default, so this is the common case. Only when the partial recorded the Avro/Protobuf upgrade **and** its trigger. Needs `kafka` in the file, has no volume on purpose (state lives in the `_schemas` topic), and its tag has to match the `kafka-avro-serializer` the POM resolves — verified in the registry, per step 4 |
+| Schema Registry (Confluent) | `templates/schema-registry-service.yml.example` | `25-messaging.md` kept the JSON default — which is the rule's default, so this is the common case. Only when the partial recorded the Avro/Protobuf upgrade **and** its trigger. Needs `kafka` in the file, has no volume on purpose (state lives in the `_schemas` topic), and its tag has to match the `kafka-avro-serializer` the POM resolves — verified in the registry, per step 4 |
 | OpenTelemetry Collector | `templates/otel-collector-service.yml.example` + init script `templates/otel-collector-config.yml.example` | `observability` isn't active in the blueprint. No engine choice for the collector itself — one vendor-neutral ingest point, always the same shape. Where it *exports* to is a real choice, and it's the next two rows |
 | Jaeger | `templates/jaeger-service.yml.example` | No `otel-collector` in the file yet, a backend is already there, or the project wants metrics too — Jaeger stores traces only |
 | Grafana + Tempo + Prometheus | `templates/grafana-stack-service.yml.example` + three init scripts (`tempo-config`, `prometheus-config`, `grafana-datasources`) | No `otel-collector` yet, a backend is already there, or three containers is too much for what the project needs — Jaeger is the one-container answer |
@@ -398,8 +398,8 @@ and the user invokes `/docker-architect` from a prompt of its own afterwards.
 
 **Unfiltered Bash:** verification drives `docker compose` (`up`, `ps`, `logs`), `docker manifest`, `curl` against health endpoints and `java … compose` — the subcommands depend on the services being added, so a fixed list trails the skill. Writes stay under `guard`/`guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/20-persistencia.md`, `25-mensageria.md`, and
-`40-testes.md` when a folder is given; the active blueprint's `features:` (`persistence-jpa`,
+**Reads** `docs/use-cases/UC-NNN-<slug>/20-persistence.md`, `25-messaging.md`, and
+`40-tests.md` when a folder is given; the active blueprint's `features:` (`persistence-jpa`,
 `observability`) when called from `project-bootstrap` at generation time; plus
 `docker-compose.yml`, `Dockerfile`, `TestcontainersConfiguration.java` (image tag only),
 `@.claude/rules/persistence.md`, and `@.claude/rules/messaging.md`.
@@ -412,8 +412,8 @@ and the `EXPOSE` line, never the base image or base stages `project-bootstrap` w
 this skill — this is the single owner.
 
 **Does not** choose the database engine (`persistence-architect`'s call via
-`20-persistencia.md`) or the broker (`messaging-architect`'s call via
-`25-mensageria.md`), pin the Testcontainers image tag inside Java (`test-architect`'s one
+`20-persistence.md`) or the broker (`messaging-architect`'s call via
+`25-messaging.md`), pin the Testcontainers image tag inside Java (`test-architect`'s one
 line in `TestcontainersConfiguration.java`), or write the base
 `docker-compose.yml`/`Dockerfile` (`project-bootstrap`, once, at generation). Doesn't
 write business code, doesn't touch `.claude/rules/**`.

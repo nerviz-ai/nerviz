@@ -22,7 +22,7 @@ a new section here, not a new file — single owner, `@CLAUDE.md` invariant 2.
 - Zero business logic in the adapter. A consumer that branches on payload content beyond
   "which use case do I call" has smuggled a domain decision into the transport layer
 - The producer adapter implements the outbound port `domain-modeling` already declared for
-  the event (`10-dominio.md` § Ports) — it doesn't invent its own interface
+  the event (`10-domain.md` § Ports) — it doesn't invent its own interface
 - The consumer adapter translates an inbound message into a call on the target use case's
   inbound port. It never touches the target aggregate directly
 - No Kafka type (`ProducerRecord`, `ConsumerRecord`, `@KafkaListener`) in a domain or

@@ -33,7 +33,7 @@
  * before any bean exists, so a bound value would be read by nothing while the schedule fell back
  * to its default. `enabled` is not there either — `@ConditionalOnProperty` reads it itself.
  *
- * THE PASS'S INPUT. Batch size and attempt ceiling are `20-persistencia.md`'s values. This job
+ * THE PASS'S INPUT. Batch size and attempt ceiling are `20-persistence.md`'s values. This job
  * binds them (`OutboxProperties`, below) and hands them to every pass as
  * `RelayOutboxEventsCommand` — the use case's input, the role the clean-architecture convention
  * names `Command`. Built once: the record is immutable and the properties do not change at

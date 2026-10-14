@@ -1,5 +1,5 @@
 /*
- * EXEMPLAR — integration test of an outbound HTTP adapter, for the cases `28-cliente-http.md` § 9
+ * EXEMPLAR — integration test of an outbound HTTP adapter, for the cases `28-http-client.md` § 9
  * lists. Suffix `IT`: it opens real sockets. Shape owned here; the cases are `http-client-architect`'s.
  *
  * A REAL SOCKET, NEVER `MockRestServiceServer`: the mock server replaces the request factory, so it
@@ -32,7 +32,7 @@
  *
  * DEPENDENCY: `org.wiremock.integrations:wiremock-spring-boot`, test scope. Not managed by the Boot
  * parent: version resolved from Maven Central's `maven-metadata.xml` at write time and declared in
- * `40-testes.md` § 5 — never from memory. Its WireMock must match the project's Jetty generation;
+ * `40-tests.md` § 5 — never from memory. Its WireMock must match the project's Jetty generation;
  * the partial records the pair that ran green.
  */
 package com.exemplo.minhaapi.adapter.out.http.paymentgateway;

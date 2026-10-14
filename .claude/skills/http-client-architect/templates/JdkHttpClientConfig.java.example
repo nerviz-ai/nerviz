@@ -1,6 +1,6 @@
 /*
  * EXEMPLAR — the ALTERNATIVE engine: the JDK's `java.net.http.HttpClient`, no extra dependency.
- * Chosen only when `28-cliente-http.md` § 3 records why Apache HttpClient 5 is not wanted (an image
+ * Chosen only when `28-http-client.md` § 3 records why Apache HttpClient 5 is not wanted (an image
  * that must not grow, a policy against the dependency) or a provider requires HTTP/2, which Apache
  * HttpClient 5's classic API does not speak — the decision matrix in
  * `references/client-decision-matrix.md` § Engine.

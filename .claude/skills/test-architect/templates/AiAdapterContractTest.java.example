@@ -1,6 +1,6 @@
 /*
  * EXEMPLAR — contract test of an outbound port answered by a language model, for the answer cases
- * `29-ia.md` § 8 lists. No model, no network, no Spring context: a stub `ChatModel` returns a fixed
+ * `29-ai.md` § 8 lists. No model, no network, no Spring context: a stub `ChatModel` returns a fixed
  * text, and the adapter runs with the production `ChatClient` wiring around it. Shape owned here;
  * the cases are `ai-architect`'s.
  *

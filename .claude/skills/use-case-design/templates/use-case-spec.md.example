@@ -8,17 +8,17 @@
 | Identifier | `UC-001-create-user` |
 | Date | 2026-09-07 |
 | Trigger | user creation, over HTTP — inbound REST adapter. Ends in exactly one of: `inbound REST adapter` · `inbound GraphQL adapter` · `inbound REST and GraphQL adapters` · `inbound messaging adapter` · `inbound job adapter` — that phrase decides which inbound design steps run. **The exact path and verb belong to `rest-api-architect`, in `30-rest.md`; a GraphQL operation's shape to `graphql-api-architect`, in `31-graphql.md`** |
-| Access | only callers with the `USER_ADMIN` role — a business fact. Mechanism, annotation and status belong to `security-architect`, in `32-seguranca.md`. One of: public · authenticated · role or group (named) · owner (and who may override). Required whenever the trigger is HTTP — REST, GraphQL, or both |
+| Access | only callers with the `USER_ADMIN` role — a business fact. Mechanism, annotation and status belong to `security-architect`, in `32-security.md`. One of: public · authenticated · role or group (named) · owner (and who may override). Required whenever the trigger is HTTP — REST, GraphQL, or both |
 | Side effects | **1** — `INSERT` into `users` |
-| Storage | `User` → relational — chosen by: request ("store the user in the existing Postgres"). One entry per aggregate the case writes or reads as its source, each `relational` or `document (MongoDB)` — `none` when it reads and writes no stored aggregate — with who chose: `request` (stated, or inferred without ambiguity — the aggregate already lives there) or `answer` (one factual question). Never weighed here: no criteria, no recommendation. Tables, collections and the relational engine belong to `persistence-architect`, in `20-persistencia.md` |
-| Search index | none. When the request names a search over the data: `<aggregate> → Elasticsearch projection` or `→ OpenSearch projection`, with who chose. A search index is always a projection of a `Storage` aggregate, never where it lives. Mapping, query and indexer belong to `search-architect`, in `23-busca.md` |
-| Audit | none — the request asks nothing about who changed the data. When it does, per aggregate the case writes: `<aggregate> → stamps` (when and by whom created and last changed) or `→ history` (every earlier version readable, with who and when), with who chose: `request`, or `answer` (one factual question, only when the request leaves open whether earlier values must be readable). A missing row reads as `none`. Columns, history tables, the actor and the retention belong to `persistence-architect`, in `20-persistencia.md` |
+| Storage | `User` → relational — chosen by: request ("store the user in the existing Postgres"). One entry per aggregate the case writes or reads as its source, each `relational` or `document (MongoDB)` — `none` when it reads and writes no stored aggregate — with who chose: `request` (stated, or inferred without ambiguity — the aggregate already lives there) or `answer` (one factual question). Never weighed here: no criteria, no recommendation. Tables, collections and the relational engine belong to `persistence-architect`, in `20-persistence.md` |
+| Search index | none. When the request names a search over the data: `<aggregate> → Elasticsearch projection` or `→ OpenSearch projection`, with who chose. A search index is always a projection of a `Storage` aggregate, never where it lives. Mapping, query and indexer belong to `search-architect`, in `23-search.md` |
+| Audit | none — the request asks nothing about who changed the data. When it does, per aggregate the case writes: `<aggregate> → stamps` (when and by whom created and last changed) or `→ history` (every earlier version readable, with who and when), with who chose: `request`, or `answer` (one factual question, only when the request leaves open whether earlier values must be readable). A missing row reads as `none`. Columns, history tables, the actor and the retention belong to `persistence-architect`, in `20-persistence.md` |
 | Admission | none — the request states no limit. When it does, in its own numbers: `quota <N> per <window> per caller` and/or `cap <N> at the same time`, with who chose: `request`, or `answer` (one factual question, only for a missing window or caller). Only for an HTTP trigger; a missing row reads as `none`. Where the quota is enforced, the caller's key and the rejection belong to `rest-api-architect` (`30-rest.md` § 8) or `graphql-api-architect` (`31-graphql.md` § 6) |
-| External calls | none — no side effect reaches a system this service does not own. When one does, one line per system: what it is and what the case asks of it, documentation link, how it authenticates this service (as itself · on behalf of the user · static key · username and password · client certificate · signed requests · none) and who owns the credential, idempotency key accepted or not, tolerance when it is down, and what an unknown write result means. Client, timeout and retry belong to `http-client-architect`, in `28-cliente-http.md` |
+| External calls | none — no side effect reaches a system this service does not own. When one does, one line per system: what it is and what the case asks of it, documentation link, how it authenticates this service (as itself · on behalf of the user · static key · username and password · client certificate · signed requests · none) and who owns the credential, idempotency key accepted or not, tolerance when it is down, and what an unknown write result means. Client, timeout and retry belong to `http-client-architect`, in `28-http-client.md` |
 | Transaction | opens at the inbound port, closes before the response |
 | Repetition | repeating the request with the same email must **not** create a second user (business fact). The mechanism — `Idempotency-Key` or none — is delegated to `rest-api-architect` |
 | Concurrency | the `UNIQUE(email)` constraint is the arbiter; no application-level lock |
-| Freshness | none — a create returns what it just wrote. For a read: how old an answer may be when served, in business words ("a balance may be up to 30 seconds old"), or `none` when every read must see the last write. A duration here is what makes `cache-architect` run; whether a cache exists, its provider, expiry and keys belong to it, in `22-cache.md`. With a `Search index`, the same duration is the whole budget: the projection's lag comes out of it first (`23-busca.md` § 6), and a cache gets only the remainder |
+| Freshness | none — a create returns what it just wrote. For a read: how old an answer may be when served, in business words ("a balance may be up to 30 seconds old"), or `none` when every read must see the last write. A duration here is what makes `cache-architect` run; whether a cache exists, its provider, expiry and keys belong to it, in `22-cache.md`. With a `Search index`, the same duration is the whole budget: the projection's lag comes out of it first (`23-search.md` § 6), and a cache gets only the remainder |
 | Active blueprint | `hexagonal` |
 
 ## Trigger, payload, and response
@@ -146,7 +146,7 @@ Invariants live in the aggregate, never in the caller —
 | required field missing | shape — rejected in the adapter, never reaches the domain |
 
 Situations and kinds, never exception names or statuses. The exception class and
-`errorCode` belong to `10-dominio.md` (`@.claude/rules/error-handling.md`); the HTTP
+`errorCode` belong to `10-domain.md` (`@.claude/rules/error-handling.md`); the HTTP
 mapping belongs to `30-rest.md` — the use case is transport-agnostic.
 
 ## Expected tests
@@ -175,7 +175,7 @@ Approved specs (`status: approved` or `implemented`) are read-only. When this ca
 a change in one — a new column, a promoted exception — it's written here instead, one
 row per change, and the executor applies it in code. The old spec is never edited. Each
 partial carries this same section for the changes its owner decides — an exception
-promoted in `10-dominio.md`, a column added in `20-persistencia.md` — and consolidation
+promoted in `10-domain.md`, a column added in `20-persistence.md` — and consolidation
 collects them all:
 
 `| Approved case | Change | Why | Satisfied by |` — e.g. `| UC-001-create-user | the `User` aggregate gains a rename operation | this case renames; UC-001 only created | this case |`
@@ -193,7 +193,7 @@ Derived from the Components table, in compile order.
 
 - [ ] 1. `domain/model/Email.java`
 - [ ] 2. `domain/model/User.java`
-- [ ] 3. domain exceptions — named in `10-dominio.md`
+- [ ] 3. domain exceptions — named in `10-domain.md`
 - [ ] 4. `application/port/in/user/CreateUserCommand.java`
 - [ ] 5. `application/port/in/user/CreateUserUseCase.java`
 - [ ] 6. `application/port/out/UserRepository.java`
@@ -207,7 +207,7 @@ Derived from the Components table, in compile order.
 <!--
 HOW TO USE THIS:
 - Generated by the `use-case-design` skill (step 8) into
-  docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md
+  docs/use-cases/UC-NNN-<slug>/00-use-case.md
 - This exemplar uses `hexagonal`. With another blueprint, the paths column and the use
   case class names change — names from the blueprint's naming convention.
 - Fixed sections, in this order. An empty section gets "none" written in — deleting a

@@ -1,14 +1,14 @@
 /*
  * EXEMPLAR — mechanism "resource server, signed token": the caller sends
  * `Authorization: Bearer <JWT>` issued by an external identity provider, and this application
- * validates it locally against the provider's key set. `32-seguranca.md` § 2 and § 3.
+ * validates it locally against the provider's key set. `32-security.md` § 2 and § 3.
  *
  * WHAT BOOT ALREADY DOES, AND WHY THERE IS NO DECODER BEAN HERE: with
  * `spring.security.oauth2.resourceserver.jwt.issuer-uri` set, Boot builds the decoder,
  * discovers the key set, and validates signature, expiry, not-before and issuer; with
  * `...jwt.audiences` it adds the audience check `.claude/rules/authorization.md` § Mechanism
  * requires. A `JwtDecoder` bean of our own replaces Boot's — and the audience check goes with
- * it, in silence. Declare one only when `32-seguranca.md` says why, and then add a
+ * it, in silence. Declare one only when `32-security.md` says why, and then add a
  * `JwtAudienceValidator` to it by hand.
  *
  * WHAT THIS CLASS ADDS: the claims-to-authorities mapping, which providers place in different,

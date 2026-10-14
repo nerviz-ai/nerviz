@@ -1,7 +1,7 @@
 # UC-001 · REST adapter
 
 > Partial of `docs/use-cases/UC-001-create-user/`. Owner: `rest-api-architect`.
-> Inherits the canonical names from `00-caso-de-uso.md` and the ports from `10-dominio.md` —
+> Inherits the canonical names from `00-use-case.md` and the ports from `10-domain.md` —
 > doesn't reinvent them.
 > Contains no code. Reference shapes in
 > `.claude/skills/rest-api-architect/templates/`.
@@ -9,11 +9,11 @@
 
 | Field | Value |
 |---|---|
-| Parent spec | `00-caso-de-uso.md` |
-| Domain partial | `10-dominio.md` |
+| Parent spec | `00-use-case.md` |
+| Domain partial | `10-domain.md` |
 | Resource | `users` |
 | API versioning | project setup NEW in this case — § 7 |
-| Divergences from `10-dominio.md` | none |
+| Divergences from `10-domain.md` | none |
 
 ## 1 · Endpoints
 
@@ -43,14 +43,14 @@ Adding an endpoint with no use case behind it is guessing the contract.
 | `PageResponse<UserResponse>` | output | `content`, `page{number,size,totalElements,totalPages}` | — |
 
 Validation here is **shape** only. "Email already registered" isn't `@Email`: it's an
-aggregate invariant, lives in `10-dominio.md`, and comes out as 422 — see block 3.
+aggregate invariant, lives in `10-domain.md`, and comes out as 422 — see block 3.
 
 DTO ↔ domain translation in `UserMapper`, static methods, manual. The DTO's `String`
 becomes `Email` in the mapper and nowhere else.
 
 ## 3 · Error map
 
-Each exception from `10-dominio.md`, its status, and the `errorCode` the client sees. This
+Each exception from `10-domain.md`, its status, and the `errorCode` the client sees. This
 table is the source of block 5 — no test case comes from anywhere but here.
 
 | Situation | Domain exception | Status | `errorCode` | Extra fields |
@@ -82,7 +82,7 @@ justify it.
 |---|---|---|
 | Header presence and format | `IdempotencyKeyInterceptor` in the adapter | yes — 400 above |
 | Claim (own transaction), then effect + stored response (one transaction) | `IdempotentExecution`, application layer, called by the controller; the command carries no key | no — only declared as needed |
-| `idempotency_keys` table (route, caller, body hash, status, body, lease, TTL >= 24 h) | `20-persistencia.md` | no — **handed off to `persistence-architect`** |
+| `idempotency_keys` table (route, caller, body hash, status, body, lease, TTL >= 24 h) | `20-persistence.md` | no — **handed off to `persistence-architect`** |
 
 **Schema requirements** — read by `persistence-architect` in its first pass, which runs
 after this partial:
@@ -178,7 +178,7 @@ breaking writes one row per change, and the executor CHANGEs `ApiVersioningConfi
 
 ## 8 · Admission
 
-none — `00-caso-de-uso.md`'s `Admission` row is `none`: the request states no quota and no cap.
+none — `00-use-case.md`'s `Admission` row is `none`: the request states no quota and no cap.
 
 `@.claude/rules/inbound-admission.md`. A case whose row states a limit fills two parts. The
 **project setup** is written once, by the first case with a limit (NEW); every later case writes

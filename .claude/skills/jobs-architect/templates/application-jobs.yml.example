@@ -40,7 +40,7 @@ app:
   outbox:
     enabled: true                 # gates OutboxRelayJob
     poll-interval: PT1S           # read ONLY by the @Scheduled placeholder — never also bound
-    prune-after: P7D              # value is 20-persistencia.md's; present because OutboxPruneJob reads it
+    prune-after: P7D              # value is 20-persistence.md's; present because OutboxPruneJob reads it
     prune:
       enabled: true
       cron: "0 30 3 * * *"

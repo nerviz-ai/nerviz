@@ -20,7 +20,7 @@
  * `retryAfter` is the one piece of family state the norm admits: the provider's `Retry-After`, or
  * the open circuit's wait, so the 503 the API answers can carry it.
  *
- * WRITTEN ONCE, by the first use case whose `28-cliente-http.md` declares them NEW. Each
+ * WRITTEN ONCE, by the first use case whose `28-http-client.md` declares them NEW. Each
  * `// --- <File>.java` block is its own file in `domain.exception`.
  */
 

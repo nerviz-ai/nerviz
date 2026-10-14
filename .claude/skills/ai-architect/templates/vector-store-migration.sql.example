@@ -1,5 +1,5 @@
 -- EXEMPLAR — the pgvector store's schema, as a versioned migration. The final name, number and
--- placement are 20-persistencia.md's (the requirement comes from 29-ia.md § 9); this is the shape
+-- placement are 20-persistence.md's (the requirement comes from 29-ai.md § 9); this is the shape
 -- Spring AI's PgVectorStore reads, so `schema-validation: true` passes against it.
 -- Form reference for the executor agent; not a file to copy verbatim.
 -- Rules: `.claude/rules/ai.md` § Semantic search · `.claude/rules/persistence.md`

@@ -1,4 +1,4 @@
-# EXEMPLAR — the security properties of `32-seguranca.md` § 9, merged into the project's
+# EXEMPLAR — the security properties of `32-security.md` § 9, merged into the project's
 # `application.yml` (one `spring:` root, one `app:` root — never a second one). Keep only the
 # block of the mechanism § 2 chose; the others are here to show the shape.
 #

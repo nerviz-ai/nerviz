@@ -99,7 +99,7 @@ public class SweepTest {
                 null, null, "a design skill narrows the phase");
         Path uc = repo.resolve("docs/use-cases/UC-006-order");
         String spec = "docs/use-cases/UC-006-order/UC-006-spec.md";
-        String partial = "docs/use-cases/UC-006-order/00-caso-de-uso.md";
+        String partial = "docs/use-cases/UC-006-order/00-use-case.md";
         String changelog = "docs/use-cases/UC-001-x/CHANGELOG.md";
         for (String rel : new String[] { spec, partial, changelog }) {
             failures += guard(hook, repo, "write", "{\"session_id\":\"" + s4
@@ -125,10 +125,10 @@ public class SweepTest {
 
         // The same turn with one file no tool-time guard saw: still judged, against the phase
         // open at Stop, and named alone.
-        Path unseen = uc.resolve("20-persistencia.md");
+        Path unseen = uc.resolve("20-persistence.md");
         Files.writeString(unseen, "written by a script");
         failures += guard(hook, repo, "sweep", "{\"session_id\":\"" + s4 + "\"}", 2,
-                "UC-006-order/20-persistencia.md", "UC-006-spec.md",
+                "UC-006-order/20-persistence.md", "UC-006-spec.md",
                 "a write no tool-time guard saw — still reported, admitted ones are not");
 
         if (failures > 0) {

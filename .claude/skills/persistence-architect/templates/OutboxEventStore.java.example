@@ -30,7 +30,7 @@
  * and left messaging flat put four of that concern's classes in the messaging root
  * (lessons-learned-014 § 14).
  *
- * WHY THIS PORT ISN'T DECLARED IN `10-dominio.md`: like `IdempotencyKeyPort`, it mirrors no
+ * WHY THIS PORT ISN'T DECLARED IN `10-domain.md`: like `IdempotencyKeyPort`, it mirrors no
  * output port of any aggregate. `domain-modeling` declares the port that *publishes the event*;
  * this one serves the relay's own view of outbox state, and exists once for the whole project.
  *

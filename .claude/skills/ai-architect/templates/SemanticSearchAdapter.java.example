@@ -17,9 +17,9 @@
  *  - the stored item's id IS the product id, so writing it again replaces it (the pgvector store
  *    upserts by id) and deleting the product deletes it by the same id. Whoever writes the product
  *    calls `ProductEmbeddings` — the use case that changes it, or a consumer of its event
- *    (`29-ia.md` § 9 hands that to `25-mensageria.md` or `35-jobs.md`);
+ *    (`29-ai.md` § 9 hands that to `25-messaging.md` or `35-jobs.md`);
  *  - only the text the search needs is embedded — name and description. The supplier's contact,
- *    the cost price and anything personal never go to the embedding provider (`29-ia.md` § 4);
+ *    the cost price and anything personal never go to the embedding provider (`29-ai.md` § 4);
  *  - a filter on metadata is built with `FilterExpressionBuilder`, never by concatenating input
  *    into a filter string;
  *  - provider failures go through the same `AiFailureTranslator` as the chat ports — the embedding

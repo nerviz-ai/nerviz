@@ -33,7 +33,7 @@
  * active blueprint's `packages.map`.
  *
  * The table that stores route, caller identity, body hash, status, and response body
- * (TTL >= 24 h) belongs to `20-persistencia.md`. The `30-rest.md` partial declares it's
+ * (TTL >= 24 h) belongs to `20-persistence.md`. The `30-rest.md` partial declares it's
  * needed and names it; it doesn't model it. Shape reference for the other half:
  * `@.claude/skills/persistence-architect/templates/IdempotencyKeyTable.sql.example` and
  * `.../IdempotencyKeyStore.java.example`, and `.../IdempotentExecution.java.example`.

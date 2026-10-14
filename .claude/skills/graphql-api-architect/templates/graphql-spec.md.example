@@ -1,16 +1,16 @@
 # UC-014 · GraphQL adapter
 
 > Partial of `docs/use-cases/UC-014-cancel-order/`. Owner: `graphql-api-architect`.
-> Inherits the canonical names from `00-caso-de-uso.md`, the input ports and the exceptions from
-> `10-dominio.md`, and — this case's trigger being `inbound REST and GraphQL adapters` — the REST
+> Inherits the canonical names from `00-use-case.md`, the input ports and the exceptions from
+> `10-domain.md`, and — this case's trigger being `inbound REST and GraphQL adapters` — the REST
 > operations over the same ports from `30-rest.md`. Doesn't redecide them. Contains no code. Form
 > references in `.claude/skills/graphql-api-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/api-graphql.md`.
 
 | Field | Value |
 |---|---|
-| Parent spec | `00-caso-de-uso.md` — Trigger: `inbound REST and GraphQL adapters` |
-| Domain partial | `10-dominio.md` |
+| Parent spec | `00-use-case.md` — Trigger: `inbound REST and GraphQL adapters` |
+| Domain partial | `10-domain.md` |
 | GraphQL package | `adapter.in.graphql` (blueprint `packages.map`) |
 | Schema file | `src/main/resources/graphql/order.graphqls` |
 | Spring for GraphQL line | the one the Boot parent of `pom.xml` manages; the starter is the Initializr's `graphql`, version empty |
@@ -37,7 +37,7 @@ same name, mapped by hand from the port's read model.
 | `Order` | `id`, `status`, `placedAt`, `total` | `ID!`, `OrderStatus!`, `String!` (ISO-8601 UTC), `Money!` | no | `OrderView` |
 | `Order` | `lines` | `[OrderLine!]!` | no — empty, never null | batch, § 5 |
 | `Order` | `customer` | `Customer!` | no — an order always has one | batch, § 5 |
-| `Customer` | `taxId` | `String` | yes — denied without `SUPPORT` (§ 8, `32-seguranca.md`) | `CustomerView`, its own guarded mapping |
+| `Customer` | `taxId` | `String` | yes — denied without `SUPPORT` (§ 8, `32-security.md`) | `CustomerView`, its own guarded mapping |
 | `Money` | `amount`, `currency` | `String!`, `String!` | no | decimal as text |
 
 ## 3 · Inputs and payloads
@@ -56,7 +56,7 @@ A partial update: none in this case — no input distinguishes "absent" from "nu
 
 ## 5 · Batch loads
 
-Every child field that costs I/O. The batch port is a **requirement**: `10-dominio.md` did not declare
+Every child field that costs I/O. The batch port is a **requirement**: `10-domain.md` did not declare
 it, and consolidation carries it to the domain block with this partial as who asked.
 
 | Field | Batch port (requirement) | Key | Missing key answers | Max batch |
@@ -81,9 +81,9 @@ an impact row.
 | GraphiQL | `dev` only | same |
 | CORS | `POST`, origins from `GRAPHQL_ALLOWED_ORIGINS`, none by default | asked: the web client is served from another origin |
 | Schema inspection | fails the startup | same |
-| Endpoint in the filter chain | `POST /graphql` authenticated | `32-seguranca.md` § 1 |
+| Endpoint in the filter chain | `POST /graphql` authenticated | `32-security.md` § 1 |
 
-**Admission** — none: `00-caso-de-uso.md`'s `Admission` row is `none`.
+**Admission** — none: `00-use-case.md`'s `Admission` row is `none`.
 
 A case whose row states a limit writes the admission setup the way `30-rest.md` § 8 does, or
 `inherited from UC-NNN` when a REST or GraphQL case wrote it first, and then its limits
@@ -123,9 +123,9 @@ Every output field walked through `@.claude/rules/logging.md` § Masking candida
 
 | To | Requirement |
 |---|---|
-| `10-dominio.md` | the batch ports of § 5 |
-| `20-persistencia.md` | one statement per batch port (`IN` over the keys, bounded by § 6's max batch); an index serving `customer_id, placed_at desc, id desc` for § 4's order |
-| `32-seguranca.md` | one row per root field of § 1 and one for `Customer.taxId` |
+| `10-domain.md` | the batch ports of § 5 |
+| `20-persistence.md` | one statement per batch port (`IN` over the keys, bounded by § 6's max batch); an index serving `customer_id, placed_at desc, id desc` for § 4's order |
+| `32-security.md` | one row per root field of § 1 and one for `Customer.taxId` |
 
 ## 10 · Contract test cases
 
@@ -177,4 +177,4 @@ none
 3. The schema file of § 2
 4. The adapter records, `OrderGraphQlMapper`, `OrderCursors`, `OrderGraphQlController` — after the ports of § 1 and § 5 exist
 5. Properties in `application.yml`
-6. Tests — `40-testes.md`: every row of § 10, and the schema snapshot
+6. Tests — `40-tests.md`: every row of § 10, and the schema snapshot

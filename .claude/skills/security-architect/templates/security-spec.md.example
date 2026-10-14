@@ -2,14 +2,14 @@
 
 > Partial of `docs/use-cases/UC-004-cancel-order/`. Owner: `security-architect`.
 > Inherits the endpoints from `30-rest.md` and the actor and ownership invariant from
-> `10-dominio.md` — doesn't redecide them.
+> `10-domain.md` — doesn't redecide them.
 > Contains no code. Form references in `.claude/skills/security-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/authorization.md`,
 > `@.claude/rules/api-rest.md` § Errors.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` — `Access`: only the order's owner; a `SUPPORT` agent may cancel any order |
+| Mother spec | `00-use-case.md` — `Access`: only the order's owner; a `SUPPORT` agent may cancel any order |
 | Why this partial exists | `Access` names the owner and a role, and the project has no `SecurityFilterChain` yet — first secured case |
 | Stack | servlet (`spring-boot-starter-webmvc` in `pom.xml`) |
 | Wiring package | `infrastructure.config` (blueprint `packages.map`, entry `infrastructure.config`) |
@@ -33,7 +33,7 @@ Public rows of the project after this case (each with its reason):
 | Decision | Value | Why |
 |---|---|---|
 | Mechanism | OAuth2 resource server, signed token (JWT) | `references/mechanism-decision-matrix.md` § 2 row 3: the company runs Keycloak and it issues signed tokens |
-| Inherited? | no — first secured case | no security starter in `pom.xml`, no chain on disk, no earlier `32-seguranca.md` |
+| Inherited? | no — first secured case | no security starter in `pom.xml`, no chain on disk, no earlier `32-security.md` |
 | Exemplars | `SecurityConfig.java.example` + `JwtResourceServerConfig.java.example` | — |
 
 Rejected, one line each: **opaque token** — no requirement to revoke before expiry, and it adds
@@ -68,8 +68,8 @@ the accounts. **API key** — no machine caller in this case.
 
 | Fact | Value |
 |---|---|
-| Owner field | `Order.customerId` — `10-dominio.md` § 1 |
-| Actor in the command | `CancelOrderCommand.actor` (`Actor(CustomerId id, boolean support)`) — `10-dominio.md` § 4 |
+| Owner field | `Order.customerId` — `10-domain.md` § 1 |
+| Actor in the command | `CancelOrderCommand.actor` (`Actor(CustomerId id, boolean support)`) — `10-domain.md` § 4 |
 | Actor source | the token's `sub` → `CustomerId`; `support` = the caller holds `ROLE_SUPPORT` — resolved by the controller, `CurrentActorResolution.java.example` |
 | Not the owner, not support | `OrderNotFoundException` (`ORDER_NOT_FOUND`) — the same the absent order raises; existence not revealed |
 | Override | `SUPPORT` cancels any order; the use case logs the actor id with the cancellation |
@@ -93,7 +93,7 @@ none — the identity provider holds the credentials.
 | `org.springframework.boot:spring-boot-starter-security` | (managed by the Boot parent) | filter chain, method security |
 | `org.springframework.boot:spring-boot-starter-security-oauth2-resource-server` | (managed by the Boot parent) | JWT decoding and validation — the Boot 4 name, from the Initializr id `oauth2-resource-server`; the older `spring-boot-starter-oauth2-resource-server` is deprecated |
 
-The test support (`spring-boot-starter-security-test`, plus `spring-boot-starter-security-oauth2-resource-server-test` for a token mechanism) is declared by `40-testes.md` § 5.
+The test support (`spring-boot-starter-security-test`, plus `spring-boot-starter-security-oauth2-resource-server-test` for a token mechanism) is declared by `40-tests.md` § 5.
 
 ## 9 · Configuration
 
@@ -145,4 +145,4 @@ One row per pattern this layer adopts, decided through
 3. `JwtResourceServerConfig`, then `SecurityConfig`, then `MethodSecurityConfig`, `SecurityAuditListener`, `OpenApiSecurityConfig`
 4. Actor resolution in `OrderController.cancel` — after the REST block wrote the controller
 5. Properties in `application.yml`
-6. Tests — `40-testes.md`
+6. Tests — `40-tests.md`

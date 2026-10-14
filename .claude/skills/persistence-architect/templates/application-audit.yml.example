@@ -14,7 +14,7 @@
 #
 # app.audit.history.retain-for — the retention window persistence-architect asked, read by the
 # history prune job (35-jobs.md). "Forever" removes the key and turns the job's switch off,
-# both with the reason in 20-persistencia.md § 1.
+# both with the reason in 20-persistence.md § 1.
 spring:
   jpa:
     properties:

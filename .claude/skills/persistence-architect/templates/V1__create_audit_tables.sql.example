@@ -1,5 +1,5 @@
 -- EXEMPLAR — the audit history's tables, from a migration, never from schema generation.
--- Form reference: persistence-architect writes the real SQL inside 20-persistencia.md block 4,
+-- Form reference: persistence-architect writes the real SQL inside 20-persistence.md block 4,
 -- and the executor materializes it under db/migration/ with the next free <N>.
 -- Rules: .claude/rules/persistence.md (§ Auditing · Relational — Envers, § Migrations)
 --

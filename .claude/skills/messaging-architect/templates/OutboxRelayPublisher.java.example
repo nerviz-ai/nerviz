@@ -112,12 +112,12 @@
  * `jobs-architect/templates/OutboxRelayJob.java.example`. No `@Configuration` here turns
  * them into a bean for the use case.
  *
- * TESTS (`40-testes.md`), none of them deferrable, all without a broker:
+ * TESTS (`40-tests.md`), none of them deferrable, all without a broker:
  *  - `RelayOutboxEventsServiceTest` — unit, fake gateway and sender: the SENT, FAILED and
  *    UNROUTABLE paths, the FAILED row that exhausts its attempts, and one failing row not
  *    stopping the rest of the batch;
  *  - `KafkaOutboxEventSenderTest` — unit, mocked `KafkaTemplate`: the three results.
- * The broker-level test may be deferred by `40-testes.md`; these may not. Relay coverage that
+ * The broker-level test may be deferred by `40-tests.md`; these may not. Relay coverage that
  * comes only from a scheduler having run during the integration tests is accidental
  * (lessons-learned-013 § 8.1).
  */
@@ -240,7 +240,7 @@ public interface OutboxEventSender {
 package com.example.demo.application.port.in.outbox;
 
 /**
- * Values are `20-persistencia.md`'s; the relay job binds them from `app.outbox.*` and passes
+ * Values are `20-persistence.md`'s; the relay job binds them from `app.outbox.*` and passes
  * them on every call. Next to the inbound port here; in the clean-architecture blueprints, next
  * to `RelayOutboxEventsUseCase` in `application.usecase.outbox`, as that convention places every
  * Command.

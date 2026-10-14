@@ -8,7 +8,7 @@ description: >
   collection, applying `Idempotency-Key`, introducing a `/v2` or deprecating and retiring an API
   version, a rate limit or quota per client, a concurrency cap, a 429, or fixing the OpenAPI
   contract. Piece of the
-  `/new-feature` pipeline: requires `10-dominio.md` in the given folder and stops
+  `/new-feature` pipeline: requires `10-domain.md` in the given folder and stops
   without it.
 argument-hint: "[path to the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*)
@@ -35,8 +35,8 @@ in and out, what status each result returns, what error body arises from each do
 exception, how the collection is paginated, and what OpenAPI has to document. What
 `domain-modeling` left as an inbound port, this skill gives transport shape to.
 
-**Entry rule: without `10-dominio.md`, there's nothing to expose.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` and treats them as
+**Entry rule: without `10-domain.md`, there's nothing to expose.** This skill reads
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` and treats them as
 a contract. Without the domain partial, it stops and tells the caller to run
 `/domain-modeling` — designing endpoints before the ports and exceptions exist produces
 a contract that describes the screen, not the business.
@@ -77,12 +77,12 @@ The split is by **moment and by artifact**:
 
 | Piece | Acts when | Produces |
 |---|---|---|
-| `use-case-design` | Before the domain exists | `00-caso-de-uso.md` — boundary and canonical names |
-| `domain-modeling` | After the parent spec | `10-dominio.md` — aggregate, invariants, ports |
+| `use-case-design` | Before the domain exists | `00-use-case.md` — boundary and canonical names |
+| `domain-modeling` | After the parent spec | `10-domain.md` — aggregate, invariants, ports |
 | **this skill** | After the domain partial, unless the `Trigger` names `inbound GraphQL adapter` alone | `30-rest.md` — including the schema requirements transport creates |
 | `graphql-api-architect` | After this one, when the `Trigger` names a GraphQL adapter | `31-graphql.md` — the GraphQL shape of the same input ports |
-| `persistence-architect` | After this one | `20-persistencia.md` — schema, reading this partial's schema requirements |
-| `test-architect` | After all of them | `40-testes.md` — pyramid, slices, data |
+| `persistence-architect` | After this one | `20-persistence.md` — schema, reading this partial's schema requirements |
+| `test-architect` | After all of them | `40-tests.md` — pyramid, slices, data |
 
 Doesn't collide with `test-architect`: this skill fixes the HTTP contract's **cases**
 (status, `errorCode`, body shape); that one owns the **strategy** for testing the whole
@@ -95,7 +95,7 @@ skill.
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` and `10-dominio.md` from the folder in
+1. **Read the specs.** `00-use-case.md` and `10-domain.md` from the folder in
    the target above. Without the second, stop. Extract: canonical names, inbound ports and
    signatures, the exception table with `errorCode`, and the rows of the component
    table marked `Detailed by: rest-api-architect`.
@@ -121,7 +121,7 @@ skill.
    questions per call and **never fewer than 2 real options per question**: one option
    isn't a question — decide it and record the decision in the partial, since the runtime
    rejects the whole batch over a single one (`@CLAUDE.md` § Known pitfalls). Don't re-ask
-   what `00-caso-de-uso.md` or `10-dominio.md` already answered.
+   what `00-use-case.md` or `10-domain.md` already answered.
 
    | Axis | Decides |
    |---|---|
@@ -157,13 +157,13 @@ skill.
 
    **Apply masking, and re-derive it here instead of trusting the previous partial.**
    Every DTO field gets walked through `@.claude/rules/logging.md` § Masking candidates —
-   by type and by name — not only the ones `10-dominio.md` listed. A match gets
+   by type and by name — not only the ones `10-domain.md` listed. A match gets
    `@MaskSensitiveData(maskedType = MaskedType.<X>)` and the DTO class implements
    `LogMask`. Where this partial finds a match the domain partial missed, it masks it and
    says so in the divergence line; where it finds a DTO field with no domain counterpart at
    all (a transport-only field), the derivation still applies.
 
-   Two links in series is what failed: `10-dominio.md` didn't flag, so nothing was masked,
+   Two links in series is what failed: `10-domain.md` didn't flag, so nothing was masked,
    and a CPF was logged raw from the first use case onward. The derivation is cheap and the
    rule is the same list on both ends — running it twice costs a pass over the field list.
 
@@ -176,7 +176,7 @@ skill.
    over them and report each unmasked match in `## Impact on approved use cases`, even when
    this use case doesn't otherwise change them.
 
-6. **Fix the error map.** Each exception from `10-dominio.md` to its status and its
+6. **Fix the error map.** Each exception from `10-domain.md` to its status and its
    `errorCode`, plus the structural errors that don't come from the domain (bean
    validation, unreadable body), and the 500 with `traceId`. This table is the source
    of block 5 — an exception that doesn't appear here won't have a test.
@@ -201,7 +201,7 @@ skill.
    `.../IdempotencyKeyStore.java.example`, and `.../IdempotentExecution.java.example`.
    The transaction shape is fixed by `@.claude/rules/api-rest.md` § Idempotency — don't
    reopen it per use case: the controller calls `IdempotentExecution`, the command
-   carries no key, and `10-dominio.md`'s use case signature doesn't change for it.
+   carries no key, and `10-domain.md`'s use case signature doesn't change for it.
 
    **Every `Idempotency-Key` endpoint, including the first one in the project, uses
    `@Idempotent` + `IdempotencyAspect`** (`templates/IdempotencyAspect.java.example`,
@@ -241,7 +241,7 @@ skill.
 
    A breaking change with no new version is a divergence to report, never a silent edit of the
    `1+` mapping: every client of v1 would break at once.
-7c. **Decide or inherit the admission setup — § 8.** Only when `00-caso-de-uso.md`'s
+7c. **Decide or inherit the admission setup — § 8.** Only when `00-use-case.md`'s
    `Admission` row is not `none` (a missing row reads as `none`): no row, § 8 reads `none` and
    nothing below runs. A limit is never proposed here — `@.claude/rules/inbound-admission.md` §
    When a limit exists. The norm decides the mechanism; nothing here reopens it.
@@ -292,9 +292,9 @@ skill.
 9. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/30-rest.md`, from
    `templates/rest-spec.md.example`. Eight numbered blocks plus `## Design patterns`, all mandatory.
 
-10. **Report and stop.** File path, divergences from `10-dominio.md`, what was handed
+10. **Report and stop.** File path, divergences from `10-domain.md`, what was handed
     off to another owner (idempotency table), and what's left for the folder to be
-    complete (`40-testes.md`). Don't invoke anyone.
+    complete (`40-tests.md`). Don't invoke anyone.
 
 ## Personal data leaving in a response body
 
@@ -345,18 +345,18 @@ verifies them is at
 use case folder and nothing else; a controller or DTO written under `src/` is refused with
 exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md`
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md`
 (mandatory — stops without the second), `@.claude/rules/api-rest.md`,
 `@.claude/rules/architecture-ddd.md` (Adapters and Composition sections),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
 `@.claude/rules/code-quality.md`, `@.claude/rules/logging.md` (masking mechanism for
-DTO fields `10-dominio.md` flagged sensitive), `@.claude/rules/observability.md` § Metrics
+DTO fields `10-domain.md` flagged sensitive), `@.claude/rules/observability.md` § Metrics
 (the bound on the per-version tag), the `30-rest.md` that wrote the versioning setup when
 an earlier case did, `@.claude/rules/inbound-admission.md` and the partial that wrote the
 admission setup when the case has an `Admission` row, the root `CLAUDE.md`'s `**Transport:`
 paragraph (trusted proxies, for a public endpoint's key), and the active blueprint's
 `packages.map`. Also reads
-`20-persistencia.md` when it exists (a resumed or hand-run case) — the table's expected
+`20-persistence.md` when it exists (a resumed or hand-run case) — the table's expected
 volume decides offset or cursor. In `/new-feature` this skill runs first, so the volume
 comes from its own interview ("does the collection grow without bound") and is written in
 block 4, where `persistence-architect` reads it instead of asking again.
@@ -368,9 +368,9 @@ block 4, where `persistence-architect` reads it instead of asking again.
 edit `pom.xml` nor `.github/workflows/**` — the `openapi.json` diff job belongs to
 `project-bootstrap`.
 
-**Doesn't decide** the use case boundary (`00-caso-de-uso.md`), the domain model
-(`10-dominio.md`), the schema or the idempotency key table (`20-persistencia.md`), nor
-the test strategy (`40-testes.md`). Doesn't touch `.claude/rules/**`.
+**Doesn't decide** the use case boundary (`00-use-case.md`), the domain model
+(`10-domain.md`), the schema or the idempotency key table (`20-persistence.md`), nor
+the test strategy (`40-tests.md`). Doesn't touch `.claude/rules/**`.
 
 **Doesn't collide with `domain-modeling`**: that one declares the inbound port, this
 one says over which HTTP it's called. The port's signature belongs to the other one; if

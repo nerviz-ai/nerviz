@@ -6,12 +6,12 @@ description: >
   document (MongoDB collections, embedded and referenced data, indexes and validators ensured
   at startup, `@Version`, transactions on a replica set) — plus the audit level its use case
   records (created/modified stamps, or an Envers history with actor and revision) — into the
-  `20-persistencia.md` partial. Use when the request involves modeling the database, mapping an
+  `20-persistence.md` partial. Use when the request involves modeling the database, mapping an
   aggregate to JPA or to a MongoDB document, writing or reviewing migrations, deciding indexes
   and keys, auditing who changed a record and its earlier values, diagnosing N+1 or slow
   queries, or tuning the pool, datasource or MongoDB client properties. Piece of
-  the `/new-feature` pipeline: requires `00-caso-de-uso.md` with a `Storage` row and
-  `10-dominio.md` in the given folder, and stops without them.
+  the `/new-feature` pipeline: requires `00-use-case.md` with a `Storage` row and
+  `10-domain.md` in the given folder, and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(awk:*)
 model: opus
@@ -37,17 +37,17 @@ what columns, fields and types, what indexes, what migration, what queries, and 
 datasource or the MongoDB client needs configured. What `domain-modeling` left as an output
 port, this skill gives body to.
 
-**Family rule: the storage family is read, never chosen.** `00-caso-de-uso.md`'s `Storage` row
+**Family rule: the storage family is read, never chosen.** `00-use-case.md`'s `Storage` row
 says, per aggregate, `relational` or `document (MongoDB)` — written by `use-case-design` from the
 request, or from one factual question, and in time by a solution-design step. This skill never
 weighs one against the other, lists their pros and cons, or recommends one: it designs for the
 family the row names. Within `relational` it still asks the engine (Postgres, MySQL, Oracle) —
 that is a fact of the project, not a family. A `Storage` row missing → stop and tell the caller
-to run `/use-case-design`, exactly as a missing `10-dominio.md` stops it. An aggregate the code
+to run `/use-case-design`, exactly as a missing `10-domain.md` stops it. An aggregate the code
 already stores keeps its family; a row that contradicts the code is a divergence to report.
 Design: `@.claude/decisions/0147-document-storage-and-search-architect.md`.
 
-**Audit rule: the audit level is read, never chosen, the same way.** `00-caso-de-uso.md`'s
+**Audit rule: the audit level is read, never chosen, the same way.** `00-use-case.md`'s
 `Audit` row says, per aggregate, `none`, `stamps` or `history` — recorded only when the request
 asks who changed the data, when, or what it was before. A missing row is `none`, never a stop:
 cases designed before the row existed stay valid. This skill never proposes auditing a case
@@ -56,11 +56,11 @@ the stamps embeddable → `stamps`); a row asking for less is a divergence to re
 history cannot be switched off without losing it. Two combinations stop the pass and go back to
 `/use-case-design` with the reason: `history` on a `document (MongoDB)` aggregate — the document
 family keeps stamps only — and an audited write reached by HTTP in a project with no Spring
-Security filter chain, where no caller has an identity to record (`32-seguranca.md` absent and
+Security filter chain, where no caller has an identity to record (`32-security.md` absent and
 no `SecurityFilterChain` in the code). Design: `@.claude/decisions/0149-auditing-variant-of-persistence-architect.md`.
 
-**Entry rule: without `10-dominio.md`, there's nothing to persist.** This skill reads
-`docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` and `10-dominio.md` and treats them as a
+**Entry rule: without `10-domain.md`, there's nothing to persist.** This skill reads
+`docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md` and treats them as a
 contract. Without the domain partial, it stops and tells you to run `/domain-modeling` —
 designing tables before the aggregate has a boundary produces a schema that describes the
 form, not the business.
@@ -69,16 +69,16 @@ form, not the business.
 carry schema requirements this pass has to honor, and a schema designed without them is a
 schema that gets revised. A REST-triggered case with no `30-rest.md` → run
 `/rest-api-architect` first; a GraphQL-triggered case with no `31-graphql.md` → run
-`/graphql-api-architect` first — the `Trigger` row's closing phrase says which. A case whose `10-dominio.md` Events block names external
-(Kafka) delivery with no `25-mensageria.md` → run `/messaging-architect` first. And a third,
-under the same logic: a case whose `25-mensageria.md` chose Form B, or whose trigger is a
-schedule, with no `35-jobs.md` → run `/jobs-architect` first. And a fourth: a case whose `10-dominio.md` declares a
-port of kind `external HTTP`, with no `28-cliente-http.md` → run `/http-client-architect` first.
-And a fifth: a case whose `Search index` row is not `none`, with no `23-busca.md` → run
+`/graphql-api-architect` first — the `Trigger` row's closing phrase says which. A case whose `10-domain.md` Events block names external
+(Kafka) delivery with no `25-messaging.md` → run `/messaging-architect` first. And a third,
+under the same logic: a case whose `25-messaging.md` chose Form B, or whose trigger is a
+schedule, with no `35-jobs.md` → run `/jobs-architect` first. And a fourth: a case whose `10-domain.md` declares a
+port of kind `external HTTP`, with no `28-http-client.md` → run `/http-client-architect` first.
+And a fifth: a case whose `Search index` row is not `none`, with no `23-search.md` → run
 `/search-architect` first — its § 8 asks this pass for the source's version and change event.
 Step 1 states what each list contains.
 
-**Exit rule: it writes only under `docs/`.** It emits `20-persistencia.md`, and the
+**Exit rule: it writes only under `docs/`.** It emits `20-persistence.md`, and the
 migration SQL — or, for a document aggregate, the collection's index and validator
 declaration — goes **inside it** as a code block with its target file name and path —
 never as a file under `src/`. The migration file and the Java classes come from the
@@ -116,14 +116,14 @@ The division is by **moment and artifact**, not technology:
 
 | Piece | When it acts | What it produces |
 |---|---|---|
-| `use-case-design` | Before the domain exists | `00-caso-de-uso.md` — boundary and canonical names |
-| `domain-modeling` | After the mother spec | `10-dominio.md` — aggregate, invariants, ports |
+| `use-case-design` | Before the domain exists | `00-use-case.md` — boundary and canonical names |
+| `domain-modeling` | After the mother spec | `10-domain.md` — aggregate, invariants, ports |
 | `rest-api-architect` | Before this one | `30-rest.md` — transport, plus the schema requirements it creates (block 4) |
-| `messaging-architect` | Before this one, only when an event leaves over a broker | `25-mensageria.md` — publication form, plus the schema requirements it creates (§ 6: outbox, dedupe table) |
+| `messaging-architect` | Before this one, only when an event leaves over a broker | `25-messaging.md` — publication form, plus the schema requirements it creates (§ 6: outbox, dedupe table) |
 | `jobs-architect` | Before this one, when a job exists — Form B's relay and prune, or a scheduled trigger | `35-jobs.md` — replica count (§ 3), plus the schema requirements it creates (§ 6: scheduling tables, claim requirement, prune operation) |
-| `search-architect` | Before this one, when `Search index` is not `none` | `23-busca.md` — a projection of the aggregate in a search engine, plus its § 8 requirements here: the source's version, the change event appended to the outbox |
-| **this skill** | After all three, so every requirement is on the table before the first column is named | `20-persistencia.md`, migration SQL inside it |
-| `test-architect` | After all of them | `40-testes.md` |
+| `search-architect` | Before this one, when `Search index` is not `none` | `23-search.md` — a projection of the aggregate in a search engine, plus its § 8 requirements here: the source's version, the change event appended to the outbox |
+| **this skill** | After all three, so every requirement is on the table before the first column is named | `20-persistence.md`, migration SQL inside it |
+| `test-architect` | After all of them | `40-tests.md` |
 
 If the aggregate has no written invariants yet, it isn't this skill. If the problem is a
 slow query in code that already exists and there's no new use case, skip steps 1 and 2
@@ -131,8 +131,8 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 
 ## Procedure
 
-1. **Read the specs.** `00-caso-de-uso.md` and `10-dominio.md` from the folder in
-   the target above. Without the second, or without `00-caso-de-uso.md`'s `Storage` row, stop.
+1. **Read the specs.** `00-use-case.md` and `10-domain.md` from the folder in
+   the target above. Without the second, or without `00-use-case.md`'s `Storage` row, stop.
    Extract: the storage family and the audit level of each aggregate (`Audit` row, `none` when
    absent), aggregate root, fields and types, value
    objects, declared output ports, and the component table with NEW/CHANGE/REUSE state. The
@@ -151,8 +151,8 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    designed in this pass; the batch statement's name and placement are this partial's, as for any
    requirement.
 
-   Also read `25-mensageria.md`, **mandatory on the same terms as `30-rest.md`**: when
-   `10-dominio.md`'s Events block names external (Kafka) delivery and the messaging partial
+   Also read `25-messaging.md`, **mandatory on the same terms as `30-rest.md`**: when
+   `10-domain.md`'s Events block names external (Kafka) delivery and the messaging partial
    isn't in the folder → stop and tell the caller to run `/messaging-architect` first. In
    `/new-feature` it always exists by now, because messaging runs before this skill. Its
    § 6 `Schema requirements` list is input to this pass exactly as block 4 of `30-rest.md`
@@ -162,20 +162,20 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    A domain partial whose Events block is "none" or in-process means no messaging partial
    exists and none is expected — read nothing, stop for nothing.
 
-   Also read `28-cliente-http.md` whenever `10-dominio.md` declares a port of kind `external HTTP`
+   Also read `28-http-client.md` whenever `10-domain.md` declares a port of kind `external HTTP`
    — missing → stop and tell the caller to run `/http-client-architect` first; in `/new-feature` it
    exists by now. Its **§ 10 · Requirements to other partials** is this pass's input: the stored
    idempotency key of an outbound write (unique, not null, written with the operation before the
    call) and the column behind an unknown-outcome state, named by what they are — the final
    form is decided here.
 
-   Also read `23-busca.md` whenever `Search index` is not `none` — missing → stop and tell the
+   Also read `23-search.md` whenever `Search index` is not `none` — missing → stop and tell the
    caller to run `/search-architect` first. Its **§ 8 · Requirements to other partials** rows aimed
    at this partial are this pass's input: a version on the source that grows on every write, and
    the change event appended to the outbox in the same transaction (which makes Form B apply
-   whether or not `25-mensageria.md` needed it for another event).
+   whether or not `25-messaging.md` needed it for another event).
 
-   Also read `35-jobs.md` whenever `25-mensageria.md` chose Form B or `00-caso-de-uso.md`'s
+   Also read `35-jobs.md` whenever `25-messaging.md` chose Form B or `00-use-case.md`'s
    trigger is a schedule — missing → stop and tell the caller to run `/jobs-architect` first;
    in `/new-feature` it exists by now, because jobs runs before this skill. Two blocks of it
    are this pass's input: **§ 3 · Coordination**, whose replica count decides the claim
@@ -215,13 +215,13 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    transaction, which they never do (`@.claude/rules/persistence.md` § Boundary). So an event
    of a document aggregate in a project whose outbox is relational needs an outbox of its own
    family — a second implementation of `OutboxRelayGateway` — and the relay must pass over both:
-   that is a requirement on `25-mensageria.md`, named in § 1, never wired here.
+   that is a requirement on `25-messaging.md`, named in § 1, never wired here.
 
 3. **Interview — only what the specs don't fix.** `AskUserQuestion`, at most 4 questions
    per call and **never fewer than 2 real options per question**: one option isn't a
    question — decide it and record the decision in the partial, since the runtime rejects
    the whole batch over a single one (`@CLAUDE.md` § Known pitfalls). Don't re-ask what
-   `00-caso-de-uso.md`, `10-dominio.md`, or `30-rest.md` already answered — the
+   `00-use-case.md`, `10-domain.md`, or `30-rest.md` already answered — the
    collection's growth, above all.
 
    | Axis | Decides |
@@ -268,7 +268,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    redecide them here. In the document family the store is a collection keyed by the
    idempotency key, expired by a single-field TTL index — `templates/MongoSharedCollections.java.example`.
 
-   **4b. Outbox, when `25-mensageria.md` fixes publication Form B and step 2 found no
+   **4b. Outbox, when `25-messaging.md` fixes publication Form B and step 2 found no
    `outbox_events` table yet.** Exact mirror of 4a, and for the same reason: one table for
    the whole project, shared by every event, modeled once and reused afterward — never one
    outbox per aggregate or per event type. Shape in
@@ -291,7 +291,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    the attempt ceiling are decided here, together with the claim query, because the column set
    is what makes either possible. **How often a pass runs is not** — the poll interval, the
    trigger and the switch are `35-jobs.md`'s (`jobs-architect`), which designs the relay's
-   schedule and the prune job. A `25-mensageria.md` § 6 row naming columns instead of a guarantee is a
+   schedule and the prune job. A `25-messaging.md` § 6 row naming columns instead of a guarantee is a
    requirement written in the wrong vocabulary — take the guarantee from it (at-least-once,
    attempt count, DLQ destination) and report the column names as a divergence.
 
@@ -328,7 +328,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 
    **A requirement this step places on another partial is a divergence, never an edit.**
    Bounding the producer's send time so the lease outlives any send (`max.block.ms`,
-   `delivery.timeout.ms` on `25-mensageria.md`'s producer) is legitimate and often necessary
+   `delivery.timeout.ms` on `25-messaging.md`'s producer) is legitimate and often necessary
    — it goes into § 1 as a requirement on that partial, and consolidation resolves it.
 
    Two boundaries this step does **not** cross. `OutboxRelayGateway` and
@@ -343,7 +343,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    **`messaging-architect` owns the relay pass and everything that touches the broker**, and
    states the guarantee those values have to deliver. **`jobs-architect` owns when anything
    runs** — the poll interval, the on/off switch, coordination across instances, the prune
-   job's cadence and batch. What lands in `20-persistencia.md` is the table, its mapping, the
+   job's cadence and batch. What lands in `20-persistence.md` is the table, its mapping, the
    adapter (`OutboxRelayGateway` and `OutboxRetentionGateway`), and the values this step owns.
 
    **Retention is the one open value, and it gets asked.** The exemplar's `7 days` (matching
@@ -373,8 +373,8 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
      block is the document family's nested stamps object. Four columns in the aggregate's table,
      in the same migration that creates or alters it; four fields in a document, no migration. The auditing configuration (`templates/AuditingConfig.java.example`)
      and the actor resolver are once per project; step 2 says whether they exist
-   - **The actor.** Read, not asked: the principal of `32-seguranca.md` for an HTTP trigger, an
-     explicit `system:<name>` for a job (`35-jobs.md`) or a consumer (`25-mensageria.md`) — the
+   - **The actor.** Read, not asked: the principal of `32-security.md` for an HTTP trigger, an
+     explicit `system:<name>` for a job (`35-jobs.md`) or a consumer (`25-messaging.md`) — the
      pass runs under `templates/SystemActor.java.example`, and that requirement goes to § 1 for
      the partial that owns the pass. The anonymous caller of a public endpoint is `anonymous`
    - **History** (`history`, relational only). Every entity of the aggregate `@Audited`, each
@@ -384,7 +384,7 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
      and `templates/V1__create_audit_tables.sql.example`, migrated after the table they audit.
      The Envers properties of `templates/application-audit.yml.example`, once per project: the
      validity strategy is global, so a project whose first history chose it keeps it
-   - **Reading the history**, only when `10-dominio.md` declares a port that returns it: the
+   - **Reading the history**, only when `10-domain.md` declares a port that returns it: the
      aggregate's Spring Data repository extends `RevisionRepository`, and the adapter maps each
      revision to the port's read projection — `templates/AuditHistoryAdapter.java.example`
    - **Bulk writes.** Every `@Modifying` query, `CriteriaUpdate` or `CriteriaDelete` this case
@@ -414,12 +414,12 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    `35-jobs.md`. Shape: `templates/MongoCollections.java.example`. **Relational family:** name per `@.claude/rules/persistence.md`
    § Migrations, with `<N>` following the highest one found in step 2, and the target
    path under the module the blueprint gives the persistence role. The SQL goes as a
-   fenced `sql` code block in block 4 of `20-persistencia.md`, headed by that path. Shape in
+   fenced `sql` code block in block 4 of `20-persistence.md`, headed by that path. Shape in
    `templates/V1__create_table.sql.example`. One migration per logical change; never
    edit one already applied. **Don't create the `.sql` file** — anything under `src/`
    belongs to the executor, which materializes it from this block.
 
-6. **Fix the queries and access plan.** For each output port in `10-dominio.md`: the
+6. **Fix the queries and access plan.** For each output port in `10-domain.md`: the
    query, the fetch strategy, the index that serves it, and whether it's paginated.
    Every collection read inside a loop is an N+1 and is resolved here, not in code
    review — symptom catalog and fixes in `references/sql-tuning.md`. Document family: every
@@ -442,11 +442,11 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
 7b. **Decide the design patterns of this layer.** Run
    `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use over the adapters,
    mappers and queries this case adds, against the specs and what step 2 surveyed — a
-   Specification `10-dominio.md` already decided reaching its query here, an adapter that
+   Specification `10-domain.md` already decided reaching its query here, an adapter that
    would repeat an earlier one's skeleton. The answer goes into `## Design patterns` —
    `none` when nothing matches, and absence is not `none`.
 
-8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/20-persistencia.md`, from
+8. **Write the partial.** `docs/use-cases/UC-NNN-<slug>/20-persistence.md`, from
    `templates/persistence-spec.md.example` — or `templates/persistence-spec-document.md.example`
    for a document aggregate; a case touching aggregates of both families writes one partial with
    a block per aggregate, each in its family's shape. Six numbered blocks plus `## Audit`, `## Compose services` and `## Design patterns`, all mandatory — § 6 · Declared
@@ -477,9 +477,9 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    while a design run is open — a design run produces a spec, never a container. A
    `materialize` row is added by `/new-feature-implement`, after the code is green.
 
-10. **Report and stop.** Path of the partial written, divergences from `10-dominio.md`, the
+10. **Report and stop.** Path of the partial written, divergences from `10-domain.md`, the
     `## Compose services` row step 9 wrote, and what's
-    missing for the folder to be complete (`30-rest.md`, `40-testes.md`). Don't invoke anyone
+    missing for the folder to be complete (`30-rest.md`, `40-tests.md`). Don't invoke anyone
     else.
 
 ## What the partial contains
@@ -491,11 +491,11 @@ asked.
 |---|---|---|
 | Schema | Tables, columns, types, nullability, `UNIQUE`, foreign keys, indexes | `V1__create_table.sql.example` |
 | Mapping | Aggregate → persistence entity, field by field; what's `@Embeddable`; value object translation; `@JdbcTypeCode` and `Persistable` where they apply | `JpaEntity.java.example` |
-| Adapter and ports | Each port from `10-dominio.md`, the query serving it, the fetch strategy | `RepositoryAdapter.java.example` · `SpringDataRepository.java.example` |
+| Adapter and ports | Each port from `10-domain.md`, the query serving it, the fetch strategy | `RepositoryAdapter.java.example` · `SpringDataRepository.java.example` |
 | Migrations | New files, order, and the expand/contract pair when the table already exists | `V1__create_table.sql.example` |
 | Configuration | Datasource and JPA properties, with the decided value and why | `application-persistence.yml.example` |
 | Idempotency (only when `30-rest.md` requires `Idempotency-Key`) | The shared table, entity, repository, adapter, and application component — modeled once, reused by every later use case | `IdempotencyKeyTable.sql.example` · `IdempotencyKeyStore.java.example` · `IdempotentExecution.java.example` |
-| Outbox (only when `25-mensageria.md` fixes publication Form B) | The shared `outbox_events` table, its mapping, the adapter implementing `OutboxRelayGateway` and `OutboxRetentionGateway`, the **claim strategy** that meets `35-jobs.md` § 3, the retention window and the prune's statement — modeled once, reused by every later event | `OutboxEventTable.sql.example` · `OutboxEventStore.java.example` |
+| Outbox (only when `25-messaging.md` fixes publication Form B) | The shared `outbox_events` table, its mapping, the adapter implementing `OutboxRelayGateway` and `OutboxRetentionGateway`, the **claim strategy** that meets `35-jobs.md` § 3, the retention window and the prune's statement — modeled once, reused by every later event | `OutboxEventTable.sql.example` · `OutboxEventStore.java.example` |
 | Audit (`none` when the `Audit` row is `none` or absent) | Step 4c: the level per aggregate, the stamps, the actor of each trigger, the audited entities and what stays out of the history, the `_aud` tables, the bulk writes left unaudited, the read port, the retention window | `AuditedEntity.java.example` · `AuditingConfig.java.example` · `AuditRevision.java.example` · `V1__create_audit_tables.sql.example` · `application-audit.yml.example` · `AuditHistoryAdapter.java.example` · `SystemActor.java.example` |
 | Declared dependencies | Build dependencies this layer needs and the project does not declare — the only list the executor may act on when it writes `pom.xml` | — |
 | Design patterns | Each pattern the adapters, mappers or queries adopt, with its force, its classes and the "When not" checked — step 7b. `none` when none | `@.claude/skills/gof-design-patterns/SKILL.md` § Design-time use |
@@ -520,9 +520,9 @@ executor agent that reads them when generating code.
 use case folder and nothing else: no migration under `src/`, no service in the compose file,
 both refused with exit 2.
 
-**Reads** `docs/use-cases/UC-NNN-<slug>/00-caso-de-uso.md` (its `Storage` row mandatory, its
+**Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` (its `Storage` row mandatory, its
 `Audit` row when present) and
-`10-dominio.md` (mandatory — stops without either), `@.claude/rules/persistence.md`,
+`10-domain.md` (mandatory — stops without either), `@.claude/rules/persistence.md`,
 `@.claude/rules/architecture-ddd.md` (Adapters and Composition sections),
 `@.claude/rules/naming.md`, `@.claude/rules/error-handling.md`,
 `@.claude/rules/lombok.md`, `@.claude/rules/value-objects.md`,
@@ -531,18 +531,18 @@ both refused with exit 2.
 active blueprint's `packages.map`. Also reads two partials whose schema requirements are
 this pass's input, each mandatory under its own condition: `30-rest.md` for a
 REST-triggered case (block 4), `31-graphql.md` for a GraphQL-triggered one (§ 9 — batch statements
-and the connection order's index), and `25-mensageria.md` whenever `10-dominio.md`'s Events
+and the connection order's index), and `25-messaging.md` whenever `10-domain.md`'s Events
 block names external delivery (§ 6 — the shared outbox table under Form B, a dedupe table
 for a consumer). And `35-jobs.md` under Form B or a scheduled trigger (§ 3 replica count,
-§ 6 tool tables, claim requirement and prune operation). And `28-cliente-http.md` whenever `10-dominio.md`
+§ 6 tool tables, claim requirement and prune operation). And `28-http-client.md` whenever `10-domain.md`
 declares a port of kind `external HTTP` (§ 10 — a stored idempotency key, an unknown-outcome
-column). And `23-busca.md` when `Search index` is not `none` (§ 8 — the source's version and its
-change event). And `32-seguranca.md` when an audited aggregate is written through HTTP (the
+column). And `23-search.md` when `Search index` is not `none` (§ 8 — the source's version and its
+change event). And `32-security.md` when an audited aggregate is written through HTTP (the
 principal recorded as the actor). Missing any of them where it's
 required stops this skill instead of starting a design that a later pass would have to
 revise.
 
-**Writes** `docs/use-cases/UC-NNN-<slug>/20-persistencia.md`. Nothing else — the
+**Writes** `docs/use-cases/UC-NNN-<slug>/20-persistence.md`. Nothing else — the
 migration SQL lives inside it.
 
 **Never writes under `src/`.** Not a migration, not a class, not a property file. The
@@ -559,16 +559,16 @@ halves: the file is outside this class's territory, and a `build`-class skill is
 from inside a design run.
 
 **Does not decide** the storage family of an aggregate, nor weigh one family against another
-(`00-caso-de-uso.md`'s `Storage` row), nor whether an aggregate is audited and at which level
-(its `Audit` row), the use case boundary (`00-caso-de-uso.md`), the domain model
-(`10-dominio.md`), the transport (`30-rest.md`), or the tests (`40-testes.md`). Doesn't
+(`00-use-case.md`'s `Storage` row), nor whether an aggregate is audited and at which level
+(its `Audit` row), the use case boundary (`00-use-case.md`), the domain model
+(`10-domain.md`), the transport (`30-rest.md`), or the tests (`40-tests.md`). Doesn't
 touch `.claude/rules/**`.
 
 **Does not collide with `messaging-architect`**: that one decides the publication form and
 owns the relay pass, the appender, and the declaration of `OutboxRelayGateway` /
 `OutboxEventRecord`. This one owns the `outbox_events` table, its mapping, and the adapter
 implementing that port. A form choice is never made here — an outbox requirement that
-contradicts `25-mensageria.md` is a divergence to report.
+contradicts `25-messaging.md` is a divergence to report.
 
 **Does not collide with `jobs-architect`**: that one decides when things run — the relay's
 poll interval, the switch, coordination across instances, the prune's cadence — and declares

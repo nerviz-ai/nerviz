@@ -13,7 +13,7 @@
  *  - the model SUGGESTS: the use case applies the suggestion through the aggregate, which decides
  *    (a `CRITICAL` priority, for instance, is never set on the model's word — a domain rule does it),
  *    and an `Undecided` result routes the ticket to manual triage. That review state is the
- *    default outcome, declared by `10-dominio.md`, not an error path;
+ *    default outcome, declared by `10-domain.md`, not an error path;
  *  - the answer is a TYPE, `TicketClassificationAnswer`, declared in the adapter. Its closed fields
  *    are the domain's enums, so the JSON schema the model receives lists the only values it may
  *    return; `validateSchema()` sends a non-matching answer back to the model once, with the error;
@@ -28,7 +28,7 @@
  *    `prompts/ticket-classifier-user.st`), the ticket text enters only as the `ticket` variable,
  *    and the system prompt tells the model the delimited block is data, not instructions;
  *  - ONLY the text goes out. The ticket's author, e-mail and account are at hand in the aggregate
- *    and are not sent: `29-ia.md` § 4 records, per field, what crosses to the provider;
+ *    and are not sent: `29-ai.md` § 4 records, per field, what crosses to the provider;
  *  - the `ChatClient` is injected by qualifier — one bean per port, built from the
  *    auto-configured builder in `AiClientConfig`, so the call is observed and its model and
  *    options are this port's.

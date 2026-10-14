@@ -1,15 +1,15 @@
 # UC-012 · AI
 
 > Partial of `docs/use-cases/UC-012-classify-support-ticket/`. Owner: `ai-architect`.
-> Inherits the ports, their domain types and the review state from `10-dominio.md`, the trigger's
-> deadline from `30-rest.md` or `25-mensageria.md` — doesn't redecide them. Contains no code. Form
+> Inherits the ports, their domain types and the review state from `10-domain.md`, the trigger's
+> deadline from `30-rest.md` or `25-messaging.md` — doesn't redecide them. Contains no code. Form
 > references in `.claude/skills/ai-architect/templates/`.
 > Rules applied, never reproduced: `@.claude/rules/ai.md`.
 
 | Field | Value |
 |---|---|
-| Mother spec | `00-caso-de-uso.md` |
-| Why this partial exists | `10-dominio.md` § Ports: `TicketClassifier`, kind `LLM` |
+| Mother spec | `00-use-case.md` |
+| Why this partial exists | `10-domain.md` § Ports: `TicketClassifier`, kind `LLM` |
 | AI package | `adapter.out.ai` (blueprint `packages.map`) |
 | Spring AI line | 2.x — the project runs Boot 4 (`pom.xml` parent); BOM resolved by the Initializr on write, never written here |
 | Divergences from other partials | none |
@@ -18,10 +18,10 @@
 
 | Port (method) | Kind | Asks | Returns | "Could not decide" value | Review state it leads to |
 |---|---|---|---|---|---|
-| `TicketClassifier.suggest(TicketText)` | `LLM` | a category and a priority for the ticket text | `ClassificationSuggestion` — `Suggested(category, priority)` or `Undecided(reason)` | `Undecided` | `Ticket.status = AWAITING_TRIAGE` (`10-dominio.md` § Invariants) |
+| `TicketClassifier.suggest(TicketText)` | `LLM` | a category and a priority for the ticket text | `ClassificationSuggestion` — `Suggested(category, priority)` or `Undecided(reason)` | `Undecided` | `Ticket.status = AWAITING_TRIAGE` (`10-domain.md` § Invariants) |
 
 The model suggests; `Ticket.applySuggestion` decides. A `CRITICAL` priority is never a suggestion:
-the domain rule "an outage keyword from an enterprise customer" sets it (`10-dominio.md`).
+the domain rule "an outage keyword from an enterprise customer" sets it (`10-domain.md`).
 
 ## 2 · Provider and models
 
@@ -68,14 +68,14 @@ none — no port of kind `vector store`.
 
 | Failure | Family | `errorCode` | Reaches our caller as |
 |---|---|---|---|
-| 429, 503 | dependency unavailable | `TICKET_CLASSIFIER_MODEL_UNAVAILABLE` | the ticket is created `AWAITING_TRIAGE` — the use case catches it: classification is best effort (`00-caso-de-uso.md` § Alternative flows) |
+| 429, 503 | dependency unavailable | `TICKET_CLASSIFIER_MODEL_UNAVAILABLE` | the ticket is created `AWAITING_TRIAGE` — the use case catches it: classification is best effort (`00-use-case.md` § Alternative flows) |
 | read timeout, connection lost, 502, 504 | outcome unknown | `TICKET_CLASSIFIER_MODEL_NO_ANSWER` | same |
 | any other 4xx/5xx | dependency response | `TICKET_CLASSIFIER_MODEL_FAILED` | same, and the `ai.review.share` alarm |
 
 | Project-wide piece | NEW or REUSE |
 |---|---|
 | `AiProperties`, `AiClientConfig`, `AiFailureTranslator` | NEW |
-| Integration families (`IntegrationException` and its three subclasses) | REUSE — `28-cliente-http.md` of UC-004 created them |
+| Integration families (`IntegrationException` and its three subclasses) | REUSE — `28-http-client.md` of UC-004 created them |
 
 ## 7 · Observability
 
@@ -108,8 +108,8 @@ Content logging: every flag false (`application-ai.yml.example`).
 
 | To | Requirement |
 |---|---|
-| `10-dominio.md` | none — the review state and `Undecided` already exist |
-| `20-persistencia.md` | none — no vector store |
+| `10-domain.md` | none — the review state and `Undecided` already exist |
+| `20-persistence.md` | none — no vector store |
 | `35-jobs.md` | none — no ingestion, no re-index |
 
 ## 10 · Declared dependencies
@@ -160,4 +160,4 @@ none
 3. The prompt resources of § 3
 4. `TicketClassificationAnswer` and `ChatTicketClassifier` — after `TicketClassifier` and the domain types exist
 5. Properties in `application.yml`
-6. Tests — `40-testes.md`: every row of § 8
+6. Tests — `40-tests.md`: every row of § 8

@@ -52,7 +52,7 @@ is true of only one of them.
 | Is the consumer external, with an effect that is irreversible once it runs? | a payment, a shipment, a notification to a third party |
 | Would nobody notice the loss until the reconciliation? | there is no periodic sweep that would catch it |
 
-Any yes → the case includes the append, and `00-caso-de-uso.md` records "publication:
+Any yes → the case includes the append, and `00-use-case.md` records "publication:
 Form B (outbox), append inside the transaction" as a boundary fact. All no → Form A, and
 the publication splits like any other external effect.
 

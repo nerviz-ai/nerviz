@@ -2,7 +2,7 @@
 # Rules: `.claude/rules/persistence.md` (§ Migrations and § Configuration)
 #
 # Values marked RULE are mandatory and not up for per-project debate. Values marked
-# SIZE depend on volume and hardware: decide them in the `20-persistencia.md` partial
+# SIZE depend on volume and hardware: decide them in the `20-persistence.md` partial
 # and write the reason next to them. An implicit default value in production is a bug.
 #
 # Credentials come from the environment. No secret in this file.

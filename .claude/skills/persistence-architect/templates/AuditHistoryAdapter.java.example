@@ -5,7 +5,7 @@
  *        `.claude/rules/architecture-ddd.md` (§ Adapters — the port, never the framework type)
  *        `.claude/rules/code-quality.md` (no `null` crossing a boundary)
  *
- * THE READ SIDE exists only when `10-dominio.md` declares a port that returns the history. The
+ * THE READ SIDE exists only when `10-domain.md` declares a port that returns the history. The
  * aggregate's Spring Data repository extends `RevisionRepository` (enabled by
  * `AuditingConfig.java.example`'s `@EnableEnversRepositories`); the adapter maps each `Revision`
  * to the port's read projection — revision, instant, actor, kind, and the fields the case shows.
@@ -26,12 +26,12 @@
  * never a current version, whose `revend` is empty; then the revisions no `_aud` row references.
  * Pruning by the revision's own timestamp instead deletes the version still in force — the
  * integration test's red run. Each case that audits a table adds it to `AUDIT_TABLES`. Postgres
- * syntax; the engine is the one `20-persistencia.md` names.
+ * syntax; the engine is the one `20-persistence.md` names.
  *
  * Each `// --- <File>.java` block is its own file, at the layer its package says.
  */
 
-// --- OrderChange.java (application layer — the read projection, declared by 10-dominio.md)
+// --- OrderChange.java (application layer — the read projection, declared by 10-domain.md)
 package com.example.demo.application.port.out;
 
 import com.example.demo.domain.model.OrderStatus;
@@ -54,7 +54,7 @@ public sealed interface OrderChange {
     }
 }
 
-// --- LoadOrderHistoryPort.java (application layer — outbound port, declared by 10-dominio.md)
+// --- LoadOrderHistoryPort.java (application layer — outbound port, declared by 10-domain.md)
 package com.example.demo.application.port.out;
 
 import com.example.demo.domain.model.OrderId;

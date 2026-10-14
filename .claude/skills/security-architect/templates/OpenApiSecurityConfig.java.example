@@ -5,7 +5,7 @@
  * composed annotation with an empty `@SecurityRequirements` (`rest-api-architect`'s
  * `OpenApiDocs.java.example`), so the document and § 1's public rows match.
  *
- * ONE SCHEME PER MECHANISM of `32-seguranca.md` § 2:
+ * ONE SCHEME PER MECHANISM of `32-security.md` § 2:
  *   - signed or opaque token → `type = HTTP`, `scheme = "bearer"` (`bearerFormat = "JWT"` only
  *     for signed tokens);
  *   - users owned by the application → `type = HTTP`, `scheme = "basic"`;
