@@ -81,8 +81,8 @@ closest, so the claim can be checked.
 
 ### 1 · Architecture is data, and one declaration has three effects
 
-Seven blueprints (`hexagonal`, `clean-architecture-multi-module`,
-`clean-architecture-single-module`, `layered`, `onion`, `vertical-slice`,
+Nine blueprints (`hexagonal`, `hexagonal-single-module`, `clean-architecture-multi-module`,
+`clean-architecture-single-module`, `layered`, `onion`, `onion-single-module`, `vertical-slice`,
 `modular-monolith`) plus `custom-template`. Each one is a YAML file with modules,
 `depends_on`, `forbidden_imports`, `packages.map`, and mandatory `trade_offs`. A module's
 `forbidden_imports` feeds, with no manual copy:

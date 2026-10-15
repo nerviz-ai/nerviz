@@ -19,7 +19,9 @@ essas invariantes.
 | [`clean-architecture-single-module`](#clean-architecture-uncle-bob) | single-module | domain/application/infrastructure como pacotes |
 | [`clean-architecture-multi-module`](#clean-architecture-uncle-bob) | multi-module | domain/application/infrastructure como módulos Maven |
 | [`hexagonal`](#hexagonal-ports--adapters) | multi-module | Portas (interfaces) e adapters de entrada/saída em módulos próprios |
+| [`hexagonal-single-module`](#hexagonal-ports--adapters) | single-module | As mesmas portas e adapters como pacotes de um módulo só |
 | [`onion`](#onion-palermo) | multi-module | Domínio + serviços de domínio fundidos num "Application Core"; qualquer anel externo chama qualquer anel interno |
+| [`onion-single-module`](#onion-palermo) | single-module | O mesmo Application Core e os mesmos anéis externos como pacotes de um módulo só |
 | [`modular-monolith`](#modular-monolith-spring-modulith) | single-module | Vários bounded contexts como pacotes-módulo (`internal`), verificado por Spring Modulith |
 | [`vertical-slice`](#vertical-slice-feature-slices) | single-module | Um pacote auto-contido por caso de uso (`features.<feature>.<usecase>`), não por camada técnica |
 | [`custom-template`](#custom-template) | — | Ponto de partida para descrever sua própria arquitetura |
@@ -93,6 +95,13 @@ bordas, cada um em módulo próprio.
 **Quando usar:** mais de um canal de entrada ou saída, necessidade real de trocar
 infraestrutura sem tocar domínio.
 
+**`hexagonal-single-module`** é a mesma arquitetura com os módulos como pacotes de um módulo
+Maven só (o mapa de pacotes é idêntico, então o código passa de um para o outro). A fronteira
+deixa de ser imposta pelo compilador e passa ao hook de edição, ao `doctor gate` do CI e ao
+ArchUnit; o mapa de fronteira derivado é mais fino que o do multi-module, e os adapters são
+proibidos de importar uns aos outros, pacote por pacote. Use quando quiser o vocabulário
+port/adapter sem um `pom.xml` por adapter.
+
 ---
 
 ## Onion (Palermo)
@@ -120,6 +129,12 @@ diretamente.
 
 **Quando usar:** domínio e serviços de domínio são projetados e mudam juntos, pelo
 mesmo time, a maior parte do tempo — não vale um quarto módulo `application` só para
+
+**`onion-single-module`** é a mesma arquitetura com os módulos como pacotes de um módulo Maven
+só (o mapa de pacotes é idêntico, então o código passa de um para o outro). A fronteira deixa
+de ser imposta pelo compilador e passa ao hook de edição, ao `doctor gate` do CI e ao ArchUnit;
+os pacotes `app.*` mantêm o nome do módulo de composição, e `persistence` e `presentation`
+são proibidos de importá-los. Use pelo vocabulário do Palermo sem um `pom.xml` por anel.
 separá-los.
 
 ---

@@ -14,17 +14,19 @@ nunca chama ninguém; diferente de uma rule, é lido programaticamente por
 
 Cada arquitetura mora em `.claude/blueprints/<id>/<id>.yaml`. Uma pasta sem `.yaml`
 seria uma arquitetura **ainda não escrita**, e a skill a ignoraria na listagem da
-entrevista — hoje todas as sete têm YAML. Os prós, contras e "quando escolher" de cada
+entrevista — hoje todas as nove têm YAML. Os prós, contras e "quando escolher" de cada
 uma estão em `.claude/blueprints/README.md` (e `README.pt-br.md`).
 
 | Blueprint | Layout | Resumo |
 |---|---|---|
 | `hexagonal` | multi-module | Ports como interfaces, adapters de entrada e saída em módulos próprios |
+| `hexagonal-single-module` | single-module | Os mesmos ports e adapters como packages num módulo só; a fronteira é o mapa derivado e o ArchUnit, não o compilador |
 | `clean-architecture-single-module` | single-module | domain/application/infrastructure como packages; boundary só por ArchUnit |
 | `clean-architecture-multi-module` | multi-module | Mesmas camadas como módulos Maven; o compilador impõe a direção |
 | `layered` | single-module | controller/service/repository, vocabulário clássico de tutorial Spring Boot em vez do port/adapter do hexagonal |
 | `modular-monolith` | single-module | Vários bounded contexts (Spring Modulith), cada um com camadas domain/application/adapter completas dentro do próprio `internal`; isolamento entre módulos verificado por `ApplicationModules.verify()`, não por ArchUnit |
 | `onion` | multi-module | Application Core (Palermo): domain model + domain services num único módulo `domain`, `persistence`/`presentation` como anéis externos independentes entre si |
+| `onion-single-module` | single-module | O mesmo Application Core e os mesmos anéis externos como packages num módulo só; a fronteira é o mapa derivado e o ArchUnit, não o compilador |
 | `vertical-slice` | single-module | Um package autocontido por caso de uso (`features.<feature>.<usecase>`, padrão REPR); só o agregado atravessa a fronteira, num kernel `domain` compartilhado |
 | `custom-template` | — | Ponto de partida para criar o seu, não um blueprint usável diretamente |
 
