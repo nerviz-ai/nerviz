@@ -6523,6 +6523,15 @@ public class ArchHook {
      * Started on is counted, deduplicated by message id like every audit report. Names in
      * `audit.genesis` of extensions.json (invariant 10). Exit 1, saying why, on anything it
      * cannot fill; it never overwrites a filled record.
+     *
+     * Started has two anchors, and the latest of either wins. A typed `/init-project` leaves a
+     * `<command-name>` tag in a user entry; a session that reaches the skill through the Skill
+     * tool leaves none, only a tool result whose `toolUseResult.commandName` is the skill, so
+     * Started is the prompt that shares that result's `promptId`, or the result itself when no
+     * prompt does (0164, issue #146). Why this is Form 7c: the figures must come from a
+     * deterministic reader (0123), the closest rejected form is a `permissions.deny` on the
+     * Skill tool, which refuses the path instead of measuring it and rests on a runtime
+     * behavior nobody proved.
      */
     static void auditGenesis(String[] args) throws Exception {
         if (args.length < 4) {
@@ -6566,21 +6575,31 @@ public class ArchHook {
             System.exit(1);
         }
 
-        String tag = "<command-name>/" + asStr(cfg.get("command")) + "</command-name>";
+        String command = asStr(cfg.get("command"));
+        String tag = "<command-name>/" + command + "</command-name>";
+        List<String> lines = Files.readAllLines(transcript, StandardCharsets.UTF_8);
         long start = 0;
-        for (String line : Files.readAllLines(transcript, StandardCharsets.UTF_8)) {
-            if (!line.contains(tag)) continue;
+        for (String line : lines) {
+            boolean typed = line.contains(tag), viaSkill = line.contains("commandName");
+            if (!typed && !viaSkill) continue;
             Object e = Json.parse(line);
+            if (!"user".equals(asStr(get(e, "type")))) continue;
             // The typed command is a user message whose content is a plain string. A tool result
             // is a user message too, with a list of blocks — and one that echoes a file citing
             // the tag would otherwise move Started to whenever that file was read.
-            if ("user".equals(asStr(get(e, "type"))) && get(e, "message", "content") instanceof String c
-                    && c.contains(tag)) {
+            if (typed && get(e, "message", "content") instanceof String c && c.contains(tag)) {
                 start = Math.max(start, epochMs(asStr(get(e, "timestamp"))));
+            }
+            // The Skill tool leaves no tag. Its tool result carries the skill's name in a field
+            // the runtime writes and no file can echo into.
+            if (viaSkill && command.equals(asStr(get(e, "toolUseResult", "commandName")))) {
+                start = Math.max(start, skillPromptStart(lines, e));
             }
         }
         if (start == 0) {
-            err("❌ audit genesis: no " + tag + " message in " + transcript + " — nothing to measure from.");
+            err("❌ audit genesis: no " + tag + " message and no Skill tool result for `" + command
+                    + "` in " + transcript + " — nothing to measure from. Start the skill by typing /" + command
+                    + " as the first characters of the prompt.");
             System.exit(1);
         }
         long end = System.currentTimeMillis();
@@ -6610,6 +6629,29 @@ public class ArchHook {
         System.out.println("✅ GENESIS filled — " + genesis);
         System.out.println("   Started " + iso0 + " · Finished " + iso1);
         System.out.println("   Tokens  " + tokens);
+    }
+
+    /**
+     * Started of a run that entered through the Skill tool: the earliest plain-string user entry
+     * sharing the tool result's `promptId` — the prompt that made the model call the tool — or
+     * the result's own timestamp when the id is missing or no prompt carries it. Only a prompt
+     * at or before the result counts.
+     */
+    static long skillPromptStart(List<String> lines, Object toolResult) {
+        long at = epochMs(asStr(get(toolResult, "timestamp")));
+        String promptId = asStr(get(toolResult, "promptId"));
+        if (promptId == null) return at;
+        long first = at;
+        for (String line : lines) {
+            if (!line.contains(promptId)) continue;
+            Object e = Json.parse(line);
+            if ("user".equals(asStr(get(e, "type"))) && promptId.equals(asStr(get(e, "promptId")))
+                    && get(e, "message", "content") instanceof String) {
+                long t = epochMs(asStr(get(e, "timestamp")));
+                if (t > 0 && t < first) first = t;
+            }
+        }
+        return first;
     }
 
     // ── audit summary ────────────────────────────────────────────────────────
