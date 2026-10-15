@@ -1,0 +1,98 @@
+name: blueprints
+
+# Generates the skeleton of every blueprint a change can affect, builds it on Maven and on Gradle,
+# and proves its boundary is enforced — what `validate` cannot see, because it never builds one:
+#   1. the Initializr's starter, shaped by the blueprint (a reactor from `modules[]` and
+#      `depends_on` when multi-module, `packages.map` as `package-info.java` in the module that
+#      owns each role);
+#   2. `ArchHook.jar boundary-map` and `export`, the two steps of project-bootstrap that write the
+#      project's `.claude/`;
+#   3. `./mvnw verify` or `./gradlew build`;
+#   4. `doctor gate` green in the project, then red naming every file when one class per boundary
+#      rule imports what the rule forbids, and `check` blocks one of them with exit 2.
+# Not proven: the build files `project-bootstrap` adapts from `templates/pom.*.xml.example`, the
+# feature dependencies, and the agent's prose — the test writes minimal build files of its own.
+# Design: .claude/decisions/0166-blueprint-skeleton-generated-in-ci.md
+#
+# Path-filtered on purpose, twice. The paths below are what shapes a generated project: a blueprint,
+# the project-bootstrap skill and its templates, the hook, the schema it reads. Then `plan` narrows
+# further: a change under `.claude/blueprints/<id>/` generates only `<id>`; any other path below
+# generates all nine. Every job downloads from start.spring.io and Maven Central or Gradle, so a PR
+# that touches none of these has nothing for them to prove. This workflow is not a required check —
+# a required check on a path-filtered workflow stays pending forever on the PRs it skips.
+on:
+  push:
+    branches: [main]
+    # Same list under both triggers — keep them identical.
+    paths:
+      - '.claude/blueprints/*/**'
+      - '.claude/skills/project-bootstrap/**'
+      - '.claude/hooks/ArchHook.java'
+      - '.claude/hooks/ArchHook.jar'
+      - '.claude/schemas/extensions.json'
+      - '.claude/.ci/BlueprintSkeletonTest.java'
+      - '.github/workflows/blueprints.yml'
+  pull_request:
+    paths:
+      - '.claude/blueprints/*/**'
+      - '.claude/skills/project-bootstrap/**'
+      - '.claude/hooks/ArchHook.java'
+      - '.claude/hooks/ArchHook.jar'
+      - '.claude/schemas/extensions.json'
+      - '.claude/.ci/BlueprintSkeletonTest.java'
+      - '.github/workflows/blueprints.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blueprints-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: which blueprints does this change affect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has: ${{ steps.plan.outputs.has }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # `git diff base head` needs the base commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # A manual dispatch, a first push of a branch (all-zero `before`) and anything that is not a
+      # pull request or a push generate every blueprint.
+      - id: plan
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: java .claude/.ci/BlueprintSkeletonTest.java plan "$BASE" "${{ github.sha }}" | tee -a "$GITHUB_OUTPUT"
+
+  skeleton:
+    name: ${{ matrix.id }} · ${{ matrix.tool }}
+    needs: plan
+    if: needs.plan.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    # A cold Initializr download, a cold Maven or Gradle cache, one build, then up to 176 planted files.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: generate, build and enforce
+        run: java .claude/.ci/BlueprintSkeletonTest.java run "${{ matrix.id }}" "${{ matrix.tool }}"
