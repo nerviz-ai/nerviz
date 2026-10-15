@@ -254,8 +254,9 @@ para arquitetura (`adapter/in/rest` em uma, `infrastructure/rest` em outra).
 
 - **Papel:** decide o adapter que publica um evento num broker e o que o lê de volta: semântica
   de entrega (at-least-once, consumidor idempotente), momento da publicação (direto ou outbox +
-  relay), tópicos e serialização, retry e DLQ. Hoje só Kafka; um segundo broker entra como seção
-  nova, não como arquivo novo.
+  relay), tópicos e serialização, o contrato AsyncAPI gerado do código e comparado com um snapshot
+  commitado (os dois lados anotados; o spec-first registrado com quando usar e quando não), retry e
+  DLQ. Hoje só Kafka; um segundo broker entra como seção nova, não como arquivo novo.
 - **Carrega quando:** os adapters de mensageria de entrada ou saída são tocados. ⟳
 - **Não é dela:** o evento de domínio em si, um fato no passado e sem framework
   (`architecture-ddd.md` § Domain). O gatilho que roda o relay no relógio é de `scheduling.md`.

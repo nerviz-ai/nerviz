@@ -71,6 +71,38 @@ spring:
     # Retry and DLQ are beans, not properties: `KafkaListenerErrorHandler.java.example`
     # (blocking, 3 retries, 1s / 2s / 4s, then `<topic>.dlq`) — wired once, never per listener.
 
+# THE ASYNCAPI DOCUMENT — `.claude/rules/messaging.md` § Contract documentation. Springwolf
+# builds it at run time from the annotations on the producers and listeners; the first Kafka use
+# case of the project writes this block, later ones inherit it. Each key is here for a reason:
+#   - `base-package` — the scan finds nothing without it; the messaging adapter packages, the
+#     only place an annotation may sit.
+#   - `use-fqn: false` — schema names without the application's package.
+#   - no `servers` — the broker address is deployment, and it would differ between the
+#     environments that generate the document, so the snapshot would too.
+#   - no `info.version` — Springwolf's default stays; tying it to the build version would change
+#     the snapshot on every release.
+#   - `kafka-listener.enabled: false` — Springwolf's own `@KafkaListener` scanner documents a
+#     `__TypeId__` header this wire never carries and lists the method twice beside
+#     `@AsyncListener`. Both sides are annotated explicitly instead.
+#   - `publishing.enabled: false` — publishing a message from the UI. Written even though it is
+#     Springwolf's default, so a later reader sees it was decided; only a local profile may set it
+#     to `true`, and the UI (`springwolf-ui`) is not a declared dependency.
+# `/springwolf/docs` answers without a credential unless the project protects its API documents
+# (`.claude/rules/authorization.md`).
+springwolf:
+  docket:
+    base-package: com.example.demo.adapter.out.messaging,com.example.demo.adapter.in.messaging
+    info:
+      title: ${spring.application.name}
+  use-fqn: false
+  plugin:
+    kafka:
+      scanner:
+        kafka-listener:
+          enabled: false
+      publishing:
+        enabled: false
+
 # FORM B ONLY — transactional outbox + relay (`.claude/rules/messaging.md` § Publication
 # timing). Omit this whole block under Form A, where there is no relay to configure.
 # Shape of the pass these values drive: `OutboxRelayPublisher.java.example`.

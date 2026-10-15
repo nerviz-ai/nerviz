@@ -132,6 +132,17 @@ what's left to cover outside of transport.
    error's classification, not only that there are errors. `spring-boot-starter-graphql-test` goes
    into § 5 when the build does not declare it — managed by the Boot parent.
 
+   **`25-messaging.md`, when it exists, adds one test: the AsyncAPI contract gate** — the served
+   document at `/springwolf/docs` against the snapshot committed at `src/test/asyncapi/`, outside
+   the test classpath, once per project (`templates/AsyncApiContractIT.java.example`;
+   `@.claude/rules/messaging.md` § Contract documentation). It runs in `verify` like any `IT`, needs
+   no broker (`spring.kafka.listener.auto-startup=false`), and fails on the first run naming the copy
+   that creates the snapshot. The case is written in § 3 with the operation ids § 1 of the messaging
+   partial derived, so a reader sees which names are contract. It adds nothing to § 5: Springwolf is
+   the messaging partial's declared dependency, and the test uses `MockMvc`, the Jackson 3
+   `JsonMapper` and AssertJ the project already has. A case-level test of the adapters against a real
+   broker is a separate row and stays where it was.
+
    **`28-http-client.md`, when it exists, fixes cases this partial must test — all of § 9.**
    Every outbound adapter is tested through its port against a real socket, never
    `MockRestServiceServer` (`@.claude/rules/http-client.md` § Tests) — shape in
@@ -320,7 +331,7 @@ question nobody asked.
 | Block | Fixes | Shape exemplar |
 |---|---|---|
 | Distribution by level | Each behavior, the level it's tested at, and why | `DomainTest.java.example` |
-| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-security.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `HttpClientAdapterIT.java.example` (when `28-http-client.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ai.md` exists) · `SearchIndexIT.java.example` (when `23-search.md` exists) · `PersistenceIT.java.example`, or `MongoPersistenceIT.java.example` for an aggregate of the document family · `AuditHistoryIT.java.example` (when `20-persistence.md` § Audit is not `none`) · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) · `AdmissionIT.java.example` (when `30-rest.md` § 8 or `31-graphql.md` § 6 states a limit) |
+| Cases per test class | Class name, each method's name, what it asserts | `UseCaseTest.java.example` · `ControllerTest.java.example` · `SecuredControllerTest.java.example` (when `32-security.md` exists) · `GraphQlControllerTest.java.example`, `GraphQlHttpIT.java.example`, `GraphQlSchemaCompatibilityTest.java.example` (when `31-graphql.md` exists) · `AsyncApiContractIT.java.example` (when `25-messaging.md` exists) · `HttpClientAdapterIT.java.example` (when `28-http-client.md` exists) · `CachedAdapterIT.java.example` (when `22-cache.md` exists) · `AiAdapterContractTest.java.example`, `AiProviderIT.java.example`, `VectorStoreIT.java.example` (when `29-ai.md` exists) · `SearchIndexIT.java.example` (when `23-search.md` exists) · `PersistenceIT.java.example`, or `MongoPersistenceIT.java.example` for an aggregate of the document family · `AuditHistoryIT.java.example` (when `20-persistence.md` § Audit is not `none`) · `IdempotencyKeyInterceptorTest.java.example` (when `30-rest.md` requires `Idempotency-Key`) · `AdmissionIT.java.example` (when `30-rest.md` § 8 or `31-graphql.md` § 6 states a limit) |
 | Data and doubles | Factories, meaningful fields, substituted ports, clock | `TestFixtures.java.example` |
 | Coverage and gaps | Invariants with no test, and what's deliberately left uncovered | `@.claude/rules/testing.md` § Coverage |
 | Test dependencies | Test-scoped libraries the build doesn't declare yet — the executor's only license to add them | `@.claude/rules/testing.md` § Asynchronous effects |

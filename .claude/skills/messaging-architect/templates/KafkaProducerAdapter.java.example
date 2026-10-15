@@ -24,6 +24,16 @@
  *    shape this replaces: it cannot also carry the relay's already-serialized text without
  *    encoding it a second time (issue #58).
  *
+ *  - the AsyncAPI contract is annotated HERE, on the method that implements the port, in the class
+ *    that converts the payload to JSON text (`.claude/rules/messaging.md` § Contract documentation).
+ *    `payloadType` is explicit because the method's own parameter is the domain event, not the
+ *    payload; the topic is the one constant the send and `channelName` share; the partition key
+ *    goes in the `description`, because the key binding is not rendered into the document by the
+ *    Springwolf version verified; `notUsed = true` states the record carries no headers. The
+ *    `operationId` is derived — `<topic>_send_publish` — so `publish` is a name of the contract.
+ *    The class is a Spring bean (`@Component`), which is how Springwolf's scan under
+ *    `springwolf.docket.base-package` finds it.
+ *
  * WHAT'S NOT HERE: retry of the send — the producer client's own (`acks=all`, idempotence,
  * `application-kafka.yml.example`), not per-adapter code; retry and DLQ of whoever consumes —
  * `KafkaListenerErrorHandler.java.example`, the other side's. Schema registry — not assumed until a use
@@ -68,12 +78,17 @@ package com.example.demo.adapter.out.messaging.orderconfirmed;
 
 import com.example.demo.application.port.out.PublishOrderConfirmedPort;
 import com.example.demo.domain.event.OrderConfirmed;
+import io.github.springwolf.core.asyncapi.annotations.AsyncMessage;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
+@Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OrderConfirmedPublisher implements PublishOrderConfirmedPort {
@@ -89,6 +104,16 @@ public class OrderConfirmedPublisher implements PublishOrderConfirmedPort {
     JsonMapper jsonMapper;
 
     @Override
+    @AsyncPublisher(
+            operation =
+                    @AsyncOperation(
+                            channelName = TOPIC,
+                            description =
+                                    "Emitted once an order is confirmed. Partition key: orderId (string), so every"
+                                            + " event of one order stays in order.",
+                            payloadType = OrderConfirmedPayload.class,
+                            message = @AsyncMessage(messageId = "OrderConfirmed", name = "OrderConfirmed"),
+                            headers = @AsyncOperation.Headers(notUsed = true)))
     public void publish(OrderConfirmed event) {
         String partitionKey = event.orderId().value().toString();
         String payload = jsonMapper.writeValueAsString(OrderConfirmedPayload.from(event));

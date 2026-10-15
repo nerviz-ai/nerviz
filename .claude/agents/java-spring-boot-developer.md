@@ -905,6 +905,14 @@ Form A and the consumer generate:
   explicitly from the domain event; the event itself never serializes directly
 - `[Event]Publisher.java` — implements the outbound port `domain-modeling` already
   declared (`Publish[Event]Port`); `KafkaTemplate`, partition key = aggregate id
+- the **AsyncAPI annotations**, written from the rows of `25-messaging.md` § 1: `@AsyncPublisher` on
+  the publisher's `publish` — under Form B, on the outbox writer's, never on `KafkaOutboxEventSender` —
+  and `@AsyncListener` with `@KafkaAsyncOperationBinding(groupId = …)` on the listener method. Channel,
+  message name, description and headers are the rows' words, not the executor's; `payloadType` is the
+  payload record; the topic is the flow's one `static final String`. The publisher or writer is a
+  `@Component`, and the method names are the ones the derived operation ids in § 1 were built from —
+  a different name is a divergence to report. Shapes: `KafkaProducerAdapter.java.example`,
+  `OutboxRelayPublisher.java.example`, `KafkaConsumerAdapter.java.example`
 - `[Event]Payload.java` (`adapter/in/messaging`) — mirrors the producer's shape
 - `[Event]Listener.java` — `@KafkaListener`, dedupes via `ProcessedEventStore` before
   calling the target use case's inbound port, then returns: no `Acknowledgment`, no retry
@@ -920,7 +928,14 @@ Form A and the consumer generate:
   need → spec defect, stop and report; this block doesn't design schema
 - `application-kafka.yml` additions — bootstrap servers, producer `acks`/idempotence,
   consumer group id, offset reset, and `listener.ack-mode` only when the messaging block says
-  `record`
+  `record` — plus the `springwolf` block of `application-kafka.yml.example` when the project's
+  `application.yml` has none, with `base-package` set to the messaging adapter packages
+- the dependencies § 7 names in `pom.xml`, versions empty where the Boot parent manages them. The
+  one it does not manage, `springwolf-kafka`, gets the latest stable `2.x` number (no suffix such
+  as `-RC` or `-M`) read from
+  `https://repo1.maven.org/maven2/io/github/springwolf/springwolf-kafka/maven-metadata.xml` when
+  the line is written — never a version remembered, and never `<release>`, which is the last
+  deploy
 - the shared error handling in the `listener` subpackage, only when the messaging block says
   NEW — `ListenerFailureClassification`, `MonitoredDeadLetterPublisher`,
   `KafkaListenerErrorHandling`, shapes in
@@ -941,7 +956,9 @@ Validation — **Form A and the consumer**: payload is never the domain event, p
 the aggregate id, the offset commits only after the use case returns, a business rejection
 routes to the DLQ without retrying while `ConcurrentUpdateException` retries, the listener has no
 `Acknowledgment`, loop or `sleep`, and the dedupe check runs before the use case is called, not
-after. Under Form B with no consumer in this project, four of those six are `n/a`, and a
+after, every publisher and listener method carries the annotation § 1 describes, no annotation
+sits on `KafkaOutboxEventSender`, and the `springwolf` block turns the `@KafkaListener` scanner and UI
+publishing off. Under Form B with no consumer in this project, four of those six are `n/a`, and a
 block whose whole validation list is `n/a` validated nothing — use the Form B list below
 instead.
 
@@ -1006,6 +1023,7 @@ Compilation: `./mvnw -q -pl <messaging-adapter-module> test-compile` in multi-mo
 - Consumer: OrderConfirmedListener — group inventory-service, blocking retry, BATCH commit
 - Dedupe: ProcessedEventStore (table modeled in Block 2)
 - Config: acks=all, earliest; error handling REUSE (3 retries → .dlq)
+- Contract: 2 operations annotated (orders.order.confirmed_send_publish, …_receive_onMessage)
 - Files: 5 classes, 0 errors
 ```
 
@@ -1150,6 +1168,13 @@ Read § 5 of spec.md, then the partial it cites for the step at hand. Generates:
 - When Block M ran: `[Event]PublisherIT.java` / `[Event]ListenerIT.java` — dedupe on
   redelivery, manual ack timing, business rejection routed to DLQ, per
   `.claude/rules/messaging.md` § How to verify
+- When Block M ran: `AsyncApiContractIT.java` and its snapshot, once per project
+  (`.claude/skills/test-architect/templates/AsyncApiContractIT.java.example`). The first run has no
+  snapshot and fails naming it: copy `target/asyncapi/asyncapi.current.json` to
+  `src/test/asyncapi/asyncapi.snapshot.json`, read the copy against `25-messaging.md` § 1 — channel,
+  message name, operation ids, descriptions, headers — and run it again. A document that does not say
+  what § 1 says is a divergence to report, not a snapshot to commit. Later cases refresh the snapshot
+  in their own change
 - When Block M ran **Form B**: `RelayOutboxEventsServiceTest.java` (fake gateway and sender)
   and `KafkaOutboxEventSenderTest.java` (mocked `KafkaTemplate`) — unit, no broker. Sent, send
   failure, the failed row that exhausts its attempts, and the unroutable-event-type dead-letter

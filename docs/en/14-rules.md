@@ -255,8 +255,9 @@ architecture (`adapter/in/rest` in one, `infrastructure/rest` in another).
 
 - **Role:** decides the adapter that publishes an event to a broker and the one that reads it
   back: delivery semantics (at-least-once, idempotent consumer), publication timing (direct, or
-  outbox + relay), topics and serialization, retry and DLQ. Kafka only today; a second broker adds
-  a section, not a file.
+  outbox + relay), topics and serialization, the AsyncAPI contract generated from the code and
+  compared with a committed snapshot (both sides annotated; spec-first recorded with when to use it
+  and when not), retry and DLQ. Kafka only today; a second broker adds a section, not a file.
 - **Loads when:** the inbound or outbound messaging adapters are touched. ⟳
 - **Not its call:** the domain event itself, a past-tense fact with no framework
   (`architecture-ddd.md` § Domain). The trigger that runs the relay on a clock is

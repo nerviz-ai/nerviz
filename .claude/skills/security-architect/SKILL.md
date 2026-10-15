@@ -165,7 +165,7 @@ Two facts cross that line, and each has one owner:
    | **Token shape** — where roles and groups sit (a flat `roles` claim, `realm_access.roles`, `groups`, `scope`), the audience this API expects | § 3 | Inherited, or mechanism is not a token |
    | **Roles per endpoint** — which named roles or groups `Access` means, per operation | § 1 | `Access` names them one to one |
    | **Owner override** — may an administrator act on another user's resource? | Whether the actor's roles travel in the command | `Access` is not the owner |
-   | **API docs** — OpenAPI document and Swagger UI public, or protected too | § 4 | Inherited |
+   | **API docs** — OpenAPI document, Swagger UI and, when the project has Kafka, the AsyncAPI document public, or protected too — one answer for all | § 4 | Inherited |
    | **Browser client** — does a browser on another origin call this API, and from which origins? | CORS in § 4 | Inherited |
    | **Operator role** — which authority reads the actuator endpoints beyond health and info | § 4 | Inherited |
 

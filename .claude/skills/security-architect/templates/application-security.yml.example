@@ -26,7 +26,8 @@ spring:
 
 app:
   security:
-    # OpenAPI document and Swagger UI answer without a credential (the rule's default).
+    # OpenAPI document, Swagger UI and the AsyncAPI document (`/springwolf/docs`) answer without a
+    # credential (the rule's default): one decision for all of them.
     api-docs-public: true
     # Authority (without ROLE_) that reads actuator endpoints other than health and info.
     actuator-role: OPERATOR
