@@ -1,0 +1,169 @@
+id: onion-single-module
+name: Onion Architecture (Palermo) — single-module
+description: >
+  Same Application Core / persistence / presentation rings as `onion`, but in a single
+  Maven module — the modules become packages, the boundary is no longer enforced by the
+  compiler and is instead enforced by the boundary map and ArchUnit. Domain Model and
+  domain services stay merged in one "Application Core" package at the center; any outer
+  ring may call any inner ring directly (Palermo's tenet 3).
+when_to_choose:
+  - Team wants Palermo's own terminology (Application Core, Gateway) over hexagonal's
+    port/adapter or clean architecture's use-case-per-class split
+  - Persistence and presentation genuinely don't need to be strangers to each other's
+    existence the way hexagonal forces via separate adapter modules per direction, but
+    should still never call each other directly
+  - Domain model and domain services are designed and changed together, by the same
+    people, most of the time
+  - Team that accepts the boundary being validated at edit time (the `check` hook) and at
+    test time (ArchUnit), not at build time (separate module), and does not want one
+    `pom.xml` per ring
+trade_offs:
+  - The boundary is no longer enforced by `mvn compile` — a class in `domain` CAN
+    physically import Spring, and `presentation` CAN physically import `persistence`; only
+    the boundary map (the edit-time hook, CI's `doctor gate`) and the ArchUnit test catch it
+  - The boundary map derived from `dependency_rules` is thinner than `onion`'s per-module
+    `forbidden_imports`: `domain` gets the four framework roots — the rest (persistence,
+    GraphQL, search, logging, MapStruct) is left to ArchUnit
+  - The `domain` package is bigger than hexagonal's or clean architecture's — model,
+    services, and every Gateway interface all live there, so more changes touch the same
+    package
+  - "Any outer ring may call any inner ring" is looser than `layered`'s explicit
+    adjacency rule — easier to write, easier to accidentally couple presentation to a
+    domain service before a real reason to needs it
+  - Persistence gets an indirection hexagonal doesn't: Gateway (domain-facing
+    interface) → Adapter (implements it) → Repository (Spring Data interface the
+    adapter delegates to) — one more file than hexagonal's Port→Adapter pair for the
+    same job
+  - The `app.*` packages (scheduling, http, cache, ai, search, graphql) keep the name of
+    the composition-root module `onion` has and this layout doesn't — they are packages
+    under the base package, and nothing but the boundary map and ArchUnit keeps `persistence`
+    and `presentation` from importing them
+  - If the project grows to the point of needing build isolation per ring, migrating to
+    `onion` means splitting poms after the fact, not before
+
+build:
+  layout: single-module
+  tool: maven
+
+# Globs by package, not by module folder — there is no Maven module physically
+# delimiting each ring, only the package under the same `src/main/java`.
+architecture_paths:
+  - "**/domain/**/*.java"
+  - "**/persistence/**/*.java"
+  - "**/presentation/**/*.java"
+  - "**/app/**/*.java"
+  - "**/commons/**/*.java"
+
+# A single element — layout: single-module — rule 5 of `_schema.md`. No
+# `forbidden_imports` here: in this architecture that field applies per package, not
+# per module, and it's the `dependency_rules.forbidden` below (derived into
+# `.claude/forbidden-imports.txt`, and read by the generated ArchUnit when
+# `features.archunit: true`) that does the actual check, not Maven.
+modules:
+  - id: app
+    path: "."
+    depends_on: []
+    contains_main: true
+
+# The same map as `onion`: the code moves between the two variants without renaming a package.
+packages:
+  base: "{{groupId}}.{{artifactName}}"
+  map:
+    domain.model: "domain.model"
+    domain.event: "domain.event"
+    domain.exception: "domain.exception"
+    domain.service: "domain.service"
+    domain.gateway: "domain.gateway"
+    persistence.persistence: "persistence"
+    presentation.rest: "presentation"
+    # Scheduling triggers (a driving adapter calling a domain service, same rank as
+    # `presentation` — Palermo's tenet 3, any outer ring may call an inner one) — decision 0087.
+    app.scheduling: "app.scheduling"
+    # Outbound HTTP adapters implement a `domain.gateway` Gateway — decision 0121.
+    app.http: "app.http"
+    # Cache decorators implement a `domain.gateway` Gateway and wrap the persistence or HTTP
+    # adapter by bean name — decision 0144.
+    app.cache: "app.cache"
+    # Outbound AI adapters implement a `domain.gateway` Gateway answered by a language model or a
+    # vector store — decision 0145.
+    app.ai: "app.ai"
+    # Outbound search adapters — a search engine index kept as a projection — decision 0147.
+    app.search: "app.search"
+    # Inbound GraphQL adapter — controllers calling a domain service, like `presentation` does for
+    # REST, in its own package so the REST norm does not load on it — decision 0146.
+    app.graphql: "app.graphql"
+    commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
+
+# Same naming convention as `onion` — splitting into a module or a package doesn't change
+# the class vocabulary (see .claude/rules/architecture-ddd.md for what IS universal, DDD, and
+# .claude/rules/naming.md for the rest):
+#   Domain service (one class per operation — architecture-ddd.md § Application forbids
+#   a fat interface, applies here too even though services live inside the `domain`
+#   package, not a separate one): <Verb><Noun>Service — e.g. PlaceOrderService, not one
+#   fat OrderService, unlike the sources' looser examples
+#   Gateway (output port, interface, in domain): <Capability>Gateway
+#                                           — e.g. PersistenceGateway, OrderGateway
+#   Adapter (implements a Gateway, in persistence): <Capability><Technology>Adapter
+#                                           — e.g. OrderJpaAdapter
+#   Repository (Spring Data interface, used BY the Adapter, never directly by domain):
+#                                              <Noun>Repository — e.g. OrderRepository
+#   Controller (thin, delegates immediately to a Facade): <Noun>Controller
+#                                           — e.g. OrderController
+#   Facade (the real presentation-layer work: DTO→Model, calls the domain service,
+#   Model→DTO, plus validation/security — @Valid, @PreAuthorize belong here, not the
+#   controller): <Noun>Facade — e.g. OrderFacade
+#   Persisted entity: <Noun>Entity            — e.g. OrderEntity
+#   Cross-layer mapper: <Noun>Mapper          — e.g. OrderMapper
+#
+# References: same as `onion`, splitting into a single module doesn't change the
+# underlying architecture — only the build unit.
+#   @.claude/blueprints/onion/references/palermo-part1-onion-architecture.md
+#   @.claude/blueprints/onion/references/palermo-part2-onion-architecture.md
+#   @.claude/blueprints/onion/references/palermo-part3-onion-architecture.md
+#   @.claude/blueprints/onion/references/palermo-part4-after-four-years.md
+#   @.claude/blueprints/onion/references/akshay-dipta-medium.md
+#   @.claude/blueprints/onion/references/jnavez-dev-to.md
+
+dependency_rules:
+  direction: inward
+  # In `onion` the `persistence` and `presentation` modules don't depend on `app` (the composition
+  # root depends on them), so neither can see the `app.*` packages; as packages here, that edge has
+  # to be written down.
+  forbidden:
+    - from: domain
+      to: [persistence, presentation, app, commons]
+      reason: "The domain does not know about infrastructure or presentation — Palermo's tenet 2: inner layers define interfaces, outer layers implement them. commons included: it carries Spring AOP/AspectJ/Lombok framework code, and domain stays framework-free"
+    - from: persistence
+      to: [presentation, app]
+      reason: "Two outer rings don't talk to each other sideways — neither is more central than the other, so there's no dependency-toward-center argument for this edge. The composition root (`app`) uses the rings, never the other way around"
+    - from: presentation
+      to: [persistence, app]
+      reason: "Same reason, the other direction — presentation calls a domain service or a Gateway, never a persistence Adapter directly, and never the composition root"
+  # What is NOT forbidden, on purpose: presentation → domain and persistence → domain
+  # are both encouraged, not just allowed — Palermo's tenet 3 explicitly says any outer
+  # ring may call any inner ring directly, unlike `layered`'s adjacency-only rule.
+
+# Real, compilable exemplars (not templates to swap mechanically).
+# The project base comes from Spring Initializr; these files provide the SHAPE.
+templates:
+  parent_pom: templates/pom.parent.xml.example
+  module_pom: templates/pom.module.xml.example
+  module_docs: templates/module.AGENTS.md.example
+  settings: templates/settings.json.example
+
+features:
+  rest: true
+  validation: true # required with `rest`: api-rest.md requires bean validation on the DTO
+  persistence-jpa: true
+  uuid-v7: true # persistence.md requires UUID v7 and JDK 21 only generates v4
+  flyway: true
+  messaging-kafka: false
+  messaging-sqs: false
+  openapi: true
+  testcontainers: true
+  actuator: true
+  observability: true # tracing bridge; without it the 5xx traceId is degraded (observability.md)
+  archunit: true # not optional in practice here: with the boundary map, it's the only enforcement that exists

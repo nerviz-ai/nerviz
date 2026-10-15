@@ -1,0 +1,180 @@
+id: hexagonal-single-module
+name: Hexagonal (Ports & Adapters) — single-module
+description: >
+  Same domain/application/adapter separation as `hexagonal`, but in a single Maven module —
+  the modules become packages, the boundary is no longer enforced by the compiler and is
+  instead enforced by the boundary map and ArchUnit.
+when_to_choose:
+  - More than one input or output channel (REST + messaging + batch), without the cost of
+    one `pom.xml` per adapter
+  - Need to swap infrastructure without touching the domain
+  - Use case tests without spinning up the Spring context
+  - Team that accepts the boundary being validated at edit time (the `check` hook) and at
+    test time (ArchUnit), not at build time (separate module)
+trade_offs:
+  - The boundary is no longer enforced by `mvn compile` — a class in `domain` CAN
+    physically import Spring; only the boundary map (the edit-time hook, CI's `doctor
+    gate`) and the ArchUnit test catch it
+  - The boundary map derived from `dependency_rules` is thinner than `hexagonal`'s per-module
+    `forbidden_imports`: `domain` gets the four framework roots, `application` none — the
+    rest (persistence, GraphQL, search, logging, MapStruct, Spring AI) is left to ArchUnit
+  - A single jar, a single classpath — nothing stops an adapter from importing another
+    adapter except the map and the test
+  - More explicit mapping than layered, and a steeper entry curve for newcomers
+  - If the project grows to the point of needing build isolation per adapter, migrating to
+    `hexagonal` means splitting poms after the fact, not before
+
+build:
+  layout: single-module
+  tool: maven
+
+# Globs by package, not by module folder — there is no Maven module physically
+# delimiting each layer, only the package under the same `src/main/java`.
+architecture_paths:
+  - "**/domain/**/*.java"
+  - "**/application/**/*.java"
+  - "**/adapter/**/*.java"
+  - "**/commons/**/*.java"
+
+# A single element — layout: single-module — rule 5 of `_schema.md`. No
+# `forbidden_imports` here: in this architecture that field applies per package, not
+# per module, and it's the `dependency_rules.forbidden` below (derived into
+# `.claude/forbidden-imports.txt`, and read by the generated ArchUnit when
+# `features.archunit: true`) that does the actual check, not Maven.
+modules:
+  - id: app
+    path: "."
+    depends_on: []
+    contains_main: true
+
+# The same map as `hexagonal`: the code moves between the two variants without renaming a
+# package. The adapters `hexagonal` compiles into `bootstrap` (scheduling, http, cache, ai,
+# search, graphql) are packages here like the rest — the composition root is the application
+# class at the base package, outside every `adapter.*` package.
+packages:
+  base: "{{groupId}}.{{artifactName}}"
+  map:
+    domain.model: "domain.model"
+    domain.event: "domain.event"
+    domain.exception: "domain.exception"
+    application.port.in: "application.port.in"
+    application.port.out: "application.port.out"
+    application.service: "application.service"
+    adapter.in.rest: "adapter.in.rest"
+    adapter.out.persistence: "adapter.out.persistence"
+    adapter.in.messaging: "adapter.in.messaging"
+    adapter.out.messaging: "adapter.out.messaging"
+    commons.logging: "commons.logging"
+    # The system actor a job or a consumer runs its pass under, used by both and by neither's
+    # adapter, so it lives beside the logging commons — decision 0149.
+    commons.audit: "commons.audit"
+    # Scheduling triggers (a driving adapter calling an input port) — decision 0087.
+    adapter.in.scheduling: "adapter.in.scheduling"
+    # Outbound HTTP adapters (one subpackage per remote system, plus `shared`) — decision 0121.
+    adapter.out.http: "adapter.out.http"
+    # Cache decorators of outbound ports, and the cache wiring — decision 0144. A decorator imports
+    # only the port it implements; the composition root sees the adapter it wraps, by bean name.
+    adapter.out.cache: "adapter.out.cache"
+    # Outbound AI adapters — a language model or a vector store behind a port, and the AI wiring —
+    # decision 0145. Spring AI appears nowhere else.
+    adapter.out.ai: "adapter.out.ai"
+    # Outbound search adapters — a search engine index kept as a projection of a source of truth, the
+    # index bootstrap and the search wiring — decision 0147. The search client appears nowhere else.
+    adapter.out.search: "adapter.out.search"
+    # Inbound GraphQL adapter — schema-first controllers calling the same input ports as `adapter.in.rest`,
+    # their records and the GraphQL wiring — decision 0146.
+    adapter.in.graphql: "adapter.in.graphql"
+
+# Same naming convention as `hexagonal` — splitting into a module or a package doesn't
+# change the class vocabulary (see .claude/rules/architecture-ddd.md for what IS universal,
+# DDD, and .claude/rules/naming.md for the rest):
+#   Input port:  <Verb><Noun>UseCase   — e.g. ConfirmOrderUseCase
+#   Output port: <Noun><Action>Port        — e.g. OrderRepositoryPort
+#   Implementation:    <Verb><Noun>Service     — e.g. ConfirmOrderService
+#   Command:     <Verb><Noun>Command   — e.g. ConfirmOrderCommand, a record next to its input port
+#   Grouping (one subpackage per aggregate, always — even with a single aggregate):
+#                `application.port.in.<aggregate>` and `application.service.<aggregate>`
+#                — e.g. application.port.in.order holds ConfirmOrderUseCase and
+#                ConfirmOrderCommand, application.service.order holds ConfirmOrderService.
+#                A use case lives with the aggregate it writes, a query with the one it
+#                reads, the outbox relay and prune use cases in `outbox`; one that touches
+#                no aggregate, with the one its trigger concerns (a reaction to
+#                OrderConfirmed: `order`), else under the noun of its own name
+#                (RequestShippingQuote: `shippingquote`). Same lowercase
+#                segment as the persistence adapter's subpackage; the test tree mirrors
+#                it. Output ports stay flat (a capability, not a use case), and a type the
+#                use cases of several aggregates share (`PageCriteria`, `IdempotentExecution`)
+#                stays at the package root
+#
+# References: same as `hexagonal`, splitting into a single module doesn't change the
+# underlying architecture — only the build unit.
+#   @.claude/blueprints/hexagonal/references/baeldung-ddd-spring.md
+#   @.claude/blueprints/hexagonal/references/emedinam-medium-practical-guide.md
+#   @.claude/blueprints/hexagonal/references/geeksforgeeks-hexagonal-java.md
+
+dependency_rules:
+  direction: inward
+  # `hexagonal` writes "adapters/*" → "adapters/*" once, because each adapter is a module there.
+  # A package has no such wildcard (`adapter` → `adapter` would forbid a package its own
+  # imports), so each adapter package is listed against every other one. Stricter than
+  # `hexagonal` for the six adapters it compiles into `bootstrap`, which see every module:
+  # their own norms already keep them to the port they implement or call.
+  forbidden:
+    - from: domain
+      to: [application, adapter, commons]
+      reason: "The domain does not know who uses it — commons included: it carries Spring AOP/AspectJ/Lombok framework code, and domain stays framework-free (architecture-ddd.md)"
+    - from: application
+      to: [adapter]
+      reason: "The application depends on ports, not on implementations"
+    - from: adapter.in.rest
+      to: [adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.in.messaging
+      to: [adapter.in.rest, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.in.scheduling
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.in.graphql
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.out.persistence
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.out.messaging
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.out.http
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.out.cache
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — a cache decorator implements the port it wraps, it never imports the adapter behind it (decision 0144)"
+    - from: adapter.out.ai
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application"
+    - from: adapter.out.search
+      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai]
+      reason: "Adapters do not talk to each other — the projection is fed by an event through the application, never by reading the persistence adapter sideways (decision 0147)"
+
+# Real, compilable exemplars (not templates to swap mechanically).
+# The project base comes from Spring Initializr; these files provide the SHAPE.
+templates:
+  parent_pom: templates/pom.parent.xml.example
+  module_pom: templates/pom.module.xml.example
+  module_docs: templates/module.AGENTS.md.example
+  settings: templates/settings.json.example
+
+features:
+  rest: true
+  validation: true # required with `rest`: api-rest.md requires bean validation on the DTO
+  persistence-jpa: true
+  uuid-v7: true # persistence.md requires UUID v7 and JDK 21 only generates v4
+  flyway: true
+  messaging-kafka: false
+  messaging-sqs: false
+  openapi: true
+  testcontainers: true
+  actuator: true
+  observability: true # tracing bridge; without it the 5xx traceId is degraded (observability.md)
+  archunit: true # not optional in practice here: with the boundary map, it's the only enforcement that exists

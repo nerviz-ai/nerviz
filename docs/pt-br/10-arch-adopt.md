@@ -166,7 +166,7 @@ tarball extraído não traz repositório. Sem ele, o stamp usa o HEAD da própri
 quando a fonte é o topo da própria work tree, e `unknown` caso contrário — nunca o HEAD de um
 repositório onde ela por acaso esteja (decisão 0141). `Overwrites` só nomeia um arquivo que já
 existe no destino e muda. Rodar duas vezes no mesmo destino
-produz árvores byte-identical fora do stamp — determinismo verificado nos 7 blueprints
+produz árvores byte-identical fora do stamp — determinismo verificado nos 9 blueprints
 oficiais a cada mudança do manifesto.
 
 ## O que este comando não faz

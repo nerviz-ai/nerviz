@@ -80,8 +80,8 @@ perto, para a afirmação poder ser conferida.
 
 ### 1 · Arquitetura é dado, e uma declaração tem três efeitos
 
-Sete blueprints (`hexagonal`, `clean-architecture-multi-module`,
-`clean-architecture-single-module`, `layered`, `onion`, `vertical-slice`,
+Nove blueprints (`hexagonal`, `hexagonal-single-module`, `clean-architecture-multi-module`,
+`clean-architecture-single-module`, `layered`, `onion`, `onion-single-module`, `vertical-slice`,
 `modular-monolith`) mais o `custom-template`. Cada um é um YAML com módulos, `depends_on`,
 `forbidden_imports`, `packages.map` e `trade_offs` obrigatórios. O `forbidden_imports` de
 um módulo alimenta, sem cópia manual:

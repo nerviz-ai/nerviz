@@ -165,7 +165,7 @@ only when the source is the top of its own work tree, and `unknown` otherwise â€
 of a repository it happens to sit inside (decision 0141). `Overwrites` names a file only when
 it already exists in the destination and changes. Running it twice into the same
 destination produces byte-identical trees outside the stamp â€” determinism verified across
-the 7 official blueprints on every change to the manifest.
+the 9 official blueprints on every change to the manifest.
 
 ## What this command does not do
 

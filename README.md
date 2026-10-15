@@ -66,7 +66,7 @@ clean session.
 
 ## At a glance
 
-- **Seven architectures as data**, plus your own. A blueprint is a YAML file. Adding one
+- **Nine architectures as data**, plus your own. A blueprint is a YAML file. Adding one
   changes no prompt.
 - **Spec before code.** One use case per run, designed layer by layer by an owner skill
   for each layer, approved by you, then frozen.
@@ -114,8 +114,8 @@ Treat the AI files as production code: an explicit architecture, dependencies in
 direction, one owning file per rule, and enforcement by a program rather than by the
 model's memory. Concretely:
 
-- **Architecture is data.** Seven blueprints (`hexagonal`, `clean-architecture-multi-module`,
-  `clean-architecture-single-module`, `layered`, `onion`, `vertical-slice`,
+- **Architecture is data.** Nine blueprints (`hexagonal`, `hexagonal-single-module`, `clean-architecture-multi-module`,
+  `clean-architecture-single-module`, `layered`, `onion`, `onion-single-module`, `vertical-slice`,
   `modular-monolith`) plus your own, each a YAML file. One `forbidden_imports` declaration
   feeds the module's `CLAUDE.md`, the hook that blocks the write, and the POM graph. A new
   architecture touches no prompt, and CI checks that.
@@ -441,7 +441,9 @@ repository is out of the picture.
 | `clean-architecture-multi-module` | multi-module | Long-lived system, medium or large team | More ceremony, many mappings |
 | `clean-architecture-single-module` | single-module | Clean Architecture without the module count | ArchUnit is the only boundary |
 | `hexagonal` | multi-module | Several entry and exit channels | More modules than layered |
+| `hexagonal-single-module` | single-module | Several entry and exit channels, without one POM per adapter | ArchUnit and the boundary map are the only boundary, not the compiler |
 | `onion` | multi-module | Palermo's terminology; persistence and presentation as independent peers | Larger domain compilation unit |
+| `onion-single-module` | single-module | Palermo's terminology without the module count | ArchUnit and the boundary map are the only boundary |
 | `vertical-slice` | single-module | Loosely coupled features, fast delivery | Duplication between slices |
 | `modular-monolith` | single-module | Several bounded contexts (Spring Modulith) | A second verifier (`ApplicationModules.verify()`) on top of ArchUnit |
 | `custom` | your choice | You already have an in-house pattern | You describe and validate it |

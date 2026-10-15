@@ -19,7 +19,9 @@ those invariants.
 | [`clean-architecture-single-module`](#clean-architecture-uncle-bob) | single-module | domain/application/infrastructure as packages |
 | [`clean-architecture-multi-module`](#clean-architecture-uncle-bob) | multi-module | domain/application/infrastructure as Maven modules |
 | [`hexagonal`](#hexagonal-ports--adapters) | multi-module | Ports (interfaces) and inbound/outbound adapters in their own modules |
+| [`hexagonal-single-module`](#hexagonal-ports--adapters) | single-module | The same ports and adapters as packages of one module |
 | [`onion`](#onion-palermo) | multi-module | Domain model + domain services fused into one "Application Core"; any outer ring may call any inner ring |
+| [`onion-single-module`](#onion-palermo) | single-module | The same Application Core and outer rings as packages of one module |
 | [`modular-monolith`](#modular-monolith-spring-modulith) | single-module | Several bounded contexts as module-packages (`internal`), verified by Spring Modulith |
 | [`vertical-slice`](#vertical-slice-feature-slices) | single-module | One self-contained package per use case (`features.<feature>.<usecase>`), not per technical layer |
 | [`custom-template`](#custom-template) | — | Starting point to describe your own architecture |
@@ -93,6 +95,13 @@ the edges, each in its own module.
 **When to use it:** more than one inbound or outbound channel, a real need to swap
 infrastructure without touching the domain.
 
+**`hexagonal-single-module`** is the same architecture with the modules as packages of one
+Maven module (the package map is identical, so code moves between the two). The boundary
+is no longer enforced by the compiler but by the edit-time hook, CI's `doctor gate` and
+ArchUnit; the boundary map derived for it is thinner than the multi-module one, and the
+adapters are forbidden from importing each other package by package. Choose it when you
+want the port/adapter vocabulary without one `pom.xml` per adapter.
+
 ---
 
 ## Onion (Palermo)
@@ -120,6 +129,13 @@ call any inner ring directly.
 **When to use it:** domain model and domain services are designed and changed
 together, by the same people, most of the time — not worth a fourth `application`
 module just to keep them apart.
+
+**`onion-single-module`** is the same architecture with the modules as packages of one
+Maven module (the package map is identical, so code moves between the two). The boundary
+is no longer enforced by the compiler but by the edit-time hook, CI's `doctor gate` and
+ArchUnit; the `app.*` packages keep the name of the composition-root module, and
+`persistence` and `presentation` are forbidden from importing them. Choose it for Palermo's
+vocabulary without one `pom.xml` per ring.
 
 ---
 

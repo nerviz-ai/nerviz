@@ -14,17 +14,19 @@ instruction.
 
 Each architecture lives at `.claude/blueprints/<id>/<id>.yaml`. A folder without a
 `.yaml` would be an architecture **not yet written**, and the skill would leave it out
-of the interview listing — today all seven have a YAML. Pros, cons, and "when to
+of the interview listing — today all nine have a YAML. Pros, cons, and "when to
 choose" for each are in `.claude/blueprints/README.md` (and `README.pt-br.md`).
 
 | Blueprint | Layout | Summary |
 |---|---|---|
 | `hexagonal` | multi-module | Ports as interfaces, inbound and outbound adapters in their own modules |
+| `hexagonal-single-module` | single-module | The same ports and adapters as packages in one module; the boundary is the derived boundary map and ArchUnit, not the compiler |
 | `clean-architecture-single-module` | single-module | domain/application/infrastructure as packages; boundary by ArchUnit only |
 | `clean-architecture-multi-module` | multi-module | Same layers as Maven modules; the compiler enforces the direction |
 | `layered` | single-module | controller/service/repository, the classic Spring Boot tutorial vocabulary instead of hexagonal's port/adapter naming |
 | `modular-monolith` | single-module | Several bounded contexts (Spring Modulith), each with full domain/application/adapter layering inside its own `internal`; cross-module isolation checked by `ApplicationModules.verify()`, not ArchUnit |
 | `onion` | multi-module | Palermo's Application Core: domain model and domain services in one `domain` module, `persistence`/`presentation` as independent outer rings |
+| `onion-single-module` | single-module | The same Application Core and outer rings as packages in one module; the boundary is the derived boundary map and ArchUnit, not the compiler |
 | `vertical-slice` | single-module | One self-contained package per use case (`features.<feature>.<usecase>`, REPR pattern); only the aggregate crosses the slice boundary, in a shared `domain` kernel |
 | `custom-template` | — | Starting point for creating your own, not a usable blueprint by itself |
 
