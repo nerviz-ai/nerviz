@@ -26,10 +26,13 @@ Documentation: [`docs/en/`](docs/en/README.md) (English) · [`docs/pt-br/`](docs
 [`docs/en/09-differentiators.md`](docs/en/09-differentiators.md).
 
 <p align="center">
-  <img alt="/init-project generating bank-app: the interview, the background agent, the final report and the push to GitHub" src="docs/assets/init-project-demo.gif" width="100%">
+  <a href="docs/assets/pitch-en.mp4"><img alt="Nerviz pitch in English — click to play" src="docs/assets/pitch-en.jpg" width="49%"></a>
+  <a href="docs/assets/pitch.mp4"><img alt="Pitch do Nerviz em português — clique para assistir" src="docs/assets/pitch.jpg" width="49%"></a>
 </p>
 
-One `/init-project` run, sped up about 5×. What it produced is public:
+<p align="center">The pitch, 69 seconds, no audio: <a href="docs/assets/pitch-en.mp4">English</a> · <a href="docs/assets/pitch.mp4">português</a>.</p>
+
+What one `/init-project` run produced is public:
 [`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app), a
 `clean-architecture-single-module` project with a green build. The run took 20 minutes, a figure
 read from the session transcripts into its
@@ -38,23 +41,11 @@ read from the session transcripts into its
 The generated project, opened as is: it starts against the compose Postgres, and
 `mvn clean verify` passes with tests, Spotless, Checkstyle and JaCoCo.
 
-<p align="center">
-  <img alt="bank-app starting in the IDE: Flyway validates the schema and Tomcat starts on port 8080" src="docs/assets/bank-app-run.gif" width="100%">
-</p>
-
-<p align="center">
-  <img alt="mvn clean verify on bank-app: 3 tests, 0 Checkstyle violations, BUILD SUCCESS" src="docs/assets/bank-app-verify.gif" width="100%">
-</p>
-
 Then the first feature, inside the generated project. `/new-feature` takes a one-line
 request, asks only the questions that change the design (who may call it, duplicates, the
 age rule, data retention), and has one skill per layer write its part of the spec. The spec
-is approved, frozen, committed and pushed before a single line of code exists. Run sped up
-about 12×; it took 10 minutes, about 2 of them waiting for answers.
-
-<p align="center">
-  <img alt="/new-feature in bank-app: the interview, use-case-design, domain-modeling, rest-api-architect, persistence-architect and test-architect writing their partials, the spec approved and pushed" src="docs/assets/new-feature-demo.gif" width="100%">
-</p>
+is approved, frozen, committed and pushed before a single line of code exists. The run
+took 10 minutes, about 2 of them waiting for answers.
 
 Everything it wrote is public:
 [the approved spec](https://github.com/nerviz-ai/bank-app/blob/main/docs/use-cases/UC-001-create-customer/UC-001-spec.md),
@@ -322,14 +313,10 @@ handoff degrades by the third hop. Details: [`docs/en/03-new-feature.md`](docs/e
 
 What the consolidation produces: one `UC-NNN-spec.md` that keeps a single decision per
 fact, links back to the partial that owns each one, and ends in an implementation order
-the executor follows. Below is bank-app's
+the executor follows. An example is bank-app's
 [`UC-001-spec.md`](https://github.com/nerviz-ai/bank-app/blob/main/docs/use-cases/UC-001-create-customer/UC-001-spec.md).
 Conditional layers the use case does not need, such as security, outbound HTTP, messaging
 and jobs, are recorded as not applicable instead of being left out silently.
-
-<p align="center">
-  <img alt="UC-001-spec.md of bank-app: partials and owners, use case, domain model, persistence, REST API, tests, design patterns, out of scope, implementation order" src="docs/assets/new-feature-spec.gif" width="100%">
-</p>
 
 ### Edit cycle — what runs on every write in a generated project
 
@@ -362,15 +349,11 @@ Stop
 
 ### Audit trail — what every run spent
 
-The report of the bank-app `/new-feature` run above, as it lands in the project:
+The report of the bank-app `/new-feature` run described above, as it lands in the project:
 [`2026-10-07T08-52-11--new-feature.md`](https://github.com/nerviz-ai/bank-app/blob/main/.claude/audit-usage/2026-10-07T08-52-11--new-feature.md).
 It shows the duration with the time spent waiting for the user taken out, the chain of
 skills with each one's share, tokens per piece, tool calls and peak context per piece, the
 most expensive turns, the files touched, and every question asked with the answer given.
-
-<p align="center">
-  <img alt="Execution audit of a /new-feature run: duration, chain, tokens per piece, tool calls per piece, peak context, files touched and the questions asked" src="docs/assets/new-feature-audit.gif" width="100%">
-</p>
 
 The trail is a hook, not a skill. It survives the model forgetting and the session dying,
 and it costs zero tokens to produce. Prompts are redacted before they land in git.
