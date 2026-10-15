@@ -24,6 +24,8 @@
 //   context SubagentStart (generated project only) — injects the pattern catalog into
 //                         each agent whose class declares pattern_catalog  (never blocks)
 //   doctor  manual      — diagnoses the setup on this machine         (never blocks)
+//   boundary-map manual — writes a generated project's .claude/forbidden-imports.txt from a
+//                         blueprint, derived for a single-module one                 (exit 2 on none)
 //   build   PostToolUse (this repo) + CI — compiles this file into ArchHook.jar
 //                         under the pinned JDK; --verify rejects a jar that differs (blocks)
 //
@@ -83,6 +85,7 @@ public class ArchHook {
                 case "compose" -> compose(args.length > 1 ? args[1] : "report", stdin);
                 case "context" -> context(args.length > 1 ? args[1] : "subagent", stdin);
                 case "export" -> export(args);
+                case "boundary-map" -> boundaryMap(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
@@ -2630,6 +2633,170 @@ public class ArchHook {
                 + " working-tree)");
         err("  --commit      the source commit to stamp; without it, the source's own git HEAD, the fetch"
                 + " marker's, or \"unknown\"");
+    }
+
+    // ── boundary-map ─────────────────────────────────────────────────────────
+
+    static void boundaryMapUsage() {
+        err("usage: java .claude/hooks/ArchHook.java boundary-map <dest> --blueprint <id>"
+                + " --package <base.package>");
+        err("  <dest>        the generated project's root; <dest>/.claude/forbidden-imports.txt is written");
+        err("  --blueprint   id of a blueprint under .claude/blueprints/");
+        err("  --package     the project's base package, as the Initializr was given it (com.acme.shop)");
+    }
+
+    /**
+     * {@code boundary-map <dest> --blueprint <id> --package <pkg>} — writes the generated project's
+     * {@code .claude/forbidden-imports.txt}, the file {@code check} and {@code doctor gate} read. A
+     * {@code multi-module} blueprint declares {@code forbidden_imports} per module: one line per
+     * prefix, {@code <module-path>|<prefix>}, the ArchUnit {@code ..} suffix read as a package
+     * prefix. A {@code single-module} one declares only {@code dependency_rules.forbidden} by
+     * layer name: each name resolves to the {@code packages.map} entries it equals or prefixes
+     * (a name no entry matches is reported and skipped), and every (from, to) pair becomes
+     * {@code <source_root>/<package path of from>|<package of to>.}, the {@code from} name's
+     * {@code boundary_map.framework_roots} added as targets. A pair where one package contains the
+     * other is dropped — it would forbid a package its own imports. Exit 2, nothing written, when
+     * the blueprint yields no line: a map with no rule blocks nothing.
+     *
+     * <p>Why a mode: {@code project-files.md} § 5 used to describe the single-module derivation in
+     * prose an agent ran, so no test could hold it and the multi-module copy was a transcription.
+     * Motivated by decision 0166's gap — no CI step generated any blueprint — and chosen over a
+     * second derivation inside the test, which would drift from the prose (invariant 2). The
+     * closest rejected form is a skill step, which cannot be proven.
+     */
+    static void boundaryMap(String[] args) throws Exception {
+        String dest = null, id = null, pkg = null;
+        for (int i = 1; i < args.length; i++) {
+            String a = args[i];
+            if (a.equals("--blueprint") && i + 1 < args.length) id = args[++i];
+            else if (a.equals("--package") && i + 1 < args.length) pkg = args[++i];
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); boundaryMapUsage(); System.exit(2); }
+            else if (dest == null) dest = a;
+            else { err("❌ Only one destination is accepted, got also: " + a); boundaryMapUsage(); System.exit(2); }
+        }
+        if (dest == null || id == null || pkg == null) { boundaryMapUsage(); System.exit(2); }
+        if (!pkg.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
+            err("❌ --package is a dotted Java package name, got: " + pkg);
+            System.exit(2);
+        }
+
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> bm = sch == null ? null : asMap(sch.get("boundary_map"));
+        if (bm == null) {
+            err("❌ No `boundary_map` block in " + SCHEMA_FILE + " — this mode reads its lists from it.");
+            System.exit(2);
+        }
+        String tpl = asStr(get(sch, "export", "blueprint", "path"));
+        Path file = ROOT.resolve((tpl == null ? ".claude/blueprints/{id}/{id}.yaml" : tpl).replace("{id}", id));
+        if (!Files.isRegularFile(file)) {
+            err("❌ Blueprint `" + id + "` not found at " + relative(file));
+            err("   Available: " + availableBlueprints());
+            System.exit(2);
+        }
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        String layout = yamlNestedMap(lines, List.of("build")).get("layout");
+        Set<String> out = new LinkedHashSet<>();
+        List<String> unresolved = new ArrayList<>();
+
+        if ("single-module".equals(layout)) {
+            String sourceRoot = asStr(bm.get("source_root"));
+            Map<String, String> map = yamlNestedMap(lines, List.of("packages", "map"));
+            Map<String, Object> roots = asMap(bm.get("framework_roots"));
+            String basePath = pkg.replace('.', '/');
+            for (String[] rule : yamlDependencyRules(lines)) {
+                List<String> froms = resolveLayer(map, rule[0]);
+                if (froms.isEmpty()) unresolved.add(rule[0]);
+                List<String> tos = new ArrayList<>();
+                for (String t : rule[1].split(",")) {
+                    if (t.isBlank()) continue;
+                    List<String> r = resolveLayer(map, t.strip());
+                    if (r.isEmpty()) unresolved.add(t.strip()); else tos.addAll(r);
+                }
+                for (String from : froms) {
+                    String left = sourceRoot + "/" + basePath + "/" + from.replace('.', '/');
+                    if (roots != null) {
+                        for (String root : asStrList(roots.get(rule[0]))) out.add(left + "|" + root);
+                    }
+                    for (String to : tos) {
+                        if (to.equals(from) || to.startsWith(from + ".") || from.startsWith(to + ".")) continue;
+                        out.add(left + "|" + pkg + "." + to + ".");
+                    }
+                }
+            }
+        } else {
+            for (String[] m : yamlModules(lines)) {
+                for (String prefix : m[1].isEmpty() ? new String[0] : m[1].split("\n")) {
+                    out.add(m[0] + "|" + (prefix.endsWith("..") ? prefix.substring(0, prefix.length() - 1) : prefix));
+                }
+            }
+        }
+        for (String u : new TreeSet<>(unresolved)) {
+            err("⚠️  boundary-map: `" + u + "` matches no entry of packages.map in " + id + " — its rules are skipped.");
+        }
+        if (out.isEmpty()) {
+            err("❌ boundary-map: " + id + " yields no rule — nothing written. A boundary map with no line blocks nothing.");
+            System.exit(2);
+        }
+        Path target = Paths.get(dest).toAbsolutePath().normalize().resolve(".claude/forbidden-imports.txt");
+        Files.createDirectories(target.getParent());
+        Files.writeString(target, "# Generated by /init-project — blueprint: " + id + " — do not edit by hand\n"
+                + String.join("\n", out) + "\n", StandardCharsets.UTF_8);
+        System.out.println("✅ boundary-map: " + out.size() + " rule(s) for " + id + " in " + target);
+    }
+
+    /** Every packages.map value whose key equals {@code name} or sits under {@code name + "."}. */
+    static List<String> resolveLayer(Map<String, String> map, String name) {
+        List<String> out = new ArrayList<>();
+        map.forEach((k, v) -> { if (k.equals(name) || k.startsWith(name + ".")) out.add(v); });
+        return out;
+    }
+
+    /** {@code dependency_rules.forbidden}: one {@code {from, "a, b, c"}} per entry. */
+    static List<String[]> yamlDependencyRules(List<String> lines) {
+        List<String[]> out = new ArrayList<>();
+        int i = indexOfTopKey(lines, "dependency_rules");
+        if (i < 0) return out;
+        String from = null;
+        for (int j = i + 1; j < lines.size(); j++) {
+            String l = lines.get(j);
+            if (l.isBlank() || l.trim().startsWith("#")) continue;
+            if (indentOf(l) == 0) break;
+            Matcher f = Pattern.compile("^\\s*-\\s*from:\\s*(\\S+)").matcher(l);
+            if (f.find()) { from = unquote(f.group(1)); continue; }
+            Matcher t = Pattern.compile("^\\s*to:\\s*\\[([^\\]]*)\\]").matcher(l);
+            if (from != null && t.find()) { out.add(new String[] { from, t.group(1) }); from = null; }
+        }
+        return out;
+    }
+
+    /** {@code modules[]}: one {@code {path, forbidden_imports joined by \n}} per module. */
+    static List<String[]> yamlModules(List<String> lines) {
+        List<String[]> out = new ArrayList<>();
+        int i = indexOfTopKey(lines, "modules");
+        if (i < 0) return out;
+        String path = null;
+        List<String> forbidden = new ArrayList<>();
+        boolean inForbidden = false;
+        for (int j = i + 1; j <= lines.size(); j++) {
+            String l = j < lines.size() ? lines.get(j) : "";
+            boolean end = j == lines.size() || (!l.isBlank() && !l.trim().startsWith("#") && indentOf(l) == 0);
+            boolean next = l.matches("^\\s*-\\s*id:.*");
+            if ((end || next) && path != null) {
+                out.add(new String[] { path, String.join("\n", forbidden) });
+                path = null;
+                forbidden = new ArrayList<>();
+                inForbidden = false;
+            }
+            if (end) break;
+            if (l.isBlank() || l.trim().startsWith("#")) continue;
+            Matcher p = Pattern.compile("^\\s+path:\\s*(.+?)\\s*$").matcher(l);
+            if (p.matches()) { path = unquote(p.group(1)); continue; }
+            if (l.matches("^\\s+forbidden_imports:.*")) { inForbidden = true; continue; }
+            Matcher item = Pattern.compile("^\\s+-\\s*(.+?)\\s*$").matcher(l);
+            if (inForbidden && item.matches()) { forbidden.add(unquote(item.group(1))); continue; }
+            if (l.matches("^\\s{4}[A-Za-z_]+:.*")) inForbidden = false;
+        }
+        return out;
     }
 
     /** Reads `packages.map`, `architecture_paths` and the naming-convention comment block. */

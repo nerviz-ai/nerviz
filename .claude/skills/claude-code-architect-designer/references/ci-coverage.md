@@ -4,7 +4,7 @@ Reference for the `claude-code-architect-designer` skill: interview axis 17, the
 every Phase 3 option, and Phase 4 step 9. Loads only when it is invoked.
 
 Source: `.github/workflows/validate.yml`, `.github/workflows/templates.yml`,
-`.github/workflows/mods.yml`,
+`.github/workflows/mods.yml`, `.github/workflows/blueprints.yml`,
 `.claude/.ci/*Test.java`, `.claude/skills/project-bootstrap/templates/ci.yml.example`.
 **The workflows are the owner.** Every job and step this page names is quoted from them; when
 they disagree, they win and this page gets corrected. Prose tour of the same jobs, with the
@@ -29,6 +29,7 @@ the right CI item then is one line naming that step.
 | `validate` · job `export-determinism` | same | every push and PR | What the `export` mode writes into a target: reproducible tree, the jar carried, `export.retired` deleted, the exported jar's own `schema` and `doctor` |
 | `validate` · job `exemplar-imports` | same | every push and PR, network | Every `import` of a `.java.example` exists in a JAR of a real Initializr project |
 | `templates` | `.github/workflows/templates.yml` | path-filtered, network | Anything that needs network or a Maven build: Checkstyle configs against fixtures, templates copied as files compiled and their tests run (`0099`). Not a required check — it stays pending on PRs it skips |
+| `blueprints` | `.github/workflows/blueprints.yml` | path-filtered (a blueprint, `project-bootstrap`, the hook, `extensions.json`), then narrowed by its `plan` job to the blueprints the change impacts; network, ubuntu | A claim only a generated project can prove: a blueprint's reactor builds on Maven and Gradle, its boundary map blocks what it says. One job per blueprint × build tool (`BlueprintSkeletonTest.java run`); `selftest` holds the selection rule in `validate`. Not a required check (`0166`) |
 | `mods` | `.github/workflows/mods.yml` | path-filtered (`.claude/mods/**`, `extensions.json`), ubuntu | What only the Claude CLI can prove about a mod: `claude plugin validate` reads it as the engine will (and the job fails on `gating hook without .catch`), `claude plugin test` runs its `*.test.ts`. The CLI comes from npm at `mods.ci_version` — the only install outside java/git/curl in this repository's CI, and nothing a user runs (`0131`). Not a required check |
 | Generated project · `build` | `project-bootstrap/templates/ci.yml.example` (+ `ci-gradle.yml.example`) | every push and PR **of the generated project** | Only what exists inside the project: `./mvnw verify`, the IT-ran check, `ArchHook.java doctor gate` (fails on the lines `doctor.gate.labels` lists — `0128`). Nothing under `.claude/.ci/` travels (`export` does not copy it) |
 

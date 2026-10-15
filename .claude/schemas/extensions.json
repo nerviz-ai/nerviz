@@ -1070,6 +1070,14 @@
     "deny_markers": ["guard: force push blocked", "is outside its territory", "its specs are immutable"]
   },
 
+  "boundary_map": {
+    "$comment": "Read by ArchHook.java `boundary-map`, which writes the generated project's `.claude/forbidden-imports.txt` from a blueprint. A multi-module blueprint carries `forbidden_imports` per module and the mode copies them (a trailing `..` becomes `.`); a single-module one carries only `dependency_rules.forbidden`, and the mode derives one line per (from, to) pair of `packages.map` entries, plus the `framework_roots` of the `from` name when this block lists it — architecture-ddd.md § Domain: both Jackson roots, since a guard that lists one lets the other through. `source_root` is the single module's source folder, where the left side of every derived line starts. Design: .claude/decisions/0166-blueprint-skeleton-generated-in-ci.md",
+    "source_root": "src/main/java",
+    "framework_roots": {
+      "domain": ["org.springframework.", "jakarta.", "com.fasterxml.jackson.", "tools.jackson."]
+    }
+  },
+
   "mcp": {
     "$comment": "Validated by ArchHook.java schema, same as `types` above. Design: .claude/decisions/0033-mcp-in-architect-designer.md",
     "match": [

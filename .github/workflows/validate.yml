@@ -195,6 +195,12 @@ jobs:
       - name: doctor sweeps every source file for forbidden imports, with check's own match
         run: java .claude/.ci/BoundarySweepTest.java
 
+      # `boundary-map` is the one derivation of a generated project's forbidden-imports.txt: a
+      # blueprint whose rules derived to nothing, or to a prefix `check` never matches, generated a
+      # project that looked guarded and blocked nothing. Every blueprint, then `check` on the map (0166).
+      - name: boundary-map derives every blueprint's rules, and check enforces them
+        run: java .claude/.ci/BoundaryMapTest.java
+
       # What export tells the person who runs it: `Overwrites` only for a file that exists and
       # changes, and a stamp whose commit is the one given, the source's own HEAD, the fetch
       # marker's in a tree new-project extracted (0163), or "unknown" — never a parent
@@ -365,6 +371,13 @@ jobs:
       # into every project that chose the blueprint (0165). No network.
       - name: exemplars keep the adapters of hexagonal-single-module apart, and its matrix is complete
         run: java .claude/.ci/HexagonalSingleModuleTemplateTest.java
+
+      # `blueprints.yml` generates only the blueprints a change can affect, and the rule that picks
+      # them lives in the test it runs: a bad rule either skips a blueprint a change broke or
+      # generates nine for a typo. This step holds the rule on synthetic path lists, with no git and
+      # no network, so it runs on every push (0166).
+      - name: the blueprints workflow generates only what a change impacts
+        run: java .claude/.ci/BlueprintSkeletonTest.java selftest
 
       # A MapStruct exemplar is the shape the executor writes and the installer converts to in every
       # project that chose MapStruct; a forbidden construct there ships into all of them, and a

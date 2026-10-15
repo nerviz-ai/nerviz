@@ -286,7 +286,7 @@ Base pair, plus one service per active feature that needs a container, merged th
 ### 5 · Generate the boundary map → `references/project-files.md` § 5
 
 **Read `references/project-files.md` now** — it holds steps 5 to 7.
-`.claude/forbidden-imports.txt`, one line per `forbidden_imports` prefix.
+`.claude/forbidden-imports.txt`, written by `ArchHook.java boundary-map` — never by hand.
 
 ### 6 · Generate the root CLAUDE.md and AGENTS.md, and the module ones → `references/project-files.md` § 6
 
