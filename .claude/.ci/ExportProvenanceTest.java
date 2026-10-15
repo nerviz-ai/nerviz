@@ -4,14 +4,19 @@
 // `Overwrites` note appears only for an `overwrite` entry whose destination exists and changes
 // — not on a fresh tree, not on an unchanged file. And the provenance stamp's `commit` is the
 // one given with `--commit`, else the source's own HEAD only when the source root is the top of
-// its own work tree, else "unknown" — never the HEAD of a repository the source happens to sit
-// inside; a malformed `--commit` exits 2.
+// its own work tree, else the fetch marker's, else "unknown" — never the HEAD of a repository
+// the source happens to sit inside; a malformed `--commit` exits 2.
 //
 // Why this test exists: issue #123. `arch-adopt` exports from an extracted tarball, so the
 // stamp said "unknown" — and would have stamped a parent repository's HEAD had the tarball sat
 // inside one — while `report-issue` compares that field with the source's HEAD whenever the ref
 // is not a tag. And the note named `settings.json` on every update, sending the person to an
 // empty `git diff`. Decision 0141.
+//
+// The fetch marker cases: `new-project` extracts the source's tarball — no repository — and
+// records the ref and commit it resolved in the file `source.fetch_marker` names. Without
+// them, a project generated from that tree is stamped `working-tree`/`unknown`, and an
+// update cannot tell which release it came from. Decision 0163.
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -61,7 +66,47 @@ public class ExportProvenanceTest {
         r = export(REPO, dest, "--commit", "v0.25.0");
         check(r.code == 2 && r.out.contains("--commit takes a commit sha"), "a malformed --commit — exit 2", r);
 
-        for (Path p : List.of(dest, dest2, outer)) deleteTree(p);
+        // A fetched tree: a copy of .claude/ in a directory that is no work tree at all.
+        Path fetched = Files.createTempDirectory("archhook-export-fetched");
+        copyTree(REPO.resolve(".claude"), fetched.resolve(".claude"));
+        Path marker = fetched.resolve(fetchMarker(fetched));
+        Path dest3 = Files.createTempDirectory("archhook-export-prov3");
+        r = export(fetched, dest3);
+        check(r.code == 0 && stampField(dest3, "ref").equals("working-tree") && stampCommit(dest3).equals("unknown"),
+                "fetched tree, no marker — working-tree and \"unknown\", as before", r);
+
+        Files.writeString(marker, "{\"ref\": \"v9.9.9\", \"commit\": \"abcdef1\"}\n");
+        r = export(fetched, dest3);
+        check(r.code == 0 && stampField(dest3, "ref").equals("v9.9.9") && stampCommit(dest3).equals("abcdef1"),
+                "fetched tree with a marker — its ref and commit stamped", r);
+
+        r = export(fetched, dest3, "--commit", "1234567");
+        check(r.code == 0 && stampField(dest3, "ref").equals("v9.9.9") && stampCommit(dest3).equals("1234567"),
+                "--commit over a marker — the flag wins, the marker still gives the ref", r);
+
+        r = export(fetched, dest3, "--ref", "v1.0.0");
+        check(r.code == 0 && stampField(dest3, "ref").equals("v1.0.0") && stampCommit(dest3).equals("abcdef1"),
+                "--ref over a marker — the flag wins, the marker still gives the commit", r);
+
+        Files.writeString(marker, "{\"ref\": \"v9.9.9\", \"commit\": \"v9.9.9\"}\n");
+        r = export(fetched, dest3);
+        check(r.code == 2 && r.out.contains("not a sha"), "a marker whose commit is no sha — exit 2", r);
+
+        Files.writeString(marker, "ref=v9.9.9\n");
+        r = export(fetched, dest3);
+        check(r.code == 2 && r.out.contains("is not a JSON object"), "a marker that is not JSON — exit 2", r);
+
+        // The same marker inside a source that IS its own work tree: the repository answers.
+        git(fetched, "init", "-q");
+        git(fetched, "add", "-A");
+        git(fetched, "-c", "user.email=ci@example.com", "-c", "user.name=ci", "commit", "-q", "-m", "src");
+        Files.writeString(marker, "{\"ref\": \"v9.9.9\", \"commit\": \"abcdef1\"}\n");
+        r = export(fetched, dest3);
+        check(r.code == 0 && stampCommit(dest3).equals(git(fetched, "rev-parse", "HEAD"))
+                        && stampField(dest3, "ref").equals("working-tree"),
+                "a marker in a source at the top of its work tree — ignored, its own HEAD", r);
+
+        for (Path p : List.of(dest, dest2, outer, fetched, dest3)) deleteTree(p);
         System.out.println(failures == 0 ? "\n✅ Overwrites only when a file changes; the stamp's commit is never a guess."
                 : "\n❌ " + failures + " case(s) failed.");
         System.exit(failures == 0 ? 0 : 1);
@@ -95,9 +140,21 @@ public class ExportProvenanceTest {
     }
 
     static String stampCommit(Path dest) throws Exception {
+        return stampField(dest, "commit");
+    }
+
+    static String stampField(Path dest, String key) throws Exception {
         String s = Files.readString(dest.resolve(".claude/.arch-provenance.json"));
-        Matcher m = Pattern.compile("\"commit\"\\s*:\\s*\"([^\"]*)\"").matcher(s);
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\"([^\"]*)\"").matcher(s);
         return m.find() ? m.group(1) : "<none>";
+    }
+
+    /** The marker's path, read from the copy's own `extensions.json` — never written here. */
+    static String fetchMarker(Path source) throws Exception {
+        String s = Files.readString(source.resolve(".claude/schemas/extensions.json"));
+        Matcher m = Pattern.compile("\"fetch_marker\"\\s*:\\s*\"([^\"]+)\"").matcher(s);
+        if (!m.find()) throw new IllegalStateException("source.fetch_marker is missing from extensions.json");
+        return m.group(1);
     }
 
     static String git(Path dir, String... args) throws Exception {

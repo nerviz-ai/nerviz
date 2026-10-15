@@ -2457,7 +2457,7 @@ public class ArchHook {
                      List<String> vocabulary) {}
 
     static void export(String[] args) throws Exception {
-        String dest = null, blueprintId = null, ref = "working-tree", commit = null;
+        String dest = null, blueprintId = null, ref = null, commit = null;
         boolean dry = false;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
@@ -2483,6 +2483,18 @@ public class ArchHook {
             err("   This mode reads its lists from that file; it hardcodes none.");
             System.exit(2);
         }
+        // A tree `new-project` extracted from the source's tarball is no repository, so the
+        // stamp would read `working-tree` and `unknown`; the fetch recorded what it resolved.
+        // Read only when the source is not its own work tree, and only for a field the command
+        // line left out. Design: .claude/decisions/0163-create-project-from-the-plugin.md
+        if (sourceCommit() == null) {
+            String[] fetched = fetchMarker(sch);
+            if (fetched != null) {
+                if (ref == null) ref = fetched[0];
+                if (commit == null) commit = fetched[1];
+            }
+        }
+        if (ref == null) ref = "working-tree";
 
         Path destRoot = Paths.get(dest).toAbsolutePath().normalize();
         if (destRoot.equals(ROOT)) {
@@ -2585,13 +2597,39 @@ public class ArchHook {
         }
     }
 
+    /**
+     * The fetch marker `new-project` writes into a tree it extracted from the source's
+     * tarball: the ref and the commit it resolved with `git ls-remote`, which the tree cannot
+     * answer by itself. Returns `{ref, commit}`, either of them possibly null; null when
+     * `source.fetch_marker` is unset or names no file. A file that is not JSON, or a commit
+     * that is not a sha, exits 2 — a stamp written from a marker nobody can read would look
+     * right and point nowhere.
+     */
+    static String[] fetchMarker(Map<String, Object> sch) {
+        String rel = asStr(get(sch, "source", "fetch_marker"));
+        if (rel == null) return null;
+        String text = readOrNull(ROOT.resolve(rel));
+        if (text == null) return null;
+        Map<String, Object> m = asMap(Json.parse(text));
+        String commit = m == null ? null : asStr(m.get("commit"));
+        if (m == null || (commit != null && !commit.matches("[0-9a-f]{7,40}"))) {
+            err("❌ " + rel + (m == null ? " is not a JSON object."
+                    : " records commit `" + commit + "` — not a sha (7 to 40 lowercase hex digits)."));
+            err("   Fetch the source again with /nerviz:new-project, or pass --ref and --commit.");
+            System.exit(2);
+        }
+        return new String[] { asStr(m.get("ref")), commit };
+    }
+
     static void exportUsage() {
         err("usage: java .claude/hooks/ArchHook.java export <dest> --blueprint <id>"
                 + " [--ref <label>] [--commit <sha>] [--dry-run]");
         err("  <dest>        the target project's root (never this repository)");
         err("  --blueprint   id of a blueprint under .claude/blueprints/");
-        err("  --ref         label recorded in the provenance stamp (default: working-tree)");
-        err("  --commit      the source commit to stamp; without it, the source's own git HEAD, or \"unknown\"");
+        err("  --ref         label recorded in the provenance stamp (default: the fetch marker's, else"
+                + " working-tree)");
+        err("  --commit      the source commit to stamp; without it, the source's own git HEAD, the fetch"
+                + " marker's, or \"unknown\"");
     }
 
     /** Reads `packages.map`, `architecture_paths` and the naming-convention comment block. */

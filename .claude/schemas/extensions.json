@@ -324,7 +324,7 @@
         "$comment": "Writes the extensions themselves. The only class whose territory is .claude/ — and the reason the guard is registered in this meta-repository at all. `docs/**` and `.github/**` are in the list because they are DERIVED from the extensions: a change to a hook mode or a class rewrites docs/pt-br/08-audit-usage.md and its English twin, and a new enforcement adds a step to the workflow that runs it. Leaving them out would block the propagation step of the very skill this class holds, which is what the first run of this block did.",
         "allowed_models": ["opus"],
         "write_allow": [
-          ".claude/**", "CLAUDE.md", ".mcp.json", "MCP-SETUP.md",
+          ".claude/**", "CLAUDE.md", "README.md", ".mcp.json", "MCP-SETUP.md",
           "docs/**", ".github/**"
         ],
         "required_sections": ["## Procedure", "## Out of scope"],
@@ -336,7 +336,7 @@
         "allowed_models": ["sonnet"],
         "write_allow": [],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["git-publish", "triage-issue"]
+        "skills": ["git-publish", "triage-issue", "new-project"]
       },
       "report": {
         "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md",
@@ -558,7 +558,9 @@
     "auth_env": "GH_TOKEN",
     "auth_header": "Authorization: Bearer",
     "default_ref": "latest-tag",
-    "stamp_file": ".claude/.arch-provenance.json"
+    "stamp_file": ".claude/.arch-provenance.json",
+    "$comment_fetch_marker": "Written by `new-project` into the tree it extracts from `base_url` — `{\"ref\": …, \"commit\": …}`, what `git ls-remote` resolved — because a tarball carries no repository. Read by `export` only when the source root is not the top of its own work tree, and only for the field the command line left out, so a project generated from a fetched tree is stamped with a real tag and commit instead of `working-tree`/`unknown`. Never copied into a project: `export` writes only what its own block lists. Design: .claude/decisions/0163-create-project-from-the-plugin.md",
+    "fetch_marker": ".claude/.fetched-source.json"
   },
 
   "migrations": {
@@ -924,7 +926,7 @@
         "transport-security-setup",
         "use-case-design"
       ],
-      "exclude": ["claude-code-architect-designer", "init-project", "project-bootstrap", "triage-issue"]
+      "exclude": ["claude-code-architect-designer", "init-project", "new-project", "project-bootstrap", "triage-issue"]
     },
 
     "agents": {

@@ -504,9 +504,9 @@ repo's invariants. Don't reintroduce it to work around this skill.
 
 **Class:** meta — the territory is `skill_classes.meta` in
 `@.claude/schemas/extensions.json`: the `.claude/` tree, the root `CLAUDE.md`, `.mcp.json`,
-the MCP setup doc, and the two derived places a new piece propagates into — `docs/**` (the
-reference pages that describe a hook or a class) and `.github/**` (the workflow step that
-runs a new check). `ArchHook.java guard` enforces it, which is the reason the guard is
+the MCP setup doc, and the three derived places a new piece propagates into — `docs/**` (the
+reference pages that describe a hook or a class), `.github/**` (the workflow step that
+runs a new check) and the root `README.md` (its piece counts and lists, `0163`). `ArchHook.java guard` enforces it, which is the reason the guard is
 registered in this meta-repository at all. A new skill is **incomplete** until a class in
 `skill_classes` lists it — `schema` fails by name otherwise (Phase 4, step 8).
 
@@ -518,7 +518,7 @@ before classifying — the matrix is deliberately not in the body — and
 win where the two disagree.
 
 **Writes** `.claude/skills/**`, `.claude/agents/**`, `.claude/rules/**`, the root
-`CLAUDE.md` of **this repository**, `.mcp.json` at this repo's root (Form 6a), the `hooks`
+`CLAUDE.md` and `README.md` of **this repository**, `.mcp.json` at this repo's root (Form 6a), the `hooks`
 and `permissions` blocks of `.claude/settings.json` (Forms 7a and 8), and
 `.claude/hooks/ArchHook.java` plus the lists it reads in `.claude/schemas/extensions.json`
 (Form 7c), `.claude/mods/**` and the `extraKnownMarketplaces` and `enabledPlugins` keys of

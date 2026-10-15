@@ -196,8 +196,9 @@ jobs:
         run: java .claude/.ci/BoundarySweepTest.java
 
       # What export tells the person who runs it: `Overwrites` only for a file that exists and
-      # changes, and a stamp whose commit is the one given, the source's own HEAD, or
-      # "unknown" — never a parent repository's. report-issue reads that commit (0141).
+      # changes, and a stamp whose commit is the one given, the source's own HEAD, the fetch
+      # marker's in a tree new-project extracted (0163), or "unknown" — never a parent
+      # repository's. report-issue reads that commit (0141).
       - name: export notes only real overwrites, and never guesses the stamp's commit
         run: java .claude/.ci/ExportProvenanceTest.java
 
@@ -680,7 +681,7 @@ jobs:
           for forbidden in \
             .claude/decisions \
             .claude/skills/project-bootstrap .claude/skills/init-project \
-            .claude/skills/claude-code-architect-designer \
+            .claude/skills/new-project .claude/skills/claude-code-architect-designer \
             .claude/skills/use-case-design/examples \
             .claude/agents/project-initializer.md; do
             if [ -e "$OUT/$forbidden" ]; then
