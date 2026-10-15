@@ -72,8 +72,16 @@ delete; never delete one.
 
 ### 4 · Fetch — `arch-adopt` § 3
 
-Run § 3 of `${CLAUDE_SKILL_DIR}/../arch-adopt/SKILL.md` with the `SRC` of step 3. Then confirm
-the tree is a source and not an error page that happened to extract:
+Run § 3 of `${CLAUDE_SKILL_DIR}/../arch-adopt/SKILL.md` with the `SRC` of step 3, with one
+binding: its tarball is `$TGZ`, not `$SRC.tgz`. `SRC` here is a directory the person owns, and
+a ~50 MB archive beside it would stay there, since this skill never runs `rm`. Replace both
+`"$SRC.tgz"` in that section with `"$TGZ"`:
+
+```bash
+TGZ="${TMPDIR:-/tmp}/nerviz-new-project-fetch.tgz"
+```
+
+Then confirm the tree is a source and not an error page that happened to extract:
 
 ```bash
 ls "$SRC/.claude/skills/init-project/SKILL.md" "$SRC/.claude/hooks/ArchHook.jar"

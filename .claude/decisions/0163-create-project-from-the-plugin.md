@@ -200,6 +200,15 @@ the README diff over (territory unchanged; the README stale until someone applie
 and creation-only list every new skill changes, and nothing else at the root but `CLAUDE.md`
 and `.mcp.json` joins it.
 
+## Raised after release — the tarball beside the tree
+
+The first run of `/nerviz:new-project` in an empty directory (v0.38.0) left a ~50 MB
+`nerviz-v0.38.0.tgz` next to the fetched tree. `arch-adopt` § 3 downloads to `"$SRC.tgz"`; there
+`SRC` sits under `$TMPDIR`, but here `SRC` is `$PWD/nerviz-<ref>`, a directory the person owns,
+and this skill never runs `rm`. Fixed in step 4 with one more binding of § 3 — the tarball is
+`$TGZ`, under `${TMPDIR:-/tmp}` — and `arch-adopt` stays untouched, so no second vendored copy
+changes. Found by running the flow, which the record's CI section had named as unproven.
+
 ## Propagation
 
 | File | Change |
