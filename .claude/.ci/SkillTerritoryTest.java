@@ -325,6 +325,22 @@ public class SkillTerritoryTest {
                 "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"docker-compose.yml\"}}",
                 2, "the implement thread itself still may not write compose");
 
+        // The meta class writes the README's skill list and counts when it adds a piece (0144 to
+        // 0162 did), and nothing else at the repository's root but CLAUDE.md and .mcp.json.
+        // Before decision 0163 the README was outside it, and the edit went in unguarded.
+        String meta = "ci-territory-meta-" + System.nanoTime();
+        failures += run(hook, "prompt", meta,
+                "{\"session_id\":\"%s\",\"prompt\":\"/claude-code-architect-designer x\"}",
+                0, "prompt opens the meta phase");
+
+        failures += run(hook, "write", meta,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"README.md\"}}",
+                0, "README.md is meta's — allowed");
+
+        failures += run(hook, "write", meta,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"CONTRIBUTING.md\"}}",
+                2, "another root file stays blocked");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — the territory guard is NOT"
                     + " enforcing what skill_classes declares.");

@@ -140,9 +140,20 @@ no `mvn` on the `PATH` (the wrapper comes inside the Initializr's `starter.tgz`)
 
 ### New project
 
-A project is generated **from a clone of this repository**, not by copying `.claude/` into an
-empty directory. `/init-project` and the blueprint catalog stay here; the project receives
-only what it needs to develop, written by the `export` mode.
+A project is generated **from a copy of this repository**, not by copying `.claude/` into an
+empty directory. `/init-project` and the blueprint catalog stay in that copy; the project
+receives only what it needs to develop, written by the `export` mode. The copy is a clone,
+below, or the tree the plugin fetches without one:
+
+```bash
+claude plugin marketplace add nerviz-ai/marketplace
+claude plugin install nerviz@nerviz
+cd ~/dev && claude        # the directory that will hold the projects
+```
+
+Then `/nerviz:new-project`: it fetches the latest release into `~/dev/nerviz-<tag>`, records
+which tag and commit it fetched, and prints the session to open there for `/init-project`. The
+generation is the same one a clone runs. With a clone instead:
 
 ```bash
 # 1. clone next to where the projects will live
@@ -383,7 +394,7 @@ proposed fix, before anything is commented or designed. Details:
 |---|---|---|
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 29 | `.claude/skills/` |
+| Skills (design, orchestration, build, ops, meta…) | 30 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
@@ -415,7 +426,7 @@ compose port-collision and reachability checks, and `permissions.deny` on secret
 agents, the hook and its schema, and the active blueprint. The manifest of what travels is
 data, the `export` block of `schemas/extensions.json`, and the `schema` hook fails if a
 skill or agent on disk is missing from it. Creation-only pieces stay here:
-`project-bootstrap`, `init-project`, `claude-code-architect-designer`, `triage-issue`,
+`project-bootstrap`, `init-project`, `new-project`, `claude-code-architect-designer`, `triage-issue`,
 `project-initializer`, `issue-verifier`, and the blueprint catalog. `arch-adopt` is the one
 creation skill that travels, because it is how the project updates itself once this
 repository is out of the picture.

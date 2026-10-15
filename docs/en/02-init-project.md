@@ -27,6 +27,12 @@ Claude Code asks before writing outside the directory a session was started in. 
 generation once, create the directory and add it to the session before running the command:
 `mkdir ../my-api`, then `/add-dir ../my-api`. An empty directory passes the existence check.
 
+**Without a clone.** The plugin's `/nerviz:new-project`, run in the directory that will hold the
+projects, fetches the latest release into `nerviz-<tag>/` there and records the tag and commit in
+the file `source.fetch_marker` names; `export` stamps them, since the extracted tree carries no
+repository. The session opened in that tree is a clone's session in every other respect, and
+`/init-project` runs there unchanged (`.claude/decisions/0163-create-project-from-the-plugin.md`).
+
 ## Why it's a skill that delegates to an agent
 
 `init-project/SKILL.md` is `disable-model-invocation: true` — a manual ritual, never

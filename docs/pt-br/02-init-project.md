@@ -28,6 +28,12 @@ aprovar a geração de uma vez, criar o diretório e adicioná-lo à sessão ant
 `mkdir ../my-api` e depois `/add-dir ../my-api`. Um diretório vazio passa na checagem de
 existência.
 
+**Sem clone.** O `/nerviz:new-project` do plugin, rodado no diretório que vai guardar os
+projetos, baixa a última release em `nerviz-<tag>/` ali e grava a tag e o commit no arquivo que
+`source.fetch_marker` nomeia; o `export` os carimba, já que a árvore extraída não traz
+repositório. A sessão aberta nessa árvore é, no resto, a sessão de um clone, e o `/init-project`
+roda nela sem mudança (`.claude/decisions/0163-create-project-from-the-plugin.md`).
+
 ## Por que é uma skill que delega para um agent
 
 `init-project/SKILL.md` é `disable-model-invocation: true` — ritual manual, nunca
