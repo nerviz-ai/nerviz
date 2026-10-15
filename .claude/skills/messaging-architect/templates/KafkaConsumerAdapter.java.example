@@ -26,6 +26,13 @@
  *    parse fails conversion, which `DefaultErrorHandler` classifies as not retryable: straight
  *    to the DLQ, like a business rejection.
  *
+ *  - the AsyncAPI contract is annotated on the same method: `@AsyncListener` beside
+ *    `@KafkaListener`, `@KafkaAsyncOperationBinding` carrying the group id, and the topic as the one
+ *    constant all three read (`.claude/rules/messaging.md` § Contract documentation). Springwolf's
+ *    own `@KafkaListener` scanner is off in `application-kafka.yml.example`: it would document a
+ *    `__TypeId__` header this wire never carries and list the method twice. The `operationId` is
+ *    derived — `<topic>_receive_onMessage` — so `onMessage` is a name of the contract.
+ *
  * WHAT'S NOT HERE: the DLQ routing, the retry classification and the backoff — that's
  * `KafkaListenerErrorHandler.java.example` (blocking, the default), or
  * `KafkaRetryableTopicListener.java.example` (non-blocking, only when order does not matter and
@@ -107,6 +114,10 @@ import com.example.demo.application.port.in.stock.ReserveStockUseCase;
 import com.example.demo.application.port.in.stock.ReserveStockCommand;
 import com.example.demo.application.port.out.ProcessedEventStore;
 import com.example.demo.commons.logging.annotations.LogExecution;
+import io.github.springwolf.bindings.kafka.annotations.KafkaAsyncOperationBinding;
+import io.github.springwolf.core.asyncapi.annotations.AsyncListener;
+import io.github.springwolf.core.asyncapi.annotations.AsyncMessage;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -118,11 +129,23 @@ import org.springframework.stereotype.Component;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 class OrderConfirmedListener {
 
+    private static final String TOPIC = "orders.order.confirmed";
+    private static final String GROUP_ID = "inventory-service";
+
     ReserveStockUseCase reserveStock;
     ProcessedEventStore processedEvents;
 
     @LogExecution
-    @KafkaListener(topics = "orders.order.confirmed", groupId = "inventory-service")
+    @KafkaListener(topics = TOPIC, groupId = GROUP_ID)
+    @AsyncListener(
+            operation =
+                    @AsyncOperation(
+                            channelName = TOPIC,
+                            description = "Reserves stock for a confirmed order; a redelivered event changes nothing.",
+                            payloadType = OrderConfirmedPayload.class,
+                            message = @AsyncMessage(messageId = "OrderConfirmed", name = "OrderConfirmed"),
+                            headers = @AsyncOperation.Headers(notUsed = true)))
+    @KafkaAsyncOperationBinding(groupId = GROUP_ID)
     void onMessage(OrderConfirmedPayload payload) {
         String eventKey = payload.orderId() + ":OrderConfirmed";
         if (processedEvents.alreadyProcessed(eventKey)) {

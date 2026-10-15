@@ -30,7 +30,7 @@
  *   - exceptionHandling: both handlers delegate to `SecurityExceptionHandler`, so 401 and 403
  *     have the same Problem Details body as every other error.
  *   - authorizeHttpRequests, specific to general: health and info public, every other
- *     actuator endpoint for the operator role, the OpenAPI paths public unless the project
+ *     actuator endpoint for the operator role, the OpenAPI and AsyncAPI document paths public unless the project
  *     turned that off, the endpoints of § 1 that a request rule protects, and
  *     `anyRequest().authenticated()` last — never `permitAll`. A rule on an API route names
  *     every version, `/api/*/…`: `/api/v1/…` alone would leave the `/v2` of the route to the
@@ -73,7 +73,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableConfigurationProperties(SecurityAccessProperties.class)
 public class SecurityConfig {
 
-    private static final String[] API_DOCS = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
+    private static final String[] API_DOCS = {
+        "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/springwolf/docs/**"
+    };
 
     /** Each path here is a public row of `32-security.md` § 1, with its reason recorded there. */
     private static final String[] PUBLIC_ENDPOINTS = {};

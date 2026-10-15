@@ -155,6 +155,79 @@ Form B's own boundaries:
   event object serialized as-is: a payload that leaks internal fields couples the consumer to
   the producer's domain model
 
+## Contract documentation (AsyncAPI)
+
+The channels, operations, payloads and headers a project publishes and consumes are an
+AsyncAPI document, and a person outside the project reads that document, not the code. It is
+**generated from the code** (Springwolf, `springwolf-kafka`) and compared with a committed
+snapshot — the same stance as `@.claude/rules/api-rest.md` § OpenAPI. A hand-written file kept
+beside the code diverges on day one. Springwolf 2.x is the line for Spring Boot 4; its version is
+resolved from Maven Central when the dependency is added, never written from memory.
+
+- **Both sides are annotated explicitly, and Springwolf's own `@KafkaListener` scanner is off**
+  (`springwolf.plugin.kafka.scanner.kafka-listener.enabled: false`). The scanner documents a
+  `__TypeId__` header that this wire never carries (§ Topics and serialization), and a method
+  carrying both it and `@AsyncListener` appears as two messages with the consumer group lost
+- **The producer's annotation sits on the method that implements the outbound port, in the class
+  that converts the payload to JSON text** — the Form A publisher, or Form B's outbox writer.
+  Never on the relay's broker sender: it moves text already written and knows no payload type
+- **The consumer's `@AsyncListener` sits on the `@KafkaListener` method**, with
+  `@KafkaAsyncOperationBinding(groupId = …)`, the group id the listener already declares
+- **Annotations live in the messaging adapter only.** A domain or application type never carries
+  one (`@.claude/rules/architecture-ddd.md`). The topic is one `static final String` in the
+  adapter flow, used by the send, by `@KafkaListener(topics = …)` and by `channelName` — three
+  literals would drift apart and nothing would report it. Under Form B the writer's constant is the
+  value the relay's topic resolver maps the event type to: the one place two files hold one
+  decision, kept together by review
+- **Every operation states, from the design:** `payloadType`, a `description` a consumer can act
+  on (what the event means, when it is emitted), and a `message` whose `messageId` and `name` are
+  the event's own name, the same on both sides. Headers are declared; `notUsed = true` when the
+  record carries none. **The partition key goes in the producer's `description`**: the key
+  binding is accepted by the annotation but not rendered into the document by the version
+  verified when this was written
+- **The `operationId` is derived, not chosen:** `<channel>_<send|receive>_<method name>`. A rename
+  of the port method or of the listener method is a change of contract, and the snapshot reports
+  it; names are fixed in the design for that reason
+- **No `servers` block.** The broker address is deployment, and it would differ between the
+  environments that generate the document
+- **Configuration** — `springwolf.docket.base-package` names the messaging adapter packages (the
+  scan finds nothing without it), `springwolf.docket.info.title` and `version` come from the
+  project, and `springwolf.use-fqn: false` keeps the application's package names out of the
+  schema names
+- **Exposure follows the OpenAPI document**: `/springwolf/docs` is public unless the project
+  decided its API documents are protected (`@.claude/rules/authorization.md`). It lists topic
+  names and payload shapes, never a value
+- **Publishing from the UI is off**: `springwolf.plugin.kafka.publishing.enabled: false` is written
+  explicitly, and only a local profile may turn it on. The UI is a separate artifact
+  (`springwolf-ui`), not declared by default
+- **Springwolf's core carries Jackson 2 for its own use.** Application code keeps the Jackson 3
+  `JsonMapper` Boot registers; no `com.fasterxml.jackson.databind` or `.core` import is written in
+  the project (the annotations package, `com.fasterxml.jackson.annotation`, is the one Jackson 3
+  still uses)
+- **A snapshot is committed** at `src/test/asyncapi/asyncapi.snapshot.json` — outside the test
+  classpath, like the GraphQL schema snapshot — and a test compares the served document with it
+  (§ How to verify). A channel, operation, payload field or header that changes fails the build
+  until the snapshot is refreshed in the same change, which is where a reviewer sees the contract
+  move
+
+### Spec-first, and when it is the better answer
+
+Writing the AsyncAPI file first and generating code from it (ZenWave SDK, `spring-cloud-streams3`
+generator) is a real alternative, not chosen here by default. Its generator writes **Spring Cloud Stream** producers
+and consumers — `Message`, bindings named `…-out-0` — not the `KafkaTemplate` and `@KafkaListener`
+adapters this rule is written around, and its output lands in `target/generated-sources`, outside
+the flow subpackage, the package-private visibility and the mapper mechanism of § Boundary.
+
+| Use spec-first when | Do not use it when |
+|---|---|
+| Another team owns the contract and hands the document over, or the contract is negotiated before any code | The project's own code is the source of the contract, which is the common case |
+| The project is starting a Spring Cloud Stream adapter and no `KafkaTemplate` adapter exists | A `KafkaTemplate` or `@KafkaListener` adapter already exists — two transports for one broker |
+| Several services must generate from one shared document | The wire is the String contract above and the form is Form B: the generator knows no outbox |
+
+Choosing it is a recorded decision of the use case's design, never a default flipped inside the
+adapter, and the generated sources replace the adapter flow's classes whole rather than sitting
+beside them.
+
 ## Retry and DLQ
 
 - **The container retries, never the listener.** A loop, a `sleep` or a deferred rethrow inside
@@ -237,6 +310,21 @@ grep -rn "value-serializer\|value-deserializer" src/main/resources/ | grep -v "S
 # Zero lines is the expected result.
 grep -rn "import .*persistence.*\(Entity\|Repository\)" --include=*.java . | grep -i "outbox\|relay"
 
-# Consumer idempotency and DLQ routing are integration-test territory, not grep territory.
+# AsyncAPI annotations stay in the messaging adapter, and not on the relay's broker sender.
+# Zero lines is the expected result for both.
+grep -rln "io.github.springwolf" --include=*.java src/main | grep -v "/messaging/"
+grep -rln "AsyncPublisher\|AsyncListener" --include=*.java src/main | grep -i "OutboxEventSender"
+
+# Springwolf's listener scanner and UI publishing are off, written explicitly (two lines expected).
+grep -rn "kafka-listener:\|publishing:" -A1 src/main/resources/ | grep "enabled"
+
+# No Jackson 2 databind or core import in application code. Zero lines is the expected result.
+grep -rnE "com\.fasterxml\.jackson\.(databind|core)" --include=*.java src/
+
+# The snapshot exists outside the test classpath (a missing file prints nothing and fails here).
+test -f src/test/asyncapi/asyncapi.snapshot.json && echo ok
+
+# Consumer idempotency, DLQ routing and the served AsyncAPI document against its snapshot are
+# integration-test territory, not grep territory.
 ./mvnw -q test
 ```

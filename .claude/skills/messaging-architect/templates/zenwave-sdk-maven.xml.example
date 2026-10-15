@@ -1,0 +1,72 @@
+<!--
+  EXEMPLAR — the REJECTED alternative to the default of `.claude/rules/messaging.md` § Contract
+  documentation: spec-first, the AsyncAPI document written first and the code generated from it
+  with ZenWave SDK. Used only when `25-messaging.md` records that choice and one of the "Use
+  spec-first when" rows of that section holds. Form reference for the executor agent; not a file
+  to copy verbatim.
+
+  WHAT THIS EXEMPLAR SHOWS — what was observed running the plugin against an AsyncAPI document:
+   - the plugin is `io.zenwave360.sdk:zenwave-sdk-maven-plugin`, goal `generate`, bound by default
+     to `generate-sources`; its generators are separate artifacts under
+     `io.zenwave360.sdk.plugins`, added as plugin dependencies;
+   - `generatorName` `spring-cloud-streams3` writes SPRING CLOUD STREAM producers, consumers and
+     in-memory test doubles — `Message`, bindings named `<operation>-out-0` — not the `KafkaTemplate`
+     adapter of `KafkaProducerAdapter.java.example` nor the `@KafkaListener` of
+     `KafkaConsumerAdapter.java.example`. Choosing this exemplar replaces those two adapters, and
+     with them the String wire contract, the outbox writer and the flow subpackage layout, which
+     is why it is a recorded decision and never a default;
+   - `asyncapi-jsonschema2pojo` writes the payload classes from the document's schemas, so the
+     payload record of the flow is no longer written by hand;
+   - the output goes to `target/generated-sources/zenwave`, outside the adapter flow's subpackage
+     and package-private visibility; operations whose ids hold dots (`orders.order.confirmed_send…`
+     is what Springwolf derives) produce method names that are not Java — an `operationId` written
+     for this generator is a Java identifier;
+   - the document is versioned in the repository and pinned, never fetched at build time.
+
+  VERSION: neither the plugin nor its generators are managed by the Boot parent. Resolve each from
+  https://repo1.maven.org/maven2/io/zenwave360/sdk/zenwave-sdk-maven-plugin/maven-metadata.xml
+  https://repo1.maven.org/maven2/io/zenwave360/sdk/plugins/asyncapi-spring-cloud-streams3/maven-metadata.xml
+  https://repo1.maven.org/maven2/io/zenwave360/sdk/plugins/asyncapi-jsonschema2pojo/maven-metadata.xml
+  at write time and record them in the partial's § 7 — never written from memory (CLAUDE.md
+  invariant 8). Whether the Spring Cloud Stream binder it targets runs on the project's Spring
+  Boot line is the first thing to prove, in a build, before this replaces any adapter.
+-->
+<properties>
+    <zenwave.version>RESOLVED-AT-WRITE-TIME</zenwave.version>
+</properties>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>io.zenwave360.sdk</groupId>
+            <artifactId>zenwave-sdk-maven-plugin</artifactId>
+            <version>${zenwave.version}</version>
+            <executions>
+                <execution>
+                    <id>order-events-contract</id>
+                    <goals>
+                        <goal>generate</goal>
+                    </goals>
+                    <configuration>
+                        <inputSpec>${project.basedir}/src/main/resources/asyncapi/order-events.json</inputSpec>
+                        <generatorName>spring-cloud-streams3</generatorName>
+                        <targetFolder>${project.build.directory}/generated-sources/zenwave</targetFolder>
+                        <addCompileSourceRoot>true</addCompileSourceRoot>
+                    </configuration>
+                </execution>
+            </executions>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zenwave360.sdk.plugins</groupId>
+                    <artifactId>asyncapi-spring-cloud-streams3</artifactId>
+                    <version>${zenwave.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>io.zenwave360.sdk.plugins</groupId>
+                    <artifactId>asyncapi-jsonschema2pojo</artifactId>
+                    <version>${zenwave.version}</version>
+                </dependency>
+            </dependencies>
+        </plugin>
+    </plugins>
+</build>

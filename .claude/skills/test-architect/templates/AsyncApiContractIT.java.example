@@ -1,0 +1,95 @@
+/*
+ * EXEMPLAR — the AsyncAPI contract's gate: the counterpart of a committed OpenAPI document and of
+ * `GraphQlSchemaCompatibilityTest.java.example`, run by `./mvnw verify` like any other `IT`. Shape
+ * of what it compares in `messaging-architect/templates/KafkaProducerAdapter.java.example` and
+ * `KafkaConsumerAdapter.java.example`; rule in `.claude/rules/messaging.md` § Contract documentation.
+ *
+ * LEVEL. The project's full context with a MockMvc client through the real filter chain — the
+ * document is built by Springwolf from the annotations of the running beans, and is read the way a
+ * consumer reads it, over HTTP, with no credential. No broker is needed: the listener containers
+ * do not start (`spring.kafka.listener.auto-startup=false`), and a `KafkaTemplate` connects on its
+ * first send, not at startup.
+ *
+ * WHAT IT VERIFIES:
+ *   - the document is served at `/springwolf/docs` to an anonymous caller — the public-by-default
+ *     of `.claude/rules/authorization.md`. A project that protects its API documents changes this
+ *     one assertion, and says so in its security partial;
+ *   - the served document equals the snapshot committed at `src/test/asyncapi/asyncapi.snapshot.json`:
+ *     a channel, operation, payload field or header that changes fails the build until the
+ *     snapshot is refreshed in the same change, so the contract moves in a diff a reviewer reads.
+ *     This is also what reports a renamed port or listener method — the operation id is derived
+ *     from it.
+ * The comparison is of the parsed trees, so key order and whitespace never fail it.
+ *
+ * THE SNAPSHOT lives OUTSIDE `src/test/resources`, like the GraphQL schema snapshot: a file on the
+ * test classpath is a file a context can load. The current document is written to
+ * `target/asyncapi/asyncapi.current.json` on every run; refreshing the snapshot is copying that
+ * file, reviewed in the same pull request as the change. The first run has no snapshot and fails
+ * naming that step — which is how the snapshot is created.
+ *
+ * WHAT IT DOES NOT VERIFY: that a topic literal in the send equals the one in the annotation (one
+ * `TOPIC` constant is why they cannot differ, and review holds it under Form B); that the payload
+ * on the wire is the documented one — the broker integration test of the adapters proves that.
+ *
+ * CONTEXT: like every other `IT`, with the `TestcontainersConfiguration` import when the project
+ * has a database. The `JsonMapper` is the Jackson 3 one Boot registers; Springwolf's own Jackson 2
+ * stays inside its document.
+ */
+package com.exemplo.minhaapi.adapter.out.messaging;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+@SpringBootTest(properties = "spring.kafka.listener.auto-startup=false")
+@AutoConfigureMockMvc
+class AsyncApiContractIT {
+
+    private static final Path SNAPSHOT = Path.of("src/test/asyncapi/asyncapi.snapshot.json");
+    private static final Path CURRENT = Path.of("target/asyncapi/asyncapi.current.json");
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    JsonMapper jsonMapper;
+
+    @Test
+    @DisplayName("the served AsyncAPI document is public and equals the committed snapshot")
+    void servedDocumentMatchesTheSnapshot() throws Exception {
+        String served = mockMvc.perform(MockMvcRequestBuilders.get("/springwolf/docs"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        JsonNode current = jsonMapper.readTree(served);
+        write(current);
+
+        assertThat(current.path("channels").size()).as("the document lists no channel at all").isPositive();
+        assertThat(SNAPSHOT)
+                .as("no snapshot yet — copy %s to %s and commit it", CURRENT, SNAPSHOT)
+                .exists();
+        JsonNode snapshot = jsonMapper.readTree(Files.readString(SNAPSHOT, StandardCharsets.UTF_8));
+        assertThat(current)
+                .as("the contract changed — copy %s to %s in this same change", CURRENT, SNAPSHOT)
+                .isEqualTo(snapshot);
+    }
+
+    private void write(JsonNode document) throws IOException {
+        Files.createDirectories(CURRENT.getParent());
+        Files.writeString(
+                CURRENT, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(document) + "\n",
+                StandardCharsets.UTF_8);
+    }
+}

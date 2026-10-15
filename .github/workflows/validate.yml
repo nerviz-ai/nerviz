@@ -448,6 +448,13 @@ jobs:
       - name: Kafka consumer exemplars leave retry and commit to the container and retry a lost race
         run: java .claude/.ci/MessagingRetryTemplateTest.java
 
+      # Every AsyncAPI trap is silent and yields a document that looks right: Springwolf's own listener
+      # scanner left on documents a header this wire never carries, an annotation on the relay's sender
+      # documents no payload, a publisher that is no bean is never scanned, UI publishing left on, a servers
+      # block that differs per environment, a pinned generator version. Keeps the exemplars honest (0162).
+      - name: AsyncAPI exemplars annotate both sides explicitly and gate the served document against a snapshot
+        run: java .claude/.ci/AsyncApiTemplateTest.java
+
       - name: blueprint-declared templates exist on disk
         run: |
           FAIL=0
@@ -809,6 +816,12 @@ jobs:
           WMSB=$(curl -sS --fail --retry 3 https://repo1.maven.org/maven2/org/wiremock/integrations/wiremock-spring-boot/maven-metadata.xml | grep -oE '<release>[^<]+' | sed 's/<release>//')
           test -n "$R4J" -a -n "$WMSB"
           sed -i "0,/<\/dependencies>/s|</dependencies>|<dependency><groupId>com.github.ben-manes.caffeine</groupId><artifactId>caffeine</artifactId></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-envers</artifactId></dependency><dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId></dependency><dependency><groupId>io.github.resilience4j</groupId><artifactId>resilience4j-spring-boot4</artifactId><version>$R4J</version></dependency><dependency><groupId>org.wiremock.integrations</groupId><artifactId>wiremock-spring-boot</artifactId><version>$WMSB</version><scope>test</scope></dependency></dependencies>|" /tmp/ref/pom.xml
+          # messaging-architect's AsyncAPI exemplars (0162) import Springwolf, which the Boot BOM does not
+          # manage: the latest 2.x release of the Spring Boot 4 line, read from maven-metadata.xml on every
+          # run, never written here (invariant 8).
+          SW=$(curl -sS --fail --retry 3 https://repo1.maven.org/maven2/io/github/springwolf/springwolf-kafka/maven-metadata.xml | grep -oE '<version>2\.[0-9.]+</version>' | tail -1 | sed -E 's/<[^>]+>//g')
+          test -n "$SW"
+          sed -i "0,/<\/dependencies>/s|</dependencies>|<dependency><groupId>io.github.springwolf</groupId><artifactId>springwolf-kafka</artifactId><version>$SW</version></dependency></dependencies>|" /tmp/ref/pom.xml
           grep -m1 -A1 '<artifactId>spring-boot-starter-parent' /tmp/ref/pom.xml
 
       - name: build the classpath
@@ -852,7 +865,7 @@ jobs:
           # it brings `hibernate-envers`), is there because persistence-architect's auditing exemplars
           # and test-architect's AuditHistoryIT import Envers and Spring Data's history (0149); both sit
           # under the `org.hibernate` and `org.springframework` prefixes already checked.
-          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader|com\.mongodb|org\.bson|co\.elastic)\.'
+          PREFIXES='^(org\.springframework|org\.testcontainers|jakarta|io\.micrometer|org\.junit|org\.assertj|org\.slf4j|org\.hibernate|lombok|org\.quartz|org\.apache\.hc|io\.github\.resilience4j|io\.github\.springwolf|reactor|feign|org\.wiremock|com\.github\.tomakehurst|com\.github\.benmanes|com\.openai|tools\.jackson|graphql|org\.dataloader|com\.mongodb|org\.bson|co\.elastic)\.'
           IMPORTS=$(grep -rhoE '^ *import (static )?[a-z][a-zA-Z0-9_.]+;' \
                       .claude/skills/*/templates/*.java.example \
                     | sed -E 's/^ *import (static )?//; s/;$//' | sort -u)

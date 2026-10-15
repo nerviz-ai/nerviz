@@ -24,6 +24,10 @@
 | Converted to JSON by | `OrderConfirmedPublisher`, with `JsonMapper`, before `send` | The producer side converts once; under Form B this cell names `OutboxAppender` |
 | Converted from JSON by | the `StringJacksonJsonMessageConverter` bean, into the listener's typed parameter | One bean for every listener; the rule's wire contract |
 | Delivery | At-least-once + idempotent consumer | Rule default; exactly-once isn't assumed |
+| Channel and message name | `orders.order.confirmed` · `OrderConfirmed` | The topic is the channel; the event's own name is the message name, the same on both sides — the `AsyncAPI` contract of `@.claude/rules/messaging.md` § Contract documentation |
+| Headers | none — `notUsed = true` | The record carries a key and a JSON text value and nothing else; a header a consumer must rely on is a row here, named, typed and described |
+| Producer operation | `orders.order.confirmed_send_publish` — "Emitted once an order is confirmed. Partition key: orderId (string), so every event of one order stays in order." | The id is derived (`<topic>_send_<port method>`, § 2's signature), so renaming the port method renames the operation; the description is what a consumer reads, and carries the partition key. `none` when this case only consumes |
+| Consumer operation | `orders.order.confirmed_receive_onMessage` — "Reserves stock for a confirmed order; a redelivered event changes nothing." | Derived from the listener method (§ 3); the group id is the one in § 5. `none` when this case only produces |
 
 ## 2 · Producer adapter
 
@@ -150,6 +154,7 @@ memory is what `@CLAUDE.md` invariant 8 forbids.
 | Dependency | Version | Why |
 |---|---|---|
 | `org.springframework.boot:spring-boot-starter-kafka` | (managed by the Boot parent) | Spring Boot 4 moved Kafka autoconfiguration out of `spring-boot-autoconfigure`; without this starter `spring-kafka` alone wires no `KafkaTemplate` and every `spring.kafka.*` property is inert |
+| `io.github.springwolf:springwolf-kafka` | **not managed by the Spring Boot BOM** — the latest stable `2.x` number of `maven-metadata.xml`, resolved when the executor adds it, never from memory | Generates the AsyncAPI document from the annotations of § 1; written by the project's first Kafka case, inherited after — `none` for a later case |
 
 ## 8 · Personal data
 
@@ -225,7 +230,7 @@ consolidation collects this section into `UC-NNN-spec.md`.
 2. `OrderConfirmedPayload` (producer side) + `OrderConfirmedPublisher`
 3. `OrderConfirmedPayload` (consumer side) + `OrderConfirmedListener`
 4. `ProcessedEventStore` port + adapter (or reuse, if `persistence-architect` already built one)
-5. Properties in `application.yml`
+5. Properties in `application.yml`, the `springwolf` block included on the project's first Kafka case
 6. `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` bean, once per consumer group, next
    to the one `StringJacksonJsonMessageConverter` bean — skip both when the project already has them
-7. Integration test against a real broker (Testcontainers) — `40-tests.md`
+7. Integration test against a real broker (Testcontainers) and the AsyncAPI snapshot test — `40-tests.md`

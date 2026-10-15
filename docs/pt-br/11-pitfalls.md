@@ -556,6 +556,18 @@ e o `<release>` do `maven-metadata.xml` é o último deploy, não o último est�
 era `1.7.0.Beta2`. No domínio e na aplicação, `org.mapstruct..` é import proibido
 (`.claude/rules/mapping.md`, `.claude/decisions/0160-mapstruct-as-a-per-project-mapper-choice.md`).
 
+**O documento AsyncAPI parece certo quando está errado, e quatro das suas armadilhas são silenciosas.**
+O scanner de `@KafkaListener` do próprio Springwolf documenta um header `__TypeId__` que este wire
+nunca carrega e, ao lado de `@AsyncListener`, lista o método como uma segunda mensagem perdendo o
+consumer group — o `application-kafka.yml` gerado o desliga e anota os dois lados. O `operationId`
+não é um atributo: é `<topic>_<send|receive>_<nome do método>`, então renomear um método de port ou de
+listener renomeia a operação, e o teste de snapshot reporta. O binding da chave de partição é aceito
+pela anotação e não é renderizado no documento, então a chave vai na `description` da operação. E o
+core do Springwolf traz Jackson 2: o código da aplicação mantém o `JsonMapper` Jackson 3 que o Boot
+registra, e a publicação pela UI continua `false` (`.claude/rules/messaging.md`,
+`.claude/skills/messaging-architect/references/springwolf-reference.md`,
+`.claude/decisions/0162-asyncapi-contract-via-springwolf.md`).
+
 ### Mods
 
 **Abaixo do Claude Code 2.1.287 nenhum mod carrega, e nada na sessão avisa.** A faixa e o

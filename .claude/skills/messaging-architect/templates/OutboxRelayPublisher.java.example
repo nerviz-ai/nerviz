@@ -25,7 +25,12 @@
  *  - duplicates are expected by design (send succeeds, mark fails) and are absorbed by the
  *    idempotent consumer the rule already requires;
  *  - the pass returns what it did (`RelayOutcome`), so whoever runs it can count dead letters
- *    without the application layer registering a meter.
+ *    without the application layer registering a meter;
+ *  - the AsyncAPI contract is annotated on the WRITER's `publish`, the class that turns the payload
+ *    into JSON text — never on `KafkaOutboxEventSender`, which moves text already written and knows
+ *    no payload type (`.claude/rules/messaging.md` § Contract documentation). Its `TOPIC` is the
+ *    value `TopicResolver` maps `OrderConfirmed` to: one decision in two files, which review holds
+ *    together because the resolver is shared infrastructure and cannot import a flow's constant.
  *
  * SCHEDULING IS NOT HERE. When a pass runs, how often, on which instances, and the switch that
  * keeps it out of the integration tests belong to `jobs-architect` and its `35-jobs.md`:
@@ -176,22 +181,39 @@ package com.example.demo.adapter.out.messaging.orderconfirmed;
 
 import com.example.demo.application.port.out.PublishOrderConfirmedPort;
 import com.example.demo.domain.event.OrderConfirmed;
+import io.github.springwolf.core.asyncapi.annotations.AsyncMessage;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.stereotype.Component;
 
 /**
  * No `@Transactional` here: the use case owns the transaction
  * (`.claude/rules/architecture-ddd.md` § Application). This class only has to run inside it —
  * writing the row in its own transaction would recreate exactly the gap Form B closes.
  */
+@Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OrderConfirmedOutboxWriter implements PublishOrderConfirmedPort {
 
+    private static final String TOPIC = "orders.order.confirmed";
+
     OutboxAppender outbox;
 
     @Override
+    @AsyncPublisher(
+            operation =
+                    @AsyncOperation(
+                            channelName = TOPIC,
+                            description =
+                                    "Emitted once an order is confirmed. Partition key: orderId (string), so every"
+                                            + " event of one order stays in order.",
+                            payloadType = OrderConfirmedPayload.class,
+                            message = @AsyncMessage(messageId = "OrderConfirmed", name = "OrderConfirmed"),
+                            headers = @AsyncOperation.Headers(notUsed = true)))
     public void publish(OrderConfirmed event) {
         outbox.append(
                 event.orderId().value().toString(),

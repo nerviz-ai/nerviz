@@ -398,7 +398,7 @@ authentication), `ai-architect` (a language model or vector store behind a port 
 structured output, semantic search, prompts as resources, what the answer may change),
 `search-architect` (an Elasticsearch or OpenSearch index kept as a rebuildable projection
 of a source of truth: strict mapping, alias, indexer, rebuild, lag — only when the use case
-names a search index), `messaging-architect` (Kafka producer and consumer, retry, DLQ),
+names a search index), `messaging-architect` (Kafka producer and consumer, retry, DLQ, the AsyncAPI contract),
 `jobs-architect` (`@Scheduled`, ShedLock, Quartz, Spring Batch, db-scheduler, JobRunr; the
 outbox relay), `persistence-architect` (relational with JPA or document with MongoDB, as
 the use case's `Storage` row states; stamps or an Envers history when its `Audit` row asks), `cache-architect` (Caffeine or Redis behind

@@ -57,8 +57,10 @@ correct.
   all"); every endpoint that answers without authentication is a `permitAll` with a recorded
   reason. A new endpoint whose use case says nothing about access is authenticated, not
   public
-- **Public by default, and only these:** the OpenAPI document and the Swagger UI paths, unless
-  the project decided they are protected too; the health and info endpoints, without details
+- **Public by default, and only these:** the OpenAPI document and the Swagger UI paths — and the
+  AsyncAPI document (`/springwolf/docs`) of a project that publishes or consumes events — unless
+  the project decided they are protected too, one decision for all of them; the health and info
+  endpoints, without details
 - **Every other actuator endpoint requires an operator role.** A blanket `permitAll` over the
   actuator exposes environment, configuration and heap to anyone who can reach the port
 - **Rules go from specific to general**, matching method and path together. A broad pattern
