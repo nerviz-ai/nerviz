@@ -116,9 +116,10 @@ dependency_rules:
   direction: inward
   # `hexagonal` writes "adapters/*" → "adapters/*" once, because each adapter is a module there.
   # A package has no such wildcard (`adapter` → `adapter` would forbid a package its own
-  # imports), so each adapter package is listed against every other one. Stricter than
-  # `hexagonal` for the six adapters it compiles into `bootstrap`, which see every module:
-  # their own norms already keep them to the port they implement or call.
+  # imports), so each adapter package is listed against every other one — except `adapter.in.graphql`
+  # against `adapter.in.rest`, below. Stricter than `hexagonal` for the other five adapters it
+  # compiles into `bootstrap`, which sees every module: their own norms already keep them to the
+  # port they implement or call.
   forbidden:
     - from: domain
       to: [application, adapter, commons]
@@ -136,8 +137,8 @@ dependency_rules:
       to: [adapter.in.rest, adapter.in.messaging, adapter.in.graphql, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
       reason: "Adapters do not talk to each other — they communicate through the application"
     - from: adapter.in.graphql
-      to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
-      reason: "Adapters do not talk to each other — they communicate through the application"
+      to: [adapter.in.messaging, adapter.in.scheduling, adapter.out.persistence, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
+      reason: "Adapters do not talk to each other — they communicate through the application. `adapter.in.rest` is left out on purpose: the security wiring and the admission properties live in its `security` and `admission` subpackages, and a GraphQL resolver carries the same method-security and admission checks (authorization.md, decisions 0112 and 0146). `hexagonal` allows it too, since its GraphQL adapter compiles into `bootstrap`, which sees every module"
     - from: adapter.out.persistence
       to: [adapter.in.rest, adapter.in.messaging, adapter.in.scheduling, adapter.in.graphql, adapter.out.messaging, adapter.out.http, adapter.out.cache, adapter.out.ai, adapter.out.search]
       reason: "Adapters do not talk to each other — they communicate through the application"

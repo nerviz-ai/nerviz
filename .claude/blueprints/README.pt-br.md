@@ -99,7 +99,7 @@ infraestrutura sem tocar domínio.
 Maven só (o mapa de pacotes é idêntico, então o código passa de um para o outro). A fronteira
 deixa de ser imposta pelo compilador e passa ao hook de edição, ao `doctor gate` do CI e ao
 ArchUnit; o mapa de fronteira derivado é mais fino que o do multi-module, e os adapters são
-proibidos de importar uns aos outros, pacote por pacote. Use quando quiser o vocabulário
+proibidos de importar uns aos outros, pacote por pacote (um resolver GraphQL pode usar a segurança e a admissão do adapter REST). Use quando quiser o vocabulário
 port/adapter sem um `pom.xml` por adapter.
 
 ---

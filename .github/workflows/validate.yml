@@ -359,6 +359,13 @@ jobs:
       - name: exemplars let Lombok write the logger, the plain constructor and the field modifiers
         run: java .claude/.ci/TemplateLombokTest.java
 
+      # `hexagonal-single-module` lists its ten adapter packages against each other by hand (a package
+      # has no `adapters/*` wildcard), and the `check` hook of a generated project refuses an import the
+      # derived map forbids. A typo in that matrix, or an exemplar importing a sibling adapter, ships
+      # into every project that chose the blueprint (0165). No network.
+      - name: exemplars keep the adapters of hexagonal-single-module apart, and its matrix is complete
+        run: java .claude/.ci/HexagonalSingleModuleTemplateTest.java
+
       # A MapStruct exemplar is the shape the executor writes and the installer converts to in every
       # project that chose MapStruct; a forbidden construct there ships into all of them, and a
       # skill with only the manual exemplar leaves the MapStruct one improvised (0160).
