@@ -39,14 +39,16 @@ only the four framework roots of `project-files.md` § 5 and gives `application`
 ban at all; the other prefixes the multi-module `forbidden_imports` carry (GraphQL, MongoDB,
 Hibernate, logging, MapStruct, Spring AI, Spring Web) are left to ArchUnit. Hexagonal's
 `"adapters/*" → "adapters/*"` has no package form — `adapter → adapter` would forbid a
-package its own imports — so each adapter package is listed against the others. Onion's
+package its own imports — so each adapter package is listed against the others, save one edge: `adapter.in.graphql` may import `adapter.in.rest`, because the security wiring and the admission properties live in the REST adapter's `security` and `admission` subpackages and the GraphQL exemplars use them (`authorization.md`; in `hexagonal` the GraphQL adapter compiles into `bootstrap`, which sees every module). The first draft forbade that edge too; it was caught by the CI test below, not by the interview. Onion's
 `app.*` packages keep the name of a module the single-module layout does not have.
 
 **Points cut in the rubric:** the inherited boundary gap (option 4 closes it).
 
-**CI:** existing steps of `validate.yml` cover a new YAML with no change —
+**CI:** existing steps of `validate.yml` cover a new YAML —
 `export twice per blueprint, require identical trees`, `blueprint-declared templates exist on
-disk`, `every norm paths matches some blueprint`.
+disk`, `every norm paths matches some blueprint` — and the hand-written 10 × 9 adapter matrix of
+the hexagonal one gets its own test, `HexagonalSingleModuleTemplateTest` (added after the user asked
+for an exemplar-import check; see § CI coverage).
 
 ### Option 4 — per-package `forbidden_imports` (score 6)
 
@@ -76,6 +78,7 @@ so it is its own decision, with a migration for projects already generated.
 | `docs/en/05-blueprints.md`, `docs/pt-br/05-blueprints.md` | "all seven" → "all nine", two rows |
 | `docs/en/09-differentiators.md`, `docs/pt-br/09-diferenciais.md` | The list of blueprints and its count |
 | `docs/en/10-arch-adopt.md`, `docs/pt-br/10-arch-adopt.md` | "7 official blueprints" → "9" |
+| `.claude/.ci/HexagonalSingleModuleTemplateTest.java`, `.github/workflows/validate.yml`, `docs/{en,pt-br}/07-ci-validate.md` | The boundary test above, its step in the `design` job and its row in both CI tables |
 
 Not touched, on purpose: no skill, agent, rule or hook (invariant 7). `export` needs no entry — a
 blueprint is copied only as the active one (`export.blueprint_copy`), and the catalog does not
@@ -95,6 +98,7 @@ the `dependency_rules` block, not above it.
 |---|---|---|
 | `validate · export twice per blueprint, require identical trees` | Both new ids export, twice, to identical trees with no surviving dead citation | green on the tree, all nine ids, 2026-10-15 |
 | `validate · blueprint-declared templates exist on disk` | Every `templates.<role>` of the two files resolves to a real file | green on the tree · red with `templates/pom.parent.xml.example` changed to `templates/nope.xml.example` in `onion-single-module.yaml` (failed by name: `❌ … onion-single-module.yaml -> templates/nope.xml.example`) |
+| `validate · exemplars keep the adapters of hexagonal-single-module apart, and its matrix is complete` | Every `adapter.*` package of the blueprint is listed against every other (save the open GraphQL → REST edge), and no `.java.example` imports across adapters | new `.claude/.ci/HexagonalSingleModuleTemplateTest.java`: green on the tree (10 adapters, 164 exemplars, 2679 imports) · red with `adapter.out.ai` dropped from `adapter.out.cache`'s list (`does not forbid [adapter.out.ai]`) · red with `OrderEntity` imported from the persistence adapter into `CachedPortAdapter.java.example` (`:79 adapter.out.cache imports adapter.out.persistence`) · red on its first run against the draft, which forbade GraphQL → REST |
 | `validate · every norm paths matches some blueprint` | Unchanged: the new files only repeat packages the multi-module siblings already declare | not re-run, nothing in it can change |
 | `java .claude/hooks/ArchHook.java schema` | Nothing in `.claude/` the new files touch is malformed | green |
 

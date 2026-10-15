@@ -99,7 +99,7 @@ infrastructure without touching the domain.
 Maven module (the package map is identical, so code moves between the two). The boundary
 is no longer enforced by the compiler but by the edit-time hook, CI's `doctor gate` and
 ArchUnit; the boundary map derived for it is thinner than the multi-module one, and the
-adapters are forbidden from importing each other package by package. Choose it when you
+adapters are forbidden from importing each other package by package (a GraphQL resolver may use the REST adapter's security and admission wiring). Choose it when you
 want the port/adapter vocabulary without one `pom.xml` per adapter.
 
 ---
