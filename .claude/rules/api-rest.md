@@ -170,9 +170,13 @@ is not structural — the request was well formed and refused for load — and c
   controllers alone, never spelled in a class mapping — a framework's own controller
   (the OpenAPI endpoint) must not receive it. The version is read only from paths under
   `/api/`, so `/actuator` and the OpenAPI endpoints are never parsed as a version.
-- **A version is required, and the supported versions are an explicit list.** No default
-  version, no version detected from the mappings: removing a version from the list is
-  what retires it.
+- **A version is required under `/api/`, and the supported versions are an explicit list.**
+  The prefix makes the segment part of every project mapping, so a request names a version
+  or matches no mapping. The framework's own "version required" flag stays **off**: it
+  reaches every handler of the mapping, not only the paths the resolver reads, and a
+  library controller outside `/api/` (the OpenAPI endpoint, the AsyncAPI document at
+  `/springwolf/docs`) would answer 500. No default version, no version detected from the
+  mappings: removing a version from the list is what retires it.
 - **Every handler method declares the version it starts at, as a baseline** (`"1+"`): it
   serves that version and every later one until a mapping at a higher version supersedes
   it. A handler with no version is never written — it answers every version, including

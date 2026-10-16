@@ -48,6 +48,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import tools.jackson.databind.JsonNode;
@@ -69,10 +70,13 @@ class AsyncApiContractIT {
     @Test
     @DisplayName("the served AsyncAPI document is public and equals the committed snapshot")
     void servedDocumentMatchesTheSnapshot() throws Exception {
-        String served = mockMvc.perform(MockMvcRequestBuilders.get("/springwolf/docs"))
+        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/springwolf/docs"))
                 .andReturn()
-                .getResponse()
-                .getContentAsString(StandardCharsets.UTF_8);
+                .getResponse();
+        assertThat(response.getStatus())
+                .as("the document is not served — a 500 here is a library controller met by the versioning config (api-rest.md § Versioning)")
+                .isEqualTo(200);
+        String served = response.getContentAsString(StandardCharsets.UTF_8);
         JsonNode current = jsonMapper.readTree(served);
         write(current);
 

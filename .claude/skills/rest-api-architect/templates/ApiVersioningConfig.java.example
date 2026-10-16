@@ -51,9 +51,15 @@ public class ApiVersioningConfig implements WebMvcConfigurer {
 
     /**
      * The version is read only under `/api/`: `/actuator`, `/v3/api-docs` and `/swagger-ui` are
-     * never parsed as one. Required, no default, and an explicit supported list —
+     * never parsed as one. No default, and an explicit supported list —
      * `detectSupportedVersions(false)`, or a mapping alone would keep a retired version alive.
      * Removing a version from `addSupportedVersions` is its sunset: 400 from then on.
+     *
+     * `setVersionRequired(false)`: the flag reaches every handler of the mapping, not only the
+     * paths the resolver reads, so `true` makes a library controller outside `/api/`
+     * (Springwolf's `/springwolf/docs`) throw `MissingApiVersionException` and answer 500. Under
+     * `/api/` the prefix already makes the segment part of every project mapping: a version
+     * outside the list is 400, a path with none matches no mapping and is 404 (`0150`, `0167`).
      *
      * `v1` in the path parses as `1.0.0`; `"1"` here and `"1+"` on a mapping mean the same
      * major.
@@ -62,7 +68,7 @@ public class ApiVersioningConfig implements WebMvcConfigurer {
     public void configureApiVersioning(ApiVersionConfigurer configurer) {
         configurer.usePathSegment(VERSION_SEGMENT,
                         path -> path.pathWithinApplication().value().startsWith("/api/"))
-                .setVersionRequired(true)
+                .setVersionRequired(false)
                 .detectSupportedVersions(false)
                 .addSupportedVersions("1");
     }

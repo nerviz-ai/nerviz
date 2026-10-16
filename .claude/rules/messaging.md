@@ -196,7 +196,8 @@ resolved from Maven Central when the dependency is added, never written from mem
   schema names
 - **Exposure follows the OpenAPI document**: `/springwolf/docs` is public unless the project
   decided its API documents are protected (`@.claude/rules/authorization.md`). It lists topic
-  names and payload shapes, never a value
+  names and payload shapes, never a value. The path is outside `/api/`, so it is never given a
+  version (`@.claude/rules/api-rest.md` § Versioning)
 - **Publishing from the UI is off**: `springwolf.plugin.kafka.publishing.enabled: false` is written
   explicitly, and only a local profile may turn it on. The UI is a separate artifact
   (`springwolf-ui`), not declared by default
