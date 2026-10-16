@@ -128,6 +128,14 @@ jobs:
       - name: guard bash refuses force pushes and holds shell writes to the phase
         run: java .claude/.ci/BashGuardTest.java
 
+      # lessons-learned-022 § 2: the Copilot CLI reads .claude/settings.json, runs `command` and
+      # ignores `args`, so exec form launched a bare `java` — exit 1, which on preToolUse denies
+      # every call. Each registration runs here as exec form, as Claude Code's shell form and as
+      # Copilot's, on Claude's and Copilot's payloads: same exit, same stdout, 0 or 2 (0168).
+      # Git Bash on the Windows runner, the shell Claude Code itself picks there.
+      - name: every hook registration runs the same under Claude Code and the Copilot CLI
+        run: java .claude/.ci/HookShellFormTest.java
+
       # The only filesystem-shaped guard (0065). Needs `git`, which every runner has. It skips
       # what a tool-time guard admitted, so a cross-class chain does not re-judge the run's
       # own writes against the narrower phase open at Stop (0114, issue #74).

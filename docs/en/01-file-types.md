@@ -320,10 +320,12 @@ model or the user directly. The only way to run `ArchHook.java` "manually" is vi
 `arch-doctor` skill, which embeds that call via `` !`command` `` inside its own body
 (see § Skill above).
 
-**Exec form vs. shell form:** `settings.json` uses **exec form** (`command: java` +
-`args: [...]`) instead of shell form — no shell, no execute bit, identical across
-Linux, macOS, and Windows (`claude-help.md` § Configuration; `CLAUDE.md` §
-Commands). That's why no step of `project-bootstrap` runs `chmod`.
+**Shell form, not exec form:** `settings.json` writes each hook as one string,
+`java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`, with no `args`. The
+GitHub Copilot CLI reads the same file, runs `command` alone and ignores `args`, so exec form
+denied every call there. Claude Code substitutes the quoted placeholder and runs the string in
+`sh -c`, Git Bash or PowerShell (`claude-help.md` § Configuration). No execute bit is involved,
+which is why no step of `project-bootstrap` runs `chmod`.
 
 **Exit codes:**
 

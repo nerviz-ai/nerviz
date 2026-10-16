@@ -171,7 +171,7 @@
   },
 
   "settings": {
-    "$comment": "Single owner of what a hook registration may contain. Read by ArchHook.java `schema`, which is also what writes the errors — the runtime itself accepts an unknown event name, a `matcher` on an event that ignores it, and a `type` it has no handler for, all without a word. `match` is a list for the same reason `mcp.match` is: the generated project's hooks live in project-bootstrap's template, and a typo there only surfaces after the project exists. `hook_events` is transcribed from claude-help.md § 8, which ends in \"among others\" — an incomplete list here would block a legitimate event, so `hook_events_extra` is the escape hatch, one event name per entry, and an entry added to it needs a reason in the commit (same discipline as `injections.exempt_patterns`). `matcher_events` holds the events that actually read a `matcher`; on the rest it is dead configuration that reads as a filter. `entry_types` is repo policy, not a runtime limit: the runtime also serves http/mcp/prompt/agent hooks, and this repo runs commands only. `command_forbidden_chars` enforces exec form — a metacharacter in `command` means a shell string was written where the executable goes, and it silently becomes an argument. Design: .claude/decisions/0053-hooks-in-architect-designer.md",
+    "$comment": "Single owner of what a hook registration may contain. Read by ArchHook.java `schema`, which is also what writes the errors — the runtime itself accepts an unknown event name, a `matcher` on an event that ignores it, and a `type` it has no handler for, all without a word. `match` is a list for the same reason `mcp.match` is: the generated project's hooks live in project-bootstrap's template, and a typo there only surfaces after the project exists. `hook_events` is transcribed from claude-help.md § 8, which ends in \"among others\" — an incomplete list here would block a legitimate event, so `hook_events_extra` is the escape hatch, one event name per entry, and an entry added to it needs a reason in the commit (same discipline as `injections.exempt_patterns`). `matcher_events` holds the events that actually read a `matcher`; on the rest it is dead configuration that reads as a filter. `entry_types` is repo policy, not a runtime limit: the runtime also serves http/mcp/prompt/agent hooks, and this repo runs commands only. `command_forbidden_chars` keeps a hook command one process: a pipe, a chain, a redirect or a substitution in `command` is refused, which is the risk exec form was first chosen against. The shape of an ArchHook entry is `archhook_command_pattern`, and `args` is no longer an entry field (0168). Design: .claude/decisions/0053-hooks-in-architect-designer.md",
     "match": [
       ".claude/settings.json",
       ".claude/skills/project-bootstrap/templates/settings.json.example"
@@ -193,9 +193,12 @@
     "group_allowed": ["matcher", "hooks"],
     "entry_types": ["command"],
     "command_forbidden_chars": ["|", "&", ";", ">", "<", "`", "$("],
+    "$comment_archhook_command": "Shell form, one shape. An entry that launches ArchHook is `java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode> [<sub>]` (or the source launch `java \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.java\" build`, this repo only), with no `args`. Exec form (`command` + `args`) was the choice until 0168: the Copilot CLI reads this same file, runs `command` and ignores `args`, so a bare `java` exited 1 and every Edit, Shell and Read was denied (lessons-learned-022 § 2). The braces placeholder is deliberate: Claude Code substitutes it before the shell runs (sh -c, Git Bash, or PowerShell), and a Unix shell under Copilot expands the same text from the environment. The double quotes keep a path with spaces whole. `project_path_unsafe_chars` are the characters that would still split or expand the substituted path; `doctor` warns on them, never gates. Design: .claude/decisions/0168-hooks-in-shell-form.md",
+    "archhook_command_pattern": "^java (-jar \"\\$\\{CLAUDE_PROJECT_DIR\\}/\\.claude/hooks/ArchHook\\.jar\"|\"\\$\\{CLAUDE_PROJECT_DIR\\}/\\.claude/hooks/ArchHook\\.java\")( [a-z][a-z-]*)+$",
+    "project_path_unsafe_chars": ["\"", "$", "`"],
     "hook_entry": {
       "required": ["type", "command"],
-      "allowed": ["type", "command", "args", "timeout", "statusMessage", "if"]
+      "allowed": ["type", "command", "timeout", "statusMessage", "if"]
     },
     "allowed": [
       "$schema", "_comment", "hooks", "permissions", "enabledPlugins",

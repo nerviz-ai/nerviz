@@ -186,14 +186,15 @@ The eleven invariants in `CLAUDE.md` are gated in CI, not just written down:
 *Closest:* none found. The neighbors validate the generated code, not their own
 instruction files.
 
-### 8 · Enforcement in one Java file, no shell
+### 8 · Enforcement in one Java file, one command shape
 
 `ArchHook.java` holds eleven modes: `check`, `format`, `tests`, `schema`, `guard`, `audit`,
 `compose`, `context`, `doctor`, `export`, `build`. The hooks run the committed, precompiled
-`ArchHook.jar` in exec form: no shell, no `chmod`, the same on Linux, macOS, and Windows.
+`ArchHook.jar` as one shell string per hook, which Claude Code and the GitHub Copilot CLI
+both run: no shell script, no `chmod`, the same on Linux, macOS, and Windows.
 CI requires the jar to be byte for byte what the source compiles to under the pinned JDK.
 The tests under `.claude/.ci/` inject each violation and require the block, on all three
-operating systems. The mode table is in the [README](../../README.md#enforcement-one-java-file-no-shell).
+operating systems. The mode table is in the [README](../../README.md#enforcement-one-java-file-one-command-shape).
 
 *Closest:* every hook-based neighbor we found uses bash scripts.
 
@@ -225,7 +226,7 @@ Representatives of each family, as found on 2026-10-02. ✅ yes · ◐ partial �
 | Multi-phase spec pipeline | ✅ per layer | ✅ | ✅ | — | ✅ | ✅ |
 | Write scope enforced by a hook | ✅ per class, as data | ✅ per task | — | — | — (prompt gates) | ◐ workflow and quality gates |
 | Approved spec frozen by a hook | ✅ | — | — | — | — | ◐ accept gates |
-| Hooks run without a shell, tested on 3 OSes | ✅ Java | — bash + `jq` | — | — | — | — |
+| Hooks without shell scripts, tested on 3 OSes | ✅ Java | — bash + `jq` | — | — | — | — |
 | Per-run token and chain trail | ✅ | — | — | — | — | — |
 | Validates its own instruction files | ✅ | — | — | — | — | — |
 | Update into an existing project | ✅ with provenance + migration notes | ◐ onboarding | — | ◐ plugin reinstall | ✅ upgrade/update | ✅ upgrade |

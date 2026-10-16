@@ -122,8 +122,8 @@ malformed YAML, nothing else. What validates fields is
 effect — `claude` must be restarted.
 
 **A hook fails silently in four ways, none an error.** Unknown event name — never fires.
-`matcher` on an event that doesn't read one — filters nothing. Pipe or `&&` inside `"command"`
-— part of the filename (exec form: `command` is the binary, `args` the arguments). A mode that
+`matcher` on an event that doesn't read one — filters nothing. An `args` list — the GitHub Copilot CLI ignores it,
+launches a bare `java` that exits 1, and denies every tool call (hooks are shell form, 0168). A mode that
 throws — exits 0 through `main`'s catch, looks like it passed. `schema` catches the first
 three, from the `settings` block of `.claude/schemas/extensions.json`; the fourth only by
 running the mode by hand.

@@ -369,7 +369,7 @@ public class ArchHook {
     static void doctor(boolean gate) {
         err("ArchHook doctor");
         err("  OS ................ " + System.getProperty("os.name")
-                + (WINDOWS ? "  (Windows — no shell is used, exec form)" : ""));
+                + (WINDOWS ? "  (Windows — hooks run in Git Bash, or PowerShell without it)" : ""));
         err("  Java .............. " + System.getProperty("java.version"));
         err("  Project root ...... " + ROOT);
         report("CLAUDE_PROJECT_DIR", System.getenv("CLAUDE_PROJECT_DIR") != null,
@@ -491,6 +491,7 @@ public class ArchHook {
             report("Hooks", hookErrs.isEmpty(),
                     entries + " registration(s) across " + evts + " event(s)",
                     hookErrs.size() + " problem(s) — run `java ArchHook.java schema`");
+            doctorHookPath(schRoot);
         } else {
             err("  Hooks .............. no .claude/settings.json — no hook registered");
         }
@@ -991,6 +992,30 @@ public class ArchHook {
         err("   Nothing was written. Migrate the project to Spring Boot " + floor + " or later first,");
         err("   then run this again. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
         System.exit(2);
+    }
+
+    /**
+     * The `Hook path` line: whether this project's absolute path survives the shell every hook
+     * now runs in. Hooks are shell form — `java -jar "${CLAUDE_PROJECT_DIR}/…" <mode>` — so the
+     * runtime substitutes the path into a string a shell then reads, and a `"`, `$` or backtick
+     * in it would split or expand that string: every hook would fail to start. Reported, never
+     * gated — the project cannot fix its path by editing a file, and a gate would only turn red.
+     * The characters are `settings.project_path_unsafe_chars` of extensions.json. Design:
+     * .claude/decisions/0168-hooks-in-shell-form.md
+     */
+    static void doctorHookPath(Map<String, Object> sch) {
+        List<String> unsafe = asStrList(get(sch, "settings", "project_path_unsafe_chars"));
+        if (unsafe.isEmpty()) return;
+        String label = "  Hook path ......... ";
+        String path = ROOT.toString();
+        List<String> found = unsafe.stream().filter(path::contains).toList();
+        if (found.isEmpty()) {
+            err(label + "✅ no shell metacharacter in the project path");
+        } else {
+            err(label + "⚠️  the project path holds " + String.join(" ", found)
+                    + " — hooks run in a shell, so none of them would start. Move the project"
+                    + " to a path without them");
+        }
     }
 
     /** The `Platform` line: the Spring Boot line the build declares against the floor. Reported, never gated. */
@@ -4711,10 +4736,11 @@ public class ArchHook {
      *
      * <p>What it catches is the set of mistakes the runtime accepts in silence: an
      * event name that exists nowhere, a `matcher` on an event that never reads one, a
-     * `type` this repo has no handler for, a shell string written where the executable
-     * goes, and a non-positive `timeout`. None of these fails at startup; the hook
-     * simply never runs, or runs without the filter it appears to have. Every list
-     * lives in extensions.json — invariant 10, @CLAUDE.md.
+     * `type` this repo has no handler for, a pipe or chain in `command`, an `args` list
+     * the Copilot CLI ignores, and a non-positive `timeout`. None of these fails at
+     * startup; the hook simply never runs, runs without the filter it appears to have,
+     * or — under Copilot — denies every call (0168). Every list lives in extensions.json
+     * — invariant 10, @CLAUDE.md.
      */
     static void checkSettings(Map<String, Object> sch, String rel, String content,
                               List<String> errors) {
@@ -4756,6 +4782,8 @@ public class ArchHook {
         List<String> groupAllowed = asStrList(get(sch, "settings", "group_allowed"));
         List<String> entryTypes = asStrList(get(sch, "settings", "entry_types"));
         List<String> badChars = asStrList(get(sch, "settings", "command_forbidden_chars"));
+        String archShape = asStr(get(sch, "settings", "archhook_command_pattern"));
+        Pattern archRe = archShape == null ? null : Pattern.compile(archShape);
 
         for (Map.Entry<String, Object> ev : hooks.entrySet()) {
             String event = ev.getKey();
@@ -4792,20 +4820,31 @@ public class ArchHook {
                         }
                     }
                     for (String k : h.keySet()) {
-                        if (!allowed.contains(k)) {
+                        if (k.equals("args") && !allowed.contains(k)) {
+                            errors.add("  " + where + " — `args` is exec form, and the Copilot CLI"
+                                    + " reads this file, runs `command` alone and denies every call"
+                                    + " when it fails. Fold the arguments into `command`:"
+                                    + " java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode>");
+                        } else if (!allowed.contains(k)) {
                             errors.add("  " + where + " — `" + k
                                     + "` is not a hook entry field");
                         }
                     }
-                    checkHookEntry(where, h, entryTypes, badChars, errors);
+                    checkHookEntry(where, h, entryTypes, badChars, archRe, errors);
                 }
             }
         }
     }
 
-    /** Type, exec form, and timeout of one hook entry. Lists come from extensions.json. */
+    /**
+     * Type, command shape, and timeout of one hook entry. Lists come from extensions.json.
+     * An entry that launches ArchHook has one shape, `settings.archhook_command_pattern`:
+     * shell form with the quoted `${CLAUDE_PROJECT_DIR}` placeholder, which both Claude Code
+     * and the Copilot CLI run (0168). An entry that launches anything else is held only to
+     * `command_forbidden_chars` — a project may register a hook of its own.
+     */
     static void checkHookEntry(String where, Map<String, Object> h, List<String> entryTypes,
-                               List<String> badChars, List<String> errors) {
+                               List<String> badChars, Pattern archRe, List<String> errors) {
         String type = asStr(h.get("type"));
         if (type != null && !entryTypes.isEmpty() && !entryTypes.contains(type)) {
             errors.add("  " + where + " — `type: " + type + "` has no handler here."
@@ -4818,10 +4857,15 @@ public class ArchHook {
             for (String bad : badChars) {
                 if (command.contains(bad)) {
                     errors.add("  " + where + " — `command` contains `" + bad
-                            + "`: that is a shell string where the executable goes."
-                            + " Exec form: `command` is the binary, `args` the arguments");
+                            + "`: a hook command is one process — no pipe, chain, redirect"
+                            + " or substitution");
                     break;
                 }
+            }
+            if (archRe != null && command.contains("ArchHook.") && !archRe.matcher(command).matches()) {
+                errors.add("  " + where + " — `" + command + "` is not the shape every runtime"
+                        + " runs. Write java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\""
+                        + " <mode> (.claude/schemas/extensions.json › settings.archhook_command_pattern)");
             }
         }
 

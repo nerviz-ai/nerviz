@@ -126,8 +126,8 @@ não tem efeito — é preciso reiniciar o `claude`.
 
 **Um hook falha silenciosamente de quatro formas, nenhuma delas um erro.** Nome de evento
 inexistente — nunca dispara. `matcher` em um evento que não lê matcher — não filtra nada.
-Pipe ou `&&` dentro de `"command"` — vira parte do nome do arquivo (forma exec: `command` é o
-binário, `args` são os argumentos). Um modo que lança exceção — sai 0 pelo catch do `main`,
+Uma lista `args` — o GitHub Copilot CLI a ignora, roda um `java` sem argumentos que sai com 1,
+e nega toda chamada de ferramenta (os hooks são forma shell, 0168). Um modo que lança exceção — sai 0 pelo catch do `main`,
 e parece ter passado. `schema` pega as três primeiras, a partir do bloco `settings` de
 `.claude/schemas/extensions.json`; a quarta, só rodando o modo à mão.
 

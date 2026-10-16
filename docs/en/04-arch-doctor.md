@@ -63,7 +63,7 @@ sequenceDiagram
 
 | Line | ✅ condition | ❌/⚠️ condition |
 |---|---|---|
-| `OS` | — informational | On Windows, notes it runs in exec form (no shell) |
+| `OS` | — informational | On Windows, notes that hooks run in Git Bash, or PowerShell without it |
 | `Java` | — informational | JVM version in use |
 | `Project root` | — informational | resolved from `CLAUDE_PROJECT_DIR` or current directory |
 | `CLAUDE_PROJECT_DIR` | variable set | ❌ not set — hooks use the current directory |
@@ -75,7 +75,8 @@ sequenceDiagram
 | `Audit` | N runs recorded in `.claude/audit-usage/` | ⚪ no directory — trail OFF (optional; the case in this meta-repo) |
 | `Audit rule inference` | rule inference renders without error for a synthetic `.java` | ❌ `auditRules()` throws — every report would freeze once a run touched `src/**` |
 | `MCP` | N servers declared in `.mcp.json`, all valid | ❌ N problems — run `java ArchHook.java schema`; or "no .mcp.json" (optional) |
-| `Hooks` | N valid registrations across M events | ❌ an unknown event, a `matcher` on an event that reads none, or a shell string in `command` — the four ways a hook fails in silence. Also when `enabledPlugins` lacks `"<id>": false` for a plugin of `settings.blocked_plugins` (decision 0138) |
+| `Hooks` | N valid registrations across M events | ❌ an unknown event, a `matcher` on an event that reads none, an `args` list (exec form, which the Copilot CLI ignores), or a pipe or chain in `command` — the four ways a hook fails in silence. Also when `enabledPlugins` lacks `"<id>": false` for a plugin of `settings.blocked_plugins` (decision 0138) |
+| `Hook path` | no `"`, `$` or backtick in the project path | ⚠️ one of them is there: every hook is a shell string, so none would start. Never gated |
 | `Skill shadowing` | no folder of the personal skills directory (`$CLAUDE_CONFIG_DIR/skills`, or `~/.claude/skills`) is named like a skill of `.claude/skills/` | ❌ lists the personal skills that replace the project's — Claude Code resolves one name as enterprise > personal > project, so the personal one runs instead, with no warning. Rename or remove the personal one. ⚪ without the directory. Machine state: never in `doctor gate` (decision 0138) |
 | `Agent instructions` | the root `AGENTS.md`, `.github/copilot-instructions.md`, and for every module of the active blueprint with `forbidden_imports` an `AGENTS.md` listing every prefix, next to a `CLAUDE.md` holding `@AGENTS.md`; every path cited in backticks exists | ⚠️ names the missing file, the prefix not listed, the `CLAUDE.md` that does not import — without it Claude Code skips the module `AGENTS.md` — and the dead path. Silent without a provenance stamp. Reports only, never in `doctor gate`: the build is what refuses a forbidden import (decision 0139) |
 | `Provenance` | no file under `.claude/` edited after the `.claude/.arch-provenance.json` stamp | ⚠️ lists the locally edited files — an `arch-adopt` update would overwrite each one. In the origin repository: `⚪ origin repository — writes stamps, carries none` |
