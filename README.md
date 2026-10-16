@@ -25,13 +25,6 @@ Documentation: [`docs/en/`](docs/en/README.md) (English) · [`docs/pt-br/`](docs
 (português). How it compares with similar projects, with sources:
 [`docs/en/09-differentiators.md`](docs/en/09-differentiators.md).
 
-<p align="center">
-  <a href="docs/assets/pitch-en.mp4"><img alt="Nerviz pitch in English — click to play" src="docs/assets/pitch-en.jpg" width="49%"></a>
-  <a href="docs/assets/pitch.mp4"><img alt="Pitch do Nerviz em português — clique para assistir" src="docs/assets/pitch.jpg" width="49%"></a>
-</p>
-
-<p align="center">The pitch, 69 seconds, no audio: <a href="docs/assets/pitch-en.mp4">English</a> · <a href="docs/assets/pitch.mp4">português</a>.</p>
-
 What one `/init-project` run produced is public:
 [`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app), a
 `clean-architecture-single-module` project with a green build. The run took 20 minutes, a figure
