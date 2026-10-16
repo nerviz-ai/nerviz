@@ -1,0 +1,1 @@
+{"sessionId":"8a144599-e544-4baf-adde-e55c5baa3532","timestamp":1792181447213,"cwd":"~/Documents/GitHub/probe-single-shellform","toolName":"bash","toolArgs":{"command":"wc -l .probe/e1.env","description":"Count lines in .probe/e1.env"}}

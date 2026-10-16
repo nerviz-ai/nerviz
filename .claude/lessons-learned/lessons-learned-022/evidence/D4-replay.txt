@@ -1,0 +1,23 @@
+D4 — replay offline no ArchHook.jar da copia probe-single-shellform — 2026-10-16
+Spec: docs/use-cases/UC-900-probe/UC-900-spec.md, status: approved, commit aad941a (tag probe-baseline movida na copia)
+
+guard write, payload Claude (Edit, tool_input.file_path)            -> exit 2 "UC-900-probe is approved — its specs are immutable."
+guard write, payload Copilot (Edit, tool_input = patch string, rel.) -> exit 0  (PASSA)
+guard write, payload Copilot (Edit, tool_input = patch string, abs.) -> exit 0  (PASSA)
+guard bash, "echo '- probe' >> <spec>"                               -> exit 2 (mesma mensagem)
+
+Conclusao: no Copilot CLI o guard write nao le o caminho do apply_patch -> edicao da spec congelada passa.
+guard bash protege a spec pela via shell. Falta o guard sweep no Stop (agentStop) como rede.
+
+--- Ao vivo, prompt 1 (edicao), Copilot CLI 1.0.98 ---
+Edit (apply_patch) PASSOU: a spec ganhou "- probe" (confirmado no disco).
+No fim do turno (agentStop -> Stop) o guard sweep RODOU e a mensagem apareceu ao usuario:
+  "❌ This turn wrote outside what the open phase and the frozen folders admit. ... Revert them, or report them and stop."
+  "❌ UC-900-probe is approved — its specs are immutable. ..."
+O agente ja tinha respondido "Adicionada a linha"; nao reverteu. Spec restaurada a mao (git checkout).
+Resultado: DEGRADADO — guard write ausente; guard sweep detecta depois, sem impedir.
+Lateral (A5): o Copilot CLI listou "Discovered 00-index.md from .claude/rules/" e "Discovered spec-diagrams.md from .claude/rules/".
+
+--- Ao vivo, prompt 2 (shell >>), Copilot CLI 1.0.98 ---
+"Denied by preToolUse hook: hook exited with code 2" — comando nao rodou, spec intacta (git diff vazio em docs/).
+Resultado: DIFERENTE — guard bash nega como no Claude Code, mas o motivo (stderr) nao chega ao modelo.

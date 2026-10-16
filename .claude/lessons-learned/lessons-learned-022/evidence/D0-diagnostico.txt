@@ -1,0 +1,30 @@
+D0 diagnostico — 2026-10-16 — rodado no Claude Code (shell local), simulando o hook do Copilot CLI 1.0.98
+Payload: {"toolName":"bash","toolArgs":{"command":"echo x"}}
+
+A: jar achado, payload camelCase do Copilot
+   java -jar .claude/hooks/ArchHook.jar guard bash        -> exit=0
+
+B: variavel nao expandida (caminho literal)
+   java -jar '${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar' guard bash
+   -> Error: Unable to access jarfile ${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar
+   -> exit=1
+
+Copilot CLI (sessao b81f2d5a...): Edit, Shell e o proprio teste A foram
+"Denied by preToolUse hook from "repo settings" (hook errored)".
+Causa NAO confirmada: o Copilot nao mostrou o stderr do hook. Ver .probe/env-capture.log.
+
+--- Teste 2 (20:26): hook de captura em forma exec (command "sh" + args) no settings.local.json ---
+Copilot CLI: ate o Read de CLAUDE.md passou a ser "Denied by preToolUse hook from "repo settings" (hook errored)".
+Antes do hook novo, Read passava. env-capture.log: 0 linhas vindas do Copilot (so as do Claude Code).
+Hipotese B: o Copilot ignora "args" da forma exec e roda so "command":
+  echo JSON | sh   -> "command not found", exit=127
+  echo JSON | java -> exit=1
+Mesma forma do settings.json do projeto ("command":"java","args":["-jar",...]).
+Hipotese A (${CLAUDE_PROJECT_DIR} sem expandir) continua possivel, mas B explica tambem o Read.
+
+--- Teste 3 (20:33): copia probe-single-shellform, 28 hooks do settings.json convertidos de exec (command+args) para shell ---
+Copilot CLI 1.0.98, mesmo prompt do 1.4. Resultado: Read, Bash (mkdir, git status) e Edit (criar e editar) PASSARAM; notes/probe.txt = ok2.
+Controle: no projeto original (forma exec) o mesmo CLI negou Edit/Shell com "hook errored".
+env-capture: CLAUDE_PROJECT_DIR definido no ambiente do hook (7/7 linhas).
+Conclusao: Copilot CLI ignora "args" da forma exec; D0 vira "ausente com bloqueio total" na forma exec e funciona na forma shell.
+Payload via alias PascalCase: view->Read{path}, bash->Bash{command,description}, apply_patch->Edit com tool_input = STRING de patch (nao objeto), sem file_path/content; nunca Write.
