@@ -26,7 +26,7 @@
 //     `base-package` and `use-fqn: false`, and declares no `servers` and no `info.version`; no yml
 //     exemplar turns publishing on;
 //   - a file that imports Springwolf imports no Jackson 2 databind or core;
-//   - the contract IT reads `/springwolf/docs`, compares with `src/test/asyncapi/asyncapi.snapshot.json`
+//   - the contract IT reads `/springwolf/docs`, asserts it answers 200, compares with `src/test/asyncapi/asyncapi.snapshot.json`
 //     outside the test classpath, starts no listener container, and compares trees;
 //   - the security exemplar's public API document list names `/springwolf/docs`;
 //   - the partial template has the four contract rows and a Springwolf dependency row that is
@@ -186,6 +186,8 @@ public class AsyncApiTemplateTest {
         require(rel, text, "\"/springwolf/docs\"", "does not read the document at /springwolf/docs");
         require(rel, text, "Path.of(\"" + SNAPSHOT + "\")", "the snapshot is not at " + SNAPSHOT + " — outside src/test/resources, where a context would load it");
         require(rel, text, "spring.kafka.listener.auto-startup=false", "starts the listener containers — the test would need a broker");
+        require(rel, text, "getStatus()", "asserts no status — a 500 from the versioning config reads as an empty document (0167)");
+        require(rel, text, ".isEqualTo(200)", "does not assert the document answers 200 (0167)");
         require(rel, text, "readTree(", "compares text, not parsed trees — key order and whitespace would fail it");
         require(rel, text, ".isEqualTo(snapshot)", "never compares the served document with the snapshot");
         if (text.contains("src/test/resources")) fail(rel, "keeps the snapshot on the test classpath");

@@ -150,7 +150,10 @@ public class ApiVersionTemplateTest {
         if (!Pattern.compile("usePathSegment\\([^;]*,").matcher(text).find()) {
             fail(rel, "reads the version from every path — the two-argument usePathSegment keeps /actuator and /v3/api-docs out");
         }
-        require(rel, text, "setVersionRequired(true)", "does not require a version");
+        if (text.contains("setVersionRequired(true)")) {
+            fail(rel, "requires a version on every handler — a library controller outside /api/ (Springwolf's /springwolf/docs) throws MissingApiVersionException and answers 500 (0167)");
+        }
+        require(rel, text, "setVersionRequired(false)", "does not state that the flag stays off — the /api/v{version} prefix already requires the segment (0167)");
         require(rel, text, "detectSupportedVersions(false)",
                 "detects supported versions from the mappings — a retired version stays alive while its mapping does");
         require(rel, text, "addSupportedVersions(", "lists no supported version");
