@@ -75,8 +75,9 @@ public class ArchHook {
         };
         try {
             switch (mode) {
-                case "check"  -> { if (args.length > 1) checkPath(args[1]); else check(filePath(stdin)); }
-                case "format" -> format(filePath(stdin));
+                case "check"  -> { if (args.length > 1) checkPath(args[1]);
+                                   else for (String f : editedFiles(stdin)) check(f); }
+                case "format" -> { for (String f : editedFiles(stdin)) format(f); }
                 case "tests"  -> tests(args.length > 1 ? args[1] : "stop", stdin);
                 case "schema" -> schema(stdin);
                 case "audit"  -> { if (args.length > 1 && "genesis".equals(args[1])) auditGenesis(args);
@@ -3329,28 +3330,43 @@ public class ArchHook {
             return;
         }
 
-        Map<String, Object> in = asMap(get(Json.parse(stdin), "tool_input"));
-        String file = in != null ? asStr(in.get("file_path")) : filePath(stdin);
+        Object payload = Json.parse(stdin);
+        Map<String, Object> in = asMap(get(payload, "tool_input"));
+        // A Copilot `apply_patch` carries no `file_path`. Read as absent, it took the edit for
+        // `Stop` and swept every extension file, so one edit could be denied for a problem in
+        // another. Its targets are judged one by one, from disk, and never swept (decision 0169).
+        List<String> files;
+        if (get(payload, "tool_input") instanceof String) {
+            files = editedFiles(stdin);
+            if (files.isEmpty()) return;              // not a patch, or one this cannot read
+        } else {
+            String file = in != null ? asStr(in.get("file_path")) : filePath(stdin);
+            files = file == null ? null : List.of(file);
+        }
 
         List<String> errors = new ArrayList<>();
-        if (file == null) {
+        if (files == null) {
             sweep(sch, errors);                       // Stop, or manual invocation
         } else {
-            String rel = relative(Paths.get(file));
-            String modsRoot = asStr(get(sch, "mods", "root"));
-            if (modsRoot != null && rel.startsWith(modsRoot + "/")) {
-                checkMods(sch, errors);               // a mod is judged whole, from disk
-            } else {
+            boolean modsChecked = false;
+            for (String file : files) {
+                String rel = relative(Paths.get(file));
+                String modsRoot = asStr(get(sch, "mods", "root"));
+                if (modsRoot != null && rel.startsWith(modsRoot + "/")) {
+                    if (!modsChecked) checkMods(sch, errors);   // a mod is judged whole, from disk
+                    modsChecked = true;
+                    continue;
+                }
                 // Write brings the whole file in tool_input.content and is validated before
                 // writing. Edit brings old_string/new_string — there only disk works.
                 String content = in != null ? asStr(in.get("content")) : null;
                 if (content == null) content = readOrNull(Paths.get(file));
-                if (content == null) return;          // file deleted or unreadable
+                if (content == null) continue;        // file deleted or unreadable
                 checkOne(sch, rel, content, errors);
             }
         }
 
-        if (file == null) {
+        if (files == null) {
             checkSkillClasses(sch, errors);
             checkAgentClasses(sch, errors);
             checkSubagentContext(sch, errors);
@@ -5399,6 +5415,17 @@ public class ArchHook {
     }
 
     static void auditFile(Path log, Object in) {
+        if (get(in, "tool_input") instanceof String) {
+            // A Copilot `apply_patch`: one event per file it wrote, under the tool name the
+            // translation gave it (decision 0169).
+            Set<String> seen = new HashSet<>();
+            for (Object p : patchPayloads(in)) {
+                String pf = asStr(get(p, "tool_input", "file_path"));
+                if (seen.add(pf)) append(log, ev("file", "op", asStr(get(p, "tool_name")),
+                        "path", relative(Paths.get(pf))));
+            }
+            return;
+        }
         String f = asStr(get(in, "tool_input", "file_path"));
         if (f == null) return;
         append(log, ev("file", "op", asStr(get(in, "tool_name")),
@@ -7412,6 +7439,21 @@ public class ArchHook {
     }
 
     static void guardWrite(Map<String, Object> sch, Path state, Object in) throws IOException {
+        List<Object> patch = patchPayloads(in);
+        if (!patch.isEmpty()) {
+            // Every write the patch makes is judged before any is admitted: a patch is applied
+            // whole or not at all, so a path recorded as admitted ahead of a refused one would
+            // later hide a shell write to it from the `Stop` sweep (decision 0169).
+            for (Object p : patch) {
+                List<String> v = guardViolations(sch, state, p, patchRel(p), false);
+                if (!v.isEmpty()) {
+                    v.forEach(ArchHook::err);
+                    System.exit(2);
+                }
+            }
+            for (Object p : patch) guardPath(sch, state, p, patchRel(p));
+            return;
+        }
         String file = asStr(get(in, "tool_input", "file_path"));
         if (file == null) return;
         guardPath(sch, state, in, relative(Paths.get(file)));
@@ -8018,6 +8060,171 @@ public class ArchHook {
         String raw = m.group(1)
                 .replace("\\\\", "\\").replace("\\\"", "\"").replace("\\/", "/");
         return raw;   // Windows arrives with '\\'; Paths.get handles both separators
+    }
+
+    // ── apply_patch ──────────────────────────────────────────────────────────
+
+    /**
+     * The files a write hook is about, absolute: the targets of a Copilot `apply_patch` when
+     * `tool_input` is a string, Claude Code's `file_path` otherwise — empty when there is
+     * neither. What `check`, `format` and `schema` loop over, so the Claude path stays the one
+     * `filePath` call it always was.
+     */
+    static List<String> editedFiles(String stdin) {
+        Object in = Json.parse(stdin);
+        if (get(in, "tool_input") instanceof String) return patchTargets(in);
+        String f = filePath(stdin);
+        return f == null ? List.of() : List.of(f);
+    }
+
+    /**
+     * The files a patch leaves on disk, each once, in patch order: what it adds, what it
+     * updates in place, and where it moves a file to — never a path it deletes or moves away.
+     */
+    static List<String> patchTargets(Object in) {
+        List<Object> ps = patchPayloads(in);
+        Set<String> gone = new HashSet<>();
+        for (Object p : ps) {
+            String op = asStr(get(p, "patch_op"));
+            if ("delete".equals(op) || "move_from".equals(op)) {
+                gone.add(asStr(get(p, "tool_input", "file_path")));
+            }
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (Object p : ps) {
+            String f = asStr(get(p, "tool_input", "file_path"));
+            if (!gone.contains(f)) out.add(f);
+        }
+        return new ArrayList<>(out);
+    }
+
+    /** The repo-relative path of one translated payload. */
+    static String patchRel(Object p) {
+        return relative(Paths.get(asStr(get(p, "tool_input", "file_path"))));
+    }
+
+    /**
+     * A Copilot `apply_patch` translated into the Claude Code payloads every write mode already
+     * judges — empty unless `tool_input` is a string whose first non-blank line is
+     * `*** Begin Patch`. The Copilot CLI reads `.claude/settings.json` and sends each write as
+     * `tool_name: "Edit"` with the patch as the whole `tool_input`: no `file_path`, so `guard
+     * write`, `check`, `format`, `schema` and `audit file` saw nothing and exited 0 — a line went
+     * into an approved spec and a forbidden import through (lessons-learned-022 § 3). Invoked
+     * from the `PreToolUse` and `PostToolUse` write registrations, through those modes.
+     *
+     * <p>Each section becomes what Claude Code would have sent: `*** Add File: p` a `Write` whose
+     * `content` is its `+` lines; each `@@` hunk of `*** Update File: p` an `Edit` whose
+     * `old_string` is its context and `-` lines and whose `new_string` its context and `+` lines,
+     * so the frozen spec's two exemptions judge a hunk exactly as they judge one `Edit`; `***
+     * Delete File: p` an `Edit` with no strings; `*** Move to: q` an `Edit` on `p` plus a `Write`
+     * on `q`. A relative path resolves against {@link #ROOT}, never the JVM's working directory,
+     * since the patch carries both spellings. Every payload keeps the envelope — `session_id`,
+     * `agent_type` — and records its section in `patch_op`.
+     *
+     * <p>Translating rather than teaching each mode a second shape keeps one owner per rule
+     * (invariant 2), the same move {@link #guardBash} makes with a shell command. The closest
+     * rejected form was a mode per shape with its own registrations: two JVMs per edit, and the
+     * rules either called through this same translation or copied. Only the CLI's alias envelope
+     * is read: VS Code's `tool_input.input` and the camelCase `toolArgs` of `.github/hooks` reach
+     * no registration today. Design: `.claude/decisions/0169-apply-patch-payload-in-write-hooks.md`.
+     */
+    static List<Object> patchPayloads(Object in) {
+        if (!(get(in, "tool_input") instanceof String patch)) return List.of();
+        String[] lines = patch.replace("\r\n", "\n").split("\n", -1);
+        int i = 0;
+        while (i < lines.length && lines[i].isBlank()) i++;
+        if (i == lines.length || !lines[i].strip().equals("*** Begin Patch")) return List.of();
+
+        List<Object> out = new ArrayList<>();
+        String op = null, path = null, moveTo = null;
+        List<String> body = new ArrayList<>();
+        for (i++; i < lines.length; i++) {
+            String l = lines[i];
+            String next = l.startsWith("*** Add File: ") ? "add"
+                    : l.startsWith("*** Update File: ") ? "update"
+                    : l.startsWith("*** Delete File: ") ? "delete"
+                    : l.strip().equals("*** End Patch") ? "end" : null;
+            if (next != null) {
+                patchSection(in, out, op, path, moveTo, body);
+                if ("end".equals(next)) { op = null; break; }
+                op = next;
+                path = l.substring(l.indexOf(": ") + 2).strip();
+                moveTo = null;
+                body = new ArrayList<>();
+            } else if (l.startsWith("*** Move to: ")) {
+                moveTo = l.substring("*** Move to: ".length()).strip();
+            } else if (!l.strip().equals("*** End of File")) {
+                body.add(l);
+            }
+        }
+        patchSection(in, out, op, path, moveTo, body);     // a patch missing `*** End Patch`
+        return out;
+    }
+
+    /** One section of a patch, appended to `out` as the payloads it stands for. */
+    static void patchSection(Object in, List<Object> out, String op, String path, String moveTo,
+                             List<String> body) {
+        if (op == null || path == null || path.isEmpty()) return;
+        String abs = ROOT.resolve(path).normalize().toString();
+        switch (op) {
+            case "add" -> {
+                StringBuilder content = new StringBuilder();
+                for (String l : body) if (l.startsWith("+")) content.append(l.substring(1)).append('\n');
+                out.add(patchPayload(in, "Write", "add", abs, Map.of("content", content.toString())));
+            }
+            case "delete" -> out.add(patchPayload(in, "Edit", "delete", abs, Map.of()));
+            default -> {
+                List<List<String>> hunks = new ArrayList<>();
+                List<String> hunk = new ArrayList<>();
+                for (String l : body) {
+                    if (l.startsWith("@@")) {
+                        if (!hunk.isEmpty()) hunks.add(hunk);
+                        hunk = new ArrayList<>();
+                    } else {
+                        hunk.add(l);
+                    }
+                }
+                if (!hunk.isEmpty()) hunks.add(hunk);
+                for (List<String> h : hunks) {
+                    while (!h.isEmpty() && h.get(h.size() - 1).isEmpty()) h.remove(h.size() - 1);
+                    List<String> oldL = new ArrayList<>(), newL = new ArrayList<>();
+                    boolean changes = false;
+                    for (String l : h) {
+                        char c = l.isEmpty() ? ' ' : l.charAt(0);
+                        String text = l.isEmpty() ? "" : l.substring(1);
+                        if (c == '-') { oldL.add(text); changes = true; }
+                        else if (c == '+') { newL.add(text); changes = true; }
+                        else { oldL.add(text); newL.add(text); }
+                    }
+                    if (!changes) continue;
+                    out.add(patchPayload(in, "Edit", "update", abs, Map.of(
+                            "old_string", String.join("\n", oldL),
+                            "new_string", String.join("\n", newL))));
+                }
+                if (moveTo != null && !moveTo.isEmpty()) {
+                    out.add(patchPayload(in, "Edit", "move_from", abs, Map.of()));
+                    out.add(patchPayload(in, "Write", "move_to",
+                            ROOT.resolve(moveTo).normalize().toString(), Map.of()));
+                } else if (out.stream().noneMatch(p -> abs.equals(get(p, "tool_input", "file_path")))) {
+                    out.add(patchPayload(in, "Edit", "update", abs, Map.of()));
+                }
+            }
+        }
+    }
+
+    /** The envelope of `in` around a Claude-shaped `tool_input` for one file of a patch. */
+    static Map<String, Object> patchPayload(Object in, String tool, String patchOp, String abs,
+                                            Map<String, String> fields) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        Map<String, Object> env = asMap(in);
+        if (env != null) p.putAll(env);
+        Map<String, Object> ti = new LinkedHashMap<>();
+        ti.put("file_path", abs);
+        ti.putAll(fields);
+        p.put("tool_name", tool);
+        p.put("tool_input", ti);
+        p.put("patch_op", patchOp);
+        return p;
     }
 
     /**

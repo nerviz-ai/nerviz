@@ -136,6 +136,14 @@ jobs:
       - name: every hook registration runs the same under Claude Code and the Copilot CLI
         run: java .claude/.ci/HookShellFormTest.java
 
+      # The Copilot CLI sends every write as `Edit` with the patch as a string and no
+      # `file_path`, so the write hooks saw nothing (lessons-learned-022 § 3). The patch is
+      # translated into Claude Code's payloads; this holds the translation on the captured
+      # patches — frozen spec, territory, boundary, formatter, schema, trail — and exit 0 on
+      # what it cannot read (0169).
+      - name: the write hooks read the Copilot CLI's apply_patch
+        run: java .claude/.ci/ApplyPatchTest.java
+
       # The only filesystem-shaped guard (0065). Needs `git`, which every runner has. It skips
       # what a tool-time guard admitted, so a cross-class chain does not re-judge the run's
       # own writes against the narrower phase open at Stop (0114, issue #74).

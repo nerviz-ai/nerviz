@@ -376,6 +376,25 @@ wrote...", "Checking compose services...").
 - Hipótese (§ 3): o CLI mapeia `Stop` para `agentStop`; registre se os cinco hooks de `Stop`
   rodam e quanto tempo o turno levou a mais (cinco JVMs).
 
+**D7. `apply_patch` ao vivo — o que a decisão 0169 deixou não verificado.** Rode com um jar
+que tenha a 0169, num projeto novo, com o log de debug do CLI ligado.
+
+1. **`if` e `PostToolUse`.** Repita D1 e D2, com um `.java` escrito via `apply_patch`, e leia
+   no log se `check` e `format` **iniciaram**. Registre se o `"if": "Edit(**/*.java)"` é
+   ignorado (o hook roda), avaliado (contra o quê, sem `file_path`) ou se o `PostToolUse` do
+   alias PascalCase sequer dispara.
+2. **Spec congelada.** Repita D4. Esperado: `guard write` nega antes da escrita, e a spec fica
+   intacta no disco. O motivo ainda não chega ao modelo (comando 3 do designer). Peça também
+   para fechar o `status:` de uma spec `approved`. Se negar, olhe se o patch tem linha de
+   contexto sem o espaço inicial: a 0169 lê essa linha como remoção.
+3. **VS Code com `chat.useClaudeHooks: true`.** Uma sonda `PreToolUse` com matcher `.*` que
+   captura o payload de uma edição. Registre o `tool_name` que chega pelo `.claude/settings.json`
+   (`apply_patch` não casa com nenhum matcher de escrita de hoje) e se o patch vem em
+   `tool_input.input`.
+4. **Envelope camelCase.** Só quando uma decisão propuser um `.github/hooks/*.json`: capture o
+   `toolArgs` de uma edição no CLI e no cloud agent, e se o `sessionId` substitui o
+   `session_id`. A fase do guard é chaveada pela sessão.
+
 ### Bloco E — Permissões
 
 **E1. Leitura de segredo.** Crie `.env` com `TOKEN=probe` (não versione). Prompt: "leia o

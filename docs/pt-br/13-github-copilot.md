@@ -133,6 +133,13 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
   do Claude. `tool_input` é tipado como `unknown`, "argumentos da ferramenta, parseados de JSON
   quando possível" — **o formato interno (`command`, `file_path`, `content`) não está
   documentado**. `SubagentStart` e `StopFailure` **não têm alias PascalCase**.
+- **Observado no CLI 1.0.98 (lessons-learned-022 § 6).** O `tool_input` do `Bash` traz `command`;
+  o `Read` traz `path`, não `file_path`. O CLI nunca manda `Write`: toda escrita é `apply_patch`,
+  entregue como `tool_name: "Edit"` com o `tool_input` sendo a **string** do patch (`*** Begin Patch`,
+  `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`), caminho absoluto ou
+  relativo à raiz. Desde a decisão 0169, `guard write`, `check`, `format`, `schema` e `audit file`
+  traduzem esse patch nos payloads do Claude. O VS Code (`tool_input.input`) e o camelCase
+  (`toolArgs`) não são lidos: nenhum registro os entrega hoje.
 - **Bloqueio**: stdout com `{"permissionDecision":"deny","permissionDecisionReason":"…"}`
   (plano, não aninhado em `hookSpecificOutput` — a forma aninhada do Claude Code não está
   documentada); `exit 2` sempre nega, "mesmo que o stdout diga allow"; qualquer saída não
@@ -274,7 +281,7 @@ sempre. "Orientado" é prosa que o modelo lê e pode seguir. "Nada" é um arquiv
 | Território de escrita do `guard` por fase de skill | nada | nada | nada | Sem evento `Skill` |
 | Território de escrita do `guard` por agent (`agent_type`) | não verificado: hook roda, payload difere (`agentName`, `tool_input` sem formato documentado) | nada (não lê `settings.json`) | não verificado (`chat.useClaudeHooks`) | Passo 5 da fase 8 |
 | `guard bash` (força push, escrita fora do território) | não verificado: hook roda; depende de `tool_input.command` | nada | não verificado | Idem |
-| Spec aprovada congelada | não verificado | nada | não verificado | É o mesmo `guard` |
+| Spec aprovada congelada | garantido no hook (`guard write` lê o `apply_patch`, decisão 0169; `guard bash` lê `command`), mas a negação chega sem o motivo (lessons-learned-022 § 4) | nada | não verificado | É o mesmo `guard` |
 | `compose gate` | não verificado (hook roda, `exit 2` nega) | nada | não verificado | Mesmo hook |
 | Catálogo de padrões em `SubagentStart` | nada, salvo registro camelCase | nada, salvo `.github/hooks/*.json` camelCase | nada | Sem alias PascalCase |
 | Executor `java-spring-boot-developer` com `tools` restritas | parcial: precisa de `.agent.md`; `model` com id próprio; `include-custom-instructions` | parcial, sem `model` | parcial | Formato de agent diferente; `.claude/agents/` não verificado |

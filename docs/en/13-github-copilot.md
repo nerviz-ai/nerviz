@@ -136,6 +136,13 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
   `tool_input` is typed `unknown`, "tool arguments, parsed from a JSON string when possible" —
   **its inner shape (`command`, `file_path`, `content`) is undocumented**. `SubagentStart` and
   `StopFailure` **have no PascalCase alias**.
+- **Observed on CLI 1.0.98 (lessons-learned-022 § 6).** `Bash`'s `tool_input` carries `command`;
+  `Read` carries `path`, not `file_path`. The CLI never sends `Write`: every write is `apply_patch`,
+  delivered as `tool_name: "Edit"` with `tool_input` the patch as a **string** (`*** Begin Patch`,
+  `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`), the path absolute or
+  relative to the root. Since decision 0169, `guard write`, `check`, `format`, `schema` and
+  `audit file` translate that patch into Claude's payloads. VS Code's (`tool_input.input`) and the
+  camelCase one (`toolArgs`) are not read: no registration delivers them today.
 - **Blocking**: stdout with `{"permissionDecision":"deny","permissionDecisionReason":"…"}`
   (flat, not nested in `hookSpecificOutput` — Claude Code's nested form is undocumented);
   `exit 2` always denies, "even if the hook's stdout JSON reports allow"; any non-zero exit
@@ -279,7 +286,7 @@ runs. "Guided" is prose the model reads and may follow. "Nothing" is an inert fi
 | `guard` write territory per skill phase | nothing | nothing | nothing | No `Skill` event |
 | `guard` write territory per agent (`agent_type`) | unverified: the hook runs, the payload differs (`agentName`, `tool_input` with no documented shape) | nothing (does not read `settings.json`) | unverified (`chat.useClaudeHooks`) | Phase 8, step 5 |
 | `guard bash` (force push, writes outside the territory) | unverified: the hook runs; depends on `tool_input.command` | nothing | unverified | Same |
-| Approved spec frozen | unverified | nothing | unverified | It is the same `guard` |
+| Approved spec frozen | guaranteed in the hook (`guard write` reads the `apply_patch`, decision 0169; `guard bash` reads `command`), but the denial reaches the model without its reason (lessons-learned-022 § 4) | nothing | unverified | It is the same `guard` |
 | `compose gate` | unverified (the hook runs, `exit 2` denies) | nothing | unverified | Same hook |
 | Pattern catalog at `SubagentStart` | nothing, unless registered in camelCase | nothing, unless in `.github/hooks/*.json` in camelCase | nothing | No PascalCase alias |
 | Executor `java-spring-boot-developer` with restricted `tools` | partial: needs an `.agent.md`; `model` with its own id; `include-custom-instructions` | partial, no `model` | partial | Different agent format; `.claude/agents/` unverified |
