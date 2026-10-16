@@ -106,18 +106,18 @@ public class HookShellFormTest {
                 if (e.code != 0 && e.code != 2) {
                     System.out.println("❌ " + label + " — exit " + e.code + ": under Copilot a"
                             + " preToolUse hook that exits neither 0 nor 2 denies the call");
-                    System.out.println(e.out);
+                    System.out.println(e.out + e.err);
                     failures++;
                 } else if (c.code != e.code || !c.out.equals(e.out)) {
                     System.out.println("❌ " + label + " — Claude Code's shell form (exit " + c.code
                             + ") differs from the exec form it replaced (exit " + e.code + ")");
-                    System.out.println(c.out);
+                    System.out.println(c.out + c.err);
                     failures++;
                 } else if (k.code != e.code || !k.out.equals(e.out)) {
                     System.out.println("❌ " + label + " — the Copilot launch (exit " + k.code
                             + ") differs from the exec form (exit " + e.code + "): the shell did"
                             + " not expand " + PLACEHOLDER + " from the environment");
-                    System.out.println(k.out);
+                    System.out.println(k.out + k.err);
                     failures++;
                 } else {
                     System.out.println("✅ " + label + " — exit " + e.code + " in all three launches");
@@ -134,37 +134,56 @@ public class HookShellFormTest {
                 + " behaviour as exec form, exit 0 or 2 on every payload.");
     }
 
+    static final boolean WINDOWS = System.getProperty("os.name").toLowerCase().contains("win");
+
     /** The shell Claude Code uses for shell form: `sh -c`, or Git Bash on Windows. */
     static List<String> shell() {
-        if (!System.getProperty("os.name").toLowerCase().contains("win")) return List.of("sh", "-c");
+        if (!WINDOWS) return List.of("sh", "-c");
         for (String p : List.of("C:\\Program Files\\Git\\bin\\bash.exe",
                 "C:\\Program Files (x86)\\Git\\bin\\bash.exe")) {
-            if (Files.isRegularFile(Paths.get(p))) return List.of(p, "-c");
+            if (Files.isRegularFile(Paths.get(p))) return List.of(p);
         }
-        return List.of("bash", "-c");
+        return List.of("bash");
     }
 
-    static List<String> concat(List<String> shell, String cmd) {
+    /**
+     * The shell's argv for one command string. On Windows the string reaches Git Bash in a file,
+     * not after `-c`: the JDK joins argv into one Windows command line without escaping the double
+     * quotes inside an argument, so `bash -c` received the jar path unquoted and dropped its
+     * backslashes (`D:\a\nerviz` read as `D:anerviz`) — a defect of this harness, not of the hook.
+     * Claude Code spawns its shell from Node, which escapes them. Bash parses a script file the
+     * way it parses `-c`.
+     */
+    static List<String> concat(List<String> shell, String cmd) throws Exception {
         List<String> l = new ArrayList<>(shell);
-        l.add(cmd);
+        if (WINDOWS) {
+            Path script = Files.createTempFile("hook-", ".sh");
+            script.toFile().deleteOnExit();
+            Files.writeString(script, cmd + "\n", StandardCharsets.UTF_8);
+            l.add(script.toString().replace('\\', '/'));
+        } else {
+            l.add(cmd);
+        }
         return l;
     }
 
-    record Result(int code, String out) {}
+    record Result(int code, String out, String err) {}
 
-    /** Spawns argv with the hook's environment and stdin; stdout is what the runtime parses. */
+    /** Spawns argv with the hook's environment and stdin; stdout is what the runtime parses, stderr goes to the report. */
     static Result run(List<String> argv, Path root, String stdin) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(argv);
         pb.environment().put("CLAUDE_PROJECT_DIR", root.toString());
-        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+        Path errFile = Files.createTempFile("hook-err-", ".txt");
+        errFile.toFile().deleteOnExit();
+        pb.redirectError(errFile.toFile());
         Process p = pb.start();
         p.getOutputStream().write(stdin.getBytes(StandardCharsets.UTF_8));
         p.getOutputStream().close();
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (!p.waitFor(120, TimeUnit.SECONDS)) {
             p.destroyForcibly();
-            return new Result(-1, "timed out");
+            return new Result(-1, "timed out", "");
         }
-        return new Result(p.exitValue(), out);
+        return new Result(p.exitValue(), out, Files.readString(errFile, StandardCharsets.UTF_8));
     }
 }
