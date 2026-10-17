@@ -1,0 +1,25 @@
+D1 — replay offline no ArchHook.jar da copia probe-single-shellform — 2026-10-16
+Alvo: src/main/java/com/example/probesingle/domain/model/Probe.java (forbidden: org.springframework. em domain/model)
+Hook: PostToolUse, matcher Write|Edit|MultiEdit|NotebookEdit, if Edit(**/*.java), "ArchHook.jar check"
+
+Arquivo com `import org.springframework.stereotype.Component;`:
+  Claude Write (tool_input.file_path)            -> exit 2 "Architectural boundary violation ... org.springframework."
+  Copilot apply_patch->Edit (tool_input string)  -> exit 0 (PASSA)
+  doctor gate                                    -> "❌ doctor gate: Boundary violations failed"
+
+Arquivo com anotacao FQN, sem import (prompt literal do roteiro: @org.springframework.stereotype.Component):
+  Claude Write (file_path) -> exit 0 (PASSA)
+  doctor gate              -> ✅ (PASSA)
+=> Lacuna do PROJETO, nao do Copilot: check e doctor gate leem so linhas `import`; nome qualificado no corpo escapa.
+   Candidato a /report-issue. (ArchUnit/Checkstyle do build nao verificados aqui.)
+
+--- Ao vivo, Copilot CLI 1.0.98, sessao 829967af ---
+Prompt: Probe em domain/model com @Component importando org.springframework.stereotype.Component.
+- Modelo leu CLAUDE.md, 00-index.md, architecture-ddd.md, code-quality.md e mais 10 normas de .claude/rules/ ("Discovered ... from .claude/rules/").
+- Recusou por instrucao e perguntou via tool ask_user (requestedSchema com oneOf: domain-pojo / spring-adapter / cancel). Usuario escolheu domain-pojo.
+- Criou Probe POJO + ProbeTest via apply_patch. O check NAO foi exercitado (nenhum import proibido escrito).
+- format (PostToolUse) nao formatou: Checkstyle RegexpMultilineCheck acusou no primeiro test; modelo corrigiu a mao.
+- Stop/agentStop: hook de testes rodou "verify -DskipITs -Djacoco.skip=true" e falhou no spotless:check (Probe.java nao formatado).
+Resultado D1: NAO VERIFICADO ao vivo (modelo barrou por instrucao); replay mostra check ausente para apply_patch.
+Laterais: A5 (Copilot CLI le .claude/rules/), B6 (AskUserQuestion -> ask_user com schema), D2 (format ausente), D6 (hooks de Stop rodam).
+Copia limpa apos o run (Probe.java e ProbeTest removidos).

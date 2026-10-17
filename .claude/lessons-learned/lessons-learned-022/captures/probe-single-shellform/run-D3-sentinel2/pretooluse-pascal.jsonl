@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"dea1472d-bddf-4efa-8e39-2e9553cb94e0","timestamp":"2026-10-16T19:56:15.047Z","cwd":"~/Documents/GitHub/probe-single-shellform","tool_name":"Bash","tool_input":{"command":"echo PROBE_DENY","description":"Print requested exact output"}}

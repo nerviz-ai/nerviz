@@ -1,0 +1,9 @@
+B3 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform, sessao 643d5fc0
+Digitado: /use-case-design cadastrar cliente com CPF e e-mail
+Sonda: skill {"skill":"use-case-design"}; view references/scope-boundary.md; ask_user (citando "cadastrar cliente com CPF e e-mail").
+=> O texto do argumento CHEGOU ao modelo (citado literalmente na pergunta). Sem pedir o pedido de novo, sem $ARGUMENTS literal.
+   Resultado: IGUAL ou DIFERENTE (substituido vs anexado nao distinguivel pela sonda).
+   A pergunta ("falta gatilho tecnico e destino") e comportamento da propria skill (scope-boundary), nao falha de argumento.
+Injecao !`find docs/use-cases ...` (calculo do UC-NNN): NENHUM bash na sonda — nao executada nem pelo runtime nem pelo modelo
+  (o run parou antes de precisar do numero). Sem evidencia para B2 aqui.
+Usuario cancelou o ask_user; nada escrito.

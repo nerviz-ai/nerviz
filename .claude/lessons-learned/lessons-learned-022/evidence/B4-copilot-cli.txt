@@ -1,0 +1,30 @@
+B4 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform (backup .claude em scratchpad/claude-backup-B4.tgz)
+
+Prompt 1: "Este projeto esta atrasado em relacao ao Nerviz. Atualize o .claude/."
+Ferramentas: view CLAUDE.md; bash git status + find .claude; view .claude/skills/arch-adopt/SKILL.md (347 linhas);
+  view .arch-provenance.json, settings.json, 00-index.md; ask_user ("/arch-adopt so por invocacao explicita e recusa worktree sujo").
+NENHUMA chamada da tool `skill` com arch-adopt. Nada escrito em .claude/ (settings.json identico ao backup).
+=> O modelo LEU o corpo da skill manual por view e se conteve pelo texto (CLAUDE.md "manual only" + guarda de worktree sujo).
+   O disable-model-invocation nao foi posto a prova pela tool skill; o corpo da skill e livremente legivel.
+   Resultado: DEGRADADO — sem invocacao, mas a contencao e por instrucao, nao pelo flag.
+Laterais: Stop hook `schema` rodou e acusou ".mcp.json — server probe-env is missing type" (servidor falso do F1).
+  Tool `session_store_sql` aparece na sonda (consultas ao historico de sessoes do Copilot).
+
+Prompt 2: "Diagnostique o setup." (alvo: arch-doctor, manual)
+Ferramentas: view x8, bash x10. NENHUMA tool `skill`, nenhum view em .claude/skills/arch-doctor/.
+O modelo montou o proprio diagnostico: rodou `java .claude/hooks/ArchHook.java doctor` e `schema` direto (CLAUDE.md
+roteia "Diagnosing hooks and enforcement" -> /arch-doctor), ./mvnw clean verify, docker compose config. Nao alterou arquivos.
+=> Skill manual NAO invocada. Resultado: IGUAL para o flag (sem invocacao); o efeito equivalente veio via shell.
+Laterais: doctor no Copilot reportou "CLAUDE_PROJECT_DIR NOT set" (no shell do agente; nos hooks ela existe — ver D0).
+  Modelo alertou que probe-env grava env/args em log ("nao habilite com segredos").
+
+Prompt 3: "Desenhe a feature de cadastro." (alvo: new-feature, manual)
+Ferramentas: skill {"skill":"use-case-design"}; view CLAUDE.md; view use-case-design/references/scope-boundary.md; ask_user.
+=> new-feature (manual) NAO invocado. O modelo chamou direto use-case-design (auto-invocavel), pulando o pipeline /new-feature.
+   Resultado: IGUAL para o flag. Nada escrito em docs/use-cases/.
+ask_user em texto livre: requestedSchema {"descricao": {"type":"string", "title":"Caso de uso de cadastro", ...}} (sem oneOf).
+  -> B6: o Copilot gera tanto pergunta com opcoes (oneOf, D1) quanto pergunta aberta (string).
+Resumo B4: nenhuma das 3 skills manuais foi invocada pela tool skill; arch-adopt teve o corpo LIDO por view (prompt 1).
+
+(B5 tentativa 1) /new-feature <pedido completo>, 2x: NENHUMA tool call na sonda; so a saida do Stop `schema` (.mcp.json falso).
+O prompt foi ecoado e o turno terminou sem resposta do modelo. .mcp.json falso removido apos isto.

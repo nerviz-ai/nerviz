@@ -1,0 +1,14 @@
+G1 — build da copia probe-single-shellform — 2026-10-16 — rodado no Claude Code (o build nao depende do autor)
+Alvo: src/main/java/com/example/probesingle/domain/model/Probe.java (forbidden: org.springframework.)
+Build: sem ArchUnit no pom; Checkstyle + Spotless + JaCoCo. CI job "architectural boundaries" = `java .claude/hooks/ArchHook.java doctor gate`.
+Desvio do roteiro: verify com -DskipITs (ITs nao testam boundary).
+
+Variante import (`import org.springframework.stereotype.Component;`):
+  doctor gate        -> exit 1, "Probe.java → org.springframework. (forbidden in module ...domain/model)"
+  ./mvnw verify      -> exit 0 (PASSA — o build Maven nao recusa)
+  => recusado so pelo CI "architectural boundaries".
+Variante FQN (`@org.springframework.stereotype.Component`, sem import):
+  doctor gate        -> exit 0 (PASSA)
+  ./mvnw verify      -> exit 0 (PASSA)
+  => nenhuma camada recusa: hooks, doctor gate, CI e build. Lacuna do projeto (ver D1-replay). Candidato a /report-issue.
+Resultado G1: igual em toda superficie (o build nao sabe o autor) — mas so a variante import e pega, e so no CI.

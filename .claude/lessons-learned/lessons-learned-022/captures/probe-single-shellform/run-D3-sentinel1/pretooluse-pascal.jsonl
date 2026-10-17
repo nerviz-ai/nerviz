@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"276b9515-d0b0-4bf0-8826-0c002bb90d3e","timestamp":"2026-10-16T19:55:02.111Z","cwd":"~/Documents/GitHub/probe-single-shellform","tool_name":"Bash","tool_input":{"command":"echo PROBE_DENY","description":"Print probe marker"}}

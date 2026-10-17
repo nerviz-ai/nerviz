@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"8a144599-e544-4baf-adde-e55c5baa3532","timestamp":"2026-10-16T20:10:47.213Z","cwd":"~/Documents/GitHub/probe-single-shellform","tool_name":"Bash","tool_input":{"command":"wc -l .probe/e1.env","description":"Count lines in .probe/e1.env"}}

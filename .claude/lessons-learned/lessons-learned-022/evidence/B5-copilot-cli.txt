@@ -1,0 +1,35 @@
+B5 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+Tentativa 1 (com .mcp.json falso): /new-feature <pedido> 2x -> prompt ecoado, nenhuma tool call, so Stop `schema`. (registrado tambem em B4)
+Tentativa 2 (.mcp.json removido): /new-feature <pedido> 3x -> modelo responde "Este skill e manual e nao pode ser iniciado pelo
+  modelo. Digite: /new-feature ..." (loop). Nenhuma tool call na sonda: o slash NAO foi interceptado; texto foi ao modelo como mensagem.
+Descartado: model: opus (use-case-design tem e funciona); disable-model-invocation sozinho (arch-doctor tem e funciona).
+Restam: tamanho (new-feature/SKILL.md = 62.673 bytes, o maior; proximo 45 KB) ou manual + argumento.
+/skills info new-feature: registrada, enabled, scope Repository, userInvocable: true, commandName "new-feature",
+  argumentHint lido. Nenhum campo para disable-model-invocation nos dados do Copilot (B4: o flag nao e representado;
+  capabilities.invokesModel: true).
+
+Tentativa 3 (Autopilot, mesma sessao): /new-feature abre caixa de argumento (argumentHint); texto vai ao modelo como mensagem
+  "/new-feature <texto>"; modelo recusa ("manual, nao pode ser executado pelo modelo") e encerra com tool task_complete.
+Tentativa 4 (sessao nova): `/new-feature` sozinho -> resposta imediata "This skill is manual-only here. Type /new-feature to run it."
+  Depois, texto + "Eu, o usuario, digitei /new-feature: invoque a skill agora" -> modelo so ecoa "/new-feature <texto>" como texto.
+  Sonda: NENHUMA tool call (nem skill) na sessao nova.
+=> /new-feature NAO inicia no Copilot CLI. Resultado: AUSENTE.
+   Causa nao isolada: runtime vs modelo. Contraste: /arch-doctor (tambem disable-model-invocation: true) inicia.
+   Hipotese conflito de instrucao (CLAUDE.md "the model can't invoke it") nao confirmada: o pedido explicito do usuario nao destravou.
+
+Teste B5-flag: disable-model-invocation: true REMOVIDO de .claude/skills/new-feature/SKILL.md na copia (restaurar do backup B4 depois).
+
+Tentativa 5 (SEM disable-model-invocation, sessao 9b56d272): /new-feature <pedido>
+  1a e 2a digitacao: modelo ainda responde "Digite: /new-feature ..."; 3a: INICIA.
+  Sonda: skill{new-feature} -> view CLAUDE.md, entry-guardrail.md -> 3 bash do guardrail (git status, pom, ls-tree)
+         -> skill{use-case-design} (ENCADEADO pela tool skill) -> view scope-boundary, template, 7 normas -> ask_user (worktree sujo)
+         -> segue lendo api-rest.md, value-objects.md, personal-data.md, blueprint.
+=> Com o flag removido o pipeline inicia e ENCADEIA skills pela tool `skill` (o roteiro supunha que nao existia tool Skill).
+=> Com o flag, nao inicia: no Copilot CLI disable-model-invocation: true BLOQUEIA o proprio usuario em /new-feature
+   (o runtime/modelo trata o slash como invocacao pelo modelo). /arch-doctor com o flag iniciou — diferenca nao explicada
+   (sem argumento? tamanho?). Resultado B5: AUSENTE com o flag; IGUAL no encadeamento sem o flag.
+Ressalva: mesmo sem o flag, as 2 primeiras tentativas recusaram (contexto da sessao + CLAUDE.md "manual only").
+Restaurado: disable-model-invocation: true de volta (git checkout). docs/use-cases: o Copilot ESCREVEU UC-901-register-customer/00-use-case.md (151 linhas, formato do template:
+  tabela Identifier/Trigger/Access/.../Active blueprint + secoes Trigger, Flow, Components, Invariants, Errors, Expected tests...;
+  numero UC-901 correto apos UC-900). Copiado para evidencias/B5-UC-901-00-use-case.md e removido da copia.
+  => B5 escrita do 00-use-case.md: IGUAL (caminho, numeracao e formato).

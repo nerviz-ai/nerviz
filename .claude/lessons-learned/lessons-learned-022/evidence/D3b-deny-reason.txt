@@ -1,0 +1,72 @@
+D3b — motivo da negacao — Claude Code 2.1.296 / Copilot CLI 1.0.98 (modelo gpt-6-luna) — 2026-10-17
+Roteiro: probe-deny-reason/roteiro.pt-br.md. Diretorio vazio ~/Documents/GitHub/probe-deny-reason, so o sentinela.
+Capturas: captures/probe-deny-reason/ (resumo.txt e a tabela crua).
+
+Execucao: as duas rodadas foram disparadas de dentro de uma sessao Claude Code (Apple_Terminal), com
+CLAUDE*, VSCODE* e COPILOT_DEBUG_NONCE removidos do ambiente antes de cada claude -p / copilot -p.
+Conferido: o shell da rodada ficava so com TERM_PROGRAM*. Os CLAUDE_* do deny-probe.cc.log vem do
+claude -p filho. Ressalva: CLAUDE_CODE_CHILD_SESSION e CLAUDE_CODE_SESSION_ATTENDED podem diferir
+num terminal comum.
+Hooks carregados no -p do Copilot: 12/12 linhas event=pre no deny-probe.cop.log; debug log:
+"Loading repo hooks in prompt mode (folder is trusted or opt-in set)". Pasta confiavel pelo pai
+(~/Documents em trustedFolders), sem prompt de confianca.
+
+"Viu" = marcador no texto que o runtime entregou ao modelo (tool_result no Claude Code,
+tool.execution_complete no Copilot) E citado pelo modelo na resposta.
+
+Variante        | Claude Code: negou? / viu                     | Copilot CLI: negou? / viu
+----------------|-----------------------------------------------|-----------------------------------------------
+PRE_E2_STDERR   | sim / M_STDERR                                | sim / nada ("hook exited with code 2")
+PRE_E2_TEXT     | sim / M_STDERR                                | sim / nada
+PRE_E2_FLAT     | sim / M_STDERR (plano ignorado)               | sim / M_FLAT_REASON
+PRE_E2_NESTED   | sim / M_NESTED_REASON (stderr NAO usado)      | sim / nada
+PRE_E2_BOTH     | sim / M_NESTED_REASON                         | sim / nada (plano presente, descartado)
+PRE_E0_FLAT     | NAO, executou / nada                          | sim / M_FLAT_REASON
+PRE_E0_NESTED   | sim / M_NESTED_REASON                         | sim / M_NESTED_REASON
+PRE_E0_BOTH     | sim / M_NESTED_REASON                         | sim / M_NESTED_REASON (aninhado vence)
+PRE_E0_LEGACY   | sim / M_LEGACY_REASON                         | NAO, executou / nada
+POST_E2_STDERR  | executou / M_STDERR                           | executou / nada (stderr vira session.warning, so tela)
+POST_E2_JSON    | executou / M_LEGACY_REASON + M_ADDCTX_NESTED  | executou / M_LEGACY_REASON ("Tool result blocked: ...")
+POST_E0_JSON    | executou / M_LEGACY_REASON + M_ADDCTX_NESTED  | executou / M_LEGACY_REASON ("Tool result blocked: ...")
+
+Textos exatos entregues ao modelo:
+  CC  PRE_E2_STDERR: PreToolUse:Bash hook error: [java "${CLAUDE_PROJECT_DIR}/.probe/DenyReasonProbe.java" pre]: probe E2_STDERR: M_STDERR. ...
+  CC  PRE_E2_NESTED: PreToolUse:Bash hook error: probe E2_NESTED: M_NESTED_REASON. ...
+  CC  POST_*_JSON:   PostToolUse:Bash hook blocking error from command: "java "${CLAUDE_PROJECT_DIR}/.probe/DenyReasonProbe.java" post": probe E2_JSON: M_LEGACY_REASON. ...
+                     PostToolUse:Bash hook additional context: probe E2_JSON: M_ADDCTX_NESTED. ...
+  COP PRE_E2_FLAT:   Denied by preToolUse hook: probe E2_FLAT: M_FLAT_REASON. ...
+  COP PRE_E2_*:      Denied by preToolUse hook: hook exited with code 2
+  COP POST_*_JSON:   Tool result blocked: probe E2_JSON: M_LEGACY_REASON. ...   (success:false, a saida do comando some)
+
+Contra as hipoteses do roteiro:
+- CC PRE_E2_*: hipotese "stdout ignorado no exit 2" FALSA para o aninhado. Com hookSpecificOutput
+  valido no stdout, o Claude Code usa o permissionDecisionReason e descarta o stderr. JSON plano e
+  texto puro sao ignorados, e vale o stderr.
+- CC PRE_E0_FLAT executa: confirmado. PRE_E0_NESTED / BOTH / LEGACY negam: confirmado.
+- COP PRE_E0_FLAT nega com o motivo: confirmado. PRE_E0_NESTED nega com o motivo: o Copilot le a forma
+  do Claude Code. BOTH: o aninhado vence. LEGACY nao nega no Copilot.
+- COP exit 2: so o JSON plano sozinho leva o motivo. Com hookSpecificOutput presente no exit 2
+  (NESTED, BOTH), volta a mensagem generica, e o plano do BOTH tambem se perde
+  (debug log mostra o stdout lido).
+- CC POST_*_JSON: hipotese "so no exit 0" FALSA. No exit 2, o JSON tambem chega e o stderr nao.
+- COP POST: additionalContext (plano e aninhado) nao chega ao modelo, so ao debug log. decision:block
+  chega, mas SUBSTITUI o resultado da tool (o comando ja rodou). O stderr do exit 2 vai para a tela
+  (session.warning), e o modelo nao ve: "Nao apareceu nenhuma mensagem adicional de hook".
+
+Sinal de runtime no ambiente do hook (nomes):
+  CC : CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_PROJECT_DIR, ... (sem COPILOT_*)
+  COP: COPILOT_CLI, COPILOT_CLI_BINARY_VERSION, COPILOT_CLI_RESOLVED_DIST_DIR, COPILOT_PROJECT_DIR,
+       CLAUDE_PROJECT_DIR (sem CLAUDECODE)
+
+Decisao (roteiro § "Como o resultado decide o desenho"): caso 1.
+  PRE_E2_FLAT mostra o motivo no Copilot, e o Claude Code segue no stderr com o mesmo stdout.
+  guard: mantem exit 2 + stderr e passa a escrever no stdout SO o objeto plano
+  {"permissionDecision":"deny","permissionDecisionReason":"<motivo>"}.
+  Nunca juntar hookSpecificOutput no exit 2: o Copilot perde o motivo (PRE_E2_BOTH) e o Claude
+  Code troca o stderr pelo motivo aninhado.
+  Alternativa medida, nao recomendada: exit 0 + objeto BOTH nega com motivo nos dois, mas falha
+  aberta se o JSON quebrar.
+post (check/format/schema): nenhum canal leva o motivo ao modelo do Copilot sem custo. So
+  {"decision":"block","reason":...} chega, e ele esconde a saida da tool. No Claude Code, o mesmo
+  objeto chega tambem. Volta ao designer: aceitar o "Tool result blocked" no Copilot, ou mover o aviso
+  para o Stop (§ 4).
