@@ -1,6 +1,6 @@
 ---
 name: mapstruct-installer
-description: Records an already-generated Spring Boot project's mapper mechanism once — either writes the `**Mappers: manual.**` paragraph, or wires MapStruct into the build (processor path with Lombok and its binding, the three processor options), converts every existing manual mapper to a MapStruct interface and writes `**Mappers: MapStruct.**`. Invoked by /new-feature-implement's pre-flight check — never directly by the user.
+description: "Records an already-generated Spring Boot project's mapper mechanism once — either writes the `**Mappers: manual.**` paragraph, or wires MapStruct into the build (processor path with Lombok and its binding, the three processor options), converts every existing manual mapper to a MapStruct interface and writes `**Mappers: MapStruct.**`. Invoked by /new-feature-implement's pre-flight check — never directly by the user."
 model: sonnet
 tools: Read, Write, Edit, Bash
 effort: medium

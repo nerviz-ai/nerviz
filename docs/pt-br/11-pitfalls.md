@@ -119,6 +119,13 @@ skill e aceita um campo inventado, sempre com `✔ Validation passed`. Não olha
 `.claude/agents/`, `.claude/rules/` nem `.claude/settings.json`. Pega YAML malformado, e nada
 mais. Quem valida campos é `java .claude/hooks/ArchHook.java schema`.
 
+**O parser de frontmatter do Claude Code perdoa o que um parser YAML estrito recusa.** Uma
+`description` sem aspas com `: ` no meio carrega no Claude Code e o GitHub Copilot descarta o
+arquivo inteiro com `mapping values are not allowed in this context`: foi assim que o
+`mapstruct-installer` sumiu do Copilot (lessons-learned-022 § 9). Valor com `: `, crase ou `@`
+no início vai entre aspas duplas, ou dobrado com `>`. O `schema` recusa por arquivo e linha
+(`@.claude/decisions/0174-strict-frontmatter-qualified-names-and-the-local-build.md`).
+
 ### Hooks
 
 **`.claude/settings.json` só é lido no início da sessão.** Editar hooks no meio da sessão

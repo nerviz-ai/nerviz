@@ -116,6 +116,13 @@ does not look at `.claude/agents/`, `.claude/rules/`, or `.claude/settings.json`
 malformed YAML, nothing else. What validates fields is
 `java .claude/hooks/ArchHook.java schema`.
 
+**Claude Code's frontmatter parser forgives what a strict YAML parser refuses.** An unquoted
+`description` holding `: ` loads in Claude Code, and GitHub Copilot drops the whole file with
+`mapping values are not allowed in this context` — how `mapstruct-installer` vanished under
+Copilot (lessons-learned-022 § 9). A value holding `: `, or starting with a backtick or `@`, goes
+in double quotes or folded with `>`. `schema` refuses it by file and line
+(`@.claude/decisions/0174-strict-frontmatter-qualified-names-and-the-local-build.md`).
+
 ### Hooks
 
 **`.claude/settings.json` is only read at session startup.** Editing hooks mid-session has no

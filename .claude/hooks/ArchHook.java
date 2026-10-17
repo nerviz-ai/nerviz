@@ -9,7 +9,7 @@
 //
 // Execution: hooks launch the precompiled jar, java -jar .claude/hooks/ArchHook.jar <mode>;
 // a person may run the source directly, java ArchHook.java <mode> (JDK 21+).
-//   check   PostToolUse — forbidden imports + incremental compile     (blocks)
+//   check   PostToolUse — forbidden imports and names + incremental compile (blocks)
 //   format  PostToolUse — spotless on the touched module              (never blocks)
 //   tests   Stop        — verify of the changed modules, deferred while a writer
 //                         subagent runs; agent-start/agent-end at SubagentStart/Stop
@@ -133,7 +133,7 @@ public class ArchHook {
                     Files.readAllLines(map, StandardCharsets.UTF_8));
             if (!viol.isEmpty()) {
                 err("❌ Architectural boundary violation — " + rel);
-                err("Forbidden imports found:");
+                err("Forbidden imports or qualified names found:");
                 viol.forEach(v -> err("  " + v));
                 err("");
                 err("The responsibility is in the wrong module. Move the code, not the rule.");
@@ -169,9 +169,15 @@ public class ArchHook {
      * owner of the match: {@code check} runs it on the file just edited, {@code doctor}'s
      * `Boundary violations` line on every file of the project, so the edit-time block and the
      * CI gate can never disagree on what a violation is.
+     *
+     * <p>A prefix named in code with no {@code import} — {@code @org.springframework.stereotype
+     * .Component} — is the same dependency, and is reported as {@code qualified name}: matched
+     * over {@link #codeOnly}, so a comment, a Javadoc link or a string naming the prefix is not
+     * one. Design: `.claude/decisions/0174-strict-frontmatter-qualified-names-and-the-local-build.md`.
      */
     static List<String> forbiddenImports(String rel, String src, List<String> mapLines) {
         List<String> viol = new ArrayList<>();
+        String code = null;                          // stripped once, only for a file some rule covers
         for (String line : mapLines) {
             line = line.strip();
             if (line.isEmpty() || line.startsWith("#")) continue;
@@ -184,9 +190,54 @@ public class ArchHook {
                     "(?m)^\\s*import\\s+(static\\s+)?" + Pattern.quote(prefix));
             if (p.matcher(src).find()) {
                 viol.add(prefix + "  (forbidden in module '" + module + "')");
+                continue;
+            }
+            if (code == null) code = codeOnly(src);
+            if (Pattern.compile("(?<![\\w$.])" + Pattern.quote(prefix)).matcher(code).find()) {
+                viol.add(prefix + "  (qualified name, forbidden in module '" + module + "')");
             }
         }
         return viol;
+    }
+
+    /**
+     * A Java source with every comment, string, char and text-block literal, and the
+     * {@code package} and {@code import} statements, blanked: what is left names only what the
+     * code itself depends on. A lexer, not a parser — enough to tell a qualified name from a
+     * mention of one.
+     */
+    static String codeOnly(String src) {
+        StringBuilder b = new StringBuilder(src.length());
+        int n = src.length();
+        int i = 0;
+        while (i < n) {
+            char c = src.charAt(i);
+            int end;
+            if (c == '/' && i + 1 < n && src.charAt(i + 1) == '/') {
+                end = src.indexOf('\n', i);
+                end = end < 0 ? n : end;
+            } else if (c == '/' && i + 1 < n && src.charAt(i + 1) == '*') {
+                end = src.indexOf("*/", i + 2);
+                end = end < 0 ? n : end + 2;
+            } else if (src.startsWith("\"\"\"", i)) {
+                int j = i + 3;
+                while (j < n && !src.startsWith("\"\"\"", j)) j += src.charAt(j) == '\\' ? 2 : 1;
+                end = Math.min(n, j + 3);
+            } else if (c == '"' || c == '\'') {
+                int j = i + 1;
+                while (j < n && src.charAt(j) != c && src.charAt(j) != '\n') {
+                    j += src.charAt(j) == '\\' ? 2 : 1;
+                }
+                end = Math.min(n, j + 1);
+            } else {
+                b.append(c);
+                i++;
+                continue;
+            }
+            b.append(' ');
+            i = end;
+        }
+        return b.toString().replaceAll("(?m)^\\s*(?:package|import)\\b[^;]*;", " ");
     }
 
     // ── format ───────────────────────────────────────────────────────────────
@@ -837,7 +888,7 @@ public class ArchHook {
         long badFiles = hits.stream().map(h -> h.substring(0, h.indexOf(" → "))).distinct().count();
         report("Boundary violations", hits.isEmpty(),
                 swept + " file(s) swept against " + rules + " rule(s)",
-                badFiles + " file(s) import what their module forbids — move the code, not the rule"
+                badFiles + " file(s) depend on what their module forbids — move the code, not the rule"
                         + " (.claude/rules/architecture-ddd.md)");
         for (String h : hits.stream().limit(8).collect(Collectors.toList())) err("    " + h);
         if (hits.size() > 8) err("    … and " + (hits.size() - 8) + " more");
@@ -4669,6 +4720,10 @@ public class ArchHook {
                     + " (type '" + type + "')");
             return;
         }
+        for (String d : strictYamlDefects(content)) {
+            errors.add("  " + rel + ":" + d + " — a strict YAML parser refuses this frontmatter,"
+                    + " and GitHub Copilot drops the file; Claude Code's lenient one reads it");
+        }
 
         for (String req : asStrList(t.get("required"))) {
             if (!fm.containsKey(req)) {
@@ -4970,6 +5025,216 @@ public class ArchHook {
             fm.put(raw.substring(0, c).strip(), v);
         }
         return null;                                  // block opened and never closed
+    }
+
+    static final Pattern YAML_KEY = Pattern.compile("([A-Za-z0-9_][A-Za-z0-9_.-]*)[ \\t]*:(?:[ \\t]+(.*))?");
+    static final Pattern YAML_BLOCK_HEADER =
+            Pattern.compile("[|>](?:[+-]?[1-9]?|[1-9][+-])(?:[ \\t]+#.*)?");
+    static final String YAML_ESCAPES = "0abtnvfre \"/\\N_LP\t";
+
+    /**
+     * Where the frontmatter leaves the YAML a strict parser accepts, as {@code <line> — <why>},
+     * the line counted in the file. {@link #frontmatter} reads names only and Claude Code's own
+     * parser forgives, so a `description` holding {@code ": "} unquoted loads there and is
+     * dropped by GitHub Copilot's — `mapping values are not allowed in this context`. Checked: a
+     * tab in indentation, a key at an indentation no open mapping has, a key twice in one
+     * mapping, a plain value (or its continuation line) holding {@code ": "} or ending in
+     * {@code :}, a plain value starting with a reserved or structural indicator, a quoted value
+     * not closed on its line or followed by anything but a comment, an unknown escape in a
+     * double-quoted one, a malformed block-scalar header, a flow collection not closed on its
+     * line. What it reads is a subset of YAML: anchors, aliases, tags, complex keys and quoted
+     * values spanning lines are refused as outside it — the tree has none. Invoked by
+     * {@code schema} through {@link #checkFrontmatter}, on every Pre/PostToolUse of an extension
+     * file and in CI. The closest rejected form, requiring only {@code description} to be quoted,
+     * covers one field of the many a colon breaks. Design:
+     * `.claude/decisions/0174-strict-frontmatter-qualified-names-and-the-local-build.md`.
+     */
+    static List<String> strictYamlDefects(String content) {
+        List<String> lines = content.lines().collect(Collectors.toList());
+        List<String> out = new ArrayList<>();
+        int start = 0;
+        while (start < lines.size() && lines.get(start).isBlank()) start++;
+        List<Integer> indents = new ArrayList<>();          // open mappings, innermost last
+        List<Set<String>> keys = new ArrayList<>();
+        int open = -1;        // indent of the `key:` (or `-`) whose nested block comes next
+        int block = -1;       // indent owning a `|`/`>` block scalar being skipped
+        int plain = -1;       // indent owning a plain value whose continuation lines follow
+        for (int i = start + 1; i < lines.size(); i++) {
+            String raw = lines.get(i);
+            if (raw.strip().equals("---")) break;
+            String at = " line " + (i + 1) + " — ";
+            int ind = 0;
+            while (ind < raw.length() && (raw.charAt(ind) == ' ' || raw.charAt(ind) == '\t')) {
+                if (raw.charAt(ind) == '\t' && !raw.isBlank()) {
+                    out.add(at + "a tab in the indentation; YAML indents with spaces only");
+                    return out;
+                }
+                ind++;
+            }
+            if (raw.isBlank()) continue;
+            if (block >= 0) {
+                if (ind > block) continue;
+                block = -1;
+            }
+            String text = raw.substring(ind);
+            if (text.startsWith("#")) continue;
+            if (plain >= 0) {
+                if (ind > plain && open < 0) {
+                    String why = plainDefect(cutComment(text), true);
+                    if (why != null) out.add(at + why + " (continuation of the value above)");
+                    continue;
+                }
+                plain = -1;
+            }
+            int col = ind;
+            while (text.startsWith("- ") || text.equals("-")) {   // sequence entries, `- - x`
+                int skip = text.equals("-") ? 1 : 2;
+                while (skip < text.length() && text.charAt(skip) == ' ') skip++;
+                text = text.substring(Math.min(skip, text.length()));
+                col += skip;
+                open = -1;
+                if (text.isEmpty()) { open = col - skip; break; }
+                Matcher km = YAML_KEY.matcher(text);
+                if (km.matches()) {                       // `- key: v` opens a mapping per entry
+                    while (!indents.isEmpty() && indents.get(indents.size() - 1) >= col) {
+                        indents.remove(indents.size() - 1);
+                        keys.remove(keys.size() - 1);
+                    }
+                    indents.add(col);
+                    keys.add(new HashSet<>());
+                    open = -2;                            // the key below lands in that mapping
+                }
+                break;
+            }
+            if (text.isEmpty()) continue;
+            Matcher km = YAML_KEY.matcher(text);
+            if (km.matches()) {
+                if (open == -2) {
+                    open = -1;
+                } else if (open >= 0 && col > open) {
+                    indents.add(col);
+                    keys.add(new HashSet<>());
+                    open = -1;
+                } else {
+                    open = -1;
+                    while (!indents.isEmpty() && indents.get(indents.size() - 1) > col) {
+                        indents.remove(indents.size() - 1);
+                        keys.remove(keys.size() - 1);
+                    }
+                    if (indents.isEmpty() && col == 0) {
+                        indents.add(0);
+                        keys.add(new HashSet<>());
+                    } else if (indents.isEmpty() || indents.get(indents.size() - 1) != col) {
+                        out.add(at + "the key `" + km.group(1) + "` is indented to a column no"
+                                + " open mapping has");
+                        continue;
+                    }
+                }
+                if (!keys.get(keys.size() - 1).add(km.group(1))) {
+                    out.add(at + "the key `" + km.group(1) + "` appears twice in one mapping");
+                }
+                String v = km.group(2) == null ? "" : km.group(2).strip();
+                if (v.isEmpty() || v.startsWith("#")) { open = col; continue; }
+                String why = valueDefect(v);
+                if (why != null) out.add(at + "`" + km.group(1) + "` — " + why);
+                if (v.startsWith("|") || v.startsWith(">")) block = col;
+                else if (!"\"'[{".contains(v.substring(0, 1))) plain = col;
+                continue;
+            }
+            if (col == ind) {                              // neither `key:` nor `- entry`
+                out.add(at + "a line that is neither `key: value` nor a `- ` list entry");
+                continue;
+            }
+            String why = valueDefect(text);                // a scalar list entry
+            if (why != null) out.add(at + "list entry — " + why);
+            if (text.startsWith("|") || text.startsWith(">")) block = ind;
+            else if (!"\"'[{".contains(text.substring(0, 1))) plain = ind;
+        }
+        return out;
+    }
+
+    /** Why one value, as written after `key: ` or `- `, is not YAML a strict parser reads, or null. */
+    static String valueDefect(String v) {
+        char c = v.charAt(0);
+        if (c == '"' || c == '\'') {
+            int j = 1;
+            while (j < v.length()) {
+                char x = v.charAt(j);
+                if (c == '"' && x == '\\') {
+                    if (j + 1 >= v.length()) return "a `\\` at the end of a double-quoted value";
+                    char e = v.charAt(j + 1);
+                    int hex = e == 'x' ? 2 : e == 'u' ? 4 : e == 'U' ? 8 : 0;
+                    if (hex == 0 && YAML_ESCAPES.indexOf(e) < 0) {
+                        return "`\\" + e + "` is no YAML escape — write `\\\\` for a backslash,"
+                                + " or quote the value with `'`";
+                    }
+                    j += 2 + hex;
+                    continue;
+                }
+                if (x == c) {
+                    if (c == '\'' && j + 1 < v.length() && v.charAt(j + 1) == '\'') { j += 2; continue; }
+                    String rest = v.substring(j + 1);
+                    if (rest.isBlank() || rest.matches("[ \\t]+#.*")) return null;
+                    return "text after the closing quote — quote the whole value";
+                }
+                j++;
+            }
+            return "a quoted value not closed on its line — close it there, or use a `>` block";
+        }
+        if (c == '|' || c == '>') {
+            return YAML_BLOCK_HEADER.matcher(v).matches() ? null
+                    : "`" + v + "` is no block-scalar header (`|`, `>`, `>-`, `|+` …)";
+        }
+        if (c == '[' || c == '{') {
+            char close = c == '[' ? ']' : '}';
+            int depth = 0;
+            char q = 0;
+            for (int j = 0; j < v.length(); j++) {
+                char x = v.charAt(j);
+                if (q != 0) { if (x == q) q = 0; continue; }
+                if (x == '"' || x == '\'') q = x;
+                else if (x == '[' || x == '{') depth++;
+                else if (x == ']' || x == '}') {
+                    if (--depth == 0) {
+                        if (x != close) return "a flow collection closed with the wrong bracket";
+                        String rest = v.substring(j + 1);
+                        return rest.isBlank() || rest.matches("[ \\t]+#.*") ? null
+                                : "text after the closing `" + close + "`";
+                    }
+                }
+            }
+            return "a flow collection not closed on its line";
+        }
+        return plainDefect(cutComment(v), false);
+    }
+
+    /** Why an unquoted value is not a YAML plain scalar, or null. */
+    static String plainDefect(String v, boolean continuation) {
+        if (v.isEmpty()) return null;
+        char c = v.charAt(0);
+        if (!continuation) {
+            if (c == '`') return "a backtick cannot start an unquoted value — quote the value";
+            if (c == '@') return "`@` cannot start an unquoted value — quote the value";
+            if ("&*!%".indexOf(c) >= 0) {
+                return "anchors, aliases, tags and directives (`" + c + "`) are outside what"
+                        + " `schema` reads — quote the value";
+            }
+            if (",]}".indexOf(c) >= 0) return "`" + c + "` cannot start an unquoted value — quote the value";
+            if ((c == '?' || c == ':' || c == '-') && (v.length() == 1 || v.charAt(1) == ' ')) {
+                return "`" + c + " ` cannot start an unquoted value — quote the value";
+            }
+        }
+        if (v.contains(": ") || v.endsWith(":")) {
+            return "`: ` inside an unquoted value (\"mapping values are not allowed in this"
+                    + " context\") — quote the value with `\"`, or fold it with `>`";
+        }
+        return null;
+    }
+
+    /** An unquoted value up to its ` #` comment, stripped. */
+    static String cutComment(String v) {
+        Matcher m = Pattern.compile("[ \\t]#").matcher(v);
+        return (m.find() ? v.substring(0, m.start()) : v).strip();
     }
 
     /** The allowed field that only differs in naming convention, or null. */

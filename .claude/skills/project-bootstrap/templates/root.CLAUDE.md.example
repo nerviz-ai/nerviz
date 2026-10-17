@@ -78,9 +78,11 @@ copy step isn't updated alongside it.
 ## Under another agent
 
 This file is also read by GitHub Copilot, and `AGENTS.md` points every other agent here.
-**Outside Claude Code, only the build is guaranteed**: the CI job `architectural boundaries`
-fails on an import `.claude/forbidden-imports.txt` forbids, and Checkstyle, the JaCoCo gate and — once
-`test-architect` installed it — the ArchUnit test refuse a violation whoever wrote it. The rest
+**Outside Claude Code, only CI is guaranteed**: the CI job `architectural boundaries` runs
+`java .claude/hooks/ArchHook.java doctor gate`, which fails on an import or a qualified name
+`.claude/forbidden-imports.txt` forbids, whoever wrote it. Run it before a push: the local build
+runs Checkstyle and the JaCoCo gate, but refuses a forbidden dependency only once `test-architect`
+installed the ArchUnit test. The rest
 of what `.claude/` enforces runs as Claude Code hooks and permissions — the same forbidden
 imports blocked at edit time, each skill's write territory, approved specs under `docs/use-cases/`
 frozen, the `deny` list on secrets and force pushes, the audit trail, the pattern catalog
