@@ -48,9 +48,25 @@ public class ArchHook {
     static final boolean WINDOWS =
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 
-    /** Windows consoles default to cp1252: forcing UTF-8 avoids broken accented characters. */
-    static final PrintStream ERR = new PrintStream(
-            new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+    /** Everything {@link #ERR} wrote in this run — the reason {@link #blockExit()} hands on stdout. */
+    static final ByteArrayOutputStream ERR_TEXT = new ByteArrayOutputStream();
+
+    /**
+     * Windows consoles default to cp1252: forcing UTF-8 avoids broken accented characters. Every
+     * byte also lands in {@link #ERR_TEXT}, so a refusal can repeat its stderr on stdout.
+     */
+    static final PrintStream ERR = new PrintStream(new OutputStream() {
+        final OutputStream fd = new FileOutputStream(FileDescriptor.err);
+        @Override public void write(int b) throws IOException { fd.write(b); ERR_TEXT.write(b); }
+        @Override public void write(byte[] b, int off, int len) throws IOException {
+            fd.write(b, off, len);
+            ERR_TEXT.write(b, off, len);
+        }
+        @Override public void flush() throws IOException { fd.flush(); }
+    }, true, StandardCharsets.UTF_8);
+
+    /** {@code hook_event_name} of the payload this run was handed; null outside a hook. */
+    static String HOOK_EVENT;
 
     public static void main(String[] args) throws Exception {
         String mode = args.length > 0 ? args[0] : "check";
@@ -73,10 +89,12 @@ public class ArchHook {
             case "compose" -> args.length > 1 && "gate".equals(args[1]) ? readAll(System.in) : "";
             default -> "";
         };
+        HOOK_EVENT = hookEvent(stdin);
         try {
             switch (mode) {
-                case "check"  -> { if (args.length > 1) checkPath(args[1]); else check(filePath(stdin)); }
-                case "format" -> format(filePath(stdin));
+                case "check"  -> { if (args.length > 1) checkPath(args[1]);
+                                   else for (String f : editedFiles(stdin)) check(f); }
+                case "format" -> { for (String f : editedFiles(stdin)) format(f); }
                 case "tests"  -> tests(args.length > 1 ? args[1] : "stop", stdin);
                 case "schema" -> schema(stdin);
                 case "audit"  -> { if (args.length > 1 && "genesis".equals(args[1])) auditGenesis(args);
@@ -98,6 +116,64 @@ public class ArchHook {
             System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1]) ? 1 : 0);
         }
         System.exit(0);
+    }
+
+    /**
+     * Every refusal exits here: exit 2, the code both runtimes read as a block, after repeating
+     * what this run wrote on stderr as the one stdout object the event's {@code settings.deny_output}
+     * entry in extensions.json names. Under a hook on {@code PreToolUse} or {@code PostToolUse},
+     * the GitHub Copilot CLI drops stderr — the model read only "hook exited with code 2" — and
+     * reads that object; Claude Code ignores the flat {@code PreToolUse} shape at exit 2 and keeps
+     * showing stderr unchanged. An event the map does not name, a run with no payload ({@code
+     * doctor gate}, {@code export}, a person at the terminal) or an unreadable extensions.json
+     * writes nothing on stdout, as before. Never {@code hookSpecificOutput} at exit 2: Copilot then
+     * falls back to its generic line and loses the flat reason too.
+     *
+     * <p>Why this is a mode change and not a new mode: the refusals already exist in every
+     * blocking mode, and only the channel of their reason was missing; a second hook entry per
+     * event would run after the deny, which Copilot skips. Design:
+     * .claude/decisions/0170-deny-reason-on-stdout-for-copilot.md
+     */
+    static void blockExit() {
+        try {
+            String json = denyOutput(HOOK_EVENT, ERR_TEXT.toString(StandardCharsets.UTF_8).strip(),
+                    asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))));
+            if (json != null) {
+                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+                out.println(json);
+            }
+        } catch (Exception ignored) {
+            // The block holds without its stdout twin: the exit code is what denies.
+        }
+        System.exit(2);
+    }
+
+    /** The stdout object for a refusal on {@code event}, or null when the map names none. */
+    static String denyOutput(String event, String reason, Map<String, Object> sch) {
+        if (event == null || reason.isEmpty() || sch == null) return null;
+        Map<String, Object> shape = asMap(get(sch, "settings", "deny_output", event));
+        if (shape == null) return null;
+        Map<String, Object> fields = asMap(shape.get("fields"));
+        String reasonField = asStr(shape.get("reason_field"));
+        if (fields == null || reasonField == null) return null;
+        String prefix = asStr(shape.get("reason_prefix"));
+        StringBuilder b = new StringBuilder("{");
+        for (Map.Entry<String, Object> f : fields.entrySet()) {
+            if (!(f.getValue() instanceof String v)) return null;
+            b.append('"').append(jsonEscape(f.getKey())).append("\":\"").append(jsonEscape(v)).append("\",");
+        }
+        String text = prefix == null || prefix.isEmpty() ? reason : prefix + "\n" + reason;
+        return b.append('"').append(jsonEscape(reasonField)).append("\":\"").append(jsonEscape(text)).append("\"}").toString();
+    }
+
+    /** {@code hook_event_name} of a hook payload; null for an empty or unreadable one. */
+    static String hookEvent(String stdin) {
+        if (stdin == null || stdin.isBlank()) return null;
+        try {
+            return asStr(get(Json.parse(stdin), "hook_event_name"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── check ────────────────────────────────────────────────────────────────
@@ -138,7 +214,7 @@ public class ArchHook {
                 err("");
                 err("The responsibility is in the wrong module. Move the code, not the rule.");
                 err("Rule: .claude/rules/architecture-ddd.md");
-                System.exit(2);
+                blockExit();
             }
         } else {
             err("⚠️  .claude/forbidden-imports.txt does not exist.");
@@ -159,7 +235,7 @@ public class ArchHook {
         if (r.exit != 0) {
             err("❌ Compilation failed in " + module);
             tail(r.out, 30).forEach(ArchHook::err);
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -236,7 +312,7 @@ public class ArchHook {
             err("❌ tests.stop_maven_args is missing or empty in " + SCHEMA_FILE + ".");
             err("   The Stop gate does not guess what to hand Maven. Restore the key —");
             err("   `/arch-adopt` rewrites the file — or run `./mvnw verify` by hand.");
-            System.exit(2);
+            blockExit();
         }
         String list = String.join(",", modules);
         String ran = String.join(" ", goals);
@@ -250,7 +326,7 @@ public class ArchHook {
                     .filter(l -> l.matches(".*(ERROR|FAIL|Tests run).*"))
                     .collect(Collectors.toList());
             tail(relevant.isEmpty() ? r.out : relevant, 25).forEach(ArchHook::err);
-            System.exit(2);
+            blockExit();
         }
         err("✅ " + ran + " green — CI's `./mvnw clean verify` also runs what these flags skip");
     }
@@ -369,7 +445,7 @@ public class ArchHook {
     static void doctor(boolean gate) {
         err("ArchHook doctor");
         err("  OS ................ " + System.getProperty("os.name")
-                + (WINDOWS ? "  (Windows — no shell is used, exec form)" : ""));
+                + (WINDOWS ? "  (Windows — hooks run in Git Bash, or PowerShell without it)" : ""));
         err("  Java .............. " + System.getProperty("java.version"));
         err("  Project root ...... " + ROOT);
         report("CLAUDE_PROJECT_DIR", System.getenv("CLAUDE_PROJECT_DIR") != null,
@@ -491,6 +567,7 @@ public class ArchHook {
             report("Hooks", hookErrs.isEmpty(),
                     entries + " registration(s) across " + evts + " event(s)",
                     hookErrs.size() + " problem(s) — run `java ArchHook.java schema`");
+            doctorHookPath(schRoot);
         } else {
             err("  Hooks .............. no .claude/settings.json — no hook registered");
         }
@@ -990,7 +1067,31 @@ public class ArchHook {
         err("   not exist on " + line + ", so what they generate would not build or would misbehave there.");
         err("   Nothing was written. Migrate the project to Spring Boot " + floor + " or later first,");
         err("   then run this again. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
-        System.exit(2);
+        blockExit();
+    }
+
+    /**
+     * The `Hook path` line: whether this project's absolute path survives the shell every hook
+     * now runs in. Hooks are shell form — `java -jar "${CLAUDE_PROJECT_DIR}/…" <mode>` — so the
+     * runtime substitutes the path into a string a shell then reads, and a `"`, `$` or backtick
+     * in it would split or expand that string: every hook would fail to start. Reported, never
+     * gated — the project cannot fix its path by editing a file, and a gate would only turn red.
+     * The characters are `settings.project_path_unsafe_chars` of extensions.json. Design:
+     * .claude/decisions/0168-hooks-in-shell-form.md
+     */
+    static void doctorHookPath(Map<String, Object> sch) {
+        List<String> unsafe = asStrList(get(sch, "settings", "project_path_unsafe_chars"));
+        if (unsafe.isEmpty()) return;
+        String label = "  Hook path ......... ";
+        String path = ROOT.toString();
+        List<String> found = unsafe.stream().filter(path::contains).toList();
+        if (found.isEmpty()) {
+            err(label + "✅ no shell metacharacter in the project path");
+        } else {
+            err(label + "⚠️  the project path holds " + String.join(" ", found)
+                    + " — hooks run in a shell, so none of them would start. Move the project"
+                    + " to a path without them");
+        }
     }
 
     /** The `Platform` line: the Spring Boot line the build declares against the floor. Reported, never gated. */
@@ -1230,7 +1331,7 @@ public class ArchHook {
             Map<String, Object> hb = hookBuild();
             if (hb == null) {
                 err("❌ No `hook_build` block in " + SCHEMA_FILE + " — nothing says what to build.");
-                System.exit(2);
+                blockExit();
             }
             int feature = (int) num(hb.get("javac_feature"));
             int running = Runtime.version().feature();
@@ -1240,7 +1341,7 @@ public class ArchHook {
                 err("   Another javac emits different bytes for the same source, and");
                 err("   `build --verify` in CI would reject the jar. Run it with a JDK " + feature + ":");
                 err("   <jdk-" + feature + ">/bin/java " + asStr(hb.get("source")) + " build");
-                System.exit(2);
+                blockExit();
             }
             Path jar = ROOT.resolve(asStr(hb.get("jar")));
             byte[] fresh = compileJar(hb);
@@ -1258,7 +1359,7 @@ public class ArchHook {
                         ? "   " + stale
                         : "   It records this source's hash over different classes: built by"
                           + " another javac, or edited by hand. Rebuild it and commit the jar.");
-                System.exit(2);
+                blockExit();
             }
             if (Arrays.equals(fresh, current)) {
                 err("✅ " + relative(jar) + " already up to date.");
@@ -1270,7 +1371,7 @@ public class ArchHook {
         } catch (Exception e) {
             // Not the top-level catch: a build that fails quietly leaves the hooks on the old jar.
             err("❌ ArchHook build failed: " + e);
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -1284,7 +1385,7 @@ public class ArchHook {
         javax.tools.JavaCompiler javac = javax.tools.ToolProvider.getSystemJavaCompiler();
         if (javac == null) {
             err("❌ This runtime has no javac (" + System.getProperty("java.home") + ") — use a JDK, not a JRE.");
-            System.exit(2);
+            blockExit();
         }
         Path src = ROOT.resolve(asStr(hb.get("source")));
         Path out = Files.createTempDirectory("archhook-build");
@@ -1295,7 +1396,7 @@ public class ArchHook {
             if (rc != 0) {
                 err("❌ " + asStr(hb.get("source")) + " does not compile — the jar was left as it was:");
                 err(diag.toString(StandardCharsets.UTF_8));
-                System.exit(2);
+                blockExit();
             }
             Map<String, byte[]> entries = new LinkedHashMap<>();
             entries.put("META-INF/MANIFEST.MF", ("Manifest-Version: 1.0\r\n"
@@ -1510,7 +1611,7 @@ public class ArchHook {
         for (String d : r.detail()) err("   " + d);
         err("Fix docker-compose.yml, or run `java .claude/hooks/ArchHook.java compose` for the");
         err("full report. A service stopped on purpose is still a stopped service here.");
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -2468,15 +2569,15 @@ public class ArchHook {
             else if (a.equals("--blueprint") && i + 1 < args.length) blueprintId = args[++i];
             else if (a.equals("--ref") && i + 1 < args.length) ref = args[++i];
             else if (a.equals("--commit") && i + 1 < args.length) commit = args[++i];
-            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); exportUsage(); System.exit(2); }
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); exportUsage(); blockExit(); }
             else if (dest == null) dest = a;
-            else { err("❌ Only one destination is accepted, got also: " + a); exportUsage(); System.exit(2); }
+            else { err("❌ Only one destination is accepted, got also: " + a); exportUsage(); blockExit(); }
         }
-        if (dest == null || blueprintId == null) { exportUsage(); System.exit(2); }
+        if (dest == null || blueprintId == null) { exportUsage(); blockExit(); }
         if (commit != null && !commit.matches("[0-9a-f]{7,40}")) {
             err("❌ --commit takes a commit sha (7 to 40 lowercase hex digits), got: " + commit);
             err("   arch-adopt resolves it with `git ls-remote`; a tag name goes in --ref.");
-            System.exit(2);
+            blockExit();
         }
 
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
@@ -2484,7 +2585,7 @@ public class ArchHook {
         if (exp == null) {
             err("❌ No `export` block in " + SCHEMA_FILE + " — there is nothing to copy.");
             err("   This mode reads its lists from that file; it hardcodes none.");
-            System.exit(2);
+            blockExit();
         }
         // A tree `new-project` extracted from the source's tarball is no repository, so the
         // stamp would read `working-tree` and `unknown`; the fetch recorded what it resolved.
@@ -2503,7 +2604,7 @@ public class ArchHook {
         if (destRoot.equals(ROOT)) {
             err("❌ The destination is this repository itself: " + destRoot);
             err("   Export writes a project's .claude/ from this one; give it another path.");
-            System.exit(2);
+            blockExit();
         }
         exportPlatformGate(destRoot);
         Blueprint bp = loadBlueprint(exp, blueprintId);
@@ -2523,7 +2624,7 @@ public class ArchHook {
             if (from == null || to == null) continue;
             if (!Files.isRegularFile(ROOT.resolve(from))) {
                 err("❌ export.binary_copy names `" + from + "` — no such file.");
-                System.exit(2);
+                blockExit();
             }
             binaries.put(to, ROOT.resolve(from));
         }
@@ -2537,7 +2638,7 @@ public class ArchHook {
             Path t = destRoot.resolve(r).normalize();
             if (!t.startsWith(destRoot.resolve(".claude"))) {              // never outside .claude/
                 err("❌ export.retired names `" + r + "` — only paths under .claude/ may be deleted.");
-                System.exit(2);
+                blockExit();
             }
             if (Files.isRegularFile(t)) retired.add(r);
         }
@@ -2619,7 +2720,7 @@ public class ArchHook {
             err("❌ " + rel + (m == null ? " is not a JSON object."
                     : " records commit `" + commit + "` — not a sha (7 to 40 lowercase hex digits)."));
             err("   Fetch the source again with /nerviz:new-project, or pass --ref and --commit.");
-            System.exit(2);
+            blockExit();
         }
         return new String[] { asStr(m.get("ref")), commit };
     }
@@ -2670,28 +2771,28 @@ public class ArchHook {
             String a = args[i];
             if (a.equals("--blueprint") && i + 1 < args.length) id = args[++i];
             else if (a.equals("--package") && i + 1 < args.length) pkg = args[++i];
-            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); boundaryMapUsage(); System.exit(2); }
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); boundaryMapUsage(); blockExit(); }
             else if (dest == null) dest = a;
-            else { err("❌ Only one destination is accepted, got also: " + a); boundaryMapUsage(); System.exit(2); }
+            else { err("❌ Only one destination is accepted, got also: " + a); boundaryMapUsage(); blockExit(); }
         }
-        if (dest == null || id == null || pkg == null) { boundaryMapUsage(); System.exit(2); }
+        if (dest == null || id == null || pkg == null) { boundaryMapUsage(); blockExit(); }
         if (!pkg.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
             err("❌ --package is a dotted Java package name, got: " + pkg);
-            System.exit(2);
+            blockExit();
         }
 
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         Map<String, Object> bm = sch == null ? null : asMap(sch.get("boundary_map"));
         if (bm == null) {
             err("❌ No `boundary_map` block in " + SCHEMA_FILE + " — this mode reads its lists from it.");
-            System.exit(2);
+            blockExit();
         }
         String tpl = asStr(get(sch, "export", "blueprint", "path"));
         Path file = ROOT.resolve((tpl == null ? ".claude/blueprints/{id}/{id}.yaml" : tpl).replace("{id}", id));
         if (!Files.isRegularFile(file)) {
             err("❌ Blueprint `" + id + "` not found at " + relative(file));
             err("   Available: " + availableBlueprints());
-            System.exit(2);
+            blockExit();
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         String layout = yamlNestedMap(lines, List.of("build")).get("layout");
@@ -2735,7 +2836,7 @@ public class ArchHook {
         }
         if (out.isEmpty()) {
             err("❌ boundary-map: " + id + " yields no rule — nothing written. A boundary map with no line blocks nothing.");
-            System.exit(2);
+            blockExit();
         }
         Path target = Paths.get(dest).toAbsolutePath().normalize().resolve(".claude/forbidden-imports.txt");
         Files.createDirectories(target.getParent());
@@ -2807,7 +2908,7 @@ public class ArchHook {
         if (!Files.isRegularFile(file)) {
             err("❌ Blueprint `" + id + "` not found at " + relative(file));
             err("   Available: " + availableBlueprints());
-            System.exit(2);
+            blockExit();
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         List<String> mapPath = asStrList(get(exp, "blueprint", "packages_map_path"));
@@ -2822,7 +2923,7 @@ public class ArchHook {
             err("❌ Blueprint `" + id + "` has no packages.map or no architecture_paths.");
             err("   Both are required by .claude/blueprints/_schema.md; without them every");
             err("   rule with a territory would be copied with a dead glob.");
-            System.exit(2);
+            blockExit();
         }
         return new Blueprint(id, pkgs, arch, voc);
     }
@@ -2930,7 +3031,7 @@ public class ArchHook {
                 if (!Files.isRegularFile(p)) {
                     if (!group.equals("optional_copy")) {
                         err("❌ export." + group + " names `" + from + "` — no such file.");
-                        System.exit(2);
+                        blockExit();
                     }
                     continue;
                 }
@@ -3050,7 +3151,7 @@ public class ArchHook {
                 err("❌ Rule `" + rule + "` derives no glob from blueprint `" + bp.id() + "`.");
                 err("   A rule copied with a dead glob never enters context, in silence.");
                 err("   Mark it `optional` in export.derived_paths, or fix packages.map.");
-                System.exit(2);
+                blockExit();
             }
             // Optional: keeps the master's example globs, which name packages this
             // architecture does not have — inert. Stripping them would make the rule load
@@ -3304,29 +3405,45 @@ public class ArchHook {
             return;
         }
 
-        Map<String, Object> in = asMap(get(Json.parse(stdin), "tool_input"));
-        String file = in != null ? asStr(in.get("file_path")) : filePath(stdin);
+        Object payload = Json.parse(stdin);
+        Map<String, Object> in = asMap(get(payload, "tool_input"));
+        // A Copilot `apply_patch` carries no `file_path`. Read as absent, it took the edit for
+        // `Stop` and swept every extension file, so one edit could be denied for a problem in
+        // another. Its targets are judged one by one, from disk, and never swept (decision 0169).
+        List<String> files;
+        if (get(payload, "tool_input") instanceof String) {
+            files = editedFiles(stdin);
+            if (files.isEmpty()) return;              // not a patch, or one this cannot read
+        } else {
+            String file = in != null ? asStr(in.get("file_path")) : filePath(stdin);
+            files = file == null ? null : List.of(file);
+        }
 
         List<String> errors = new ArrayList<>();
-        if (file == null) {
+        if (files == null) {
             sweep(sch, errors);                       // Stop, or manual invocation
         } else {
-            String rel = relative(Paths.get(file));
-            String modsRoot = asStr(get(sch, "mods", "root"));
-            if (modsRoot != null && rel.startsWith(modsRoot + "/")) {
-                checkMods(sch, errors);               // a mod is judged whole, from disk
-            } else {
+            boolean modsChecked = false;
+            for (String file : files) {
+                String rel = relative(Paths.get(file));
+                String modsRoot = asStr(get(sch, "mods", "root"));
+                if (modsRoot != null && rel.startsWith(modsRoot + "/")) {
+                    if (!modsChecked) checkMods(sch, errors);   // a mod is judged whole, from disk
+                    modsChecked = true;
+                    continue;
+                }
                 // Write brings the whole file in tool_input.content and is validated before
                 // writing. Edit brings old_string/new_string — there only disk works.
                 String content = in != null ? asStr(in.get("content")) : null;
                 if (content == null) content = readOrNull(Paths.get(file));
-                if (content == null) return;          // file deleted or unreadable
+                if (content == null) continue;        // file deleted or unreadable
                 checkOne(sch, rel, content, errors);
             }
         }
 
-        if (file == null) {
+        if (files == null) {
             checkSkillClasses(sch, errors);
+            checkPromptOnly(sch, errors);
             checkAgentClasses(sch, errors);
             checkSubagentContext(sch, errors);
             checkExportManifest(sch, errors);
@@ -3345,7 +3462,7 @@ public class ArchHook {
             err("Valid fields by type: " + SCHEMA_FILE);
             err("What each field is for: .claude/skills/claude-code-architect-designer"
                     + "/references/frontmatter-fields.md");
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -3828,6 +3945,31 @@ public class ArchHook {
                     errors.add("  `.claude/skills/" + name + "` is in no skill_classes class"
                             + " — add it to one in " + SCHEMA_FILE);
                 }
+            }
+        }
+    }
+
+    /**
+     * `guard.prompt_only.extra` names a skill held from the model without the flag. A name with
+     * no skill on disk holds nothing, and a name that already carries the flag is a second
+     * owner of the same fact (invariant 2). Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void checkPromptOnly(Map<String, Object> sch, List<String> errors) {
+        Map<String, Object> po = asMap(get(sch, "guard", "prompt_only"));
+        if (po == null) return;
+        String flag = asStr(po.get("flag"));
+        for (String s : asStrList(po.get("extra"))) {
+            String body = readOrNull(ROOT.resolve(".claude/skills/" + s + "/SKILL.md"));
+            if (body == null) {
+                errors.add("  guard.prompt_only.extra names `" + s
+                        + "` — no `.claude/skills/" + s + "/SKILL.md` file exists");
+                continue;
+            }
+            Map<String, String> fm = frontmatter(body);
+            if (flag != null && fm != null && "true".equals(fm.get(flag))) {
+                errors.add("  guard.prompt_only.extra names `" + s + "`, which already declares `"
+                        + flag + ": true` — drop it from `extra`; the flag already makes it prompt-only");
             }
         }
     }
@@ -4468,6 +4610,7 @@ public class ArchHook {
         }
         globs.addAll(asStrList(get(sch, "settings", "match")));
         globs.addAll(asStrList(get(sch, "mcp", "match")));
+        globs.addAll(asStrList(get(sch, "copilot_hooks", "match")));
 
         for (String g : globs) {
             Path base = ROOT.resolve(g.substring(0, Math.max(0, g.indexOf('*'))))
@@ -4509,6 +4652,11 @@ public class ArchHook {
 
         if (matchesAny(asStrList(get(sch, "mcp", "match")), rel)) {
             checkMcp(asMap(sch.get("mcp")), rel, content, errors);
+            return;
+        }
+
+        if (matchesAny(asStrList(get(sch, "copilot_hooks", "match")), rel)) {
+            checkCopilotHooks(sch, rel, content, errors);
             return;
         }
 
@@ -4705,16 +4853,85 @@ public class ArchHook {
     }
 
     /**
+     * The Copilot runtimes' hook file, `.github/hooks/archhook.json` and its template — the
+     * shape `copilot_hooks` of extensions.json names: its top-level keys and `version`, camelCase
+     * events, and per entry the required and allowed fields, a known `type`, the same command in
+     * `bash` and `powershell`, one process, the ArchHook launch in shell form. The runtime ignores
+     * an unknown event or field with no error, so a typo here is a hook that silently never runs
+     * — invariant 10. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md
+     */
+    static void checkCopilotHooks(Map<String, Object> sch, String rel, String content,
+                                  List<String> errors) {
+        Map<String, Object> cfg = asMap(sch.get("copilot_hooks"));
+        Map<String, Object> root = asMap(Json.parse(content));
+        if (cfg == null) return;
+        if (root == null) { errors.add("  " + rel + " — invalid JSON"); return; }
+        List<String> top = asStrList(cfg.get("allowed"));
+        for (String key : root.keySet()) {
+            if (!top.contains(key)) errors.add("  " + rel + " — `" + key + "` is not a recognized top-level key");
+        }
+        Object version = root.get("version");
+        Object want = cfg.get("version");
+        String wantText = String.valueOf(want).replaceFirst("\\.0$", "");
+        if (want != null && (version == null || !wantText.equals(String.valueOf(version).replaceFirst("\\.0$", "")))) {
+            errors.add("  " + rel + " — `version` must be " + wantText);
+        }
+        Map<String, Object> hooks = asMap(root.get("hooks"));
+        if (hooks == null) { errors.add("  " + rel + " — no `hooks` object"); return; }
+        List<String> events = asStrList(cfg.get("hook_events"));
+        List<String> types = asStrList(cfg.get("entry_types"));
+        List<String> required = asStrList(cfg.get("entry_required"));
+        List<String> allowed = asStrList(cfg.get("entry_allowed"));
+        List<String> forbidden = asStrList(get(sch, "settings", "command_forbidden_chars"));
+        String pattern = asStr(cfg.get("archhook_command_pattern"));
+        for (Map.Entry<String, Object> ev : hooks.entrySet()) {
+            String where = rel + " › hooks." + ev.getKey();
+            if (!events.contains(ev.getKey())) {
+                errors.add("  " + where + " — not a Copilot hook event (camelCase: " + String.join(", ", events) + ")");
+                continue;
+            }
+            List<Object> entries = asList(ev.getValue());
+            for (int n = 0; n < entries.size(); n++) {
+                Map<String, Object> e = asMap(entries.get(n));
+                String at = where + "[" + n + "]";
+                if (e == null) { errors.add("  " + at + " — not an object"); continue; }
+                for (String k : e.keySet()) {
+                    if (!allowed.contains(k)) errors.add("  " + at + " — `" + k + "` is not an allowed entry field");
+                }
+                for (String k : required) {
+                    if (!e.containsKey(k)) errors.add("  " + at + " — lacks `" + k + "`");
+                }
+                String type = asStr(e.get("type"));
+                if (type != null && !types.contains(type)) errors.add("  " + at + " — `type` `" + type + "` is not one of " + types);
+                String bash = asStr(e.get("bash")), ps = asStr(e.get("powershell"));
+                if (bash != null && ps != null && !bash.equals(ps)) {
+                    errors.add("  " + at + " — `bash` and `powershell` differ: one hook, one command");
+                }
+                for (String cmd : new String[] {bash, ps}) {
+                    if (cmd == null) continue;
+                    for (String c : forbidden) {
+                        if (cmd.contains(c)) errors.add("  " + at + " — `" + c + "` in the command: one process per entry");
+                    }
+                    if (cmd.contains("ArchHook") && pattern != null && !cmd.matches(pattern)) {
+                        errors.add("  " + at + " — `" + cmd + "` is not `java -jar .claude/hooks/ArchHook.jar <mode>`");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Validates the top-level keys and every hook registration of a settings file —
      * this repo's `.claude/settings.json` and the generated project's template, both
      * listed in extensions.json's `settings.match`.
      *
      * <p>What it catches is the set of mistakes the runtime accepts in silence: an
      * event name that exists nowhere, a `matcher` on an event that never reads one, a
-     * `type` this repo has no handler for, a shell string written where the executable
-     * goes, and a non-positive `timeout`. None of these fails at startup; the hook
-     * simply never runs, or runs without the filter it appears to have. Every list
-     * lives in extensions.json — invariant 10, @CLAUDE.md.
+     * `type` this repo has no handler for, a pipe or chain in `command`, an `args` list
+     * the Copilot CLI ignores, and a non-positive `timeout`. None of these fails at
+     * startup; the hook simply never runs, runs without the filter it appears to have,
+     * or — under Copilot — denies every call (0168). Every list lives in extensions.json
+     * — invariant 10, @CLAUDE.md.
      */
     static void checkSettings(Map<String, Object> sch, String rel, String content,
                               List<String> errors) {
@@ -4745,6 +4962,31 @@ public class ArchHook {
             }
         }
 
+        // The `Read(...)` lines of `permissions.deny` are the Claude Code side of
+        // `guard.secret_paths`, whose other side `guard read` and `guard bash` enforce under
+        // Copilot. One owner; a line added or dropped here alone is a path one runtime refuses
+        // and the other reads. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md
+        List<String> secrets = asStrList(get(sch, "guard", "secret_paths"));
+        if (!secrets.isEmpty()) {
+            List<String> deny = asStrList(get(root, "permissions", "deny"));
+            for (String path : secrets) {
+                if (!deny.contains("Read(" + path + ")")) {
+                    errors.add("  " + rel + " — `permissions.deny` lacks `Read(" + path + ")`,"
+                            + " listed in .claude/schemas/extensions.json › guard.secret_paths."
+                            + " Restore the line: the hooks refuse that path under Copilot, and"
+                            + " Claude Code would read it");
+                }
+            }
+            for (String d : deny) {
+                if (d.startsWith("Read(") && d.endsWith(")")
+                        && !secrets.contains(d.substring(5, d.length() - 1))) {
+                    errors.add("  " + rel + " — `permissions.deny` holds `" + d + "`, which"
+                            + " .claude/schemas/extensions.json › guard.secret_paths lacks. Add it"
+                            + " there first, so the hooks refuse it under Copilot too");
+                }
+            }
+        }
+
         Map<String, Object> hooks = asMap(root.get("hooks"));
         if (hooks == null) return;
 
@@ -4756,6 +4998,8 @@ public class ArchHook {
         List<String> groupAllowed = asStrList(get(sch, "settings", "group_allowed"));
         List<String> entryTypes = asStrList(get(sch, "settings", "entry_types"));
         List<String> badChars = asStrList(get(sch, "settings", "command_forbidden_chars"));
+        String archShape = asStr(get(sch, "settings", "archhook_command_pattern"));
+        Pattern archRe = archShape == null ? null : Pattern.compile(archShape);
 
         for (Map.Entry<String, Object> ev : hooks.entrySet()) {
             String event = ev.getKey();
@@ -4782,6 +5026,7 @@ public class ArchHook {
                     errors.add("  " + where + " — `matcher` is ignored on this event."
                             + " It reads as a filter and filters nothing");
                 }
+                checkSkillToolMatcher(sch, where, g, errors);
 
                 for (Object entry : asList(g.get("hooks"))) {
                     Map<String, Object> h = asMap(entry);
@@ -4792,20 +5037,58 @@ public class ArchHook {
                         }
                     }
                     for (String k : h.keySet()) {
-                        if (!allowed.contains(k)) {
+                        if (k.equals("args") && !allowed.contains(k)) {
+                            errors.add("  " + where + " — `args` is exec form, and the Copilot CLI"
+                                    + " reads this file, runs `command` alone and denies every call"
+                                    + " when it fails. Fold the arguments into `command`:"
+                                    + " java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode>");
+                        } else if (!allowed.contains(k)) {
                             errors.add("  " + where + " — `" + k
                                     + "` is not a hook entry field");
                         }
                     }
-                    checkHookEntry(where, h, entryTypes, badChars, errors);
+                    checkHookEntry(where, h, entryTypes, badChars, archRe, errors);
                 }
             }
         }
     }
 
-    /** Type, exec form, and timeout of one hook entry. Lists come from extensions.json. */
+    /**
+     * A group that runs `guard call` must name every `guard.skill_tools` name in its `matcher`,
+     * as one of its `|` alternatives: a skill call arriving under a name the matcher leaves out
+     * never reaches the hook, and both refusals of `guard call` stop holding on that runtime
+     * with nothing reporting it. Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void checkSkillToolMatcher(Map<String, Object> sch, String where, Map<String, Object> g,
+                                      List<String> errors) {
+        boolean guardCall = false;
+        for (Object entry : asList(g.get("hooks"))) {
+            String cmd = asStr(get(entry, "command"));
+            if (cmd != null && cmd.strip().endsWith(" guard call")) guardCall = true;
+        }
+        if (!guardCall) return;
+        String matcher = orEmpty(asStr(g.get("matcher")));
+        List<String> alternatives = Arrays.stream(matcher.split("\\|")).map(String::strip).toList();
+        for (String tool : asStrList(get(sch, "guard", "skill_tools"))) {
+            if (!alternatives.contains(tool)) {
+                errors.add("  " + where + " — the `guard call` matcher `" + matcher + "` lacks `"
+                        + tool + "`, a name a skill call arrives under"
+                        + " (.claude/schemas/extensions.json › guard.skill_tools)."
+                        + " Add it as one more `|` alternative");
+            }
+        }
+    }
+
+    /**
+     * Type, command shape, and timeout of one hook entry. Lists come from extensions.json.
+     * An entry that launches ArchHook has one shape, `settings.archhook_command_pattern`:
+     * shell form with the quoted `${CLAUDE_PROJECT_DIR}` placeholder, which both Claude Code
+     * and the Copilot CLI run (0168). An entry that launches anything else is held only to
+     * `command_forbidden_chars` — a project may register a hook of its own.
+     */
     static void checkHookEntry(String where, Map<String, Object> h, List<String> entryTypes,
-                               List<String> badChars, List<String> errors) {
+                               List<String> badChars, Pattern archRe, List<String> errors) {
         String type = asStr(h.get("type"));
         if (type != null && !entryTypes.isEmpty() && !entryTypes.contains(type)) {
             errors.add("  " + where + " — `type: " + type + "` has no handler here."
@@ -4818,10 +5101,15 @@ public class ArchHook {
             for (String bad : badChars) {
                 if (command.contains(bad)) {
                     errors.add("  " + where + " — `command` contains `" + bad
-                            + "`: that is a shell string where the executable goes."
-                            + " Exec form: `command` is the binary, `args` the arguments");
+                            + "`: a hook command is one process — no pipe, chain, redirect"
+                            + " or substitution");
                     break;
                 }
+            }
+            if (archRe != null && command.contains("ArchHook.") && !archRe.matcher(command).matches()) {
+                errors.add("  " + where + " — `" + command + "` is not the shape every runtime"
+                        + " runs. Write java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\""
+                        + " <mode> (.claude/schemas/extensions.json › settings.archhook_command_pattern)");
             }
         }
 
@@ -5355,6 +5643,17 @@ public class ArchHook {
     }
 
     static void auditFile(Path log, Object in) {
+        if (get(in, "tool_input") instanceof String) {
+            // A Copilot `apply_patch`: one event per file it wrote, under the tool name the
+            // translation gave it (decision 0169).
+            Set<String> seen = new HashSet<>();
+            for (Object p : patchPayloads(in)) {
+                String pf = asStr(get(p, "tool_input", "file_path"));
+                if (seen.add(pf)) append(log, ev("file", "op", asStr(get(p, "tool_name")),
+                        "path", relative(Paths.get(pf))));
+            }
+            return;
+        }
         String f = asStr(get(in, "tool_input", "file_path"));
         if (f == null) return;
         append(log, ev("file", "op", asStr(get(in, "tool_name")),
@@ -7154,7 +7453,8 @@ public class ArchHook {
     // Phases (args[1]):
     //   prompt   UserPromptSubmit         a prompt ends any phase; `/<skill>` opens one
     //   call     PreToolUse Skill|Agent   a skill opens the phase; a `blocked_during_design`
-    //                                     class is refused; a classed agent's call is skipped
+    //                                     class is refused; a prompt-only skill the prompt did
+    //                                     not open is refused; a classed agent's call is skipped
     //   write    PreToolUse Write|Edit    blocks (exit 2) what the three boundaries forbid
     //
     // The phase is one file per session in the OS temp dir — never in the project, so it
@@ -7189,6 +7489,7 @@ public class ArchHook {
             case "call"   -> guardCall(sch, state, in);
             case "write"  -> guardWrite(sch, state, in);
             case "bash"   -> guardBash(sch, state, in);
+            case "read"   -> guardRead(sch, in);
             case "sweep"  -> guardSweep(sch, state, in, stdin);
             case "status" -> guardStatus(sch, state);
             default       -> { }
@@ -7296,11 +7597,12 @@ public class ArchHook {
     static void guardCall(Map<String, Object> sch, Path state, Object in) throws IOException {
         if (agentClassOf(sch, asStr(get(in, "agent_type"))) != null) return;
         String tool = asStr(get(in, "tool_name"));
-        if ("Skill".equals(tool)) {
+        if (asStrList(get(sch, "guard", "skill_tools")).contains(tool)) {
             String skill = asStr(get(in, "tool_input", "skill"));
             String cls = skillClassOf(sch, skill);
             if (cls == null) return;                       // plugin skill: not our territory
             guardRefuseBuildCall(sch, state, skill, cls);
+            guardRefusePromptOnly(sch, state, skill);
             // A skill of the phase's own class JOINS the phase instead of replacing it: the
             // territory becomes the union of both. Replacing would shrink the caller's
             // territory for the rest of the turn — project-bootstrap chains docker-architect
@@ -7320,6 +7622,47 @@ public class ArchHook {
         }
         // An `Agent`/`Task` call changes nothing here. The subagent's own writes carry
         // `agent_type` and are judged by `agent_classes`; the caller's phase stays as it was.
+    }
+
+    /**
+     * Refuses a skill call to a prompt-only skill — one whose frontmatter declares
+     * `guard.prompt_only.flag`, or one `guard.prompt_only.extra` names — unless the user's prompt
+     * of this turn opened the phase under that very name. Invoked on `PreToolUse` of every
+     * `guard.skill_tools` name. Fail-open: with no `guard prompt` baseline in this session, this
+     * runtime runs no prompt hook (or no git), the turn's prompt is unknown, and refusing would
+     * lock out the user who typed `/<skill>`.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, motivated by axis 7: under the GitHub Copilot
+     * CLI the flag is not represented, so `arch-adopt` and `new-feature-implement` were held from
+     * the model by text alone (lessons-learned-022 § 5). It rides `guard call`, which already
+     * spawns on every skill call, so it costs no process. The closest rejected form was
+     * `permissions.ask` on the skill: Copilot reads no `permissions` from a project file. Under
+     * Claude Code the runtime already refuses the same call, and a `/<skill>` the user typed opens
+     * the phase this check admits. Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void guardRefusePromptOnly(Map<String, Object> sch, Path state, String skill) {
+        if (!isPromptOnly(sch, skill)) return;
+        if (!Files.isRegularFile(guardBaselineFile(state))) return;
+        List<String> phase = phaseSkills(state);
+        if (!phase.isEmpty() && skill.equals(phase.get(0))) return;
+        err("❌ `" + skill + "` runs only when the user types `/" + skill + "` — it is manual only,"
+                + " and this turn's prompt did not name it.");
+        err("Do not call it, and do not follow its SKILL.md by reading it. Print the command for the"
+                + " user to type — `/" + skill + " <arguments>` — and stop.");
+        blockExit();
+    }
+
+    /** Whether a skill call to `skill` needs the user's own `/<skill>` prompt (`guard.prompt_only`). */
+    static boolean isPromptOnly(Map<String, Object> sch, String skill) {
+        Map<String, Object> po = asMap(get(sch, "guard", "prompt_only"));
+        if (po == null || skill == null) return false;
+        if (asStrList(po.get("extra")).contains(skill)) return true;
+        String flag = asStr(po.get("flag"));
+        if (flag == null) return false;
+        String body = readOrNull(ROOT.resolve(".claude/skills/" + skill + "/SKILL.md"));
+        Map<String, String> fm = body == null ? null : frontmatter(body);
+        return fm != null && "true".equals(fm.get(flag));
     }
 
     /**
@@ -7343,7 +7686,7 @@ public class ArchHook {
                 + activeCls + "`) is open — a design run does not materialize files.");
         err("Record what is missing in the partial and in the consolidated spec, finish the run,");
         err("then invoke `/" + skill + "` from a prompt of its own.");
-        System.exit(2);
+        blockExit();
     }
 
     static void guardOpen(Path state, String skill) throws IOException {
@@ -7368,6 +7711,21 @@ public class ArchHook {
     }
 
     static void guardWrite(Map<String, Object> sch, Path state, Object in) throws IOException {
+        List<Object> patch = patchPayloads(in);
+        if (!patch.isEmpty()) {
+            // Every write the patch makes is judged before any is admitted: a patch is applied
+            // whole or not at all, so a path recorded as admitted ahead of a refused one would
+            // later hide a shell write to it from the `Stop` sweep (decision 0169).
+            for (Object p : patch) {
+                List<String> v = guardViolations(sch, state, p, patchRel(p), false);
+                if (!v.isEmpty()) {
+                    v.forEach(ArchHook::err);
+                    blockExit();
+                }
+            }
+            for (Object p : patch) guardPath(sch, state, p, patchRel(p));
+            return;
+        }
         String file = asStr(get(in, "tool_input", "file_path"));
         if (file == null) return;
         guardPath(sch, state, in, relative(Paths.get(file)));
@@ -7399,7 +7757,7 @@ public class ArchHook {
             return;
         }
         violation.forEach(ArchHook::err);
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -7512,11 +7870,146 @@ public class ArchHook {
             err("guard: force push blocked — `" + force + "` rewrites published history.");
             err("  Push without force. A shared branch is rewritten by a human, outside Claude"
                     + " Code. Rule: guard.force_push in " + SCHEMA_FILE);
-            System.exit(2);
+            blockExit();
         }
+        String secret = bashSecretRead(sch, cmd);
+        if (secret != null) refuseSecretRead(sch, secret, "this shell command reads it");
         for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd)) {
             guardPath(sch, state, in, rel);
         }
+    }
+
+    /**
+     * `guard`, applied to a read of a secret path by the Copilot runtimes' own file tools — `view`
+     * under the Copilot CLI, `read_file` under the VS Code. Why this is Form 7c: a read of `.env`
+     * sends its content to the model provider, which no rotation takes back, and under Copilot
+     * nothing refused it — the project's `permissions.deny` is a Claude Code file the Copilot CLI
+     * does not read (lessons-learned-022 § 8, E1). The closest rejected form is a `Read` entry in
+     * both settings files: Claude Code would pay a process per read for a refusal its `deny`
+     * already makes at none, so this mode is registered only in `.github/hooks/archhook.json`.
+     *
+     * <p>Invoked on `preToolUse`, matcher `view|read_file`. The envelope there is camelCase — the
+     * arguments in `toolArgs`, an object or a JSON string, and no event name — so the event is
+     * set to `PreToolUse` here, which is what makes {@link #blockExit()} hand the reason to the
+     * model as the flat object. A path field missing, unreadable, or outside the repository
+     * exits 0. The list and the fields are data, `guard.secret_paths` and
+     * `guard.secret_read_shapes.path_fields` — invariant 10. Design:
+     * `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
+     */
+    static void guardRead(Map<String, Object> sch, Object in) {
+        Object args = get(in, "tool_input");
+        if (args == null) {
+            args = get(in, "toolArgs");
+            if (args instanceof String s) args = Json.parse(s);
+            if (args != null && HOOK_EVENT == null) HOOK_EVENT = "PreToolUse";
+        }
+        for (String field : asStrList(get(sch, "guard", "secret_read_shapes", "path_fields"))) {
+            String raw = asStr(get(args, field));
+            if (raw == null) continue;
+            String rel = secretPath(sch, raw);
+            if (rel != null) refuseSecretRead(sch, rel, "this call reads it");
+            return;
+        }
+    }
+
+    /**
+     * The first literal operand of a shell command that reads a secret path, or null. A segment
+     * counts when its command is in `guard.secret_read_shapes.commands` — every non-flag
+     * operand is a read, unless the command carries its in-place write flag — and the target of
+     * an input redirect counts in any segment. The target of an output redirect is a write and is
+     * never judged here, so `printf … >> .env` passes. What holds an unresolvable marker is
+     * skipped, the bar of {@link #bashWriteTargets}.
+     */
+    static String bashSecretRead(Map<String, Object> sch, String cmd) {
+        Map<String, Object> shapes = asMap(get(sch, "guard", "secret_read_shapes"));
+        if (shapes == null || asStrList(get(sch, "guard", "secret_paths")).isEmpty()) return null;
+        List<String> readers = asStrList(shapes.get("commands"));
+        List<String> inOps = asStrList(shapes.get("input_redirect_operators"));
+        Map<String, Object> writeFlags = asMap(shapes.get("write_flag_prefixes"));
+        List<String> outOps = asStrList(get(sch, "guard", "bash_write_shapes", "redirect_operators"));
+        List<String> markers = asStrList(get(sch, "guard", "bash_write_shapes", "unresolvable_markers"));
+        for (List<Tok> seg : bashSegments(cmd)) {
+            List<Tok> words = new ArrayList<>();
+            for (int i = 0; i < seg.size(); i++) {
+                Tok t = seg.get(i);
+                boolean in = !t.quoted() && inOps.contains(t.text());
+                if (in || (!t.quoted() && outOps.contains(t.text()))) {
+                    if (in && i + 1 < seg.size()) {
+                        String hit = secretOperand(sch, markers, seg.get(i + 1));
+                        if (hit != null) return hit;
+                    }
+                    i++;                                  // the operator's target is no operand
+                    continue;
+                }
+                words.add(t);
+            }
+            if (words.isEmpty()) continue;
+            String head = bashCommandName(words.get(0).text());
+            if (!readers.contains(head)) continue;
+            String writeFlag = writeFlags == null ? null : asStr(writeFlags.get(head));
+            boolean inPlace = false;
+            for (Tok t : words.subList(1, words.size())) {
+                if (writeFlag != null && !t.quoted() && t.text().startsWith(writeFlag)) inPlace = true;
+            }
+            if (inPlace) continue;
+            for (Tok t : words.subList(1, words.size())) {
+                if (!t.quoted() && t.text().startsWith("-")) continue;
+                String hit = secretOperand(sch, markers, t);
+                if (hit != null) return hit;
+            }
+        }
+        return null;
+    }
+
+    static String secretOperand(Map<String, Object> sch, List<String> markers, Tok tok) {
+        for (String marker : markers) if (tok.text().contains(marker)) return null;
+        return secretPath(sch, tok.text());
+    }
+
+    /**
+     * The repo-relative path when {@code raw} names a file `guard.secret_paths` lists, or null.
+     * Each entry is a permission-rule body; `./**&#47;` matches at the root too, as in Claude Code.
+     * A path outside the repository is not this list's to judge, as `./` says. An existing file
+     * is judged by its real path as well, so a symlink to `.env` reads as `.env`.
+     */
+    static String secretPath(Map<String, Object> sch, String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            Path root = ROOT.toAbsolutePath().normalize();
+            Path abs = ROOT.resolve(raw).toAbsolutePath().normalize();
+            List<String> rels = new ArrayList<>();
+            if (abs.startsWith(root)) rels.add(relative(abs));
+            if (Files.exists(abs)) {
+                Path real = abs.toRealPath(), realRoot = root.toRealPath();
+                if (real.startsWith(realRoot)) rels.add(realRoot.relativize(real).toString().replace('\\', '/'));
+            }
+            for (String rel : rels) {
+                if (rel.isBlank()) continue;
+                for (String rule : asStrList(get(sch, "guard", "secret_paths"))) {
+                    String body = rule.startsWith("./") ? rule.substring(2) : rule;
+                    String subject = body.startsWith("**") ? "/" + rel : rel;
+                    if (glob(body).matcher(subject).matches()) return rel;
+                }
+            }
+        } catch (Exception e) {
+            // An unparseable path is an unreadable target, not a violation.
+        }
+        return null;
+    }
+
+    static void refuseSecretRead(Map<String, Object> sch, String rel, String how) {
+        String rule = "";
+        for (String r : asStrList(get(sch, "guard", "secret_paths"))) {
+            String body = r.startsWith("./") ? r.substring(2) : r;
+            if (glob(body).matcher(body.startsWith("**") ? "/" + rel : rel).matches()) { rule = r; break; }
+        }
+        err("❌ guard: " + rel + " holds secrets, and " + how + " — its content would reach the model"
+                + " provider, and that cannot be taken back.");
+        err("   Rule: `" + rule + "` in guard.secret_paths of " + SCHEMA_FILE
+                + ", the same list as permissions.deny. Norm: .claude/rules/secrets.md.");
+        err("   Do not read or print it, by any tool. To know it exists, run `test -f " + rel + "`;"
+                + " for a value you need, ask the user.");
+        blockExit();
     }
 
     /**
@@ -7692,7 +8185,7 @@ public class ArchHook {
         err("   The tool-time guards did not see these writes — a shell spelling they do not");
         err("   parse, or a tool with no matcher. Revert them, or report them and stop.");
         lines.forEach(ArchHook::err);
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -7974,6 +8467,171 @@ public class ArchHook {
         String raw = m.group(1)
                 .replace("\\\\", "\\").replace("\\\"", "\"").replace("\\/", "/");
         return raw;   // Windows arrives with '\\'; Paths.get handles both separators
+    }
+
+    // ── apply_patch ──────────────────────────────────────────────────────────
+
+    /**
+     * The files a write hook is about, absolute: the targets of a Copilot `apply_patch` when
+     * `tool_input` is a string, Claude Code's `file_path` otherwise — empty when there is
+     * neither. What `check`, `format` and `schema` loop over, so the Claude path stays the one
+     * `filePath` call it always was.
+     */
+    static List<String> editedFiles(String stdin) {
+        Object in = Json.parse(stdin);
+        if (get(in, "tool_input") instanceof String) return patchTargets(in);
+        String f = filePath(stdin);
+        return f == null ? List.of() : List.of(f);
+    }
+
+    /**
+     * The files a patch leaves on disk, each once, in patch order: what it adds, what it
+     * updates in place, and where it moves a file to — never a path it deletes or moves away.
+     */
+    static List<String> patchTargets(Object in) {
+        List<Object> ps = patchPayloads(in);
+        Set<String> gone = new HashSet<>();
+        for (Object p : ps) {
+            String op = asStr(get(p, "patch_op"));
+            if ("delete".equals(op) || "move_from".equals(op)) {
+                gone.add(asStr(get(p, "tool_input", "file_path")));
+            }
+        }
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (Object p : ps) {
+            String f = asStr(get(p, "tool_input", "file_path"));
+            if (!gone.contains(f)) out.add(f);
+        }
+        return new ArrayList<>(out);
+    }
+
+    /** The repo-relative path of one translated payload. */
+    static String patchRel(Object p) {
+        return relative(Paths.get(asStr(get(p, "tool_input", "file_path"))));
+    }
+
+    /**
+     * A Copilot `apply_patch` translated into the Claude Code payloads every write mode already
+     * judges — empty unless `tool_input` is a string whose first non-blank line is
+     * `*** Begin Patch`. The Copilot CLI reads `.claude/settings.json` and sends each write as
+     * `tool_name: "Edit"` with the patch as the whole `tool_input`: no `file_path`, so `guard
+     * write`, `check`, `format`, `schema` and `audit file` saw nothing and exited 0 — a line went
+     * into an approved spec and a forbidden import through (lessons-learned-022 § 3). Invoked
+     * from the `PreToolUse` and `PostToolUse` write registrations, through those modes.
+     *
+     * <p>Each section becomes what Claude Code would have sent: `*** Add File: p` a `Write` whose
+     * `content` is its `+` lines; each `@@` hunk of `*** Update File: p` an `Edit` whose
+     * `old_string` is its context and `-` lines and whose `new_string` its context and `+` lines,
+     * so the frozen spec's two exemptions judge a hunk exactly as they judge one `Edit`; `***
+     * Delete File: p` an `Edit` with no strings; `*** Move to: q` an `Edit` on `p` plus a `Write`
+     * on `q`. A relative path resolves against {@link #ROOT}, never the JVM's working directory,
+     * since the patch carries both spellings. Every payload keeps the envelope — `session_id`,
+     * `agent_type` — and records its section in `patch_op`.
+     *
+     * <p>Translating rather than teaching each mode a second shape keeps one owner per rule
+     * (invariant 2), the same move {@link #guardBash} makes with a shell command. The closest
+     * rejected form was a mode per shape with its own registrations: two JVMs per edit, and the
+     * rules either called through this same translation or copied. Only the CLI's alias envelope
+     * is read: VS Code's `tool_input.input` and the camelCase `toolArgs` of `.github/hooks` reach
+     * no registration today. Design: `.claude/decisions/0169-apply-patch-payload-in-write-hooks.md`.
+     */
+    static List<Object> patchPayloads(Object in) {
+        if (!(get(in, "tool_input") instanceof String patch)) return List.of();
+        String[] lines = patch.replace("\r\n", "\n").split("\n", -1);
+        int i = 0;
+        while (i < lines.length && lines[i].isBlank()) i++;
+        if (i == lines.length || !lines[i].strip().equals("*** Begin Patch")) return List.of();
+
+        List<Object> out = new ArrayList<>();
+        String op = null, path = null, moveTo = null;
+        List<String> body = new ArrayList<>();
+        for (i++; i < lines.length; i++) {
+            String l = lines[i];
+            String next = l.startsWith("*** Add File: ") ? "add"
+                    : l.startsWith("*** Update File: ") ? "update"
+                    : l.startsWith("*** Delete File: ") ? "delete"
+                    : l.strip().equals("*** End Patch") ? "end" : null;
+            if (next != null) {
+                patchSection(in, out, op, path, moveTo, body);
+                if ("end".equals(next)) { op = null; break; }
+                op = next;
+                path = l.substring(l.indexOf(": ") + 2).strip();
+                moveTo = null;
+                body = new ArrayList<>();
+            } else if (l.startsWith("*** Move to: ")) {
+                moveTo = l.substring("*** Move to: ".length()).strip();
+            } else if (!l.strip().equals("*** End of File")) {
+                body.add(l);
+            }
+        }
+        patchSection(in, out, op, path, moveTo, body);     // a patch missing `*** End Patch`
+        return out;
+    }
+
+    /** One section of a patch, appended to `out` as the payloads it stands for. */
+    static void patchSection(Object in, List<Object> out, String op, String path, String moveTo,
+                             List<String> body) {
+        if (op == null || path == null || path.isEmpty()) return;
+        String abs = ROOT.resolve(path).normalize().toString();
+        switch (op) {
+            case "add" -> {
+                StringBuilder content = new StringBuilder();
+                for (String l : body) if (l.startsWith("+")) content.append(l.substring(1)).append('\n');
+                out.add(patchPayload(in, "Write", "add", abs, Map.of("content", content.toString())));
+            }
+            case "delete" -> out.add(patchPayload(in, "Edit", "delete", abs, Map.of()));
+            default -> {
+                List<List<String>> hunks = new ArrayList<>();
+                List<String> hunk = new ArrayList<>();
+                for (String l : body) {
+                    if (l.startsWith("@@")) {
+                        if (!hunk.isEmpty()) hunks.add(hunk);
+                        hunk = new ArrayList<>();
+                    } else {
+                        hunk.add(l);
+                    }
+                }
+                if (!hunk.isEmpty()) hunks.add(hunk);
+                for (List<String> h : hunks) {
+                    while (!h.isEmpty() && h.get(h.size() - 1).isEmpty()) h.remove(h.size() - 1);
+                    List<String> oldL = new ArrayList<>(), newL = new ArrayList<>();
+                    boolean changes = false;
+                    for (String l : h) {
+                        char c = l.isEmpty() ? ' ' : l.charAt(0);
+                        String text = l.isEmpty() ? "" : l.substring(1);
+                        if (c == '-') { oldL.add(text); changes = true; }
+                        else if (c == '+') { newL.add(text); changes = true; }
+                        else { oldL.add(text); newL.add(text); }
+                    }
+                    if (!changes) continue;
+                    out.add(patchPayload(in, "Edit", "update", abs, Map.of(
+                            "old_string", String.join("\n", oldL),
+                            "new_string", String.join("\n", newL))));
+                }
+                if (moveTo != null && !moveTo.isEmpty()) {
+                    out.add(patchPayload(in, "Edit", "move_from", abs, Map.of()));
+                    out.add(patchPayload(in, "Write", "move_to",
+                            ROOT.resolve(moveTo).normalize().toString(), Map.of()));
+                } else if (out.stream().noneMatch(p -> abs.equals(get(p, "tool_input", "file_path")))) {
+                    out.add(patchPayload(in, "Edit", "update", abs, Map.of()));
+                }
+            }
+        }
+    }
+
+    /** The envelope of `in` around a Claude-shaped `tool_input` for one file of a patch. */
+    static Map<String, Object> patchPayload(Object in, String tool, String patchOp, String abs,
+                                            Map<String, String> fields) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        Map<String, Object> env = asMap(in);
+        if (env != null) p.putAll(env);
+        Map<String, Object> ti = new LinkedHashMap<>();
+        ti.put("file_path", abs);
+        ti.putAll(fields);
+        p.put("tool_name", tool);
+        p.put("tool_input", ti);
+        p.put("patch_op", patchOp);
+        return p;
     }
 
     /**

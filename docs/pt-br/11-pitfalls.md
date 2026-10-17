@@ -126,10 +126,17 @@ não tem efeito — é preciso reiniciar o `claude`.
 
 **Um hook falha silenciosamente de quatro formas, nenhuma delas um erro.** Nome de evento
 inexistente — nunca dispara. `matcher` em um evento que não lê matcher — não filtra nada.
-Pipe ou `&&` dentro de `"command"` — vira parte do nome do arquivo (forma exec: `command` é o
-binário, `args` são os argumentos). Um modo que lança exceção — sai 0 pelo catch do `main`,
+Uma lista `args` — o GitHub Copilot CLI a ignora, roda um `java` sem argumentos que sai com 1,
+e nega toda chamada de ferramenta (os hooks são forma shell, 0168). Um modo que lança exceção — sai 0 pelo catch do `main`,
 e parece ter passado. `schema` pega as três primeiras, a partir do bloco `settings` de
 `.claude/schemas/extensions.json`; a quarta, só rodando o modo à mão.
+
+**No GitHub Copilot CLI, o stderr de uma recusa não chega ao modelo.** No `preToolUse` ele vê só
+`hook exited with code 2`, e no `postToolUse` o stderr vira aviso de tela. Por isso toda recusa do
+`ArchHook` com `exit 2` repete o stderr no stdout, no formato de `settings.deny_output` do
+`extensions.json` (0170). **Nunca acrescente `hookSpecificOutput` a esse formato:** no `exit 2`,
+o Copilot volta à mensagem genérica e o Claude Code troca o stderr pelo motivo aninhado.
+`DenyReasonTest` falha por nome nesse caso.
 
 **Um `if` com caminho só casa via `Edit(...)` ou `Read(...)`.** `Edit` cobre toda ferramenta
 nativa que escreve arquivo, `Write` incluído; um `"if": "Write(.claude/**/*.md)"` parece um
@@ -255,6 +262,25 @@ depois do sim do `/triage-issue`, e é a mesma confirmação que você vê se o 
 convencer o `issue-verifier` a tentar publicar algo. Não é ferramenta quebrada: o texto de uma
 issue pública é de terceiros. Só aqui; o projeto gerado não tem essas linhas. Design:
 `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
+
+**Uma skill manual chamada pelo modelo é recusada, mesmo sem o flag fazer efeito.** Uma chamada
+`Skill` (Claude Code) ou `skill` (Copilot CLI) a uma skill com `disable-model-invocation: true`, ou
+listada em `guard.prompt_only.extra`, sai com exit 2 quando o prompt do turno não começou com
+`/<nome>` dela. A mensagem manda imprimir o comando para o usuário digitar. Não é a skill
+quebrada: o caminho é o usuário digitar `/<nome>`. Fail-open: se o `guard prompt` nunca rodou na
+sessão, nada é recusado. Design:
+`.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
+
+**Ler um `.env` é recusado, também pelo shell e também sob o Copilot.** Os caminhos de
+`guard.secret_paths` no `extensions.json` (`*.env`, `secrets/**`, `application-prod.yml`/`.yaml`,
+`*.pem`, `*.p12`) são negados ao `Read` pelo `permissions.deny` no Claude Code. Em todo runtime, o
+`guard bash` nega `cat`, `wc`, `grep`, `sed` sem `-i`, `head`, `source`, `<` e os demais leitores de
+`guard.secret_read_shapes`, mesmo `grep -qs`, que não imprime nada. No projeto gerado, o `guard read`
+de `.github/hooks/archhook.json` nega o `view` do Copilot CLI e o `read_file` do VS Code. Não é
+ferramenta quebrada: o conteúdo iria ao provedor do modelo. `test -f`, `ls`, uma escrita
+(`printf … >> .env`, `cp .env.example .env`) e o `.env.example` passam. Um `deny` de leitura novo
+entra primeiro na lista, e o `schema` falha se as linhas `Read(...)` de um `settings.json` divergirem
+dela. Design: `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
 
 ### Classes e modelos
 

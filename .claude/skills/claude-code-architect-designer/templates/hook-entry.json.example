@@ -8,11 +8,10 @@
         "matcher": "Write",
         "hooks": [
           {
-            "_comment": "Exec form: `command` is the bare executable, `args` the arguments. No shell, no quoting, no execute bit, works on Windows. A pipe or && inside `command` is rejected by `ArchHook.java schema`. Launch the precompiled jar, never the source: a source launch recompiles the whole hook on every call (~3 s against ~0.3 s). A new or changed mode means `java .claude/hooks/ArchHook.java build` and committing the jar — `schema` fails on a stale one. Path rules in `if` match only through `Edit(...)`, which covers Write too — `Write(...)` there never matches. Design: .claude/decisions/0075-precompiled-hook-jar.md.",
+            "_comment": "Shell form, one shape, no `args`: the GitHub Copilot CLI reads this same file, runs `command` alone and ignores `args`, so an exec-form entry exits 1 there and denies every call. Keep the placeholder braced and double-quoted: Claude Code substitutes it before the shell runs, a Unix shell under Copilot expands it from the environment. A pipe, &&, redirect or substitution inside `command` is rejected by `ArchHook.java schema`, and so is an `args` list. Design: .claude/decisions/0168-hooks-in-shell-form.md. Launch the precompiled jar, never the source: a source launch recompiles the whole hook on every call (~3 s against ~0.3 s). A new or changed mode means `java .claude/hooks/ArchHook.java build` and committing the jar — `schema` fails on a stale one. Path rules in `if` match only through `Edit(...)`, which covers Write too — `Write(...)` there never matches. Design: .claude/decisions/0075-precompiled-hook-jar.md.",
             "type": "command",
             "if": "Edit(<path glob the check actually concerns>)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "<mode>"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode>",
             "statusMessage": "<what the user sees while it runs>",
             "timeout": 30
           }
@@ -26,8 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "<mode>"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode>",
             "statusMessage": "<what the user sees while it runs>",
             "timeout": 60
           }

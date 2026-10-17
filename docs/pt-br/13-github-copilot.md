@@ -90,6 +90,15 @@ Invocação: o modelo decide pela `description` ("não garante que invoque"), ou
 `/nome texto`. O texto depois do nome é **anexado ao prompt**; não existe `$ARGUMENTS`. Não
 existe injeção `` !`comando` ``: o corpo chega literal.
 
+**Observado** (Copilot CLI 1.0.98, 2026-10-16, `lessons-learned-022`, teste B2): no `/arch-doctor`,
+o modelo leu as duas injeções literais e rodou os comandos ele mesmo, pela tool `bash`, com
+descrição própria. O relatório saiu certo. Cada comando custou uma tool call e passou pelos hooks
+de Bash; em forma exec esses hooks teriam negado as duas chamadas (decisão 0168). Numa das duas
+sessões, o `/arch-doctor` digitado virou também uma chamada da tool `skill`, e os dois comandos
+rodaram duas vezes, com 30 s de intervalo. Se o corpo foi carregado duas vezes não foi confirmado.
+O projeto gerado responde com um bullet em `## Under another agent` do `CLAUDE.md` raiz: rodar o
+comando uma vez e nunca adivinhar no lugar dele (decisão 0172).
+
 ### 2.4 Agents — `.github/agents/*.agent.md`
 
 Frontmatter oficial: `name`, `description` (obrigatório), `tools` (lista ou string; omitido ou
@@ -133,11 +142,26 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
   do Claude. `tool_input` é tipado como `unknown`, "argumentos da ferramenta, parseados de JSON
   quando possível" — **o formato interno (`command`, `file_path`, `content`) não está
   documentado**. `SubagentStart` e `StopFailure` **não têm alias PascalCase**.
+- **Observado no CLI 1.0.98 (lessons-learned-022 § 6).** O `tool_input` do `Bash` traz `command`;
+  o `Read` traz `path`, não `file_path`. O CLI nunca manda `Write`: toda escrita é `apply_patch`,
+  entregue como `tool_name: "Edit"` com o `tool_input` sendo a **string** do patch (`*** Begin Patch`,
+  `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`), caminho absoluto ou
+  relativo à raiz. Desde a decisão 0169, `guard write`, `check`, `format`, `schema` e `audit file`
+  traduzem esse patch nos payloads do Claude. O VS Code (`tool_input.input`) e o camelCase
+  (`toolArgs`) não são lidos: nenhum registro os entrega hoje.
 - **Bloqueio**: stdout com `{"permissionDecision":"deny","permissionDecisionReason":"…"}`
   (plano, não aninhado em `hookSpecificOutput` — a forma aninhada do Claude Code não está
   documentada); `exit 2` sempre nega, "mesmo que o stdout diga allow"; qualquer saída não
   zero nega (fail-closed); timeout libera (fail-open). No cloud agent, `ask` vira `deny`.
   `agentStop`/`subagentStop` aceitam `decision: "block"`.
+- **Observado no CLI 1.0.98 (lessons-learned-022, `evidence/D3b-deny-reason.txt`).** No `exit 2` do
+  `preToolUse`, o stderr não chega ao modelo, que vê só `hook exited with code 2`. O objeto plano no
+  stdout chega como `Denied by preToolUse hook: <motivo>`. Com `hookSpecificOutput` no mesmo stdout,
+  volta a mensagem genérica. No `exit 0`, o Copilot também lê a forma aninhada, e `decision: "block"`
+  **não** nega. No `postToolUse`, o stderr vira aviso de tela, e `additionalContext` não chega ao modelo.
+  Só `decision: "block"` chega, como `Tool result blocked: <motivo>`, e substitui o resultado da tool.
+  Desde a decisão 0170, toda recusa do `ArchHook` com `exit 2` repete o stderr no stdout, no formato que
+  `settings.deny_output` do `extensions.json` define por evento.
 - **Contexto**: `additionalContext` em `sessionStart`, `subagentStart` ("prefixado à
   primeira mensagem do subagente"), `postToolUse` e `notification`.
 - **Declaração**: `type` (`command` padrão; `http`; `prompt` só CLI), `bash`/`powershell`/
@@ -162,6 +186,12 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
   `url(https://*.github.com)`; `--allow-all-tools`, `--yolo`; `/permissions`; aprovações salvas
   em `~/.copilot/permissions-config.json`. "Deny sempre vence, mesmo com `--allow-all`." Chave
   `permissions.deny` em arquivo do repositório: **não documentada**.
+- **Observado no CLI 1.0.98 (lessons-learned-022 § 8, E1).** O `deny` `Read(./**/*.env)` do projeto não
+  vale: `wc -l .probe/e1.env` rodou sem negação, e só a escolha do modelo manteve o conteúdo fora do
+  provedor. Desde a decisão 0173, o projeto gerado nega essa leitura por hook: `guard read` em
+  `.github/hooks/archhook.json` (`view` no CLI, `read_file` no VS Code) e `guard bash` no
+  `.claude/settings.json`. A lista é `guard.secret_paths` do `extensions.json`, e o `schema` mantém as
+  linhas `Read(...)` do `deny` iguais a ela.
 - **Enterprise**: `managed-settings.json` com `permissions.deny|ask|allow` e regras
   `Bash(...)`/`Shell(...)`, `Read(...)`, `Edit(...)`/`Write(...)`, `Domain(...)` — a mesma
   gramática do `settings.json` do Claude Code — honradas por CLI, VS Code, app e cloud agent.
@@ -205,15 +235,15 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
 | `CLAUDE.md` **de módulo** (`module.CLAUDE.md.example`) | `AGENTS.md` aninhado ("o mais próximo tem precedência") | Nome do arquivo. Um `CLAUDE.md` aninhado é invisível para o Copilot | Cloud agent, CLI; VS Code só lista |
 | `@caminho` dentro do `CLAUDE.md` | `@caminho` idêntico | Só o CLI expande. No cloud agent o import é texto morto; o que ele precisa ler tem de estar no próprio arquivo ou ser citado como caminho a abrir | CLI |
 | `.claude/rules/*.md` com `paths: [...]` (lista YAML) | `.github/instructions/*.instructions.md` com `applyTo: "a,b"` (string) | Diretório, sufixo, campo, tipo do valor. `status` não existe. Precisa ser **derivado** do `paths` — mesmo mecanismo de `export.derived_paths` — nunca uma segunda cópia à mão (invariante 2) | Cloud agent, code review, IDEs, CLI |
-| `disable-model-invocation: true` em 14 skills | Mesmo campo | Documentado só no VS Code. Nas outras superfícies: **não verificado** — tratar como se o modelo **pudesse** invocar `/new-feature`, `/arch-adopt`, `/git-publish` sozinho | VS Code sim; CLI e cloud não verificado |
+| `disable-model-invocation: true` nas skills manuais | Mesmo campo | Documentado só no VS Code. No CLI, `/skills info` não o mostra (só `userInvocable`, `invokesModel`), e com ele `/new-feature <pedido>` não iniciou (lessons-learned-022 § 5, causa em isolamento — decisão 0171). O que segura o modelo no CLI é o `guard call`: recusa a chamada `skill` a uma skill manual que o prompt do turno não abriu com `/<nome>` | VS Code sim; CLI pelo `guard call`; cloud nada |
 | `context: fork` | `context: fork` | Experimental, só VS Code (hoje nenhuma skill deste repo usa) | VS Code |
 | `argument-hint` + `$ARGUMENTS` (18 skills) | `argument-hint` (só exibição) e texto anexado ao prompt | A linha `$ARGUMENTS` fica literal no corpo; o argumento chega como texto solto depois do prompt | Todas |
 | `.claude/agents/*.md` com `tools`, `model` | `.github/agents/*.agent.md` com `tools`, `model` | Diretório e sufixo. `model: sonnet`/`opus` são aliases do Claude; o Copilot usa ids próprios e o GitHub.com ignora `model`. `tools: Read, Write, Edit, Bash` — "nomes não reconhecidos são ignorados": verificar o nome de cada ferramenta na superfície | CLI, cloud agent, VS Code |
 | `omitClaudeMd: true` (2 agents) | `include-custom-instructions: true` (invertido) | O padrão do Copilot CLI é **omitir**: `java-spring-boot-developer`, que hoje recebe o `CLAUDE.md`, passaria a não receber nada sem o campo | CLI |
 | `Agent` tool com `subagent_type` (8 usos em skills) | Delegação automática ou `task`; nome do agente na descrição | Não há chamada explícita por nome garantida; o modelo "pode escolher" | CLI, VS Code; não no GitHub.com |
 | `SubagentStart` hook → `hookSpecificOutput.additionalContext` | `subagentStart` (só camelCase) → `additionalContext` plano, matcher em `agentName` | O catálogo de padrões injetado pelo `ArchHook.java context subagent` só dispara se registrado em camelCase, em `.github/hooks/*.json` ou via `.claude/settings.json` com nome camelCase; o payload traz `agentName`, não `agent_type` | CLI; cloud agent |
-| `hookSpecificOutput.permissionDecision` (saída aninhada do Claude) | `permissionDecision` no topo | O `guard` hoje escreve a forma aninhada; a plana é a documentada. `exit 2` funciona nos dois | CLI, cloud agent |
-| `${CLAUDE_PROJECT_DIR}` nos `args` dos hooks e em 15 skills | não documentado | Hook com `-jar ${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar` pode receber a string literal | CLI |
+| `hookSpecificOutput.permissionDecision` (saída aninhada do Claude) | `permissionDecision` no topo | No `exit 2`, só o objeto plano leva o motivo: o aninhado derruba o motivo no Copilot e troca o stderr pelo motivo no Claude Code. Desde a decisão 0170, toda recusa do `ArchHook` escreve o objeto plano no `PreToolUse` e `decision: "block"` no `PostToolUse`, sem mudar o `exit 2` nem o stderr | CLI; cloud agent não verificado |
+| `${CLAUDE_PROJECT_DIR}` nos `args` dos hooks e em 15 skills | `args` ignorado; a variável existe no ambiente do hook (7 de 7 capturas, lessons-learned-022 § 2), não documentada | A forma exec rodava um `java` sem argumentos, exit 1, toda chamada negada. Desde a decisão 0168 todo hook é forma shell, `java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <modo>`, que o shell Unix do CLI expande. **Não verificado no Windows:** lá o `command` vira `powershell`, que não lê `${CLAUDE_PROJECT_DIR}` como variável de ambiente | CLI |
 | `tool_input.command`, `tool_input.file_path`, `tool_input.content` (o que `guard` lê) | `tool_input: unknown` | Nomes do Claude no `tool_name`, formato do `tool_input` não documentado. É a lacuna que decide se o `guard` precisa de adaptador de entrada (passo 5 da fase 8) | CLI |
 | `.vscode/mcp.json` (`servers`, `inputs`) | `.mcp.json` (`mcpServers`) | Dois formatos; o CLI não lê o do VS Code | — |
 | `${VAR}` em `.mcp.json` | `${input:id}` (VS Code), `COPILOT_MCP_*` + `${VAR:-default}` (cloud, UI), literal (CLI) | A invariante 11 (nenhum segredo literal) só tem mecanismo garantido no VS Code e na UI do cloud agent | — |
@@ -225,7 +255,7 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
 
 | Peça | Efeito no projeto gerado sob Copilot |
 |---|---|
-| Injeção `` !`comando` `` no corpo da skill (14 skills, 2 a 4 por arquivo) | O texto `` !`java .claude/hooks/ArchHook.jar doctor` `` chega literal. Toda skill que descobre estado por injeção (`arch-doctor`, `init-project`, as nove de design que leem a spec) perde o estado |
+| Injeção `` !`comando` `` no corpo da skill (16 skills que viajam, 1 ou 2 por arquivo; mais `init-project` e `claude-code-architect-designer`, só no gerador) | O texto `` !`java "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/ArchHook.java" doctor 2>&1` `` chega literal. O estado só existe se o modelo rodar o comando, o que ele fez no B2 (§ 2.3). Onde a saída decide um passo (`use-case-design` numera o `UC-NNN` por ela, `docker-architect` escolhe a regra de entrada), um palpite no lugar dela corrompe o resultado |
 | `$ARGUMENTS` interpolado | Fica literal; o argumento chega solto |
 | Tool `Skill` (26 usos: uma skill encadeando outra, `/new-feature` orquestrando o pipeline) | Não existe. O encadeamento de design skills depende do modelo "decidir" abrir a próxima |
 | `AskUserQuestion` com opções estruturadas (50 usos) | O CLI mapeia `ask_user`; o **cloud agent não tem usuário** — a pergunta fica sem resposta e o run segue ou para |
@@ -269,22 +299,23 @@ sempre. "Orientado" é prosa que o modelo lê e pode seguir. "Nada" é um arquiv
 | Contexto raiz (`CLAUDE.md`) | orientado | orientado | orientado | Lido nativamente |
 | Contexto por módulo (`<módulo>/AGENTS.md`, importado pelo `CLAUDE.md` de uma linha) | orientado | orientado | orientado só com `chat.useNestedAgentsMdFiles` | Decisão 0139 |
 | Normas por caminho (`rules/*.md` + `paths`) | nada, salvo citação aberta pelo modelo | nada | nada | `.claude/rules/` não é lido; exige derivação para `.instructions.md` |
-| Skills de design com estado por injeção `` !` `` | degradado: corpo chega, estado não | degradado | degradado | Injeção não existe |
-| Skill manual (`disable-model-invocation`) não invocada pelo modelo | não verificado | não verificado | orientado | Só o VS Code documenta o campo em skill |
+| Skills com estado por injeção `` !` `` | orientado: o corpo chega literal, e o `CLAUDE.md` raiz manda rodar o comando uma vez (observado: o modelo roda) | orientado | orientado | Injeção não existe; decisão 0172 |
+| Skill manual (`disable-model-invocation`) não invocada pelo modelo | garantido pelo `guard call` na chamada `skill`; ler o `SKILL.md` por `view` e seguir continua possível | nada | orientado | Decisão 0171; fail-open se o `UserPromptSubmit` não rodar |
 | Território de escrita do `guard` por fase de skill | nada | nada | nada | Sem evento `Skill` |
 | Território de escrita do `guard` por agent (`agent_type`) | não verificado: hook roda, payload difere (`agentName`, `tool_input` sem formato documentado) | nada (não lê `settings.json`) | não verificado (`chat.useClaudeHooks`) | Passo 5 da fase 8 |
 | `guard bash` (força push, escrita fora do território) | não verificado: hook roda; depende de `tool_input.command` | nada | não verificado | Idem |
-| Spec aprovada congelada | não verificado | nada | não verificado | É o mesmo `guard` |
+| Spec aprovada congelada | garantido no hook (`guard write` lê o `apply_patch`, decisão 0169; `guard bash` lê `command`), e a negação leva o motivo no stdout desde a decisão 0170 (lessons-learned-022 § 4) | nada | não verificado | É o mesmo `guard` |
 | `compose gate` | não verificado (hook roda, `exit 2` nega) | nada | não verificado | Mesmo hook |
 | Catálogo de padrões em `SubagentStart` | nada, salvo registro camelCase | nada, salvo `.github/hooks/*.json` camelCase | nada | Sem alias PascalCase |
 | Executor `java-spring-boot-developer` com `tools` restritas | parcial: precisa de `.agent.md`; `model` com id próprio; `include-custom-instructions` | parcial, sem `model` | parcial | Formato de agent diferente; `.claude/agents/` não verificado |
-| `permissions.deny` (`.env`, `.pem`, `git push --force`) | nada em arquivo; `--deny-tool` por sessão | nada | nada | Só política de empresa |
+| `permissions.deny` de leitura (`.env`, `.pem`, `secrets/`) | garantido pelo `guard read` (`view`) e pelo `guard bash` (leitores de conteúdo, `wc`, `<`) para os caminhos de `guard.secret_paths`; um caminho não literal, `grep -r` e as tools `Grep`/`Glob` passam | nada (não lê hooks de arquivo) | não verificado: `guard read` em `read_file` pelo `.github/hooks`, matcher não testado; `run_in_terminal` passa | Decisão 0173; reteste E1′ |
+| `permissions.deny` de `git push --force` | garantido pelo `guard bash` (`guard.force_push`) | nada | não verificado | O mesmo hook de `Bash` |
 | Trilha de auditoria e `GENESIS.md` | nada | nada | nada | Transcrição em outro formato |
 | Segredo nunca literal em `.mcp.json` | não verificado (interpolação não documentada) | garantido pela UI, se usada | garantido por `${input:}` | — |
 
 Leitura honesta da tabela, que o projeto gerado diz na seção `## Under another agent` do `CLAUDE.md` raiz — o arquivo que toda superfície lê (decisão 0139): **sob
 Copilot, o que continua garantido é o build**. Território de escrita, spec congelada, catálogo
-em `SubagentStart`, `deny` de arquivos sensíveis e auditoria são Claude Code — e no CLI
+em `SubagentStart` e auditoria são Claude Code — e no CLI
 viram "talvez", até que o passo 5 da fase 8 prove o payload.
 
 ---
@@ -308,8 +339,9 @@ redescobrir.
    O Copilot nunca lê `CLAUDE.md` aninhado. Daí a forma da decisão 0139: o `AGENTS.md` do
    módulo é o dono, e o `CLAUDE.md` ao lado só o importa.
 4. **O Copilot lê `.claude/skills/` como está**, mas nenhuma `disable-model-invocation` é
-   garantida fora do VS Code. As 14 skills manuais ficam, no Copilot, candidatas a invocação
-   automática — inclusive `arch-adopt`, que reescreve o `.claude/`.
+   garantida fora do VS Code. No CLI, a chamada chega aos hooks como `tool_name: "skill"`
+   (minúsculo), e o `guard call` recusa a de uma skill manual que o prompt do turno não abriu —
+   inclusive `arch-adopt`, que reescreve o `.claude/` (decisão 0171). No cloud agent, nada.
 5. **`.claude/rules/` não existe para o Copilot.** Até a derivação do passo 3, a única via é a
    citação por caminho dentro do `AGENTS.md`.
 6. **Hooks de `.claude/settings.json` rodam no Copilot CLI, e só lá.** O que o `AGENTS.md`

@@ -63,7 +63,7 @@ sequenceDiagram
 
 | Linha | Condição de ✅ | Condição de ❌/⚠️ |
 |---|---|---|
-| `OS` | — informativo | No Windows, nota que roda em exec form (sem shell) |
+| `OS` | — informativo | No Windows, nota que os hooks rodam no Git Bash, ou no PowerShell sem ele |
 | `Java` | — informativo | versão da JVM em uso |
 | `Project root` | — informativo | resolvido de `CLAUDE_PROJECT_DIR` ou diretório atual |
 | `CLAUDE_PROJECT_DIR` | variável setada | ❌ não setada — hooks usam o diretório atual |
@@ -75,7 +75,8 @@ sequenceDiagram
 | `Audit` | N execuções registradas em `.claude/audit-usage/` | ⚪ sem o diretório — trilha OFF (opcional; é o caso deste meta-repo) |
 | `Audit rule inference` | a inferência de regras renderiza sem erro para um `.java` sintético | ❌ `auditRules()` lança — todo relatório congelaria assim que uma execução tocasse `src/**` |
 | `MCP` | N servidores declarados em `.mcp.json`, todos válidos | ❌ N problemas — rodar `java ArchHook.java schema`; ou "no .mcp.json" (opcional) |
-| `Hooks` | N registros válidos em M eventos | ❌ evento desconhecido, `matcher` em evento que não lê um, ou string de shell no `command` — os quatro modos de falhar silenciosamente de um hook. Também quando `enabledPlugins` não traz `"<id>": false` para um plugin de `settings.blocked_plugins` (decisão 0138) |
+| `Hooks` | N registros válidos em M eventos | ❌ evento desconhecido, `matcher` em evento que não lê um, uma lista `args` (forma exec, que o Copilot CLI ignora), ou pipe ou encadeamento no `command` — os quatro modos de falhar silenciosamente de um hook. Também quando `enabledPlugins` não traz `"<id>": false` para um plugin de `settings.blocked_plugins` (decisão 0138) |
+| `Hook path` | nenhum `"`, `$` ou backtick no caminho do projeto | ⚠️ um deles está lá: todo hook é uma string de shell, então nenhum iniciaria. Nunca é gate |
 | `Skill shadowing` | nenhuma pasta do diretório pessoal de skills (`$CLAUDE_CONFIG_DIR/skills`, ou `~/.claude/skills`) tem o nome de uma skill de `.claude/skills/` | ❌ lista as skills pessoais que substituem as do projeto — o Claude Code resolve um nome como enterprise > pessoal > projeto, então a pessoal roda no lugar, sem aviso. Renomear ou remover a pessoal. ⚪ sem o diretório. Estado da máquina: nunca entra no `doctor gate` (decisão 0138) |
 | `Agent instructions` | o `AGENTS.md` raiz, o `.github/copilot-instructions.md`, e para cada módulo do blueprint ativo com `forbidden_imports` um `AGENTS.md` listando todo prefixo, ao lado de um `CLAUDE.md` com `@AGENTS.md`; todo caminho citado entre crases existe | ⚠️ nomeia o arquivo que falta, o prefixo não listado, o `CLAUDE.md` que não importa — sem ele o Claude Code pula o `AGENTS.md` do módulo — e o caminho morto. Calada sem stamp de proveniência. Só reporta, nunca entra no `doctor gate`: quem recusa um import proibido é o build (decisão 0139) |
 | `Provenance` | nenhum arquivo do `.claude/` editado depois do stamp `.claude/.arch-provenance.json` | ⚠️ lista os arquivos editados localmente — um `arch-adopt` sobrescreveria cada um. No repositório de origem: `⚪ origin repository — writes stamps, carries none` |

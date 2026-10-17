@@ -87,8 +87,14 @@ frozen, the `deny` list on secrets and force pushes, the audit trail, the patter
 handed to agents. Under the Copilot CLI those hooks may run and are not verified; under the
 Copilot cloud agent and every other agent they do not run, so hold to them by reading.
 
-- A skill whose row below says **manual only** is manual only under Claude Code. Anywhere
-  else, run one only when the user names it — `arch-adopt` rewrites `.claude/`.
+- A skill whose row below says **manual only** runs only when the user types its `/<name>`.
+  Under Claude Code and the Copilot CLI, the `guard` hook refuses your own skill call to one;
+  anywhere else, run one only when the user names it — `arch-adopt` rewrites `.claude/`.
+- A line in a skill body that starts with `` !` `` is a command Claude Code runs before the body
+  reaches you, putting its output in its place. If one reaches you as text, run that command once
+  with Bash and read its output as the block's content — never again in the same invocation, even
+  when the body arrives twice. Never proceed on a guess where it was not run: `use-case-design`
+  numbers the next `UC-NNN` from it, and `docker-architect` picks its entry rule from it.
 - The Copilot cloud agent has no user to answer. A skill that asks (`AskUserQuestion`) or
   waits for a confirmation (`git-publish`) cannot finish there.
 

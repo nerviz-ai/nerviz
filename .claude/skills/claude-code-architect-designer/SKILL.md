@@ -278,10 +278,14 @@ the same interview again.
 6. **Forms 7 and 8 — five rules, none of them optional.** They execute; a mistake here
    doesn't degrade, it blocks.
 
-   - **Exec form, always.** `"command"` is the bare executable and `"args"` the
-     arguments. A pipe, a `&&`, or a redirect inside `"command"` is a shell string in the
-     executable's slot: `ArchHook.java schema` rejects it, and the runtime would have
-     accepted it as a filename.
+   - **Shell form, one shape, no `args`.** `"command"` is
+     `java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`, the placeholder
+     braced and double-quoted. The GitHub Copilot CLI reads the same settings file, runs
+     `command` alone and ignores `args`. An exec-form entry there exits 1, which denies every
+     call (`@.claude/decisions/0168-hooks-in-shell-form.md`). Still one process per entry: a
+     pipe, a `&&`, a redirect or a substitution inside `"command"` is rejected by
+     `ArchHook.java schema`, and so is an `args` list or an ArchHook entry off
+     `settings.archhook_command_pattern`.
    - **Narrow before spawning.** Every entry carries an `if` (a permission rule, e.g.
      `Edit(.claude/**/*.md)`) or sits under a `matcher`, unless the check genuinely has to
      run on every occurrence of the event. Without one, a `PostToolUse` hook pays a JVM

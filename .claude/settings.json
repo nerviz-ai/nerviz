@@ -1,14 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Hooks in exec form (command + args) — the recommended form to avoid quoting and path issues on Windows. No shell is invoked. The `if` field filters by permission rule before spawning the process: without it, every edit to any file would pay for a JVM startup. The `guard` entries are the deliberate exception: territory is deny-by-default (`skill_classes` in .claude/schemas/extensions.json), so an `if` narrowing them to a path list would recreate the denylist hole they exist to close — a design run once wrote docker-compose.yml, which no forbidden-path list named. `guard write` returns immediately when no phase is open, which is every write outside a skill invocation. The `Bash` entry is the same deny-by-default check reached from the other side: every other enforcement here matches on a tool name, so a heredoc or a `sed -i` passed through none of them (lessons-learned-014 § 1). It carries no `if` for the same reason the `guard` entries don't, and for one more — a permission rule matches a command prefix, and `cat > file`, the spelling that was actually used, has no prefix that names the write. A target it cannot read literally is skipped in silence, so the cost of a false positive is bounded by design. The write matchers are one list: `format` and `check` used to match `Write|Edit` alone, which left a `MultiEdit` territory-checked but never boundary-checked or formatted (lessons-learned-014 § 2). On `Stop`, `guard sweep` is the backstop behind both write guards: it reads what changed on disk since the baseline `guard prompt` took, so it catches the shell spellings the parser cannot read — and it is git-shaped, so a path git ignores is never swept. `compose gate` is the same `composeReport()` `doctor` and the bare `compose` use, silent while healthy: the check existed and had simply never been run against a project, which is how a broker unreachable from the host shipped on day one (lessons-learned-014 § 13). Every entry launches the precompiled `.claude/hooks/ArchHook.jar` (`java -jar`), not the source: a source launch recompiled the whole file on every call, ~3.3 s against ~0.3 s. `schema` and `doctor` report a jar built from another version of `ArchHook.java`; `java .claude/hooks/ArchHook.java build` rebuilds it under the pinned JDK. `format` and `check` carry `if: Edit(**/*.java)` — both return at their first line for anything else, so the filter loses nothing. Path rules in `if` are matched only through `Edit(...)`/`Read(...)`, and `Edit` covers every built-in tool that writes a file, `Write` included — which is why no `if` here spells `Write(...)`. Design: .claude/decisions/0075-precompiled-hook-jar.md. The `build` entry exists in this repository only: an edit to `ArchHook.java` rebuilds the jar right away, through the source launch on purpose, so a source that no longer compiles reports its errors there instead of leaving the hooks on the old jar in silence. `extraKnownMarketplaces` registers .claude/mods/ as the `nerviz-mods` marketplace — a `directory` source with a relative path, so each mod loads in place, from the main checkout, once the folder is trusted — and `enabledPlugins` turns each mod on; the `Edit(.claude/mods/**)` entry runs `schema`, which judges a mod whole, from disk. A mod draws what these hooks decide and enforces nothing: it does not load in `claude -p`, VS Code, a cloud session or under `--safe-mode`. Design: .claude/decisions/0131-mods-in-architect-designer.md.",
+  "_comment": "Hooks in shell form: each `command` is one string, java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode>, and no entry carries `args`. The GitHub Copilot CLI reads this same file, runs `command` alone and ignores `args`, so the exec form used before launched a bare `java` that exited 1 — and a preToolUse hook that exits neither 0 nor 2 denies the call there, so every Edit, Shell and Read was denied. Claude Code substitutes the quoted placeholder before its shell runs (sh -c, Git Bash on Windows, PowerShell without Git Bash); a Unix shell under Copilot expands the same text from the environment. One process per entry still: `schema` refuses a pipe, a chain, a redirect or a substitution in `command`, and holds every ArchHook entry to `settings.archhook_command_pattern`. A project path holding a double quote, `$` or a backtick would split the string — `doctor` warns on its `Hook path` line. Design: .claude/decisions/0168-hooks-in-shell-form.md. The `if` field filters by permission rule before spawning the process: without it, every edit to any file would pay for a JVM startup. The `guard` entries are the deliberate exception: territory is deny-by-default (`skill_classes` in .claude/schemas/extensions.json), so an `if` narrowing them to a path list would recreate the denylist hole they exist to close — a design run once wrote docker-compose.yml, which no forbidden-path list named. `guard write` returns immediately when no phase is open, which is every write outside a skill invocation. The `Bash` entry is the same deny-by-default check reached from the other side: every other enforcement here matches on a tool name, so a heredoc or a `sed -i` passed through none of them (lessons-learned-014 § 1). It carries no `if` for the same reason the `guard` entries don't, and for one more — a permission rule matches a command prefix, and `cat > file`, the spelling that was actually used, has no prefix that names the write. A target it cannot read literally is skipped in silence, so the cost of a false positive is bounded by design. The same entry refuses a shell read (`cat`, `wc`, `grep`, `<`, …) of a path in `guard.secret_paths` of .claude/schemas/extensions.json — the list the `Read(...)` lines of `permissions.deny` below are derived from, and `schema` fails when they drift. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md. The write matchers are one list: `format` and `check` used to match `Write|Edit` alone, which left a `MultiEdit` territory-checked but never boundary-checked or formatted (lessons-learned-014 § 2). On `Stop`, `guard sweep` is the backstop behind both write guards: it reads what changed on disk since the baseline `guard prompt` took, so it catches the shell spellings the parser cannot read — and it is git-shaped, so a path git ignores is never swept. `compose gate` is the same `composeReport()` `doctor` and the bare `compose` use, silent while healthy: the check existed and had simply never been run against a project, which is how a broker unreachable from the host shipped on day one (lessons-learned-014 § 13). Every entry launches the precompiled `.claude/hooks/ArchHook.jar` (`java -jar`), not the source: a source launch recompiled the whole file on every call, ~3.3 s against ~0.3 s. `schema` and `doctor` report a jar built from another version of `ArchHook.java`; `java .claude/hooks/ArchHook.java build` rebuilds it under the pinned JDK. `format` and `check` carry `if: Edit(**/*.java)` — both return at their first line for anything else, so the filter loses nothing. Path rules in `if` are matched only through `Edit(...)`/`Read(...)`, and `Edit` covers every built-in tool that writes a file, `Write` included — which is why no `if` here spells `Write(...)`. Design: .claude/decisions/0075-precompiled-hook-jar.md. The `build` entry exists in this repository only: an edit to `ArchHook.java` rebuilds the jar right away, through the source launch on purpose, so a source that no longer compiles reports its errors there instead of leaving the hooks on the old jar in silence. `extraKnownMarketplaces` registers .claude/mods/ as the `nerviz-mods` marketplace — a `directory` source with a relative path, so each mod loads in place, from the main checkout, once the folder is trusted — and `enabledPlugins` turns each mod on; the `Edit(.claude/mods/**)` entry runs `schema`, which judges a mod whole, from disk. A mod draws what these hooks decide and enforces nothing: it does not load in `claude -p`, VS Code, a cloud session or under `--safe-mode`. Design: .claude/decisions/0131-mods-in-architect-designer.md.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "guard", "prompt"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" guard prompt",
             "statusMessage": "Closing the previous skill phase...",
             "timeout": 30
           }
@@ -17,12 +16,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Skill|Agent|Task",
+        "matcher": "Skill|skill|Agent|Task",
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "guard", "call"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" guard call",
             "statusMessage": "Opening the skill phase...",
             "timeout": 30
           }
@@ -33,8 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "guard", "write"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" guard write",
             "statusMessage": "Checking the active skill's territory...",
             "timeout": 30
           }
@@ -45,8 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "guard", "bash"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" guard bash",
             "statusMessage": "Checking what this command writes...",
             "timeout": 30
           }
@@ -58,32 +54,28 @@
           {
             "type": "command",
             "if": "Edit(.claude/**/*.md)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating frontmatter...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.mcp.json)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating .mcp.json...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/settings.json)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating hook registrations...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/skills/project-bootstrap/templates/settings.json.example)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating the generated project's hooks...",
             "timeout": 30
           }
@@ -97,64 +89,56 @@
           {
             "type": "command",
             "if": "Edit(**/*.java)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "format"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" format",
             "statusMessage": "Formatting...",
             "timeout": 90
           },
           {
             "type": "command",
             "if": "Edit(**/*.java)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "check"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" check",
             "statusMessage": "Checking boundaries...",
             "timeout": 180
           },
           {
             "type": "command",
             "if": "Edit(.claude/**/*.md)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating frontmatter...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.mcp.json)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating .mcp.json...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/settings.json)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating hook registrations...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/skills/project-bootstrap/templates/settings.json.example)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating the generated project's hooks...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/mods/**)",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating the mods...",
             "timeout": 30
           },
           {
             "type": "command",
             "if": "Edit(.claude/hooks/ArchHook.java)",
-            "command": "java",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.java", "build"],
+            "command": "java \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.java\" build",
             "statusMessage": "Rebuilding ArchHook.jar...",
             "timeout": 120
           }
@@ -166,29 +150,25 @@
         "hooks": [
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "schema"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" schema",
             "statusMessage": "Validating frontmatter...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "guard", "sweep"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" guard sweep",
             "statusMessage": "Sweeping what this turn wrote...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "compose", "gate"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" compose gate",
             "statusMessage": "Checking compose services...",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "java",
-            "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "tests"],
+            "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" tests",
             "statusMessage": "Running the verify gate on changed modules...",
             "timeout": 600
           }

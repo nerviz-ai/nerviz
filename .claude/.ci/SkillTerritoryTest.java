@@ -1,7 +1,8 @@
 ///usr/bin/env java --source 21 "$0" "$@" ; exit $?
 //
 // CI test: proves `ArchHook.java guard` keeps a skill inside the territory its class
-// declares in `skill_classes`, refuses a build-class Skill call mid-design, sums territories
+// declares in `skill_classes`, refuses a build-class Skill call mid-design, refuses a manual
+// skill the user did not type (under `Skill` and Copilot's `skill`), sums territories
 // when a skill chains another of its own class, and restricts nothing while no phase is open.
 //
 // Why this test exists: the failure it guards against was invisible in review. A design run
@@ -341,6 +342,87 @@ public class SkillTerritoryTest {
                 "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"CONTRIBUTING.md\"}}",
                 2, "another root file stays blocked");
 
+        // A prompt-only skill — `disable-model-invocation: true`, or `guard.prompt_only.extra` —
+        // runs only from the user's own `/<skill>` (decision 0171). Under the Copilot CLI the flag
+        // is not represented, and the skill call arrives as `skill`, lowercase, so the refusal is
+        // the guard's. Under Claude Code the runtime already refuses the model's call; the cases
+        // under `Skill` prove the user-typed path still passes there.
+        String manual = "ci-territory-manual-" + System.nanoTime();
+        failures += run(hook, "prompt", manual,
+                "{\"session_id\":\"%s\",\"prompt\":\"update the project\"}",
+                0, "a plain prompt — no phase, baseline taken");
+
+        failures += runSaying(hook, "call", manual,
+                "{\"session_id\":\"%s\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"arch-adopt\"}}",
+                2, "the model's own `skill` call to a manual skill — refused",
+                "runs only when the user types `/arch-adopt`", "permissionDecisionReason");
+
+        failures += run(hook, "call", manual,
+                "{\"session_id\":\"%s\",\"tool_name\":\"Skill\","
+                        + "\"tool_input\":{\"skill\":\"new-feature-implement\"}}",
+                2, "the same refusal under Claude Code's `Skill`");
+
+        failures += run(hook, "call", manual,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"use-case-design\"}}",
+                0, "a pipeline skill keeps no flag and is never prompt-only (0007)");
+
+        failures += run(hook, "call", manual,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"git-publish\"}}",
+                0, "git-publish is chained by design — not prompt-only");
+
+        String typed = "ci-territory-manual-typed-" + System.nanoTime();
+        failures += run(hook, "prompt", typed,
+                "{\"session_id\":\"%s\",\"prompt\":\"/arch-adopt\"}",
+                0, "the user types /arch-adopt");
+
+        failures += run(hook, "call", typed,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"arch-adopt\"}}",
+                0, "Copilot routes the typed command through `skill` — admitted");
+
+        failures += run(hook, "call", typed,
+                "{\"session_id\":\"%s\",\"tool_name\":\"Skill\","
+                        + "\"tool_input\":{\"skill\":\"arch-adopt\"}}",
+                0, "the same under `Skill` — Claude Code's behaviour unchanged");
+
+        String other = "ci-territory-manual-other-" + System.nanoTime();
+        failures += run(hook, "prompt", other,
+                "{\"session_id\":\"%s\",\"prompt\":\"/new-feature add a use case\"}",
+                0, "the user types /new-feature");
+
+        failures += run(hook, "call", other,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"use-case-design\"}}",
+                0, "/new-feature chains use-case-design through `skill` — admitted");
+
+        failures += run(hook, "call", other,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"new-feature-implement\"}}",
+                2, "another manual skill than the one typed — refused");
+
+        // The build-class refusal used to test `"Skill"` alone, and judged nothing under Copilot.
+        String copilotDesign = "ci-territory-manual-design-" + System.nanoTime();
+        failures += run(hook, "prompt", copilotDesign,
+                "{\"session_id\":\"%s\",\"prompt\":\"/new-feature add a use case\"}",
+                0, "prompt opens the orchestrator phase");
+
+        failures += runSaying(hook, "call", copilotDesign,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"docker-architect\"}}",
+                2, "build-class call refused mid-design under `skill` too",
+                "a design run does not materialize files");
+
+        // Fail-open: no `guard prompt` ran in this session, so this runtime has no prompt hook
+        // and the turn's prompt is unknown. Refusing would lock out the user who typed it.
+        String noPromptHook = "ci-territory-manual-nohook-" + System.nanoTime();
+        failures += run(hook, "call", noPromptHook,
+                "{\"session_id\":\"%s\",\"tool_name\":\"skill\","
+                        + "\"tool_input\":{\"skill\":\"arch-adopt\"}}",
+                0, "no prompt hook in this session — fail-open");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — the territory guard is NOT"
                     + " enforcing what skill_classes declares.");
@@ -350,12 +432,19 @@ public class SkillTerritoryTest {
                 + " agent_type judged by its own class on writes and Skill calls,"
                 + " build-class calls refused mid-design,"
                 + " same-class chains summing territories, report-class runs held to"
-                + " docs/lessons-learned/, and no restriction with no phase open.");
+                + " docs/lessons-learned/, manual skills run only from the user's own"
+                + " `/<skill>` under `Skill` and `skill`, and no restriction with no phase open.");
     }
 
     /** Runs one `guard <phase>` with the given stdin and checks the exit code. */
     static int run(Path hook, String phase, String session, String jsonTemplate,
                    int wanted, String label) throws Exception {
+        return runSaying(hook, phase, session, jsonTemplate, wanted, label);
+    }
+
+    /** Same as {@link #run}, and the combined output must carry every one of {@code said}. */
+    static int runSaying(Path hook, String phase, String session, String jsonTemplate,
+                         int wanted, String label, String... said) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(
                 ProcessHandle.current().info().command().orElse("java"),
                 "-jar", hook.toString(), "guard", phase);
@@ -368,11 +457,14 @@ public class SkillTerritoryTest {
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         int exit = p.waitFor();
 
-        if (exit == wanted) {
+        String missing = null;
+        for (String s : said) if (!out.contains(s)) { missing = s; break; }
+        if (exit == wanted && missing == null) {
             System.out.println("✅ " + label + " (exit " + exit + ")");
             return 0;
         }
-        System.out.println("❌ " + label + " — expected exit " + wanted + ", got " + exit);
+        System.out.println("❌ " + label + " — expected exit " + wanted + ", got " + exit
+                + (missing == null ? "" : "; output lacks `" + missing + "`"));
         System.out.println(out);
         return 1;
     }

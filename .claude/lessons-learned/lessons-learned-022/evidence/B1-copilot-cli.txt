@@ -1,0 +1,5 @@
+B1 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+Referencia: 25 skills em .claude/skills/ (8 com disable-model-invocation: true).
+/skills no Copilot: segundo o usuario, todas as skills do Nerviz apareceram com check verde (saida nao colada).
+=> 25/25 carregadas. Resultado: IGUAL (evidencia: relato do usuario).
+"Failed to load 3 skills" (visto no F1) NAO sao do projeto — origem fora de .claude/skills/ (provavelmente skills pessoais), nao investigado.

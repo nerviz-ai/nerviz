@@ -524,17 +524,19 @@ A file-by-file map of skills and agents is in [`docs/en/00-overview.md`](docs/en
 
 ---
 
-## Enforcement: one Java file, no shell
+## Enforcement: one Java file, one command shape
 
 Every hook launches `.claude/hooks/ArchHook.jar`, compiled from the single source file
-`ArchHook.java` and invoked in exec form:
+`ArchHook.java` and invoked as one shell string, with no `args`:
 
 ```json
-{ "type": "command", "command": "java",
-  "args": ["-jar", "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar", "check"] }
+{ "type": "command",
+  "command": "java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" check" }
 ```
 
-No shell is invoked, so bash, Git Bash, WSL, or PowerShell make no difference. There is one
+Claude Code substitutes the quoted placeholder and runs the string in `sh -c`, Git Bash or
+PowerShell. The GitHub Copilot CLI reads the same file and expands the placeholder in its
+shell: it ignores `args`, so the exec form used before denied every call there. There is one
 implementation instead of a `.sh` and a `.ps1` that drift apart. And the dependency
 already exists, because the audience has a JDK by definition. The jar is committed, and CI
 requires it to be byte for byte what the source compiles to under the pinned JDK.

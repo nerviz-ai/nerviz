@@ -172,9 +172,10 @@ Nothing to run here — step 6.6 already wrote it. This section is what the fina
 **The hooks.** `settings.json` arrives with the `schema` mode's triggers, the `audit`
 triggers, the `guard` triggers, and the permissions: the pipeline skills in `allow`,
 `Bash(git push:*)` in `ask`. Preserving a project's own entries never means widening
-`git push` into an allow. The hooks run in **exec form** (`command: java` + `args`), with
-no shell and no execute bit, which is what makes them identical on Linux, macOS and
-Windows — there is no `chmod` anywhere in this skill.
+`git push` into an allow. The hooks run in **shell form**, one string per entry
+(`java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`, no `args`), because
+the GitHub Copilot CLI reads the same file, runs `command` alone and ignores `args`. No
+execute bit is involved, so there is no `chmod` anywhere in this skill.
 
 **The trail.** `.claude/audit-usage/` is the on/off switch: `ArchHook.java audit` returns
 immediately when the directory is absent. Every skill under `.claude/skills/` and every

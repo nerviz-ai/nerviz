@@ -122,11 +122,18 @@ malformed YAML, nothing else. What validates fields is
 effect — `claude` must be restarted.
 
 **A hook fails silently in four ways, none an error.** Unknown event name — never fires.
-`matcher` on an event that doesn't read one — filters nothing. Pipe or `&&` inside `"command"`
-— part of the filename (exec form: `command` is the binary, `args` the arguments). A mode that
+`matcher` on an event that doesn't read one — filters nothing. An `args` list — the GitHub Copilot CLI ignores it,
+launches a bare `java` that exits 1, and denies every tool call (hooks are shell form, 0168). A mode that
 throws — exits 0 through `main`'s catch, looks like it passed. `schema` catches the first
 three, from the `settings` block of `.claude/schemas/extensions.json`; the fourth only by
 running the mode by hand.
+
+**Under the GitHub Copilot CLI, a refusal's stderr never reaches the model.** On `preToolUse` it sees
+only `hook exited with code 2`, and on `postToolUse` stderr becomes a screen warning. That is why
+every `exit 2` refusal of `ArchHook` repeats its stderr on stdout, in the shape
+`settings.deny_output` of `extensions.json` names (0170). **Never add `hookSpecificOutput` to that
+shape:** at `exit 2`, Copilot falls back to its generic line and Claude Code swaps stderr for the
+nested reason. `DenyReasonTest` fails by name on it.
 
 **An `if` with a path only matches through `Edit(...)` or `Read(...)`.** `Edit` covers every
 built-in tool that writes a file, `Write` included; an `"if": "Write(.claude/**/*.md)"` looks
@@ -248,6 +255,24 @@ four sit in `permissions.ask` of `.claude/settings.json` — the prompt shows up
 `issue-verifier` into trying to publish something. Not a broken tool: the text of a public
 issue is third-party text. This repo only; a generated project has none of these lines.
 Design: `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
+
+**A manual skill the model calls is refused, even where the flag has no effect.** A `Skill`
+(Claude Code) or `skill` (Copilot CLI) call to a skill with `disable-model-invocation: true`, or one
+`guard.prompt_only.extra` names, exits 2 when the turn's prompt did not start with its `/<name>`.
+The message says to print the command for the user to type. Not a broken skill: the way in is
+the user typing `/<name>`. Fail-open: when `guard prompt` never ran in the session, nothing is
+refused. Design: `.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
+
+**Reading a `.env` is refused, through the shell too, and under Copilot too.** The paths of
+`guard.secret_paths` in `extensions.json` (`*.env`, `secrets/**`, `application-prod.yml`/`.yaml`,
+`*.pem`, `*.p12`) are denied to `Read` by `permissions.deny` under Claude Code. In every runtime,
+`guard bash` denies `cat`, `wc`, `grep`, `sed` without `-i`, `head`, `source`, `<` and the other
+readers of `guard.secret_read_shapes` — even `grep -qs`, which prints nothing. In a generated
+project, `guard read` in `.github/hooks/archhook.json` denies the Copilot CLI's `view` and VS Code's
+`read_file`. Not a broken tool: the content would go to the model provider. `test -f`, `ls`, a write
+(`printf … >> .env`, `cp .env.example .env`) and `.env.example` pass. A new read `deny` goes into the
+list first, and `schema` fails when the `Read(...)` lines of a `settings.json` drift from it. Design:
+`.claude/decisions/0173-secret-read-guard-for-copilot.md`.
 
 ### Classes and models
 

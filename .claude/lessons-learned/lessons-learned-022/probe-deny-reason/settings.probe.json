@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "java \"${CLAUDE_PROJECT_DIR}/.probe/DenyReasonProbe.java\" pre" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "java \"${CLAUDE_PROJECT_DIR}/.probe/DenyReasonProbe.java\" post" }
+        ]
+      }
+    ]
+  }
+}

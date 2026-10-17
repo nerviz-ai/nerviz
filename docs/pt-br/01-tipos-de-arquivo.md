@@ -315,10 +315,12 @@ nem o usuário diretamente. O único jeito de rodar `ArchHook.java` "manualmente
 `arch-doctor`, que embute essa chamada via `` !`comando` `` no próprio corpo (ver §
 Skill acima).
 
-**Forma exec vs. shell:** `settings.json` usa **forma exec** (`command: java` + `args:
-[...]`) em vez de forma shell — sem shell, sem bit de execução, idêntico em Linux,
-macOS e Windows (`claude-help.md` § Configuration; `CLAUDE.md` § Commands). É por isso
-que não há `chmod` em nenhum passo de `project-bootstrap`.
+**Forma shell, não exec:** o `settings.json` escreve cada hook como uma string só,
+`java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <modo>`, sem `args`. O GitHub
+Copilot CLI lê o mesmo arquivo, roda só o `command` e ignora `args`, então a forma exec negava
+toda chamada lá. O Claude Code substitui o placeholder entre aspas e roda a string em `sh -c`,
+Git Bash ou PowerShell (`claude-help.md` § Configuration). Nenhum bit de execução entra nisso,
+e é por isso que não há `chmod` em nenhum passo de `project-bootstrap`.
 
 **Códigos de saída:**
 

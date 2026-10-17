@@ -1,0 +1,15 @@
+F1 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+Projeto sem .mcp.json nem template: criado .mcp.json com servidor FALSO "probe-env" (sh que grava env/args e sai).
+  env: {"PROBE_ENV": "${PROBE_SECRET}"}; args: [..., "${PROBE_SECRET}"]
+
+Run com `PROBE_SECRET=xyz copilot`:
+  log: env=[xyz] arg=[xyz] pwd=[~/Documents/GitHub/probe-single-shellform]
+  Copilot: Failed to connect to MCP server "probe-env": MCP server process exited before completing the MCP initialize handshake (exit code 0).
+=> .mcp.json com mcpServers e lido; ${VAR} EXPANDE em env e em args. Resultado: IGUAL.
+   (Contraste: em hooks, args e ignorado — ver D0. Em MCP, args funciona.)
+
+Linha espuria anterior, origem nao identificada (log apagado na simulacao):
+  env=[] arg=[${PROBE_SECRET}] — runtime subiu o servidor logo apos a criacao do arquivo, com a variavel indefinida:
+  env vazio, arg literal. Indica que variavel indefinida fica literal em args.
+
+Lateral (B1): "Failed to load 3 skills. Run /skills for more details."

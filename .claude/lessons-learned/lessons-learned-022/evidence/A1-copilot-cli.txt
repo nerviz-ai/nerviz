@@ -1,0 +1,6 @@
+A1 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+Prompt: Sem abrir arquivos, diga qual comando roda os testes deste projeto e qual a secao do CLAUDE.md que fala de outros agentes.
+Resposta: "O comando para rodar os testes e ./mvnw test. A secao e 'Under another agent'."
+Sonda: NENHUMA tool call (nenhum .jsonl gerado).
+=> CLAUDE.md raiz esta no contexto inicial do Copilot CLI. Resultado: IGUAL.
+Obs: os Read CLAUDE.md vistos em outros runs sao releitura por iniciativa do modelo, nao falta de contexto.

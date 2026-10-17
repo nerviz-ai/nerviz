@@ -1,0 +1,14 @@
+B2 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+/arch-doctor tem 2 injecoes !`...` (SKILL.md linhas 17 e 21): ArchHook.java doctor, find .claude.
+Sonda (2 sessoes):
+  bfbb77e7: skill {"skill":"arch-doctor"}; bash doctor + bash find (desc "Run architecture doctor diagnosis"), REPETIDOS 30s depois.
+  618965a1: SEM tool skill; bash doctor + bash find (desc "Diagnose architecture setup") — esta e a saida colada.
+=> As injecoes NAO foram executadas pelo runtime: o corpo chegou literal e o MODELO rodou os dois comandos via bash,
+   com descricao propria. O relatorio final e correto (dados reais).
+Resultado: DEGRADADO (funciona, mas depende do modelo decidir executar; custa tool calls; passa pelos hooks de Bash).
+Aberto: por que bfbb77e7 tem chamada da tool `skill` e 618965a1 nao (ver com o usuario).
+
+Resolvido (usuario): /arch-doctor digitado nas DUAS sessoes.
+=> O slash command manual as vezes vira chamada da tool `skill` (bfbb77e7), as vezes injeta o corpo direto (618965a1).
+   Nenhuma invocacao autonoma de skill manual. B4 mantido.
+   Em bfbb77e7 os comandos rodaram 2x (corpo carregado duas vezes: pelo slash e pela tool skill?) — nao confirmado.

@@ -128,6 +128,38 @@ jobs:
       - name: guard bash refuses force pushes and holds shell writes to the phase
         run: java .claude/.ci/BashGuardTest.java
 
+      # lessons-learned-022 § 2: the Copilot CLI reads .claude/settings.json, runs `command` and
+      # ignores `args`, so exec form launched a bare `java` — exit 1, which on preToolUse denies
+      # every call. Each registration runs here as exec form, as Claude Code's shell form and as
+      # Copilot's, on Claude's and Copilot's payloads: same exit, same stdout, 0 or 2 (0168).
+      # Git Bash on the Windows runner, the shell Claude Code itself picks there.
+      - name: every hook registration runs the same under Claude Code and the Copilot CLI
+        run: java .claude/.ci/HookShellFormTest.java
+
+      # The Copilot CLI sends every write as `Edit` with the patch as a string and no
+      # `file_path`, so the write hooks saw nothing (lessons-learned-022 § 3). The patch is
+      # translated into Claude Code's payloads; this holds the translation on the captured
+      # patches — frozen spec, territory, boundary, formatter, schema, trail — and exit 0 on
+      # what it cannot read (0169).
+      - name: the write hooks read the Copilot CLI's apply_patch
+        run: java .claude/.ci/ApplyPatchTest.java
+
+      # Under the Copilot CLI a hook's stderr never reached the model: "hook exited with code 2"
+      # on PreToolUse, the screen only on PostToolUse (lessons-learned-022 § 4). A refusal now
+      # repeats it on stdout in the shape `settings.deny_output` names per event, which Claude
+      # Code ignores at exit 2 on PreToolUse. This holds the flat shape, the absence of
+      # `hookSpecificOutput`, and an empty stdout wherever no hook payload names an event (0170).
+      - name: a hook refusal carries its reason on stdout for the Copilot CLI
+        run: java .claude/.ci/DenyReasonTest.java
+
+      # Under the Copilot CLI `wc -l .probe/e1.env` ran: the project's `permissions.deny` is a
+      # Claude Code file it does not read (lessons-learned-022 § 8, E1). `guard read` (`view`,
+      # `read_file`, from `.github/hooks/archhook.json`) and `guard bash` refuse the paths of
+      # `guard.secret_paths`, and `schema` holds `permissions.deny` and the Copilot hook file to it.
+      # This holds the captured payloads, the near misses admitted, and both drifts refused (0173).
+      - name: a read of a secret path is refused under the Copilot runtimes too
+        run: java .claude/.ci/SecretReadTest.java
+
       # The only filesystem-shaped guard (0065). Needs `git`, which every runner has. It skips
       # what a tool-time guard admitted, so a cross-class chain does not re-judge the run's
       # own writes against the narrower phase open at Stop (0114, issue #74).
