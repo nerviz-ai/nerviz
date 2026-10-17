@@ -90,6 +90,15 @@ Invocação: o modelo decide pela `description` ("não garante que invoque"), ou
 `/nome texto`. O texto depois do nome é **anexado ao prompt**; não existe `$ARGUMENTS`. Não
 existe injeção `` !`comando` ``: o corpo chega literal.
 
+**Observado** (Copilot CLI 1.0.98, 2026-10-16, `lessons-learned-022`, teste B2): no `/arch-doctor`,
+o modelo leu as duas injeções literais e rodou os comandos ele mesmo, pela tool `bash`, com
+descrição própria. O relatório saiu certo. Cada comando custou uma tool call e passou pelos hooks
+de Bash; em forma exec esses hooks teriam negado as duas chamadas (decisão 0168). Numa das duas
+sessões, o `/arch-doctor` digitado virou também uma chamada da tool `skill`, e os dois comandos
+rodaram duas vezes, com 30 s de intervalo. Se o corpo foi carregado duas vezes não foi confirmado.
+O projeto gerado responde com um bullet em `## Under another agent` do `CLAUDE.md` raiz: rodar o
+comando uma vez e nunca adivinhar no lugar dele (decisão 0172).
+
 ### 2.4 Agents — `.github/agents/*.agent.md`
 
 Frontmatter oficial: `name`, `description` (obrigatório), `tools` (lista ou string; omitido ou
@@ -240,7 +249,7 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
 
 | Peça | Efeito no projeto gerado sob Copilot |
 |---|---|
-| Injeção `` !`comando` `` no corpo da skill (14 skills, 2 a 4 por arquivo) | O texto `` !`java .claude/hooks/ArchHook.jar doctor` `` chega literal. Toda skill que descobre estado por injeção (`arch-doctor`, `init-project`, as nove de design que leem a spec) perde o estado |
+| Injeção `` !`comando` `` no corpo da skill (16 skills que viajam, 1 ou 2 por arquivo; mais `init-project` e `claude-code-architect-designer`, só no gerador) | O texto `` !`java "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/ArchHook.java" doctor 2>&1` `` chega literal. O estado só existe se o modelo rodar o comando, o que ele fez no B2 (§ 2.3). Onde a saída decide um passo (`use-case-design` numera o `UC-NNN` por ela, `docker-architect` escolhe a regra de entrada), um palpite no lugar dela corrompe o resultado |
 | `$ARGUMENTS` interpolado | Fica literal; o argumento chega solto |
 | Tool `Skill` (26 usos: uma skill encadeando outra, `/new-feature` orquestrando o pipeline) | Não existe. O encadeamento de design skills depende do modelo "decidir" abrir a próxima |
 | `AskUserQuestion` com opções estruturadas (50 usos) | O CLI mapeia `ask_user`; o **cloud agent não tem usuário** — a pergunta fica sem resposta e o run segue ou para |
@@ -284,7 +293,7 @@ sempre. "Orientado" é prosa que o modelo lê e pode seguir. "Nada" é um arquiv
 | Contexto raiz (`CLAUDE.md`) | orientado | orientado | orientado | Lido nativamente |
 | Contexto por módulo (`<módulo>/AGENTS.md`, importado pelo `CLAUDE.md` de uma linha) | orientado | orientado | orientado só com `chat.useNestedAgentsMdFiles` | Decisão 0139 |
 | Normas por caminho (`rules/*.md` + `paths`) | nada, salvo citação aberta pelo modelo | nada | nada | `.claude/rules/` não é lido; exige derivação para `.instructions.md` |
-| Skills de design com estado por injeção `` !` `` | degradado: corpo chega, estado não | degradado | degradado | Injeção não existe |
+| Skills com estado por injeção `` !` `` | orientado: o corpo chega literal, e o `CLAUDE.md` raiz manda rodar o comando uma vez (observado: o modelo roda) | orientado | orientado | Injeção não existe; decisão 0172 |
 | Skill manual (`disable-model-invocation`) não invocada pelo modelo | garantido pelo `guard call` na chamada `skill`; ler o `SKILL.md` por `view` e seguir continua possível | nada | orientado | Decisão 0171; fail-open se o `UserPromptSubmit` não rodar |
 | Território de escrita do `guard` por fase de skill | nada | nada | nada | Sem evento `Skill` |
 | Território de escrita do `guard` por agent (`agent_type`) | não verificado: hook roda, payload difere (`agentName`, `tool_input` sem formato documentado) | nada (não lê `settings.json`) | não verificado (`chat.useClaudeHooks`) | Passo 5 da fase 8 |

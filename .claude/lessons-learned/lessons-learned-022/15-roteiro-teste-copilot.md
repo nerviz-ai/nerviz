@@ -232,6 +232,20 @@ instalada — confira em `/help`; no VS Code, digite `/` no chat).
   responder sem estado (**ausente**).
 - Observe: se o relatório veio de um tool call do agente ou de lugar nenhum.
 
+**B2′. Reteste da decisão 0172 — injeção literal rodada uma vez.** Num projeto gerado depois da
+0172 (o `CLAUDE.md` raiz tem o bullet `` !` `` em `## Under another agent`), em sessão nova:
+
+- Rode `/arch-doctor` duas vezes, cada uma em sessão nova. Conte as chamadas `bash` por comando
+  injetado. Esperado: uma por comando, inclusive na sessão em que o slash vira chamada da tool `skill`.
+- Rode `/use-case-design cadastrar cliente` com pelo menos um `docs/use-cases/UC-*` já existente.
+  Esperado: o `find` da injeção roda antes de o número ser escolhido, e o `UC-NNN` novo é o maior
+  existente mais um.
+- Rode `/docker-architect` sem argumento. Esperado: o bloco de compose roda antes de a regra de
+  entrada ser aplicada.
+- Resultado: **igual** se as três expectativas valem; **degradado** se o modelo roda o comando mais
+  de uma vez; **ausente** se escolhe número ou regra sem rodar. Registre na planilha e atualize o
+  estado da 0172.
+
 **B3. `$ARGUMENTS` — `/use-case-design`.** Prompt: `/use-case-design cadastrar cliente com
 CPF e e-mail`.
 

@@ -91,6 +91,15 @@ Invocation: the model decides from the `description` ("does not guarantee that i
 or the user types `/name text`. The text after the name is **appended to the prompt**; there is
 no `$ARGUMENTS`. There is no `` !`command` `` injection: the body arrives verbatim.
 
+**Observed** (Copilot CLI 1.0.98, 2026-10-16, `lessons-learned-022`, test B2): on `/arch-doctor`,
+the model read both literal injections and ran the commands itself, through the `bash` tool, with
+its own descriptions. The report came out right. Each command cost a tool call and went through
+the Bash hooks; in exec form those hooks would have denied both calls (decision 0168). In one of the
+two sessions, the typed `/arch-doctor` also became a `skill` tool call, and both commands ran twice,
+30 s apart. Whether the body was loaded twice is not confirmed. The generated project answers with a
+bullet in `## Under another agent` of the root `CLAUDE.md`: run the command once, and never guess in
+its place (decision 0172).
+
 ### 2.4 Agents — `.github/agents/*.agent.md`
 
 Official frontmatter: `name`, `description` (required), `tools` (list or string; omitted or
@@ -246,7 +255,7 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
 
 | Piece | Effect on the generated project under Copilot |
 |---|---|
-| `` !`command` `` injection in the skill body (14 skills, 2 to 4 per file) | The text `` !`java .claude/hooks/ArchHook.jar doctor` `` arrives literal. Every skill that discovers state through injection (`arch-doctor`, `init-project`, the nine design skills that read the spec) loses that state |
+| `` !`command` `` injection in the skill body (16 skills that travel, 1 or 2 per file; plus `init-project` and `claude-code-architect-designer`, generator only) | The text `` !`java "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/ArchHook.java" doctor 2>&1` `` arrives literal. The state exists only if the model runs the command, which it did in B2 (§ 2.3). Where the output decides a step (`use-case-design` numbers the `UC-NNN` from it, `docker-architect` picks its entry rule), a guess in its place corrupts the result |
 | Interpolated `$ARGUMENTS` | Stays literal; the argument arrives loose |
 | `Skill` tool (26 uses: one skill chaining another, `/new-feature` orchestrating the pipeline) | Does not exist. Chaining design skills depends on the model "deciding" to open the next one |
 | `AskUserQuestion` with structured options (50 uses) | The CLI maps it to `ask_user`; the **cloud agent has no user** — the question goes unanswered and the run either carries on or stops |
@@ -290,7 +299,7 @@ runs. "Guided" is prose the model reads and may follow. "Nothing" is an inert fi
 | Root context (`CLAUDE.md`) | guided | guided | guided | Read natively |
 | Per-module context (`<module>/AGENTS.md`, imported by the one-line `CLAUDE.md`) | guided | guided | guided only with `chat.useNestedAgentsMdFiles` | Decision 0139 |
 | Path-scoped norms (`rules/*.md` + `paths`) | nothing, unless the model opens a citation | nothing | nothing | `.claude/rules/` is not read; needs derivation into `.instructions.md` |
-| Design skills with state from `` !` `` injection | degraded: the body arrives, the state does not | degraded | degraded | Injection does not exist |
+| Skills with state from `` !` `` injection | guided: the body arrives literal, and the root `CLAUDE.md` says to run the command once (observed: the model runs it) | guided | guided | Injection does not exist; decision 0172 |
 | Manual skill (`disable-model-invocation`) not invoked by the model | held by `guard call` on the `skill` call; reading `SKILL.md` through `view` and following it is still possible | nothing | guided | Decision 0171; fail-open when `UserPromptSubmit` does not run |
 | `guard` write territory per skill phase | nothing | nothing | nothing | No `Skill` event |
 | `guard` write territory per agent (`agent_type`) | unverified: the hook runs, the payload differs (`agentName`, `tool_input` with no documented shape) | nothing (does not read `settings.json`) | unverified (`chat.useClaudeHooks`) | Phase 8, step 5 |
