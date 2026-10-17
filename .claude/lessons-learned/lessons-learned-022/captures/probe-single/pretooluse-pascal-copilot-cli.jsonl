@@ -1,0 +1,2 @@
+{"hook_event_name":"PreToolUse","session_id":"b81f2d5a-7d71-4c3f-96ed-b548182f30b6","timestamp":"2026-10-16T19:19:01.100Z","cwd":"~/Documents/GitHub/probe-single","tool_name":"Read","tool_input":{"path":"~/Documents/GitHub/probe-single/CLAUDE.md"}}
+{"hook_event_name":"PreToolUse","session_id":"b81f2d5a-7d71-4c3f-96ed-b548182f30b6","timestamp":"2026-10-16T19:19:01.100Z","cwd":"~/Documents/GitHub/probe-single","tool_name":"Read","tool_input":{"path":"~/Documents/GitHub/probe-single/notes"}}

@@ -1,0 +1,17 @@
+C1 — Copilot CLI 1.0.98 — 2026-10-16 — copia probe-single-shellform
+Prompt: Quais agents customizados existem neste projeto?
+Ferramentas: Search "**/*agent*" (0), Search ".claude/agents/**/*" (5), Search ".github/agents/**/*" (0); Read dos 5 .md.
+Resposta: os 5 corretos (java-spring-boot-developer, archunit-installer, commons-logging-installer, compose-service-installer, mapstruct-installer).
+=> Lista certa, mas obtida por busca em arquivo, nao por registro: o modelo procurou em .claude/agents/ e .github/agents/.
+   Nao prova que o Copilot CLI registra .claude/agents/ como agents delegaveis. Resultado: DEGRADADO (descoberta por leitura).
+   Verificacao do registro: comando /agent da versao (pendente).
+
+/agent no Copilot CLI:
+  Registrados (scope project): archunit-installer, commons-logging-installer, compose-service-installer, java-spring-boot-developer.
+  FALHOU: .claude/agents/mapstruct-installer.md — "custom agent markdown frontmatter is malformed: failed to parse YAML frontmatter:
+    mapping values are not allowed in this context at line 2 column 117"
+    Causa (reproduzida com Ruby Psych): description sem aspas contem ": " em "`**Mappers: manual.**`" -> YAML invalido.
+    Claude Code aceita (parser leniente). BUG DO PROJETO -> /report-issue: description com ": " precisa de aspas ou bloco >.
+  Avisos: campos ignorados `effort` (4 agents) e `omitClaudeMd` (archunit-installer, commons-logging-installer).
+=> C1: 4/5 registrados como agents delegaveis. Resultado: DEGRADADO (mapstruct-installer ausente; effort/omitClaudeMd ignorados).
+   Impacto: /new-feature-implement nao consegue delegar ao mapstruct-installer no Copilot.

@@ -1,0 +1,11 @@
+D3 — Claude Code 2.1.296 — 2026-10-16 — projeto original (sem remote)
+
+$ git push -f origin main
+PreToolUse:Bash hook error: [java -jar ${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar guard bash]: guard: force push blocked — `-f` rewrites published history.
+  Push without force. A shared branch is rewritten by a human, outside Claude Code. Rule: guard.force_push in .claude/schemas/extensions.json
+
+$ git push --force origin main
+PreToolUse:Bash hook error: [...] guard: force push blocked — `--force` rewrites published history.
+
+Obs: --force tambem foi barrado pelo guard bash (PreToolUse), antes do deny "Bash(git push --force:*)".
+O deny nao foi isolado: o guard cobre as duas grafias.
