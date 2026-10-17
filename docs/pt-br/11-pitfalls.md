@@ -263,6 +263,14 @@ convencer o `issue-verifier` a tentar publicar algo. Não é ferramenta quebrada
 issue pública é de terceiros. Só aqui; o projeto gerado não tem essas linhas. Design:
 `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
 
+**Uma skill manual chamada pelo modelo é recusada, mesmo sem o flag fazer efeito.** Uma chamada
+`Skill` (Claude Code) ou `skill` (Copilot CLI) a uma skill com `disable-model-invocation: true`, ou
+listada em `guard.prompt_only.extra`, sai com exit 2 quando o prompt do turno não começou com
+`/<nome>` dela. A mensagem manda imprimir o comando para o usuário digitar. Não é a skill
+quebrada: o caminho é o usuário digitar `/<nome>`. Fail-open: se o `guard prompt` nunca rodou na
+sessão, nada é recusado. Design:
+`.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
+
 ### Classes e modelos
 
 **Toda skill declara `model`, dentro do conjunto da sua classe.** `schema` reprova um

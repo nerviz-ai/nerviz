@@ -3443,6 +3443,7 @@ public class ArchHook {
 
         if (files == null) {
             checkSkillClasses(sch, errors);
+            checkPromptOnly(sch, errors);
             checkAgentClasses(sch, errors);
             checkSubagentContext(sch, errors);
             checkExportManifest(sch, errors);
@@ -3944,6 +3945,31 @@ public class ArchHook {
                     errors.add("  `.claude/skills/" + name + "` is in no skill_classes class"
                             + " — add it to one in " + SCHEMA_FILE);
                 }
+            }
+        }
+    }
+
+    /**
+     * `guard.prompt_only.extra` names a skill held from the model without the flag. A name with
+     * no skill on disk holds nothing, and a name that already carries the flag is a second
+     * owner of the same fact (invariant 2). Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void checkPromptOnly(Map<String, Object> sch, List<String> errors) {
+        Map<String, Object> po = asMap(get(sch, "guard", "prompt_only"));
+        if (po == null) return;
+        String flag = asStr(po.get("flag"));
+        for (String s : asStrList(po.get("extra"))) {
+            String body = readOrNull(ROOT.resolve(".claude/skills/" + s + "/SKILL.md"));
+            if (body == null) {
+                errors.add("  guard.prompt_only.extra names `" + s
+                        + "` — no `.claude/skills/" + s + "/SKILL.md` file exists");
+                continue;
+            }
+            Map<String, String> fm = frontmatter(body);
+            if (flag != null && fm != null && "true".equals(fm.get(flag))) {
+                errors.add("  guard.prompt_only.extra names `" + s + "`, which already declares `"
+                        + flag + ": true` — drop it from `extra`; the flag already makes it prompt-only");
             }
         }
     }
@@ -4901,6 +4927,7 @@ public class ArchHook {
                     errors.add("  " + where + " — `matcher` is ignored on this event."
                             + " It reads as a filter and filters nothing");
                 }
+                checkSkillToolMatcher(sch, where, g, errors);
 
                 for (Object entry : asList(g.get("hooks"))) {
                     Map<String, Object> h = asMap(entry);
@@ -4923,6 +4950,33 @@ public class ArchHook {
                     }
                     checkHookEntry(where, h, entryTypes, badChars, archRe, errors);
                 }
+            }
+        }
+    }
+
+    /**
+     * A group that runs `guard call` must name every `guard.skill_tools` name in its `matcher`,
+     * as one of its `|` alternatives: a skill call arriving under a name the matcher leaves out
+     * never reaches the hook, and both refusals of `guard call` stop holding on that runtime
+     * with nothing reporting it. Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void checkSkillToolMatcher(Map<String, Object> sch, String where, Map<String, Object> g,
+                                      List<String> errors) {
+        boolean guardCall = false;
+        for (Object entry : asList(g.get("hooks"))) {
+            String cmd = asStr(get(entry, "command"));
+            if (cmd != null && cmd.strip().endsWith(" guard call")) guardCall = true;
+        }
+        if (!guardCall) return;
+        String matcher = orEmpty(asStr(g.get("matcher")));
+        List<String> alternatives = Arrays.stream(matcher.split("\\|")).map(String::strip).toList();
+        for (String tool : asStrList(get(sch, "guard", "skill_tools"))) {
+            if (!alternatives.contains(tool)) {
+                errors.add("  " + where + " — the `guard call` matcher `" + matcher + "` lacks `"
+                        + tool + "`, a name a skill call arrives under"
+                        + " (.claude/schemas/extensions.json › guard.skill_tools)."
+                        + " Add it as one more `|` alternative");
             }
         }
     }
@@ -7300,7 +7354,8 @@ public class ArchHook {
     // Phases (args[1]):
     //   prompt   UserPromptSubmit         a prompt ends any phase; `/<skill>` opens one
     //   call     PreToolUse Skill|Agent   a skill opens the phase; a `blocked_during_design`
-    //                                     class is refused; a classed agent's call is skipped
+    //                                     class is refused; a prompt-only skill the prompt did
+    //                                     not open is refused; a classed agent's call is skipped
     //   write    PreToolUse Write|Edit    blocks (exit 2) what the three boundaries forbid
     //
     // The phase is one file per session in the OS temp dir — never in the project, so it
@@ -7442,11 +7497,12 @@ public class ArchHook {
     static void guardCall(Map<String, Object> sch, Path state, Object in) throws IOException {
         if (agentClassOf(sch, asStr(get(in, "agent_type"))) != null) return;
         String tool = asStr(get(in, "tool_name"));
-        if ("Skill".equals(tool)) {
+        if (asStrList(get(sch, "guard", "skill_tools")).contains(tool)) {
             String skill = asStr(get(in, "tool_input", "skill"));
             String cls = skillClassOf(sch, skill);
             if (cls == null) return;                       // plugin skill: not our territory
             guardRefuseBuildCall(sch, state, skill, cls);
+            guardRefusePromptOnly(sch, state, skill);
             // A skill of the phase's own class JOINS the phase instead of replacing it: the
             // territory becomes the union of both. Replacing would shrink the caller's
             // territory for the rest of the turn — project-bootstrap chains docker-architect
@@ -7466,6 +7522,47 @@ public class ArchHook {
         }
         // An `Agent`/`Task` call changes nothing here. The subagent's own writes carry
         // `agent_type` and are judged by `agent_classes`; the caller's phase stays as it was.
+    }
+
+    /**
+     * Refuses a skill call to a prompt-only skill — one whose frontmatter declares
+     * `guard.prompt_only.flag`, or one `guard.prompt_only.extra` names — unless the user's prompt
+     * of this turn opened the phase under that very name. Invoked on `PreToolUse` of every
+     * `guard.skill_tools` name. Fail-open: with no `guard prompt` baseline in this session, this
+     * runtime runs no prompt hook (or no git), the turn's prompt is unknown, and refusing would
+     * lock out the user who typed `/<skill>`.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, motivated by axis 7: under the GitHub Copilot
+     * CLI the flag is not represented, so `arch-adopt` and `new-feature-implement` were held from
+     * the model by text alone (lessons-learned-022 § 5). It rides `guard call`, which already
+     * spawns on every skill call, so it costs no process. The closest rejected form was
+     * `permissions.ask` on the skill: Copilot reads no `permissions` from a project file. Under
+     * Claude Code the runtime already refuses the same call, and a `/<skill>` the user typed opens
+     * the phase this check admits. Design:
+     * .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md
+     */
+    static void guardRefusePromptOnly(Map<String, Object> sch, Path state, String skill) {
+        if (!isPromptOnly(sch, skill)) return;
+        if (!Files.isRegularFile(guardBaselineFile(state))) return;
+        List<String> phase = phaseSkills(state);
+        if (!phase.isEmpty() && skill.equals(phase.get(0))) return;
+        err("❌ `" + skill + "` runs only when the user types `/" + skill + "` — it is manual only,"
+                + " and this turn's prompt did not name it.");
+        err("Do not call it, and do not follow its SKILL.md by reading it. Print the command for the"
+                + " user to type — `/" + skill + " <arguments>` — and stop.");
+        blockExit();
+    }
+
+    /** Whether a skill call to `skill` needs the user's own `/<skill>` prompt (`guard.prompt_only`). */
+    static boolean isPromptOnly(Map<String, Object> sch, String skill) {
+        Map<String, Object> po = asMap(get(sch, "guard", "prompt_only"));
+        if (po == null || skill == null) return false;
+        if (asStrList(po.get("extra")).contains(skill)) return true;
+        String flag = asStr(po.get("flag"));
+        if (flag == null) return false;
+        String body = readOrNull(ROOT.resolve(".claude/skills/" + skill + "/SKILL.md"));
+        Map<String, String> fm = body == null ? null : frontmatter(body);
+        return fm != null && "true".equals(fm.get(flag));
     }
 
     /**

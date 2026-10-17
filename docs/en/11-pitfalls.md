@@ -256,6 +256,13 @@ four sit in `permissions.ask` of `.claude/settings.json` — the prompt shows up
 issue is third-party text. This repo only; a generated project has none of these lines.
 Design: `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
 
+**A manual skill the model calls is refused, even where the flag has no effect.** A `Skill`
+(Claude Code) or `skill` (Copilot CLI) call to a skill with `disable-model-invocation: true`, or one
+`guard.prompt_only.extra` names, exits 2 when the turn's prompt did not start with its `/<name>`.
+The message says to print the command for the user to type. Not a broken skill: the way in is
+the user typing `/<name>`. Fail-open: when `guard prompt` never ran in the session, nothing is
+refused. Design: `.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
+
 ### Classes and models
 
 **Every skill declares `model`, from its class's set.** `schema` fails a `SKILL.md` without

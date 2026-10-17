@@ -32,7 +32,7 @@
         ]
       },
       {
-        "matcher": "Skill|Task|Agent",
+        "matcher": "Skill|skill|Task|Agent",
         "hooks": [
           {
             "type": "command",

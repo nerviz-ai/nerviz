@@ -220,7 +220,7 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
 | `CLAUDE.md` **de módulo** (`module.CLAUDE.md.example`) | `AGENTS.md` aninhado ("o mais próximo tem precedência") | Nome do arquivo. Um `CLAUDE.md` aninhado é invisível para o Copilot | Cloud agent, CLI; VS Code só lista |
 | `@caminho` dentro do `CLAUDE.md` | `@caminho` idêntico | Só o CLI expande. No cloud agent o import é texto morto; o que ele precisa ler tem de estar no próprio arquivo ou ser citado como caminho a abrir | CLI |
 | `.claude/rules/*.md` com `paths: [...]` (lista YAML) | `.github/instructions/*.instructions.md` com `applyTo: "a,b"` (string) | Diretório, sufixo, campo, tipo do valor. `status` não existe. Precisa ser **derivado** do `paths` — mesmo mecanismo de `export.derived_paths` — nunca uma segunda cópia à mão (invariante 2) | Cloud agent, code review, IDEs, CLI |
-| `disable-model-invocation: true` em 14 skills | Mesmo campo | Documentado só no VS Code. Nas outras superfícies: **não verificado** — tratar como se o modelo **pudesse** invocar `/new-feature`, `/arch-adopt`, `/git-publish` sozinho | VS Code sim; CLI e cloud não verificado |
+| `disable-model-invocation: true` nas skills manuais | Mesmo campo | Documentado só no VS Code. No CLI, `/skills info` não o mostra (só `userInvocable`, `invokesModel`), e com ele `/new-feature <pedido>` não iniciou (lessons-learned-022 § 5, causa em isolamento — decisão 0171). O que segura o modelo no CLI é o `guard call`: recusa a chamada `skill` a uma skill manual que o prompt do turno não abriu com `/<nome>` | VS Code sim; CLI pelo `guard call`; cloud nada |
 | `context: fork` | `context: fork` | Experimental, só VS Code (hoje nenhuma skill deste repo usa) | VS Code |
 | `argument-hint` + `$ARGUMENTS` (18 skills) | `argument-hint` (só exibição) e texto anexado ao prompt | A linha `$ARGUMENTS` fica literal no corpo; o argumento chega como texto solto depois do prompt | Todas |
 | `.claude/agents/*.md` com `tools`, `model` | `.github/agents/*.agent.md` com `tools`, `model` | Diretório e sufixo. `model: sonnet`/`opus` são aliases do Claude; o Copilot usa ids próprios e o GitHub.com ignora `model`. `tools: Read, Write, Edit, Bash` — "nomes não reconhecidos são ignorados": verificar o nome de cada ferramenta na superfície | CLI, cloud agent, VS Code |
@@ -285,7 +285,7 @@ sempre. "Orientado" é prosa que o modelo lê e pode seguir. "Nada" é um arquiv
 | Contexto por módulo (`<módulo>/AGENTS.md`, importado pelo `CLAUDE.md` de uma linha) | orientado | orientado | orientado só com `chat.useNestedAgentsMdFiles` | Decisão 0139 |
 | Normas por caminho (`rules/*.md` + `paths`) | nada, salvo citação aberta pelo modelo | nada | nada | `.claude/rules/` não é lido; exige derivação para `.instructions.md` |
 | Skills de design com estado por injeção `` !` `` | degradado: corpo chega, estado não | degradado | degradado | Injeção não existe |
-| Skill manual (`disable-model-invocation`) não invocada pelo modelo | não verificado | não verificado | orientado | Só o VS Code documenta o campo em skill |
+| Skill manual (`disable-model-invocation`) não invocada pelo modelo | garantido pelo `guard call` na chamada `skill`; ler o `SKILL.md` por `view` e seguir continua possível | nada | orientado | Decisão 0171; fail-open se o `UserPromptSubmit` não rodar |
 | Território de escrita do `guard` por fase de skill | nada | nada | nada | Sem evento `Skill` |
 | Território de escrita do `guard` por agent (`agent_type`) | não verificado: hook roda, payload difere (`agentName`, `tool_input` sem formato documentado) | nada (não lê `settings.json`) | não verificado (`chat.useClaudeHooks`) | Passo 5 da fase 8 |
 | `guard bash` (força push, escrita fora do território) | não verificado: hook roda; depende de `tool_input.command` | nada | não verificado | Idem |
@@ -323,8 +323,9 @@ redescobrir.
    O Copilot nunca lê `CLAUDE.md` aninhado. Daí a forma da decisão 0139: o `AGENTS.md` do
    módulo é o dono, e o `CLAUDE.md` ao lado só o importa.
 4. **O Copilot lê `.claude/skills/` como está**, mas nenhuma `disable-model-invocation` é
-   garantida fora do VS Code. As 14 skills manuais ficam, no Copilot, candidatas a invocação
-   automática — inclusive `arch-adopt`, que reescreve o `.claude/`.
+   garantida fora do VS Code. No CLI, a chamada chega aos hooks como `tool_name: "skill"`
+   (minúsculo), e o `guard call` recusa a de uma skill manual que o prompt do turno não abriu —
+   inclusive `arch-adopt`, que reescreve o `.claude/` (decisão 0171). No cloud agent, nada.
 5. **`.claude/rules/` não existe para o Copilot.** Até a derivação do passo 3, a única via é a
    citação por caminho dentro do `AGENTS.md`.
 6. **Hooks de `.claude/settings.json` rodam no Copilot CLI, e só lá.** O que o `AGENTS.md`

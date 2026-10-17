@@ -563,6 +563,15 @@
       "long_flags": ["--force", "--force-with-lease"],
       "short_flag": "f",
       "refspec_prefix": "+"
+    },
+
+    "$comment_skill_tools": "Read by ArchHook.java `guard call`: the tool names a skill call arrives under. Claude Code sends `Skill`; the GitHub Copilot CLI sends `skill`, lowercase, to the same `.claude/settings.json` hooks (lessons-learned-022, run B5). A call under a name missing here is judged by nothing — that is how both refusals of `guard call` were inert under Copilot. The registration matcher in both settings files spells the same names. Design: .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md",
+    "skill_tools": ["Skill", "skill"],
+
+    "prompt_only": {
+      "$comment": "Read by ArchHook.java `guard call`, checked by `schema`. A prompt-only skill runs only when the user's prompt of this turn starts with `/<skill>`: a skill call to one is refused while the open phase's opener is another skill or none. The set is every skill whose frontmatter declares `disable-model-invocation: true`, plus `extra` — a skill kept out of the model's hands without the flag, because the flag locks the user out on some runtime. `schema` fails on an `extra` name with no skill on disk and on one that already carries the flag. Fail-open: with no `guard prompt` baseline in this session, no prompt hook runs on this runtime and nothing is refused. The pipeline skills `/new-feature` chains never go here (decision 0007). Design: .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md",
+      "flag": "disable-model-invocation",
+      "extra": []
     }
   },
 
