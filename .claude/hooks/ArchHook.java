@@ -4610,6 +4610,7 @@ public class ArchHook {
         }
         globs.addAll(asStrList(get(sch, "settings", "match")));
         globs.addAll(asStrList(get(sch, "mcp", "match")));
+        globs.addAll(asStrList(get(sch, "copilot_hooks", "match")));
 
         for (String g : globs) {
             Path base = ROOT.resolve(g.substring(0, Math.max(0, g.indexOf('*'))))
@@ -4651,6 +4652,11 @@ public class ArchHook {
 
         if (matchesAny(asStrList(get(sch, "mcp", "match")), rel)) {
             checkMcp(asMap(sch.get("mcp")), rel, content, errors);
+            return;
+        }
+
+        if (matchesAny(asStrList(get(sch, "copilot_hooks", "match")), rel)) {
+            checkCopilotHooks(sch, rel, content, errors);
             return;
         }
 
@@ -4847,6 +4853,74 @@ public class ArchHook {
     }
 
     /**
+     * The Copilot runtimes' hook file, `.github/hooks/archhook.json` and its template — the
+     * shape `copilot_hooks` of extensions.json names: its top-level keys and `version`, camelCase
+     * events, and per entry the required and allowed fields, a known `type`, the same command in
+     * `bash` and `powershell`, one process, the ArchHook launch in shell form. The runtime ignores
+     * an unknown event or field with no error, so a typo here is a hook that silently never runs
+     * — invariant 10. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md
+     */
+    static void checkCopilotHooks(Map<String, Object> sch, String rel, String content,
+                                  List<String> errors) {
+        Map<String, Object> cfg = asMap(sch.get("copilot_hooks"));
+        Map<String, Object> root = asMap(Json.parse(content));
+        if (cfg == null) return;
+        if (root == null) { errors.add("  " + rel + " — invalid JSON"); return; }
+        List<String> top = asStrList(cfg.get("allowed"));
+        for (String key : root.keySet()) {
+            if (!top.contains(key)) errors.add("  " + rel + " — `" + key + "` is not a recognized top-level key");
+        }
+        Object version = root.get("version");
+        Object want = cfg.get("version");
+        String wantText = String.valueOf(want).replaceFirst("\\.0$", "");
+        if (want != null && (version == null || !wantText.equals(String.valueOf(version).replaceFirst("\\.0$", "")))) {
+            errors.add("  " + rel + " — `version` must be " + wantText);
+        }
+        Map<String, Object> hooks = asMap(root.get("hooks"));
+        if (hooks == null) { errors.add("  " + rel + " — no `hooks` object"); return; }
+        List<String> events = asStrList(cfg.get("hook_events"));
+        List<String> types = asStrList(cfg.get("entry_types"));
+        List<String> required = asStrList(cfg.get("entry_required"));
+        List<String> allowed = asStrList(cfg.get("entry_allowed"));
+        List<String> forbidden = asStrList(get(sch, "settings", "command_forbidden_chars"));
+        String pattern = asStr(cfg.get("archhook_command_pattern"));
+        for (Map.Entry<String, Object> ev : hooks.entrySet()) {
+            String where = rel + " › hooks." + ev.getKey();
+            if (!events.contains(ev.getKey())) {
+                errors.add("  " + where + " — not a Copilot hook event (camelCase: " + String.join(", ", events) + ")");
+                continue;
+            }
+            List<Object> entries = asList(ev.getValue());
+            for (int n = 0; n < entries.size(); n++) {
+                Map<String, Object> e = asMap(entries.get(n));
+                String at = where + "[" + n + "]";
+                if (e == null) { errors.add("  " + at + " — not an object"); continue; }
+                for (String k : e.keySet()) {
+                    if (!allowed.contains(k)) errors.add("  " + at + " — `" + k + "` is not an allowed entry field");
+                }
+                for (String k : required) {
+                    if (!e.containsKey(k)) errors.add("  " + at + " — lacks `" + k + "`");
+                }
+                String type = asStr(e.get("type"));
+                if (type != null && !types.contains(type)) errors.add("  " + at + " — `type` `" + type + "` is not one of " + types);
+                String bash = asStr(e.get("bash")), ps = asStr(e.get("powershell"));
+                if (bash != null && ps != null && !bash.equals(ps)) {
+                    errors.add("  " + at + " — `bash` and `powershell` differ: one hook, one command");
+                }
+                for (String cmd : new String[] {bash, ps}) {
+                    if (cmd == null) continue;
+                    for (String c : forbidden) {
+                        if (cmd.contains(c)) errors.add("  " + at + " — `" + c + "` in the command: one process per entry");
+                    }
+                    if (cmd.contains("ArchHook") && pattern != null && !cmd.matches(pattern)) {
+                        errors.add("  " + at + " — `" + cmd + "` is not `java -jar .claude/hooks/ArchHook.jar <mode>`");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Validates the top-level keys and every hook registration of a settings file —
      * this repo's `.claude/settings.json` and the generated project's template, both
      * listed in extensions.json's `settings.match`.
@@ -4885,6 +4959,31 @@ public class ArchHook {
                         + " (.claude/schemas/extensions.json › settings.blocked_plugins)."
                         + " Restore the entry; re-enable it for yourself in"
                         + " .claude/settings.local.json instead");
+            }
+        }
+
+        // The `Read(...)` lines of `permissions.deny` are the Claude Code side of
+        // `guard.secret_paths`, whose other side `guard read` and `guard bash` enforce under
+        // Copilot. One owner; a line added or dropped here alone is a path one runtime refuses
+        // and the other reads. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md
+        List<String> secrets = asStrList(get(sch, "guard", "secret_paths"));
+        if (!secrets.isEmpty()) {
+            List<String> deny = asStrList(get(root, "permissions", "deny"));
+            for (String path : secrets) {
+                if (!deny.contains("Read(" + path + ")")) {
+                    errors.add("  " + rel + " — `permissions.deny` lacks `Read(" + path + ")`,"
+                            + " listed in .claude/schemas/extensions.json › guard.secret_paths."
+                            + " Restore the line: the hooks refuse that path under Copilot, and"
+                            + " Claude Code would read it");
+                }
+            }
+            for (String d : deny) {
+                if (d.startsWith("Read(") && d.endsWith(")")
+                        && !secrets.contains(d.substring(5, d.length() - 1))) {
+                    errors.add("  " + rel + " — `permissions.deny` holds `" + d + "`, which"
+                            + " .claude/schemas/extensions.json › guard.secret_paths lacks. Add it"
+                            + " there first, so the hooks refuse it under Copilot too");
+                }
             }
         }
 
@@ -7390,6 +7489,7 @@ public class ArchHook {
             case "call"   -> guardCall(sch, state, in);
             case "write"  -> guardWrite(sch, state, in);
             case "bash"   -> guardBash(sch, state, in);
+            case "read"   -> guardRead(sch, in);
             case "sweep"  -> guardSweep(sch, state, in, stdin);
             case "status" -> guardStatus(sch, state);
             default       -> { }
@@ -7772,9 +7872,144 @@ public class ArchHook {
                     + " Code. Rule: guard.force_push in " + SCHEMA_FILE);
             blockExit();
         }
+        String secret = bashSecretRead(sch, cmd);
+        if (secret != null) refuseSecretRead(sch, secret, "this shell command reads it");
         for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd)) {
             guardPath(sch, state, in, rel);
         }
+    }
+
+    /**
+     * `guard`, applied to a read of a secret path by the Copilot runtimes' own file tools — `view`
+     * under the Copilot CLI, `read_file` under the VS Code. Why this is Form 7c: a read of `.env`
+     * sends its content to the model provider, which no rotation takes back, and under Copilot
+     * nothing refused it — the project's `permissions.deny` is a Claude Code file the Copilot CLI
+     * does not read (lessons-learned-022 § 8, E1). The closest rejected form is a `Read` entry in
+     * both settings files: Claude Code would pay a process per read for a refusal its `deny`
+     * already makes at none, so this mode is registered only in `.github/hooks/archhook.json`.
+     *
+     * <p>Invoked on `preToolUse`, matcher `view|read_file`. The envelope there is camelCase — the
+     * arguments in `toolArgs`, an object or a JSON string, and no event name — so the event is
+     * set to `PreToolUse` here, which is what makes {@link #blockExit()} hand the reason to the
+     * model as the flat object. A path field missing, unreadable, or outside the repository
+     * exits 0. The list and the fields are data, `guard.secret_paths` and
+     * `guard.secret_read_shapes.path_fields` — invariant 10. Design:
+     * `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
+     */
+    static void guardRead(Map<String, Object> sch, Object in) {
+        Object args = get(in, "tool_input");
+        if (args == null) {
+            args = get(in, "toolArgs");
+            if (args instanceof String s) args = Json.parse(s);
+            if (args != null && HOOK_EVENT == null) HOOK_EVENT = "PreToolUse";
+        }
+        for (String field : asStrList(get(sch, "guard", "secret_read_shapes", "path_fields"))) {
+            String raw = asStr(get(args, field));
+            if (raw == null) continue;
+            String rel = secretPath(sch, raw);
+            if (rel != null) refuseSecretRead(sch, rel, "this call reads it");
+            return;
+        }
+    }
+
+    /**
+     * The first literal operand of a shell command that reads a secret path, or null. A segment
+     * counts when its command is in `guard.secret_read_shapes.commands` — every non-flag
+     * operand is a read, unless the command carries its in-place write flag — and the target of
+     * an input redirect counts in any segment. The target of an output redirect is a write and is
+     * never judged here, so `printf … >> .env` passes. What holds an unresolvable marker is
+     * skipped, the bar of {@link #bashWriteTargets}.
+     */
+    static String bashSecretRead(Map<String, Object> sch, String cmd) {
+        Map<String, Object> shapes = asMap(get(sch, "guard", "secret_read_shapes"));
+        if (shapes == null || asStrList(get(sch, "guard", "secret_paths")).isEmpty()) return null;
+        List<String> readers = asStrList(shapes.get("commands"));
+        List<String> inOps = asStrList(shapes.get("input_redirect_operators"));
+        Map<String, Object> writeFlags = asMap(shapes.get("write_flag_prefixes"));
+        List<String> outOps = asStrList(get(sch, "guard", "bash_write_shapes", "redirect_operators"));
+        List<String> markers = asStrList(get(sch, "guard", "bash_write_shapes", "unresolvable_markers"));
+        for (List<Tok> seg : bashSegments(cmd)) {
+            List<Tok> words = new ArrayList<>();
+            for (int i = 0; i < seg.size(); i++) {
+                Tok t = seg.get(i);
+                boolean in = !t.quoted() && inOps.contains(t.text());
+                if (in || (!t.quoted() && outOps.contains(t.text()))) {
+                    if (in && i + 1 < seg.size()) {
+                        String hit = secretOperand(sch, markers, seg.get(i + 1));
+                        if (hit != null) return hit;
+                    }
+                    i++;                                  // the operator's target is no operand
+                    continue;
+                }
+                words.add(t);
+            }
+            if (words.isEmpty()) continue;
+            String head = bashCommandName(words.get(0).text());
+            if (!readers.contains(head)) continue;
+            String writeFlag = writeFlags == null ? null : asStr(writeFlags.get(head));
+            boolean inPlace = false;
+            for (Tok t : words.subList(1, words.size())) {
+                if (writeFlag != null && !t.quoted() && t.text().startsWith(writeFlag)) inPlace = true;
+            }
+            if (inPlace) continue;
+            for (Tok t : words.subList(1, words.size())) {
+                if (!t.quoted() && t.text().startsWith("-")) continue;
+                String hit = secretOperand(sch, markers, t);
+                if (hit != null) return hit;
+            }
+        }
+        return null;
+    }
+
+    static String secretOperand(Map<String, Object> sch, List<String> markers, Tok tok) {
+        for (String marker : markers) if (tok.text().contains(marker)) return null;
+        return secretPath(sch, tok.text());
+    }
+
+    /**
+     * The repo-relative path when {@code raw} names a file `guard.secret_paths` lists, or null.
+     * Each entry is a permission-rule body; `./**&#47;` matches at the root too, as in Claude Code.
+     * A path outside the repository is not this list's to judge, as `./` says. An existing file
+     * is judged by its real path as well, so a symlink to `.env` reads as `.env`.
+     */
+    static String secretPath(Map<String, Object> sch, String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            Path root = ROOT.toAbsolutePath().normalize();
+            Path abs = ROOT.resolve(raw).toAbsolutePath().normalize();
+            List<String> rels = new ArrayList<>();
+            if (abs.startsWith(root)) rels.add(relative(abs));
+            if (Files.exists(abs)) {
+                Path real = abs.toRealPath(), realRoot = root.toRealPath();
+                if (real.startsWith(realRoot)) rels.add(realRoot.relativize(real).toString().replace('\\', '/'));
+            }
+            for (String rel : rels) {
+                if (rel.isBlank()) continue;
+                for (String rule : asStrList(get(sch, "guard", "secret_paths"))) {
+                    String body = rule.startsWith("./") ? rule.substring(2) : rule;
+                    String subject = body.startsWith("**") ? "/" + rel : rel;
+                    if (glob(body).matcher(subject).matches()) return rel;
+                }
+            }
+        } catch (Exception e) {
+            // An unparseable path is an unreadable target, not a violation.
+        }
+        return null;
+    }
+
+    static void refuseSecretRead(Map<String, Object> sch, String rel, String how) {
+        String rule = "";
+        for (String r : asStrList(get(sch, "guard", "secret_paths"))) {
+            String body = r.startsWith("./") ? r.substring(2) : r;
+            if (glob(body).matcher(body.startsWith("**") ? "/" + rel : rel).matches()) { rule = r; break; }
+        }
+        err("❌ guard: " + rel + " holds secrets, and " + how + " — its content would reach the model"
+                + " provider, and that cannot be taken back.");
+        err("   Rule: `" + rule + "` in guard.secret_paths of " + SCHEMA_FILE
+                + ", the same list as permissions.deny. Norm: .claude/rules/secrets.md.");
+        err("   Do not read or print it, by any tool. To know it exists, run `test -f " + rel + "`;"
+                + " for a value you need, ask the user.");
+        blockExit();
     }
 
     /**

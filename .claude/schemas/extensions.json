@@ -572,6 +572,24 @@
       "$comment": "Read by ArchHook.java `guard call`, checked by `schema`. A prompt-only skill runs only when the user's prompt of this turn starts with `/<skill>`: a skill call to one is refused while the open phase's opener is another skill or none. The set is every skill whose frontmatter declares `disable-model-invocation: true`, plus `extra` — a skill kept out of the model's hands without the flag, because the flag locks the user out on some runtime. `schema` fails on an `extra` name with no skill on disk and on one that already carries the flag. Fail-open: with no `guard prompt` baseline in this session, no prompt hook runs on this runtime and nothing is refused. The pipeline skills `/new-feature` chains never go here (decision 0007). Design: .claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md",
       "flag": "disable-model-invocation",
       "extra": []
+    },
+
+    "$comment_secret_paths": "The single owner of which paths hold a secret no tool may read into the model — a read sends the content to the model provider, and that cannot be taken back (.claude/rules/secrets.md § When a secret leaks). Each entry is a permission-rule body: `permissions.deny` of both settings files holds `Read(<entry>)` for each one and no other `Read(...)`, and `schema` fails on either gap — those lines are derived, the Claude Code side of the same list. The Copilot CLI reads no `permissions` block from a project file (lessons-learned-022 § 8, E1: `wc -l .probe/e1.env` ran), so ArchHook.java `guard read` (a `view` or `read_file` call, registered in `.github/hooks/archhook.json` only) and `guard bash` (a shell read, every runtime) refuse the same paths. `./**/` matches at the root too, as in Claude Code. `.env.example` is not matched, on purpose: it is versioned, holds no value, and `docker-architect` writes it. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md",
+    "secret_paths": [
+      "./**/*.env",
+      "./**/secrets/**",
+      "./**/application-prod.yml",
+      "./**/application-prod.yaml",
+      "./**/*.pem",
+      "./**/*.p12"
+    ],
+
+    "secret_read_shapes": {
+      "$comment": "Read by ArchHook.java `guard read` and `guard bash`. `path_fields`: where a read call names its file — `file_path` (Claude Code), `path` (Copilot CLI, `Read` and `view`), `filePath` (VS Code `read_file`); under the camelCase envelope of `.github/hooks` the object is `toolArgs`, sometimes a JSON string. `commands`: the shell commands whose literal operands are read, matching what Claude Code 2.1.296 denies under the same rule (`cat`, `wc`, `grep -qs` denied; `test -f`, `docker compose --env-file` admitted). `ls` and `test` are left out: they reveal only that a file exists. `wc` is kept though it prints no content — parity with Claude Code, and the spelling E1 used. `write_flag_prefixes`: a flag that turns the command into an in-place write, which reads nothing into the model. `input_redirect_operators`: the target of `<` is read. A redirect target of `bash_write_shapes` is a write, never a read, so `printf … >> .env` and `cp .env.example .env` pass. The bar of `bash_write_shapes` holds: a target with an unresolvable marker, or outside the repository, is skipped in silence. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md",
+      "path_fields": ["file_path", "path", "filePath"],
+      "commands": ["cat", "head", "tail", "less", "more", "wc", "grep", "egrep", "fgrep", "rg", "awk", "sed", "cut", "sort", "nl", "od", "xxd", "hexdump", "strings", "base64", "diff", "source", "."],
+      "write_flag_prefixes": { "sed": "-i" },
+      "input_redirect_operators": ["<"]
     }
   },
 
@@ -857,7 +875,8 @@
     ],
 
     "overwrite": [
-      { "$comment": "Not a merge, on purpose: re-serializing the file would reorder its keys and drop its comments, and a real three-way merge is a program nobody asked for. The export refuses a dirty worktree, so the destination's previous content is one `git diff` away and one `git checkout` from coming back. A project that added hook entries of its own loses them here and sees exactly that in the diff.", "from": ".claude/skills/project-bootstrap/templates/settings.json.example", "to": ".claude/settings.json" }
+      { "$comment": "Not a merge, on purpose: re-serializing the file would reorder its keys and drop its comments, and a real three-way merge is a program nobody asked for. The export refuses a dirty worktree, so the destination's previous content is one `git diff` away and one `git checkout` from coming back. A project that added hook entries of its own loses them here and sees exactly that in the diff.", "from": ".claude/skills/project-bootstrap/templates/settings.json.example", "to": ".claude/settings.json" },
+      { "$comment": "The Copilot runtimes' own hook file, read by the Copilot CLI and the VS Code and never by Claude Code: it carries only `guard read`, the one check Claude Code makes with `permissions.deny` at no process. Replaced whole, like settings.json, and verbatim: it is JSON with no room for a citation. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md", "from": ".claude/skills/project-bootstrap/templates/copilot-hooks.json.example", "to": ".github/hooks/archhook.json", "verbatim": true }
     ],
 
     "optional_copy": [
@@ -1106,6 +1125,18 @@
     "framework_roots": {
       "domain": ["org.springframework.", "jakarta.", "com.fasterxml.jackson.", "tools.jackson."]
     }
+  },
+
+  "copilot_hooks": {
+    "$comment": "Validated by ArchHook.java schema. The hook file the GitHub Copilot CLI and the VS Code read from `.github/hooks/`, and Claude Code never does — camelCase events, `bash` and `powershell` in place of `command`, `timeoutSec` in place of `timeout`, a `matcher` regex on the tool name (`docs/pt-br/13-github-copilot.md` § 2.5). It holds only what Claude Code already decides without a process, so it never doubles a `.claude/settings.json` entry: the Copilot CLI reads that file too. Every entry carries a `matcher`, both shells and the ArchHook command alone, in shell form with no `CLAUDE_PROJECT_DIR` — the hook runs at the project root, where ArchHook resolves `ROOT` from `.`, and that variable is not documented there. `exec` and `args` are refused for the reason of 0168. `command_forbidden_chars` of `settings` apply. Design: .claude/decisions/0173-secret-read-guard-for-copilot.md",
+    "match": [".github/hooks/archhook.json", ".claude/skills/project-bootstrap/templates/copilot-hooks.json.example"],
+    "allowed": ["version", "hooks"],
+    "version": 1,
+    "hook_events": ["sessionStart", "sessionEnd", "userPromptSubmitted", "userPromptTransformed", "preToolUse", "postToolUse", "postToolUseFailure", "permissionRequest", "agentStop", "subagentStart", "subagentStop", "preCompact", "notification", "errorOccurred"],
+    "entry_types": ["command"],
+    "entry_required": ["type", "bash", "powershell", "matcher"],
+    "entry_allowed": ["type", "bash", "powershell", "matcher", "timeoutSec", "cwd", "env"],
+    "archhook_command_pattern": "^java -jar \\.claude/hooks/ArchHook\\.jar( [a-z][a-z-]*)+$"
   },
 
   "mcp": {

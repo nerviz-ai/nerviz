@@ -271,6 +271,17 @@ quebrada: o caminho é o usuário digitar `/<nome>`. Fail-open: se o `guard prom
 sessão, nada é recusado. Design:
 `.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
 
+**Ler um `.env` é recusado, também pelo shell e também sob o Copilot.** Os caminhos de
+`guard.secret_paths` no `extensions.json` (`*.env`, `secrets/**`, `application-prod.yml`/`.yaml`,
+`*.pem`, `*.p12`) são negados ao `Read` pelo `permissions.deny` no Claude Code. Em todo runtime, o
+`guard bash` nega `cat`, `wc`, `grep`, `sed` sem `-i`, `head`, `source`, `<` e os demais leitores de
+`guard.secret_read_shapes`, mesmo `grep -qs`, que não imprime nada. No projeto gerado, o `guard read`
+de `.github/hooks/archhook.json` nega o `view` do Copilot CLI e o `read_file` do VS Code. Não é
+ferramenta quebrada: o conteúdo iria ao provedor do modelo. `test -f`, `ls`, uma escrita
+(`printf … >> .env`, `cp .env.example .env`) e o `.env.example` passam. Um `deny` de leitura novo
+entra primeiro na lista, e o `schema` falha se as linhas `Read(...)` de um `settings.json` divergirem
+dela. Design: `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
+
 ### Classes e modelos
 
 **Toda skill declara `model`, dentro do conjunto da sua classe.** `schema` reprova um

@@ -186,6 +186,12 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
   `url(https://*.github.com)`; `--allow-all-tools`, `--yolo`; `/permissions`; aprovações salvas
   em `~/.copilot/permissions-config.json`. "Deny sempre vence, mesmo com `--allow-all`." Chave
   `permissions.deny` em arquivo do repositório: **não documentada**.
+- **Observado no CLI 1.0.98 (lessons-learned-022 § 8, E1).** O `deny` `Read(./**/*.env)` do projeto não
+  vale: `wc -l .probe/e1.env` rodou sem negação, e só a escolha do modelo manteve o conteúdo fora do
+  provedor. Desde a decisão 0173, o projeto gerado nega essa leitura por hook: `guard read` em
+  `.github/hooks/archhook.json` (`view` no CLI, `read_file` no VS Code) e `guard bash` no
+  `.claude/settings.json`. A lista é `guard.secret_paths` do `extensions.json`, e o `schema` mantém as
+  linhas `Read(...)` do `deny` iguais a ela.
 - **Enterprise**: `managed-settings.json` com `permissions.deny|ask|allow` e regras
   `Bash(...)`/`Shell(...)`, `Read(...)`, `Edit(...)`/`Write(...)`, `Domain(...)` — a mesma
   gramática do `settings.json` do Claude Code — honradas por CLI, VS Code, app e cloud agent.
@@ -302,13 +308,14 @@ sempre. "Orientado" é prosa que o modelo lê e pode seguir. "Nada" é um arquiv
 | `compose gate` | não verificado (hook roda, `exit 2` nega) | nada | não verificado | Mesmo hook |
 | Catálogo de padrões em `SubagentStart` | nada, salvo registro camelCase | nada, salvo `.github/hooks/*.json` camelCase | nada | Sem alias PascalCase |
 | Executor `java-spring-boot-developer` com `tools` restritas | parcial: precisa de `.agent.md`; `model` com id próprio; `include-custom-instructions` | parcial, sem `model` | parcial | Formato de agent diferente; `.claude/agents/` não verificado |
-| `permissions.deny` (`.env`, `.pem`, `git push --force`) | nada em arquivo; `--deny-tool` por sessão | nada | nada | Só política de empresa |
+| `permissions.deny` de leitura (`.env`, `.pem`, `secrets/`) | garantido pelo `guard read` (`view`) e pelo `guard bash` (leitores de conteúdo, `wc`, `<`) para os caminhos de `guard.secret_paths`; um caminho não literal, `grep -r` e as tools `Grep`/`Glob` passam | nada (não lê hooks de arquivo) | não verificado: `guard read` em `read_file` pelo `.github/hooks`, matcher não testado; `run_in_terminal` passa | Decisão 0173; reteste E1′ |
+| `permissions.deny` de `git push --force` | garantido pelo `guard bash` (`guard.force_push`) | nada | não verificado | O mesmo hook de `Bash` |
 | Trilha de auditoria e `GENESIS.md` | nada | nada | nada | Transcrição em outro formato |
 | Segredo nunca literal em `.mcp.json` | não verificado (interpolação não documentada) | garantido pela UI, se usada | garantido por `${input:}` | — |
 
 Leitura honesta da tabela, que o projeto gerado diz na seção `## Under another agent` do `CLAUDE.md` raiz — o arquivo que toda superfície lê (decisão 0139): **sob
 Copilot, o que continua garantido é o build**. Território de escrita, spec congelada, catálogo
-em `SubagentStart`, `deny` de arquivos sensíveis e auditoria são Claude Code — e no CLI
+em `SubagentStart` e auditoria são Claude Code — e no CLI
 viram "talvez", até que o passo 5 da fase 8 prove o payload.
 
 ---

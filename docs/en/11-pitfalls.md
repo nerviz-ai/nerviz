@@ -263,6 +263,17 @@ The message says to print the command for the user to type. Not a broken skill: 
 the user typing `/<name>`. Fail-open: when `guard prompt` never ran in the session, nothing is
 refused. Design: `.claude/decisions/0171-manual-skills-held-by-guard-call-under-copilot.md`.
 
+**Reading a `.env` is refused, through the shell too, and under Copilot too.** The paths of
+`guard.secret_paths` in `extensions.json` (`*.env`, `secrets/**`, `application-prod.yml`/`.yaml`,
+`*.pem`, `*.p12`) are denied to `Read` by `permissions.deny` under Claude Code. In every runtime,
+`guard bash` denies `cat`, `wc`, `grep`, `sed` without `-i`, `head`, `source`, `<` and the other
+readers of `guard.secret_read_shapes` — even `grep -qs`, which prints nothing. In a generated
+project, `guard read` in `.github/hooks/archhook.json` denies the Copilot CLI's `view` and VS Code's
+`read_file`. Not a broken tool: the content would go to the model provider. `test -f`, `ls`, a write
+(`printf … >> .env`, `cp .env.example .env`) and `.env.example` pass. A new read `deny` goes into the
+list first, and `schema` fails when the `Read(...)` lines of a `settings.json` drift from it. Design:
+`.claude/decisions/0173-secret-read-guard-for-copilot.md`.
+
 ### Classes and models
 
 **Every skill declares `model`, from its class's set.** `schema` fails a `SKILL.md` without

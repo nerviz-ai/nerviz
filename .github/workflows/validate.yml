@@ -152,6 +152,14 @@ jobs:
       - name: a hook refusal carries its reason on stdout for the Copilot CLI
         run: java .claude/.ci/DenyReasonTest.java
 
+      # Under the Copilot CLI `wc -l .probe/e1.env` ran: the project's `permissions.deny` is a
+      # Claude Code file it does not read (lessons-learned-022 § 8, E1). `guard read` (`view`,
+      # `read_file`, from `.github/hooks/archhook.json`) and `guard bash` refuse the paths of
+      # `guard.secret_paths`, and `schema` holds `permissions.deny` and the Copilot hook file to it.
+      # This holds the captured payloads, the near misses admitted, and both drifts refused (0173).
+      - name: a read of a secret path is refused under the Copilot runtimes too
+        run: java .claude/.ci/SecretReadTest.java
+
       # The only filesystem-shaped guard (0065). Needs `git`, which every runner has. It skips
       # what a tool-time guard admitted, so a cross-class chain does not re-judge the run's
       # own writes against the narrower phase open at Stop (0114, issue #74).

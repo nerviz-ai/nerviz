@@ -191,6 +191,12 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
   `~/.copilot/permissions-config.json`. "Deny rules always take precedence over allow rules,
   even when `--allow-all` is set." A `permissions.deny` key in a repository file:
   **undocumented**.
+- **Observed in CLI 1.0.98 (lessons-learned-022 § 8, E1).** The project's `deny` `Read(./**/*.env)`
+  does not hold: `wc -l .probe/e1.env` ran with no denial, and only the model's choice kept the content
+  from the provider. Since decision 0173 the generated project refuses that read with a hook:
+  `guard read` in `.github/hooks/archhook.json` (`view` in the CLI, `read_file` in VS Code) and
+  `guard bash` in `.claude/settings.json`. The list is `guard.secret_paths` of `extensions.json`, and
+  `schema` keeps the `deny`'s `Read(...)` lines equal to it.
 - **Enterprise**: `managed-settings.json` with `permissions.deny|ask|allow` and rules
   `Bash(...)`/`Shell(...)`, `Read(...)`, `Edit(...)`/`Write(...)`, `Domain(...)` — the same
   grammar as Claude Code's `settings.json` — honored by the CLI, VS Code, the app and the cloud
@@ -308,13 +314,14 @@ runs. "Guided" is prose the model reads and may follow. "Nothing" is an inert fi
 | `compose gate` | unverified (the hook runs, `exit 2` denies) | nothing | unverified | Same hook |
 | Pattern catalog at `SubagentStart` | nothing, unless registered in camelCase | nothing, unless in `.github/hooks/*.json` in camelCase | nothing | No PascalCase alias |
 | Executor `java-spring-boot-developer` with restricted `tools` | partial: needs an `.agent.md`; `model` with its own id; `include-custom-instructions` | partial, no `model` | partial | Different agent format; `.claude/agents/` unverified |
-| `permissions.deny` (`.env`, `.pem`, `git push --force`) | nothing in a file; per-session `--deny-tool` | nothing | nothing | Enterprise policy only |
+| Read `permissions.deny` (`.env`, `.pem`, `secrets/`) | guaranteed by `guard read` (`view`) and `guard bash` (content readers, `wc`, `<`) for the paths of `guard.secret_paths`; a non-literal path, `grep -r` and the `Grep`/`Glob` tools pass | nothing (reads no hook file) | unverified: `guard read` on `read_file` through `.github/hooks`, matcher untested; `run_in_terminal` passes | Decision 0173; retest E1′ |
+| `permissions.deny` of `git push --force` | guaranteed by `guard bash` (`guard.force_push`) | nothing | unverified | The same `Bash` hook |
 | Audit trail and `GENESIS.md` | nothing | nothing | nothing | Transcript in another format |
 | Secret never literal in `.mcp.json` | unverified (interpolation undocumented) | guaranteed by the UI, if used | guaranteed by `${input:}` | — |
 
 The honest reading of the table, which the generated project states in the `## Under another
 agent` section of its root `CLAUDE.md` — the file every surface reads (decision 0139): **under Copilot, what stays guaranteed is the build**. Write territory, frozen spec,
-the `SubagentStart` catalog, `deny` of sensitive files and the audit trail are Claude Code —
+the `SubagentStart` catalog and the audit trail are Claude Code —
 and in the CLI they become "maybe", until phase 8 step 5 proves the payload.
 
 ---

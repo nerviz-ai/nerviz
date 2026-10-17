@@ -54,6 +54,12 @@ Rode este por último, depois que os comandos 1 a 4 forem decididos.
 /claude-code-architect-designer lessons-learned-022 §§ 6-7 contrariaram hipóteses: o Copilot CLI lê .claude/rules/ (A5), tem a tool "skill" e encadeia (B5), ask_user aceita opções e texto livre (B6), ${VAR} expande em env e args do .mcp.json (F1), e os hooks rodam em forma shell, mas cegos ao apply_patch e mudos na negação. Ele ignora effort e omitClaudeMd nos agents (C1). Reescreva a seção "Under another agent" de project-bootstrap/templates/root.CLAUDE.md.example com o que as decisões dos itens anteriores deixaram de pé. Atualize docs/pt-br/13-github-copilot.md e a fase 8 de roadmap.md, e liste como não verificados A2, A3, A4, C2, C3, D5, E2, H, I e o VS Code com chat.useClaudeHooks.
 ```
 
+## 9. O passo 4.5 do `docker-architect` lê o `.env` (achado do comando 6)
+
+```
+/claude-code-architect-designer Decisão 0173, achado lateral: o passo 4.5 de .claude/skills/docker-architect/SKILL.md roda `grep -qs '^DB_PASSWORD=' .env || printf … >> .env`. O Claude Code já nega esse grep pelo deny Read(./**/*.env), e desde a 0173 o guard bash nega também sob o Copilot. Decida como o passo garante a chave sem ler o .env, por exemplo pedindo ao usuário, gravando um bloco só quando test -f falha, ou com outro comando que não leia o arquivo para o modelo. Valha nos dois runtimes e registre em decisions/.
+```
+
 ## Fora do escopo do designer
 
 Os testes não verificados (A2/A3, C2/C3, D5, E2, VS Code com `chat.useClaudeHooks`) pedem outra rodada
