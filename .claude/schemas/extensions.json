@@ -196,6 +196,18 @@
     "$comment_archhook_command": "Shell form, one shape. An entry that launches ArchHook is `java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\" <mode> [<sub>]` (or the source launch `java \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.java\" build`, this repo only), with no `args`. Exec form (`command` + `args`) was the choice until 0168: the Copilot CLI reads this same file, runs `command` and ignores `args`, so a bare `java` exited 1 and every Edit, Shell and Read was denied (lessons-learned-022 § 2). The braces placeholder is deliberate: Claude Code substitutes it before the shell runs (sh -c, Git Bash, or PowerShell), and a Unix shell under Copilot expands the same text from the environment. The double quotes keep a path with spaces whole. `project_path_unsafe_chars` are the characters that would still split or expand the substituted path; `doctor` warns on them, never gates. Design: .claude/decisions/0168-hooks-in-shell-form.md",
     "archhook_command_pattern": "^java (-jar \"\\$\\{CLAUDE_PROJECT_DIR\\}/\\.claude/hooks/ArchHook\\.jar\"|\"\\$\\{CLAUDE_PROJECT_DIR\\}/\\.claude/hooks/ArchHook\\.java\")( [a-z][a-z-]*)+$",
     "project_path_unsafe_chars": ["\"", "$", "`"],
+    "$comment_deny_output": "What a refusal (exit 2) of an ArchHook mode also writes on stdout, per `hook_event_name`: `fields` verbatim, then `reason_field` holding everything the run wrote on stderr, opened by `reason_prefix` when one is set. Measured on Claude Code 2.1.296 and Copilot CLI 1.0.98 (lessons-learned-022, evidence/D3b-deny-reason.txt). PreToolUse: Copilot drops stderr and shows only `hook exited with code 2`, but at exit 2 it reads the flat `permissionDecision`/`permissionDecisionReason`; Claude Code ignores that flat object at exit 2 and keeps showing stderr, unchanged. Never add `hookSpecificOutput` here: at exit 2 Claude Code then swaps stderr for its reason and Copilot loses the reason altogether. PostToolUse: Copilot shows stderr on the screen only; `decision: block` is the one channel to its model, and it replaces the tool's result — the prefix tells the model the edit is on disk, so it fixes the file instead of applying the edit again. Claude Code shows the same text from `reason`. An event absent here writes nothing on stdout. Design: .claude/decisions/0170-deny-reason-on-stdout-for-copilot.md",
+    "deny_output": {
+      "PreToolUse": {
+        "fields": { "permissionDecision": "deny" },
+        "reason_field": "permissionDecisionReason"
+      },
+      "PostToolUse": {
+        "fields": { "decision": "block" },
+        "reason_field": "reason",
+        "reason_prefix": "The edit was applied: the file on disk already holds it. Do not apply it again. Fix the file as follows."
+      }
+    },
     "hook_entry": {
       "required": ["type", "command"],
       "allowed": ["type", "command", "timeout", "statusMessage", "if"]

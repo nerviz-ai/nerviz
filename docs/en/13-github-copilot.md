@@ -148,6 +148,15 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
   `exit 2` always denies, "even if the hook's stdout JSON reports allow"; any non-zero exit
   denies (fail-closed); a timeout lets the call through (fail-open). In the cloud agent, `ask`
   becomes `deny`. `agentStop`/`subagentStop` accept `decision: "block"`.
+- **Observed on CLI 1.0.98 (lessons-learned-022, `evidence/D3b-deny-reason.txt`).** At a `preToolUse`
+  `exit 2`, stderr does not reach the model, which sees only `hook exited with code 2`. The flat object
+  on stdout arrives as `Denied by preToolUse hook: <reason>`. With `hookSpecificOutput` on the same
+  stdout, the generic line comes back. At `exit 0` the Copilot also reads the nested form, and
+  `decision: "block"` does **not** deny. On `postToolUse`, stderr becomes a screen warning and
+  `additionalContext` does not reach the model. Only `decision: "block"` does, as
+  `Tool result blocked: <reason>`, and it replaces the tool's result. Since decision 0170 every `exit 2`
+  refusal of `ArchHook` repeats its stderr on stdout, in the shape `settings.deny_output` of
+  `extensions.json` names per event.
 - **Context**: `additionalContext` on `sessionStart`, `subagentStart` ("prepended to the
   subagent's first user message"), `postToolUse` and `notification`.
 - **Declaration**: `type` (`command` by default; `http`; `prompt` CLI only),
@@ -224,7 +233,7 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
 | `omitClaudeMd: true` (2 agents) | `include-custom-instructions: true` (inverted) | The Copilot CLI default is to **omit**: `java-spring-boot-developer`, which receives `CLAUDE.md` today, would receive nothing without the field | CLI |
 | `Agent` tool with `subagent_type` (8 uses in skills) | Automatic delegation or `task`; agent name in the description | No guaranteed explicit call by name; the model "may choose" | CLI, VS Code; not GitHub.com |
 | `SubagentStart` hook → `hookSpecificOutput.additionalContext` | `subagentStart` (camelCase only) → flat `additionalContext`, matcher on `agentName` | The pattern catalog injected by `ArchHook.java context subagent` fires only if registered in camelCase, in `.github/hooks/*.json` or through `.claude/settings.json` with the camelCase name; the payload carries `agentName`, not `agent_type` | CLI; cloud agent |
-| `hookSpecificOutput.permissionDecision` (Claude's nested output) | Top-level `permissionDecision` | `guard` writes the nested form today; the flat one is the documented one. `exit 2` works in both | CLI, cloud agent |
+| `hookSpecificOutput.permissionDecision` (Claude's nested output) | Top-level `permissionDecision` | At `exit 2` only the flat object carries the reason: the nested one drops it in Copilot and swaps stderr for it in Claude Code. Since decision 0170 every `ArchHook` refusal writes the flat object on `PreToolUse` and `decision: "block"` on `PostToolUse`, with `exit 2` and stderr unchanged | CLI; cloud agent unverified |
 | `${CLAUDE_PROJECT_DIR}` in hook `args` and in 15 skills | `args` ignored; the variable is set in the hook environment (7 of 7 captures, lessons-learned-022 § 2), undocumented | Exec form ran a bare `java`, exit 1, every call denied. Since decision 0168 every hook is shell form, `java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`, which the CLI's Unix shell expands. **Not verified on Windows:** there `command` becomes `powershell`, which does not read `${CLAUDE_PROJECT_DIR}` as an environment variable | CLI |
 | `tool_input.command`, `tool_input.file_path`, `tool_input.content` (what `guard` reads) | `tool_input: unknown` | Claude names in `tool_name`, `tool_input` shape undocumented. This is the gap that decides whether `guard` needs an input adapter (phase 8, step 5) | CLI |
 | `.vscode/mcp.json` (`servers`, `inputs`) | `.mcp.json` (`mcpServers`) | Two formats; the CLI does not read VS Code's | — |
@@ -286,7 +295,7 @@ runs. "Guided" is prose the model reads and may follow. "Nothing" is an inert fi
 | `guard` write territory per skill phase | nothing | nothing | nothing | No `Skill` event |
 | `guard` write territory per agent (`agent_type`) | unverified: the hook runs, the payload differs (`agentName`, `tool_input` with no documented shape) | nothing (does not read `settings.json`) | unverified (`chat.useClaudeHooks`) | Phase 8, step 5 |
 | `guard bash` (force push, writes outside the territory) | unverified: the hook runs; depends on `tool_input.command` | nothing | unverified | Same |
-| Approved spec frozen | guaranteed in the hook (`guard write` reads the `apply_patch`, decision 0169; `guard bash` reads `command`), but the denial reaches the model without its reason (lessons-learned-022 § 4) | nothing | unverified | It is the same `guard` |
+| Approved spec frozen | guaranteed in the hook (`guard write` reads the `apply_patch`, decision 0169; `guard bash` reads `command`), and since decision 0170 the denial carries its reason on stdout (lessons-learned-022 § 4) | nothing | unverified | It is the same `guard` |
 | `compose gate` | unverified (the hook runs, `exit 2` denies) | nothing | unverified | Same hook |
 | Pattern catalog at `SubagentStart` | nothing, unless registered in camelCase | nothing, unless in `.github/hooks/*.json` in camelCase | nothing | No PascalCase alias |
 | Executor `java-spring-boot-developer` with restricted `tools` | partial: needs an `.agent.md`; `model` with its own id; `include-custom-instructions` | partial, no `model` | partial | Different agent format; `.claude/agents/` unverified |

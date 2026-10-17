@@ -131,6 +131,13 @@ e nega toda chamada de ferramenta (os hooks são forma shell, 0168). Um modo que
 e parece ter passado. `schema` pega as três primeiras, a partir do bloco `settings` de
 `.claude/schemas/extensions.json`; a quarta, só rodando o modo à mão.
 
+**No GitHub Copilot CLI, o stderr de uma recusa não chega ao modelo.** No `preToolUse` ele vê só
+`hook exited with code 2`, e no `postToolUse` o stderr vira aviso de tela. Por isso toda recusa do
+`ArchHook` com `exit 2` repete o stderr no stdout, no formato de `settings.deny_output` do
+`extensions.json` (0170). **Nunca acrescente `hookSpecificOutput` a esse formato:** no `exit 2`,
+o Copilot volta à mensagem genérica e o Claude Code troca o stderr pelo motivo aninhado.
+`DenyReasonTest` falha por nome nesse caso.
+
 **Um `if` com caminho só casa via `Edit(...)` ou `Read(...)`.** `Edit` cobre toda ferramenta
 nativa que escreve arquivo, `Write` incluído; um `"if": "Write(.claude/**/*.md)"` parece um
 filtro e não filtra nada. Fonte: `docs/pt-br/claude-code-docs/07-settings-permissoes-e-seguranca.md`.

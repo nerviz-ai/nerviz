@@ -115,6 +115,12 @@ twice by instruction, quoting `git-publish`, before any command reached a hook.
 Evidence: `evidence/D3-copilot-cli.txt`, `evidence/D3-claude-code.txt`,
 `captures/probe-single-shellform/run-D3-sentinel2/`.
 
+**Follow-up probe (2026-10-17).** `probe-deny-reason/` measured every stdout shape on both runtimes.
+At exit 2, only the flat `permissionDecision`/`permissionDecisionReason` object brings the reason to
+Copilot's model, and Claude Code keeps showing stderr. On `postToolUse`, only `decision: "block"`
+reaches Copilot's model, and it replaces the tool result. Evidence: `evidence/D3b-deny-reason.txt`,
+`captures/probe-deny-reason/`. Design: decision 0170.
+
 ## § 5 · Manual skills: held by instruction, and the flag locks the user out (B2, B4, B5)
 
 **B4 — no manual skill invoked by the model**
@@ -237,7 +243,7 @@ Evidence: `evidence/C1-copilot-cli.txt`, `evidence/G1-build.txt`, `evidence/D1-r
 2. **`apply_patch`.** Should `guard write`, `check`, `format` and `audit file` parse it (`Add`, `Update`,
    `Delete`, `Move`), with paths absolute or relative to the root?
 3. **Denial reason.** Does Copilot surface a JSON `decision` and `reason` on stdout where it drops stderr?
-   This is not tested yet.
+   Tested afterwards: see the follow-up probe in § 4 and decision 0170.
 4. **The flag.** Should `disable-model-invocation: true` stay on `new-feature`, given that under Copilot
    it locks out the user it exists to serve? And what makes `/arch-doctor`, with the same flag, start?
 5. **The `CLAUDE.md` sentence.** Should "Under another agent" be rewritten now? It says the Copilot CLI

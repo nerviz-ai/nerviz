@@ -128,6 +128,13 @@ throws — exits 0 through `main`'s catch, looks like it passed. `schema` catche
 three, from the `settings` block of `.claude/schemas/extensions.json`; the fourth only by
 running the mode by hand.
 
+**Under the GitHub Copilot CLI, a refusal's stderr never reaches the model.** On `preToolUse` it sees
+only `hook exited with code 2`, and on `postToolUse` stderr becomes a screen warning. That is why
+every `exit 2` refusal of `ArchHook` repeats its stderr on stdout, in the shape
+`settings.deny_output` of `extensions.json` names (0170). **Never add `hookSpecificOutput` to that
+shape:** at `exit 2`, Copilot falls back to its generic line and Claude Code swaps stderr for the
+nested reason. `DenyReasonTest` fails by name on it.
+
 **An `if` with a path only matches through `Edit(...)` or `Read(...)`.** `Edit` covers every
 built-in tool that writes a file, `Write` included; an `"if": "Write(.claude/**/*.md)"` looks
 like a filter and filters nothing. Source: `docs/pt-br/claude-code-docs/07-settings-permissoes-e-seguranca.md`.

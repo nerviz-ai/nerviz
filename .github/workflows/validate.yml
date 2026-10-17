@@ -144,6 +144,14 @@ jobs:
       - name: the write hooks read the Copilot CLI's apply_patch
         run: java .claude/.ci/ApplyPatchTest.java
 
+      # Under the Copilot CLI a hook's stderr never reached the model: "hook exited with code 2"
+      # on PreToolUse, the screen only on PostToolUse (lessons-learned-022 § 4). A refusal now
+      # repeats it on stdout in the shape `settings.deny_output` names per event, which Claude
+      # Code ignores at exit 2 on PreToolUse. This holds the flat shape, the absence of
+      # `hookSpecificOutput`, and an empty stdout wherever no hook payload names an event (0170).
+      - name: a hook refusal carries its reason on stdout for the Copilot CLI
+        run: java .claude/.ci/DenyReasonTest.java
+
       # The only filesystem-shaped guard (0065). Needs `git`, which every runner has. It skips
       # what a tool-time guard admitted, so a cross-class chain does not re-judge the run's
       # own writes against the narrower phase open at Stop (0114, issue #74).

@@ -48,9 +48,25 @@ public class ArchHook {
     static final boolean WINDOWS =
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 
-    /** Windows consoles default to cp1252: forcing UTF-8 avoids broken accented characters. */
-    static final PrintStream ERR = new PrintStream(
-            new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+    /** Everything {@link #ERR} wrote in this run — the reason {@link #blockExit()} hands on stdout. */
+    static final ByteArrayOutputStream ERR_TEXT = new ByteArrayOutputStream();
+
+    /**
+     * Windows consoles default to cp1252: forcing UTF-8 avoids broken accented characters. Every
+     * byte also lands in {@link #ERR_TEXT}, so a refusal can repeat its stderr on stdout.
+     */
+    static final PrintStream ERR = new PrintStream(new OutputStream() {
+        final OutputStream fd = new FileOutputStream(FileDescriptor.err);
+        @Override public void write(int b) throws IOException { fd.write(b); ERR_TEXT.write(b); }
+        @Override public void write(byte[] b, int off, int len) throws IOException {
+            fd.write(b, off, len);
+            ERR_TEXT.write(b, off, len);
+        }
+        @Override public void flush() throws IOException { fd.flush(); }
+    }, true, StandardCharsets.UTF_8);
+
+    /** {@code hook_event_name} of the payload this run was handed; null outside a hook. */
+    static String HOOK_EVENT;
 
     public static void main(String[] args) throws Exception {
         String mode = args.length > 0 ? args[0] : "check";
@@ -73,6 +89,7 @@ public class ArchHook {
             case "compose" -> args.length > 1 && "gate".equals(args[1]) ? readAll(System.in) : "";
             default -> "";
         };
+        HOOK_EVENT = hookEvent(stdin);
         try {
             switch (mode) {
                 case "check"  -> { if (args.length > 1) checkPath(args[1]);
@@ -99,6 +116,64 @@ public class ArchHook {
             System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1]) ? 1 : 0);
         }
         System.exit(0);
+    }
+
+    /**
+     * Every refusal exits here: exit 2, the code both runtimes read as a block, after repeating
+     * what this run wrote on stderr as the one stdout object the event's {@code settings.deny_output}
+     * entry in extensions.json names. Under a hook on {@code PreToolUse} or {@code PostToolUse},
+     * the GitHub Copilot CLI drops stderr — the model read only "hook exited with code 2" — and
+     * reads that object; Claude Code ignores the flat {@code PreToolUse} shape at exit 2 and keeps
+     * showing stderr unchanged. An event the map does not name, a run with no payload ({@code
+     * doctor gate}, {@code export}, a person at the terminal) or an unreadable extensions.json
+     * writes nothing on stdout, as before. Never {@code hookSpecificOutput} at exit 2: Copilot then
+     * falls back to its generic line and loses the flat reason too.
+     *
+     * <p>Why this is a mode change and not a new mode: the refusals already exist in every
+     * blocking mode, and only the channel of their reason was missing; a second hook entry per
+     * event would run after the deny, which Copilot skips. Design:
+     * .claude/decisions/0170-deny-reason-on-stdout-for-copilot.md
+     */
+    static void blockExit() {
+        try {
+            String json = denyOutput(HOOK_EVENT, ERR_TEXT.toString(StandardCharsets.UTF_8).strip(),
+                    asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))));
+            if (json != null) {
+                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+                out.println(json);
+            }
+        } catch (Exception ignored) {
+            // The block holds without its stdout twin: the exit code is what denies.
+        }
+        System.exit(2);
+    }
+
+    /** The stdout object for a refusal on {@code event}, or null when the map names none. */
+    static String denyOutput(String event, String reason, Map<String, Object> sch) {
+        if (event == null || reason.isEmpty() || sch == null) return null;
+        Map<String, Object> shape = asMap(get(sch, "settings", "deny_output", event));
+        if (shape == null) return null;
+        Map<String, Object> fields = asMap(shape.get("fields"));
+        String reasonField = asStr(shape.get("reason_field"));
+        if (fields == null || reasonField == null) return null;
+        String prefix = asStr(shape.get("reason_prefix"));
+        StringBuilder b = new StringBuilder("{");
+        for (Map.Entry<String, Object> f : fields.entrySet()) {
+            if (!(f.getValue() instanceof String v)) return null;
+            b.append('"').append(jsonEscape(f.getKey())).append("\":\"").append(jsonEscape(v)).append("\",");
+        }
+        String text = prefix == null || prefix.isEmpty() ? reason : prefix + "\n" + reason;
+        return b.append('"').append(jsonEscape(reasonField)).append("\":\"").append(jsonEscape(text)).append("\"}").toString();
+    }
+
+    /** {@code hook_event_name} of a hook payload; null for an empty or unreadable one. */
+    static String hookEvent(String stdin) {
+        if (stdin == null || stdin.isBlank()) return null;
+        try {
+            return asStr(get(Json.parse(stdin), "hook_event_name"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── check ────────────────────────────────────────────────────────────────
@@ -139,7 +214,7 @@ public class ArchHook {
                 err("");
                 err("The responsibility is in the wrong module. Move the code, not the rule.");
                 err("Rule: .claude/rules/architecture-ddd.md");
-                System.exit(2);
+                blockExit();
             }
         } else {
             err("⚠️  .claude/forbidden-imports.txt does not exist.");
@@ -160,7 +235,7 @@ public class ArchHook {
         if (r.exit != 0) {
             err("❌ Compilation failed in " + module);
             tail(r.out, 30).forEach(ArchHook::err);
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -237,7 +312,7 @@ public class ArchHook {
             err("❌ tests.stop_maven_args is missing or empty in " + SCHEMA_FILE + ".");
             err("   The Stop gate does not guess what to hand Maven. Restore the key —");
             err("   `/arch-adopt` rewrites the file — or run `./mvnw verify` by hand.");
-            System.exit(2);
+            blockExit();
         }
         String list = String.join(",", modules);
         String ran = String.join(" ", goals);
@@ -251,7 +326,7 @@ public class ArchHook {
                     .filter(l -> l.matches(".*(ERROR|FAIL|Tests run).*"))
                     .collect(Collectors.toList());
             tail(relevant.isEmpty() ? r.out : relevant, 25).forEach(ArchHook::err);
-            System.exit(2);
+            blockExit();
         }
         err("✅ " + ran + " green — CI's `./mvnw clean verify` also runs what these flags skip");
     }
@@ -992,7 +1067,7 @@ public class ArchHook {
         err("   not exist on " + line + ", so what they generate would not build or would misbehave there.");
         err("   Nothing was written. Migrate the project to Spring Boot " + floor + " or later first,");
         err("   then run this again. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -1256,7 +1331,7 @@ public class ArchHook {
             Map<String, Object> hb = hookBuild();
             if (hb == null) {
                 err("❌ No `hook_build` block in " + SCHEMA_FILE + " — nothing says what to build.");
-                System.exit(2);
+                blockExit();
             }
             int feature = (int) num(hb.get("javac_feature"));
             int running = Runtime.version().feature();
@@ -1266,7 +1341,7 @@ public class ArchHook {
                 err("   Another javac emits different bytes for the same source, and");
                 err("   `build --verify` in CI would reject the jar. Run it with a JDK " + feature + ":");
                 err("   <jdk-" + feature + ">/bin/java " + asStr(hb.get("source")) + " build");
-                System.exit(2);
+                blockExit();
             }
             Path jar = ROOT.resolve(asStr(hb.get("jar")));
             byte[] fresh = compileJar(hb);
@@ -1284,7 +1359,7 @@ public class ArchHook {
                         ? "   " + stale
                         : "   It records this source's hash over different classes: built by"
                           + " another javac, or edited by hand. Rebuild it and commit the jar.");
-                System.exit(2);
+                blockExit();
             }
             if (Arrays.equals(fresh, current)) {
                 err("✅ " + relative(jar) + " already up to date.");
@@ -1296,7 +1371,7 @@ public class ArchHook {
         } catch (Exception e) {
             // Not the top-level catch: a build that fails quietly leaves the hooks on the old jar.
             err("❌ ArchHook build failed: " + e);
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -1310,7 +1385,7 @@ public class ArchHook {
         javax.tools.JavaCompiler javac = javax.tools.ToolProvider.getSystemJavaCompiler();
         if (javac == null) {
             err("❌ This runtime has no javac (" + System.getProperty("java.home") + ") — use a JDK, not a JRE.");
-            System.exit(2);
+            blockExit();
         }
         Path src = ROOT.resolve(asStr(hb.get("source")));
         Path out = Files.createTempDirectory("archhook-build");
@@ -1321,7 +1396,7 @@ public class ArchHook {
             if (rc != 0) {
                 err("❌ " + asStr(hb.get("source")) + " does not compile — the jar was left as it was:");
                 err(diag.toString(StandardCharsets.UTF_8));
-                System.exit(2);
+                blockExit();
             }
             Map<String, byte[]> entries = new LinkedHashMap<>();
             entries.put("META-INF/MANIFEST.MF", ("Manifest-Version: 1.0\r\n"
@@ -1536,7 +1611,7 @@ public class ArchHook {
         for (String d : r.detail()) err("   " + d);
         err("Fix docker-compose.yml, or run `java .claude/hooks/ArchHook.java compose` for the");
         err("full report. A service stopped on purpose is still a stopped service here.");
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -2494,15 +2569,15 @@ public class ArchHook {
             else if (a.equals("--blueprint") && i + 1 < args.length) blueprintId = args[++i];
             else if (a.equals("--ref") && i + 1 < args.length) ref = args[++i];
             else if (a.equals("--commit") && i + 1 < args.length) commit = args[++i];
-            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); exportUsage(); System.exit(2); }
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); exportUsage(); blockExit(); }
             else if (dest == null) dest = a;
-            else { err("❌ Only one destination is accepted, got also: " + a); exportUsage(); System.exit(2); }
+            else { err("❌ Only one destination is accepted, got also: " + a); exportUsage(); blockExit(); }
         }
-        if (dest == null || blueprintId == null) { exportUsage(); System.exit(2); }
+        if (dest == null || blueprintId == null) { exportUsage(); blockExit(); }
         if (commit != null && !commit.matches("[0-9a-f]{7,40}")) {
             err("❌ --commit takes a commit sha (7 to 40 lowercase hex digits), got: " + commit);
             err("   arch-adopt resolves it with `git ls-remote`; a tag name goes in --ref.");
-            System.exit(2);
+            blockExit();
         }
 
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
@@ -2510,7 +2585,7 @@ public class ArchHook {
         if (exp == null) {
             err("❌ No `export` block in " + SCHEMA_FILE + " — there is nothing to copy.");
             err("   This mode reads its lists from that file; it hardcodes none.");
-            System.exit(2);
+            blockExit();
         }
         // A tree `new-project` extracted from the source's tarball is no repository, so the
         // stamp would read `working-tree` and `unknown`; the fetch recorded what it resolved.
@@ -2529,7 +2604,7 @@ public class ArchHook {
         if (destRoot.equals(ROOT)) {
             err("❌ The destination is this repository itself: " + destRoot);
             err("   Export writes a project's .claude/ from this one; give it another path.");
-            System.exit(2);
+            blockExit();
         }
         exportPlatformGate(destRoot);
         Blueprint bp = loadBlueprint(exp, blueprintId);
@@ -2549,7 +2624,7 @@ public class ArchHook {
             if (from == null || to == null) continue;
             if (!Files.isRegularFile(ROOT.resolve(from))) {
                 err("❌ export.binary_copy names `" + from + "` — no such file.");
-                System.exit(2);
+                blockExit();
             }
             binaries.put(to, ROOT.resolve(from));
         }
@@ -2563,7 +2638,7 @@ public class ArchHook {
             Path t = destRoot.resolve(r).normalize();
             if (!t.startsWith(destRoot.resolve(".claude"))) {              // never outside .claude/
                 err("❌ export.retired names `" + r + "` — only paths under .claude/ may be deleted.");
-                System.exit(2);
+                blockExit();
             }
             if (Files.isRegularFile(t)) retired.add(r);
         }
@@ -2645,7 +2720,7 @@ public class ArchHook {
             err("❌ " + rel + (m == null ? " is not a JSON object."
                     : " records commit `" + commit + "` — not a sha (7 to 40 lowercase hex digits)."));
             err("   Fetch the source again with /nerviz:new-project, or pass --ref and --commit.");
-            System.exit(2);
+            blockExit();
         }
         return new String[] { asStr(m.get("ref")), commit };
     }
@@ -2696,28 +2771,28 @@ public class ArchHook {
             String a = args[i];
             if (a.equals("--blueprint") && i + 1 < args.length) id = args[++i];
             else if (a.equals("--package") && i + 1 < args.length) pkg = args[++i];
-            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); boundaryMapUsage(); System.exit(2); }
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); boundaryMapUsage(); blockExit(); }
             else if (dest == null) dest = a;
-            else { err("❌ Only one destination is accepted, got also: " + a); boundaryMapUsage(); System.exit(2); }
+            else { err("❌ Only one destination is accepted, got also: " + a); boundaryMapUsage(); blockExit(); }
         }
-        if (dest == null || id == null || pkg == null) { boundaryMapUsage(); System.exit(2); }
+        if (dest == null || id == null || pkg == null) { boundaryMapUsage(); blockExit(); }
         if (!pkg.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*")) {
             err("❌ --package is a dotted Java package name, got: " + pkg);
-            System.exit(2);
+            blockExit();
         }
 
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         Map<String, Object> bm = sch == null ? null : asMap(sch.get("boundary_map"));
         if (bm == null) {
             err("❌ No `boundary_map` block in " + SCHEMA_FILE + " — this mode reads its lists from it.");
-            System.exit(2);
+            blockExit();
         }
         String tpl = asStr(get(sch, "export", "blueprint", "path"));
         Path file = ROOT.resolve((tpl == null ? ".claude/blueprints/{id}/{id}.yaml" : tpl).replace("{id}", id));
         if (!Files.isRegularFile(file)) {
             err("❌ Blueprint `" + id + "` not found at " + relative(file));
             err("   Available: " + availableBlueprints());
-            System.exit(2);
+            blockExit();
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         String layout = yamlNestedMap(lines, List.of("build")).get("layout");
@@ -2761,7 +2836,7 @@ public class ArchHook {
         }
         if (out.isEmpty()) {
             err("❌ boundary-map: " + id + " yields no rule — nothing written. A boundary map with no line blocks nothing.");
-            System.exit(2);
+            blockExit();
         }
         Path target = Paths.get(dest).toAbsolutePath().normalize().resolve(".claude/forbidden-imports.txt");
         Files.createDirectories(target.getParent());
@@ -2833,7 +2908,7 @@ public class ArchHook {
         if (!Files.isRegularFile(file)) {
             err("❌ Blueprint `" + id + "` not found at " + relative(file));
             err("   Available: " + availableBlueprints());
-            System.exit(2);
+            blockExit();
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         List<String> mapPath = asStrList(get(exp, "blueprint", "packages_map_path"));
@@ -2848,7 +2923,7 @@ public class ArchHook {
             err("❌ Blueprint `" + id + "` has no packages.map or no architecture_paths.");
             err("   Both are required by .claude/blueprints/_schema.md; without them every");
             err("   rule with a territory would be copied with a dead glob.");
-            System.exit(2);
+            blockExit();
         }
         return new Blueprint(id, pkgs, arch, voc);
     }
@@ -2956,7 +3031,7 @@ public class ArchHook {
                 if (!Files.isRegularFile(p)) {
                     if (!group.equals("optional_copy")) {
                         err("❌ export." + group + " names `" + from + "` — no such file.");
-                        System.exit(2);
+                        blockExit();
                     }
                     continue;
                 }
@@ -3076,7 +3151,7 @@ public class ArchHook {
                 err("❌ Rule `" + rule + "` derives no glob from blueprint `" + bp.id() + "`.");
                 err("   A rule copied with a dead glob never enters context, in silence.");
                 err("   Mark it `optional` in export.derived_paths, or fix packages.map.");
-                System.exit(2);
+                blockExit();
             }
             // Optional: keeps the master's example globs, which name packages this
             // architecture does not have — inert. Stripping them would make the rule load
@@ -3386,7 +3461,7 @@ public class ArchHook {
             err("Valid fields by type: " + SCHEMA_FILE);
             err("What each field is for: .claude/skills/claude-code-architect-designer"
                     + "/references/frontmatter-fields.md");
-            System.exit(2);
+            blockExit();
         }
     }
 
@@ -7414,7 +7489,7 @@ public class ArchHook {
                 + activeCls + "`) is open — a design run does not materialize files.");
         err("Record what is missing in the partial and in the consolidated spec, finish the run,");
         err("then invoke `/" + skill + "` from a prompt of its own.");
-        System.exit(2);
+        blockExit();
     }
 
     static void guardOpen(Path state, String skill) throws IOException {
@@ -7448,7 +7523,7 @@ public class ArchHook {
                 List<String> v = guardViolations(sch, state, p, patchRel(p), false);
                 if (!v.isEmpty()) {
                     v.forEach(ArchHook::err);
-                    System.exit(2);
+                    blockExit();
                 }
             }
             for (Object p : patch) guardPath(sch, state, p, patchRel(p));
@@ -7485,7 +7560,7 @@ public class ArchHook {
             return;
         }
         violation.forEach(ArchHook::err);
-        System.exit(2);
+        blockExit();
     }
 
     /**
@@ -7598,7 +7673,7 @@ public class ArchHook {
             err("guard: force push blocked — `" + force + "` rewrites published history.");
             err("  Push without force. A shared branch is rewritten by a human, outside Claude"
                     + " Code. Rule: guard.force_push in " + SCHEMA_FILE);
-            System.exit(2);
+            blockExit();
         }
         for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd)) {
             guardPath(sch, state, in, rel);
@@ -7778,7 +7853,7 @@ public class ArchHook {
         err("   The tool-time guards did not see these writes — a shell spelling they do not");
         err("   parse, or a tool with no matcher. Revert them, or report them and stop.");
         lines.forEach(ArchHook::err);
-        System.exit(2);
+        blockExit();
     }
 
     /**

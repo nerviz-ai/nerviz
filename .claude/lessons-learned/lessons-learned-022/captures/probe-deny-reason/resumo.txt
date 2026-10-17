@@ -1,0 +1,12 @@
+PRE_E2_STDERR    claude: ran=0 M_STDERR  | copilot: ran=0  | copilot-log: M_STDERR 
+PRE_E2_TEXT      claude: ran=0 M_STDERR  | copilot: ran=0  | copilot-log: M_STDERR M_STDOUT_TEXT 
+PRE_E2_FLAT      claude: ran=0 M_STDERR  | copilot: ran=0 M_FLAT_REASON  | copilot-log: M_FLAT_REASON M_STDERR 
+PRE_E2_NESTED    claude: ran=0 M_NESTED_REASON  | copilot: ran=0  | copilot-log: M_NESTED_REASON M_STDERR 
+PRE_E2_BOTH      claude: ran=0 M_NESTED_REASON  | copilot: ran=0  | copilot-log: M_FLAT_REASON M_NESTED_REASON M_STDERR 
+PRE_E0_FLAT      claude: ran=1  | copilot: ran=0 M_FLAT_REASON  | copilot-log: M_FLAT_REASON 
+PRE_E0_NESTED    claude: ran=0 M_NESTED_REASON  | copilot: ran=0 M_NESTED_REASON  | copilot-log: M_NESTED_REASON 
+PRE_E0_BOTH      claude: ran=0 M_NESTED_REASON  | copilot: ran=0 M_NESTED_REASON  | copilot-log: M_FLAT_REASON M_NESTED_REASON 
+PRE_E0_LEGACY    claude: ran=0 M_LEGACY_REASON  | copilot: ran=1  | copilot-log: M_LEGACY_REASON 
+POST_E2_STDERR   claude: ran=1 M_STDERR  | copilot: ran=1 M_STDERR  | copilot-log: M_STDERR 
+POST_E2_JSON     claude: ran=1 M_ADDCTX_NESTED M_LEGACY_REASON  | copilot: ran=1 M_LEGACY_REASON M_STDERR  | copilot-log: M_ADDCTX_FLAT M_ADDCTX_NESTED M_LEGACY_REASON M_STDERR 
+POST_E0_JSON     claude: ran=1 M_ADDCTX_NESTED M_LEGACY_REASON  | copilot: ran=1 M_LEGACY_REASON  | copilot-log: M_ADDCTX_FLAT M_ADDCTX_NESTED M_LEGACY_REASON 
