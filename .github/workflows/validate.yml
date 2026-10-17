@@ -98,6 +98,12 @@ jobs:
       - name: hook blocks a cwd-relative frontmatter injection
         run: java .claude/.ci/InjectionPathTest.java
 
+      # Decision 0174: Claude Code's frontmatter parser forgives an unquoted `: `, GitHub
+      # Copilot's refuses it and drops the file. `schema` scans by hand, with no YAML library,
+      # so each shape it refuses or reads is a case (lessons-learned-022 § 9).
+      - name: schema refuses frontmatter a strict YAML parser refuses
+        run: java .claude/.ci/FrontmatterYamlTest.java
+
       # Decision 0104: `arch-adopt` reads the `migrations` block with the model, so a
       # misspelled blueprint id or a reused id means a project is never told its code
       # predates a convention change — with no error anywhere.
