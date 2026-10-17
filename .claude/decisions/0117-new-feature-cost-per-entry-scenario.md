@@ -10,7 +10,7 @@
 
 Source: `demo-clean-arch-single-module/.claude/audit-usage/` (`history.jsonl`, `nodes.jsonl`,
 the three reports the user named) and the session transcripts under
-`~/.claude/projects/-Users-U131923-Documents-GitHub-demo-clean-arch-single-module/`, read on
+`~/.claude/projects/-~-Documents-GitHub-demo-clean-arch-single-module/`, read on
 2026-10-03. Prices: the project's `pricing.json` (2026-10-01) — Opus 5.5 input 4 · output 20 ·
 cache read 0.2 · cache write 5; Sonnet 5 input 2 · output 10 · cache read 0.2 · cache write 2.5
 (USD/MTok).

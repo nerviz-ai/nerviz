@@ -11,7 +11,7 @@ scaffolding itself, before any use case is implemented.
 
 Execution context: Spring Boot 4.1.1, Java 21 (forced — Initializr's default is 17),
 Maven, Testcontainers with `postgres:latest`. Target directory:
-`/Users/U131923/Documents/GitHub/demo-application`, groupId `com.lucasfernandes`.
+`~/Documents/GitHub/demo-application`, groupId `com.<user>`.
 
 ---
 
