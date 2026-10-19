@@ -169,7 +169,7 @@ public class TestDiffTest {
         pb.redirectErrorStream(true);
         Process proc = pb.start();
         proc.getOutputStream().close();
-        String out = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String out = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         return new Run(proc.waitFor(), out);
     }
 
