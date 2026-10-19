@@ -17,6 +17,14 @@
 // property pass has to skip compilation; and the Gradle plugin the Plugin Portal lists newest
 // imports a `rewrite-bom` Maven Central does not serve. Decision 0175.
 //
+// Decision 0176 adds what the first run did not see, each as a case the fixture would fail without:
+// the baseline (`test-diff snapshot` before the bump, `compare` after, the same cases, none worse); the
+// context (`@EnableCaching` needs the cache starter, Flyway needs its starter, both found only when the
+// context is built — a `@SpringBootTest` run on its own, as the skill's step 8b does); a Spring Cloud
+// BOM on the train of the old line, moved to the Initializr's; a pinned `spring-boot-starter-aop`
+// whose pin must not survive the rename; and, on Gradle, a wrapper older than the Boot plugin accepts,
+// refused by the new plugin and fixed the way step 5b does it.
+//
 // Network and minutes: path-filtered, in `templates.yml`, never in `validate`.
 
 import java.io.*;
@@ -34,6 +42,8 @@ public class PlatformUpgradeTest {
     static final Path SKILL_TEMPLATES = Paths.get(".claude/skills/platform-upgrade/templates").toAbsolutePath();
     static String data;
     static String floorMajor;
+    /** A Gradle older than the Spring Boot plugin of the floor accepts: the project's old wrapper is the case. */
+    static final String OLD_GRADLE = "8.10.2";
 
     record Run(int exit, String out) { }
 
@@ -57,9 +67,23 @@ public class PlatformUpgradeTest {
         String target = parent.group(1);
         System.out.println("target " + target + " (the Initializr's)");
 
+        // The skill's step 3: the metadata the Initializr serves for that target, and the train it lists.
+        Path initializr = work.resolve("initializr.json");
+        Run meta = sh(work, "curl", "-sS", "--fail", "-L", "-H", "Accept: " + engine("initializr_accept"),
+                engine("initializr_dependencies"), "-o", initializr.toString());
+        if (meta.exit != 0) { fail("the Initializr's dependencies metadata did not download:\n" + meta.out); System.exit(1); }
+        String metadata = Files.readString(initializr, StandardCharsets.UTF_8);
+        if (!metadata.contains("\"bootVersion\":\"" + target + "\"")) {
+            fail("the Initializr's metadata is not for " + target + " — the mode would refuse it"); System.exit(1);
+        }
+        Matcher cloud = Pattern.compile("\"spring-cloud\"\\s*:\\s*\\{[^}]*\"version\"\\s*:\\s*\"([^\"]+)\"").matcher(metadata);
+        if (!cloud.find()) { fail("the Initializr lists no spring-cloud BOM — the case has nothing to move"); System.exit(1); }
+        String newTrain = cloud.group(1), oldTrain = trainBefore(newTrain);
+        System.out.println("Spring Cloud train " + oldTrain + " → " + newTrain + " (the Initializr's)");
+
         try {
-            maven(work, oldBoot, target);
-            gradle(work, oldBoot, target);
+            maven(work, oldBoot, target, initializr, oldTrain, newTrain);
+            gradle(work, oldBoot, target, initializr, oldTrain, newTrain);
         } finally {
             deleteTree(work);
         }
@@ -71,21 +95,41 @@ public class PlatformUpgradeTest {
 
     // ── Maven ────────────────────────────────────────────────────────────────
 
-    static void maven(Path work, String oldBoot, String target) throws Exception {
+    static void maven(Path work, String oldBoot, String target, Path initializr, String oldTrain, String newTrain) throws Exception {
         Path app = fixture(work.resolve("maven-app"), work.resolve("starter-maven"), "maven");
-        write(app.resolve("pom.xml"), pomWithBoot(oldBoot));
+        write(app.resolve("pom.xml"), pomWithBoot(oldBoot, oldTrain));
         commit(app);
         String plugin = engine("maven_plugin");
         String version = lastTag(curl(engine("maven_plugin_metadata")), "release");
         System.out.println("maven engine " + plugin + ":" + version);
 
-        upgradeRecipe(app, work, "bump", "--target", target, "--out", work.resolve("maven-bump.yml").toString());
+        // step 4b — the baseline: the tree as the person left it
+        Run before = sh(app, "./mvnw", "-B", "-fae", "clean", "verify", "-Dmaven.test.failure.ignore=true");
+        if (!before.out.contains("Tests run: 3, Failures: 0, Errors: 0")) {
+            fail("maven — the fixture is not green on " + oldBoot + " before the upgrade; the baseline proves nothing:\n" + tail(before.out));
+            return;
+        }
+        Path baseline = work.resolve("maven-baseline.json");
+        testDiff(app, "snapshot", 0, "--out", baseline.toString());
+
+        upgradeRecipe(app, work, "bump", "--target", target, "--initializr", initializr.toString(), "--out", work.resolve("maven-bump.yml").toString());
         step("maven pass 1", app, "./mvnw", "-B", "-q", plugin + ":" + version + ":run",
                 "-Drewrite.configLocation=" + work.resolve("maven-bump.yml"),
                 "-Drewrite.activeRecipes=" + recipeName("bump_name"));
         checks(app, "pom.xml", target, "spring-boot-starter-webmvc");
+        String pom0 = Files.readString(app.resolve("pom.xml"));
+        expectIn(pom0, "<spring-cloud.version>" + newTrain + "</spring-cloud.version>", "pom.xml: the Spring Cloud BOM moved to the Initializr's train");
+        if (pom0.contains(oldTrain)) fail("pom.xml still carries the old Spring Cloud train " + oldTrain);
+        expectIn(pom0, "<artifactId>spring-boot-starter-flyway</artifactId>", "pom.xml: flyway-core renamed to its starter");
+        expectIn(pom0, "<artifactId>spring-boot-starter-cache</artifactId>", "pom.xml: the cache starter added, @EnableCaching being used");
+        if (Pattern.compile("<artifactId>spring-boot-starter-(cache|aspectj)</artifactId>\\s*<version>").matcher(pom0).find()) {
+            fail("pom.xml: an added or renamed Spring Boot starter carries a version the BOM manages");
+        } else {
+            System.out.println("✅ pom.xml: no version on the added cache starter nor on the renamed, once pinned, aspectj starter");
+        }
 
         step("maven classpath", app, "./mvnw", "-B", "-q", "dependency:build-classpath", "-Dmdep.outputFile=target/nerviz-classpath.txt");
+        if (!Files.isRegularFile(app.resolve("target/nerviz-classpath.txt"))) return;
         Path cp = work.resolve("maven-classpath.txt");
         Files.writeString(cp, Files.readString(app.resolve("target/nerviz-classpath.txt")) + "\n");
 
@@ -102,33 +146,72 @@ public class PlatformUpgradeTest {
         if (starterDep == null) { fail("maven — the compile error names no package `test_starters` holds:\n" + tail(compile.out)); return; }
         String[] ga = starterDep.split(":");
         String pom = Files.readString(app.resolve("pom.xml"));
-        write(app.resolve("pom.xml"), pom.replace("  </dependencies>", "    <dependency>\n      <groupId>" + ga[0]
-                + "</groupId>\n      <artifactId>" + ga[1] + "</artifactId>\n      <scope>test</scope>\n    </dependency>\n  </dependencies>"));
-        Run verify = sh(app, "./mvnw", "-B", "verify");
-        if (verify.exit != 0 || !verify.out.contains("Tests run: 1, Failures: 0")) fail("maven verify after the test starter:\n" + tail(verify.out));
-        else System.out.println("✅ maven: " + oldBoot + " → " + target + ", verify green");
+        // The project's own `</dependencies>` is the first one; the BOM import's sits deeper, in dependencyManagement.
+        int close = pom.indexOf("\n  </dependencies>");
+        write(app.resolve("pom.xml"), pom.substring(0, close) + "\n    <dependency>\n      <groupId>" + ga[0]
+                + "</groupId>\n      <artifactId>" + ga[1] + "</artifactId>\n      <scope>test</scope>\n    </dependency>" + pom.substring(close));
+
+        // step 8b — the context, on its own: only the cache and the Flyway starters make it load
+        Run context = sh(app, "./mvnw", "-B", "-q", "test", "-Dtest=ContextTest", "-Dsurefire.failIfNoSpecifiedTests=false");
+        if (context.exit != 0) { fail("maven — the @SpringBootTest class is red after the upgrade:\n" + tail(context.out)); return; }
+        System.out.println("✅ maven: the context loads, the cache works and the migration ran");
+
+        // step 9 — verify, then compare against the baseline
+        Run verify = sh(app, "./mvnw", "-B", "-fae", "clean", "verify", "-Dmaven.test.failure.ignore=true");
+        if (verify.exit != 0 || !verify.out.contains("Tests run: 3, Failures: 0")) { fail("maven verify after the test starter:\n" + tail(verify.out)); return; }
+        Run compare = testDiff(app, "compare", 0, "--baseline", baseline.toString());
+        if (!compare.out.contains("3 test case(s) now, 3 in the baseline")) fail("maven — the comparison saw other cases than the baseline:\n" + compare.out);
+        else System.out.println("✅ maven: " + oldBoot + " → " + target + ", verify green, no test worse than the baseline");
     }
 
     // ── Gradle ───────────────────────────────────────────────────────────────
 
-    static void gradle(Path work, String oldBoot, String target) throws Exception {
+    static void gradle(Path work, String oldBoot, String target, Path initializr, String oldTrain, String newTrain) throws Exception {
         Path starter = work.resolve("starter-gradle");
         Files.createDirectories(starter);
         sh(starter, "bash", "-c", "curl -sS --fail -L " + engine("initializr_starter")
                 + " -d type=gradle-project -d language=java | tar -xzf - -C " + starter);
         Path app = fixture(work.resolve("gradle-app"), starter, "gradle");
-        write(app.resolve("build.gradle"), buildGradleWithBoot(oldBoot));
+        write(app.resolve("build.gradle"), buildGradleWithBoot(oldBoot, oldTrain));
+        // A wrapper older than the Boot plugin of the target accepts: an old project has one, and the Initializr
+        // never serves it, so the version is the case itself, not a choice of the test's.
+        Path props = app.resolve("gradle/wrapper/gradle-wrapper.properties");
+        write(props, Files.readString(props).replaceAll("gradle-[0-9.]+-bin\\.zip", "gradle-" + OLD_GRADLE + "-bin.zip"));
         commit(app);
         String pluginVersion = gradlePluginVersion();
         System.out.println("gradle engine " + engine("gradle_plugin") + ":" + pluginVersion);
         Files.copy(SKILL_TEMPLATES.resolve("rewrite-init.gradle.example"), work.resolve("rewrite-init.gradle"));
         Files.copy(SKILL_TEMPLATES.resolve("classpath-init.gradle.example"), work.resolve("classpath-init.gradle"));
 
-        upgradeRecipe(app, work, "bump", "--target", target, "--out", work.resolve("gradle-bump.yml").toString());
+        // step 4b — the baseline, on the old wrapper
+        Run before = sh(app, "./gradlew", "--no-daemon", "clean", "build", "--continue");
+        Path any = app.resolve("build/test-results/test");
+        if (before.exit != 0 || !Files.isDirectory(any)) {
+            fail("gradle — the fixture is not green on " + oldBoot + " before the upgrade; the baseline proves nothing:\n" + tail(before.out));
+            return;
+        }
+        Path baseline = work.resolve("gradle-baseline.json");
+        testDiff(app, "snapshot", 0, "--out", baseline.toString());
+
+        upgradeRecipe(app, work, "bump", "--target", target, "--initializr", initializr.toString(), "--out", work.resolve("gradle-bump.yml").toString());
         step("gradle pass 1", app, "./gradlew", "--no-daemon", "-q", "--init-script", work.resolve("rewrite-init.gradle").toString(),
                 "-Dnerviz.plugin.version=" + pluginVersion, "-Dnerviz.recipe=" + work.resolve("gradle-bump.yml"),
                 "-Dnerviz.recipe.name=" + recipeName("bump_name"), "rewriteRun");
         checks(app, "build.gradle", target, "spring-boot-starter-webmvc");
+        String gradle0 = Files.readString(app.resolve("build.gradle"));
+        expectIn(gradle0, "set('springCloudVersion', \"" + newTrain + "\")", "build.gradle: the Spring Cloud BOM moved to the Initializr's train");
+        if (gradle0.contains(oldTrain)) fail("build.gradle still carries the old Spring Cloud train " + oldTrain);
+        expectIn(gradle0, "org.springframework.boot:spring-boot-starter-flyway", "build.gradle: flyway-core renamed to its starter");
+        if (!Pattern.compile("org\\.springframework\\.boot:spring-boot-starter-cache['\"]").matcher(gradle0).find()) {
+            fail("build.gradle: the cache starter is missing, or carries a version the BOM manages:\n" + gradle0);
+        } else if (Pattern.compile("spring-boot-starter-aspectj:").matcher(gradle0).find()) {
+            fail("build.gradle: the pinned aop starter kept its pin after the rename:\n" + gradle0);
+        } else {
+            System.out.println("✅ build.gradle: the cache starter added and the renamed aspectj starter, neither with a version");
+        }
+
+        // step 5b — the new plugin refuses the old wrapper; the skill's way out
+        if (!gradleWrapper(app)) return;
 
         Path cp = work.resolve("gradle-classpath.txt");
         step("gradle classpath", app, "./gradlew", "--no-daemon", "-q", "--init-script", work.resolve("classpath-init.gradle").toString(),
@@ -147,13 +230,48 @@ public class PlatformUpgradeTest {
         if (starterDep == null) { fail("gradle — the compile error names no package `test_starters` holds:\n" + tail(compile.out)); return; }
         String build = Files.readString(app.resolve("build.gradle"));
         write(app.resolve("build.gradle"), build.replace("testRuntimeOnly", "testImplementation '" + starterDep + "'\n\ttestRuntimeOnly"));
-        Run test = sh(app, "./gradlew", "--no-daemon", "-q", "test");
-        Path results = app.resolve("build/test-results/test/TEST-com.acme.AppTest.xml");
-        if (test.exit != 0 || !Files.isRegularFile(results) || !Files.readString(results).contains("failures=\"0\"")) {
-            fail("gradle test after the test starter:\n" + tail(test.out));
-        } else {
-            System.out.println("✅ gradle: " + oldBoot + " → " + target + ", test green");
+
+        // step 8b — the context, on its own
+        Run context = sh(app, "./gradlew", "--no-daemon", "-q", "test", "--tests", "com.acme.ContextTest");
+        if (context.exit != 0) { fail("gradle — the @SpringBootTest class is red after the upgrade:\n" + tail(context.out)); return; }
+        System.out.println("✅ gradle: the context loads, the cache works and the migration ran");
+
+        // step 9 — build, then compare against the baseline
+        Run full = sh(app, "./gradlew", "--no-daemon", "clean", "build", "--continue");
+        if (full.exit != 0) { fail("gradle build after the test starter:\n" + tail(full.out)); return; }
+        Run compare = testDiff(app, "compare", 0, "--baseline", baseline.toString());
+        if (!compare.out.contains("3 test case(s) now, 3 in the baseline")) fail("gradle — the comparison saw other cases than the baseline:\n" + compare.out);
+        else System.out.println("✅ gradle: " + oldBoot + " → " + target + ", build green, no test worse than the baseline");
+    }
+
+    /**
+     * The skill's step 5b. Ask the build; it must be refused here (an old wrapper, the new plugin) or the case
+     * proves nothing. Then the lowest major the message accepts, its newest final release, the wrapper's
+     * properties, `./gradlew wrapper`, and the build is asked again.
+     */
+    static boolean gradleWrapper(Path app) throws Exception {
+        Run help = sh(app, "./gradlew", "--no-daemon", "-q", "help");
+        if (help.exit == 0) { fail("gradle — the new plugin accepted Gradle " + OLD_GRADLE + "; step 5b has nothing to fix and the case proves nothing"); return false; }
+        Matcher accepted = Pattern.compile("requires Gradle (\\d+)\\.x").matcher(help.out);
+        if (!accepted.find()) { fail("gradle — the refusal names no accepted Gradle line, step 5b cannot read it:\n" + tail(help.out)); return false; }
+        String major = accepted.group(1), best = null;
+        Matcher entry = Pattern.compile("\\{[^{}]*\\}").matcher(curl(engine("gradle_versions_all")));
+        while (entry.find()) {
+            String o = entry.group();
+            Matcher v = Pattern.compile("\"version\"\\s*:\\s*\"(" + major + "\\.[0-9.]+)\"").matcher(o);
+            if (!v.find() || !o.matches("(?s).*\"final\"\\s*:\\s*true.*") || !o.matches("(?s).*\"broken\"\\s*:\\s*false.*")) continue;
+            if (best == null || compareVersions(v.group(1), best) > 0) best = v.group(1);
         }
+        if (best == null) { fail("gradle — no final release of Gradle " + major + " in " + engine("gradle_versions_all")); return false; }
+        Path props = app.resolve("gradle/wrapper/gradle-wrapper.properties");
+        String text = Files.readString(props);
+        String url = engine("gradle_distribution").replace("{version}", best).replace(":", "\\:");
+        write(props, text.replaceAll("distributionUrl=.*", Matcher.quoteReplacement("distributionUrl=" + url)));
+        step("gradle wrapper → " + best, app, "./gradlew", "--no-daemon", "-q", "wrapper", "--gradle-version", best);
+        Run again = sh(app, "./gradlew", "--no-daemon", "-q", "help");
+        if (again.exit != 0) { fail("gradle — still refused on Gradle " + best + ":\n" + tail(again.out)); return false; }
+        System.out.println("✅ gradle: wrapper " + OLD_GRADLE + " → " + best + ", the build configures");
+        return true;
     }
 
     // ── what the skill resolves ──────────────────────────────────────────────
@@ -183,6 +301,35 @@ public class PlatformUpgradeTest {
             if (head.exit == 0) return v;
         }
         throw new IllegalStateException("no Gradle plugin candidate imports a BOM Maven Central serves");
+    }
+
+    /** The newest GA Spring Cloud train strictly before `train` (compared by year and minor), from Maven Central. */
+    static String trainBefore(String train) throws Exception {
+        int[] now = trainKey(train);
+        String best = null;
+        Matcher m = Pattern.compile("<version>(\\d{4}\\.\\d+\\.\\d+)</version>").matcher(
+                curl("https://repo.maven.apache.org/maven2/org/springframework/cloud/spring-cloud-dependencies/maven-metadata.xml"));
+        while (m.find()) {
+            int[] k = trainKey(m.group(1));
+            boolean before = k[0] < now[0] || (k[0] == now[0] && k[1] < now[1]);
+            if (before && (best == null || compareVersions(m.group(1), best) > 0)) best = m.group(1);
+        }
+        if (best == null) throw new IllegalStateException("no Spring Cloud train before " + train + " on Maven Central");
+        return best;
+    }
+
+    static int[] trainKey(String v) {
+        String[] p = v.split("\\.");
+        return new int[] {Integer.parseInt(p[0]), Integer.parseInt(p[1])};
+    }
+
+    static int compareVersions(String a, String b) {
+        String[] x = a.split("\\."), y = b.split("\\.");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            int c = Integer.compare(i < x.length ? Integer.parseInt(x[i]) : 0, i < y.length ? Integer.parseInt(y[i]) : 0);
+            if (c != 0) return c;
+        }
+        return 0;
     }
 
     /** The test-scope dependency of the `test_starters` key that the compile error's package names. */
@@ -271,10 +418,57 @@ public class PlatformUpgradeTest {
                 """);
         write(app.resolve("src/main/resources/application.properties"),
                 "spring.data.mongodb.host=localhost\nspring.data.mongodb.port=27017\n");
+        // What only a context shows: @EnableCaching with no cache module, a migration with no Flyway.
+        write(app.resolve("src/main/java/com/acme/CacheConfig.java"), """
+                package com.acme;
+
+                import org.springframework.cache.annotation.EnableCaching;
+                import org.springframework.context.annotation.Configuration;
+
+                @Configuration
+                @EnableCaching
+                public class CacheConfig { }
+                """);
+        write(app.resolve("src/main/java/com/acme/Lookup.java"), """
+                package com.acme;
+
+                import org.springframework.cache.annotation.Cacheable;
+                import org.springframework.stereotype.Service;
+
+                @Service
+                public class Lookup {
+                    @Cacheable("greetings")
+                    public String greet(String name) { return "hi " + name; }
+                }
+                """);
+        write(app.resolve("src/main/resources/db/migration/V1__greeting.sql"),
+                "create table greeting (id int primary key);\ninsert into greeting values (1);\n");
+        write(app.resolve("src/test/java/com/acme/ContextTest.java"), """
+                package com.acme;
+
+                import org.junit.jupiter.api.Test;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import org.springframework.boot.test.context.SpringBootTest;
+                import org.springframework.jdbc.core.JdbcTemplate;
+
+                import static org.junit.jupiter.api.Assertions.assertEquals;
+
+                @SpringBootTest
+                class ContextTest {
+                    @Autowired Lookup lookup;
+                    @Autowired JdbcTemplate jdbc;
+
+                    @Test
+                    void cacheWorks() { assertEquals("hi a", lookup.greet("a")); }
+
+                    @Test
+                    void migrationRan() { assertEquals(1, jdbc.queryForObject("select count(*) from greeting", Integer.class)); }
+                }
+                """);
         return app;
     }
 
-    static String pomWithBoot(String boot) {
+    static String pomWithBoot(String boot, String train) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -290,6 +484,7 @@ public class PlatformUpgradeTest {
                   <version>0.0.1-SNAPSHOT</version>
                   <properties>
                     <java.version>21</java.version>
+                    <spring-cloud.version>%s</spring-cloud.version>
                   </properties>
                   <dependencies>
                     <dependency>
@@ -302,15 +497,44 @@ public class PlatformUpgradeTest {
                     </dependency>
                     <dependency>
                       <groupId>org.springframework.boot</groupId>
+                      <artifactId>spring-boot-starter-jdbc</artifactId>
+                    </dependency>
+                    <dependency>
+                      <groupId>org.flywaydb</groupId>
+                      <artifactId>flyway-core</artifactId>
+                    </dependency>
+                    <dependency>
+                      <groupId>com.h2database</groupId>
+                      <artifactId>h2</artifactId>
+                      <scope>runtime</scope>
+                    </dependency>
+                    <dependency>
+                      <groupId>org.springframework.boot</groupId>
+                      <artifactId>spring-boot-starter-aop</artifactId>
+                      <version>3.3.4</version>
+                    </dependency>
+                    <dependency>
+                      <groupId>org.springframework.boot</groupId>
                       <artifactId>spring-boot-starter-test</artifactId>
                       <scope>test</scope>
                     </dependency>
                   </dependencies>
+                  <dependencyManagement>
+                    <dependencies>
+                      <dependency>
+                        <groupId>org.springframework.cloud</groupId>
+                        <artifactId>spring-cloud-dependencies</artifactId>
+                        <version>${spring-cloud.version}</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                      </dependency>
+                    </dependencies>
+                  </dependencyManagement>
                 </project>
-                """.formatted(boot);
+                """.formatted(boot, train);
     }
 
-    static String buildGradleWithBoot(String boot) {
+    static String buildGradleWithBoot(String boot, String train) {
         return """
                 plugins {
                 	id 'java'
@@ -331,17 +555,31 @@ public class PlatformUpgradeTest {
                 	mavenCentral()
                 }
 
+                ext {
+                	set('springCloudVersion', "%s")
+                }
+
                 dependencies {
                 	implementation 'org.springframework.boot:spring-boot-starter-web'
                 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+                	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+                	implementation 'org.flywaydb:flyway-core'
+                	runtimeOnly 'com.h2database:h2'
+                	implementation 'org.springframework.boot:spring-boot-starter-aop:3.3.4'
                 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
                 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+                }
+
+                dependencyManagement {
+                	imports {
+                		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+                	}
                 }
 
                 tasks.named('test') {
                 	useJUnitPlatform()
                 }
-                """.formatted(boot);
+                """.formatted(boot, train);
     }
 
     static void checks(Path app, String buildFile, String target, String starter) throws Exception {
@@ -371,6 +609,21 @@ public class PlatformUpgradeTest {
         cmd.addAll(List.of(args));
         Run r = run(cmd, app, Map.of("CLAUDE_PROJECT_DIR", SOURCE.toString()));
         if (r.exit != 0) { fail("upgrade-recipe --pass " + pass + " exited " + r.exit + ":\n" + r.out); }
+    }
+
+    /** `ArchHook.jar test-diff <verb>` on the project; the exit it must give is checked, the run returned. */
+    static Run testDiff(Path app, String verb, int expectedExit, String... args) throws Exception {
+        List<String> cmd = new ArrayList<>(List.of(javaCmd(), "-jar", HOOK.toString(), "test-diff", verb, app.toString()));
+        cmd.addAll(List.of(args));
+        Run r = run(cmd, app, Map.of("CLAUDE_PROJECT_DIR", SOURCE.toString()));
+        if (r.exit != expectedExit) fail("test-diff " + verb + " exited " + r.exit + ", expected " + expectedExit + ":\n" + r.out);
+        else System.out.println("✅ test-diff " + verb + ": " + r.out.trim().split("\n")[0].replaceAll("/\\S+", "…"));
+        return r;
+    }
+
+    static void expectIn(String text, String needle, String name) {
+        if (text.contains(needle)) System.out.println("✅ " + name);
+        else fail(name + " — expected: " + needle + "\n" + text);
     }
 
     static void step(String name, Path dir, String... cmd) throws Exception {

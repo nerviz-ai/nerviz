@@ -28,8 +28,14 @@ license: every artifact this procedure runs is Apache 2.0, and the data was writ
 this repository compiles, not from someone else's recipes.
 
 **Never writes a version from memory.** The Spring Boot target is read from a project the
-Initializr generates (step 3), the engine's version from the repository that serves it (step 4),
-a dependency's version from where it is published (step 8). No network → stop and ask.
+Initializr generates (step 3), the BOMs and library versions from the metadata it serves for that
+target (step 3), the engine's version from the repository that serves it (step 4), a Gradle version
+from the list Gradle publishes (step 5b), a dependency's version from where it is published
+(step 8). No network → stop and ask.
+
+**Compares, never judges, what was red.** The tests run once before anything changes (step 4b) and
+once at the end (step 9); `ArchHook.jar test-diff` says which cases got worse. A red build that was red
+before is reported as that — never as the upgrade's, and never fixed by editing a test.
 
 **Writes the build and `src/**`, and never commits.** The diff is the person's to review, and
 `git checkout -- .` is how they undo it.
@@ -68,11 +74,11 @@ downloads or writes outside the project goes in one directory:
 WORK=${WORK:-/tmp/platform-upgrade}; mkdir -p "$WORK"
 ```
 
-A ref older than this skill has no `upgrade-recipe` mode, and an unknown mode exits 0 with one
-line on stderr — it would read as a success. So, before anything else:
+A ref older than this skill has no `upgrade-recipe` or `test-diff` mode, and an unknown mode exits 0
+with one line on stderr — it would read as a success. So, before anything else:
 
 ```bash
-grep -q 'upgrade-recipe' "$SRC/.claude/hooks/ArchHook.java"
+grep -q 'upgrade-recipe' "$SRC/.claude/hooks/ArchHook.java" && grep -q 'test-diff' "$SRC/.claude/hooks/ArchHook.java"
 ```
 
 Nothing found → stop and say that the fetched ref predates this skill; `--ref` names a newer one.
@@ -96,19 +102,50 @@ The version in the `<version>` line is `<target>`. No network, or the throwaway 
 **stop and ask** the person for the version. `upgrade-recipe` checks its shape and that it is not
 below the floor; it never chooses one.
 
+The same service lists the BOMs and the libraries that carry their own version for that line — a
+Spring Cloud train, Modulith, springdoc — which the Boot bump does not move:
+
+```bash
+curl -sS --fail -L -H "Accept: <engine.initializr_accept>" "<engine.initializr_dependencies>" -o "$WORK/initializr.json"
+```
+
+The file is for the Boot version the Initializr serves now; step 5 refuses it for any other. The
+download failed → go on without it, and the report says the BOMs were not moved.
+
 ### 4 · Resolve the engine's version
 
 Read both from the repository that serves them. Print the versions chosen, so the report can name
 them.
 
-**Maven.** `<release>` of `engine.maven_plugin_metadata`. Central serves it and everything it
-depends on.
+**Maven.** `<release>` of `engine.maven_plugin_metadata`, read with `curl -sS --fail -L`. Central serves it
+and everything it depends on.
 
 **Gradle.** The Plugin Portal lists plugin versions that import a `rewrite-bom` Maven Central does
 not serve, so the newest one does not resolve. Take the newest of the last
 `engine.gradle_candidates` entries of `engine.gradle_plugin_metadata` whose POM
 (`engine.gradle_plugin_pom`) names a `rewrite-bom` version that `engine.central_bom` answers 200
-for — `curl -sSfI`. None → stop: the engine's public line moved, and `engine` is the block to edit.
+for. Every fetch follows redirects — the Plugin Portal answers some with one — so the metadata and the
+POM are `curl -sS --fail -L`, and the BOM check is `curl -sSfIL`. None → stop: the engine's public
+line moved, and `engine` is the block to edit.
+
+### 4b · The baseline — what was red before the upgrade
+
+Run the project's tests on the tree as the person left it, and record every case. Step 9 compares
+against this; without it, a red build says nothing about who broke it. It is a full build — minutes —
+and it writes only build output (`target/`, `build/`):
+
+```bash
+# Maven
+./mvnw -B -fae clean verify -Dmaven.test.failure.ignore=true
+# Gradle
+./gradlew clean build --continue
+
+CLAUDE_PROJECT_DIR="$SRC" java -jar "$SRC/.claude/hooks/ArchHook.jar" test-diff snapshot . --out "$WORK/baseline.json"
+```
+
+The build may fail — the exit code of the build is not the answer, the snapshot is. Exit 2 and "no
+JUnit XML report" → the tree does not get as far as running its tests: there is no baseline. Say so, and
+go on; step 9 then reports any red as it is.
 
 ### 5 · Pass 1 — the bump, the coordinates, the types
 
@@ -116,11 +153,12 @@ The project's line is read from its own build by the mode:
 
 ```bash
 CLAUDE_PROJECT_DIR="$SRC" java -jar "$SRC/.claude/hooks/ArchHook.jar" upgrade-recipe . \
-  --pass bump --target <target> --out "$WORK/bump.yml"
+  --pass bump --target <target> --initializr "$WORK/initializr.json" --out "$WORK/bump.yml"
 ```
 
-Exit 2 and a message that the project is already at or above the floor → say so and stop: there is
-nothing to upgrade. Any other exit 2 is shown as it is. The recipe's name is
+Leave `--initializr` out when step 3 did not download the file. Exit 2 and a message that the project is
+already at or above the floor → say so and stop: there is nothing to upgrade. Any other exit 2 is shown
+as it is — the file being for another Boot version included. The recipe's name is
 `doctor.platform.upgrade.recipes.bump_name`. Run it through the project's wrapper:
 
 ```bash
@@ -134,10 +172,43 @@ nothing to upgrade. Any other exit 2 is shown as it is. The recipe's name is
 ```
 
 The recipe runs against the classpath the project **still has**: that is why the type renames sit
-here and not after the bump. `git diff --stat` must show the build file changed. It did not → the
+here and not after the bump. Besides the bump it renames the coordinates, adds without a version the
+starter a used type now needs (`requires_starter`), removes the version a renamed or added coordinate
+carried, and moves each BOM and each library the Initializr file lists. `git diff --stat` must show the
+build file changed. It did not → the
 build declares its Spring Boot version where no step of the recipe reads it (a property in a
 parent POM that is not this project's, a version catalog); name the file, ask the person to
 change that one line, and run the step again. Never edit around it.
+
+Then read the diff for what a recipe cannot see. A renamed or added coordinate carries **no version**
+(`renames.dependencies`'s `to`, `requires_starter`'s values): the BOM manages them, and one left behind
+overrides it — remove it by hand and say so. Each BOM of `$WORK/initializr.json` that the build declares
+reads the version the file lists; one that does not (a version in a catalog, or computed in a script)
+is set to it by hand.
+
+### 5b · The Gradle wrapper — before the new plugin configures anything
+
+Gradle only. The bump put a Spring Boot plugin in the build that may refuse the wrapper's Gradle; every
+`./gradlew` from here on configures it, and `./gradlew wrapper` would be refused the same way. Ask once:
+
+```bash
+./gradlew -q help
+```
+
+Green → nothing to change. Red, with a message that lists the Gradle lines the plugin accepts and names
+the one running (`requires Gradle 8.x (8.14 or later) or 9.x. The current version is Gradle 8.10.2`) →
+take the **lowest** accepted major, the smallest jump, and its newest release from
+`engine.gradle_versions_all` (an entry with `final` true and `broken` false). Put it in the wrapper's own
+properties, which no build configures, then let Gradle refresh the rest:
+
+```bash
+# gradle/wrapper/gradle-wrapper.properties — distributionUrl=<engine.gradle_distribution, {version} replaced>
+./gradlew wrapper --gradle-version <that version>   # refreshes the scripts and the jar
+./gradlew -q help                                    # must pass
+```
+
+The message names no line → the `version` that `engine.gradle_current` returns. Never a version from
+memory, and never a major jump the message did not ask for.
 
 ### 6 · The new classpath
 
@@ -188,23 +259,45 @@ What recurs, and its owner:
 | The error names | The cause | The fix |
 |---|---|---|
 | a package of a key of `test_starters` | the test slice moved to a module of its own | the test-scope dependency that key maps to, `group:artifact` and no version, in the module whose compile failed |
-| `tools.jackson`, `JacksonException`, `com.fasterxml.jackson.databind`, a checked `JsonProcessingException` | Jackson 3 moved the core and made its exceptions unchecked; annotations stayed | the Jackson bullet of `$SRC/.claude/rules/architecture-ddd.md` — the two roots — then the code |
-| a springdoc artifact the BOM no longer resolves | the line serving the old Boot is not the one serving the new | the version Maven Central lists as `<release>` of that artifact, after reading its own notes |
+| `tools.jackson`, `JacksonException`, `com.fasterxml.jackson.databind`, a checked `JsonProcessingException` | Jackson 3 moved the core and made its exceptions unchecked; annotations stayed | `engine.migration_guide`, its Jackson section, then the code. The architecture test's allowlist says which roots the domain may import, not how to migrate |
+| a third-party artifact the BOM no longer resolves, or a library built for the old line | the library moved on its own schedule | pass 1 already moved every one `$WORK/initializr.json` lists; any other, to the version Maven Central lists as `<release>` of that artifact, after reading its own notes |
 | anything else | an API that changed shape | the project's own code is changed, minimally; `engine.migration_guide` says what changed and why |
 
 Two rules, no exceptions: **a test that fails is reported, never deleted, skipped or loosened**, and
-**the same error three times in a row stops the loop** — say what was tried and ask. A Gradle
-build that refuses the new plugin for its wrapper's version is changed once, with
-`./gradlew wrapper --gradle-version <the "version" that engine.gradle_current returns>`.
+**the same error three times in a row stops the loop** — say what was tried and ask.
+
+### 8b · The context loads
+
+Compiling proves the sources agree with the new jars, not that the application starts: a starter whose
+auto-configuration moved out, a property no jar reads any more, a bean that now needs a module — all
+compile, and all fail only when the context is built. Run first, and on their own, the test classes
+annotated `@SpringBootTest` (`grep -rl '@SpringBootTest' src`):
+
+```bash
+./mvnw -B -q test -Dtest='<Class>,<Class>' -Dsurefire.failIfNoSpecifiedTests=false   # Maven
+./gradlew -q test --tests '<Class>' --tests '<Class>'                                # Gradle
+```
+
+Red → the first `Caused by` names the bean or the property; fix its cause and run again, under the same
+three-strikes rule. A class that is `fail` in `$WORK/baseline.json` already failed before the upgrade
+(often a database or broker that is not up): skip it here, step 9 reports it as pre-existing. No
+`@SpringBootTest` class at all → the report says `Not verified: context load`; do not write one.
 
 ### 9 · Verify
 
 ```bash
-./mvnw -B verify          # Maven
-./gradlew build           # Gradle
+./mvnw -B -fae clean verify -Dmaven.test.failure.ignore=true   # Maven
+./gradlew clean build --continue                               # Gradle
+
+CLAUDE_PROJECT_DIR="$SRC" java -jar "$SRC/.claude/hooks/ArchHook.jar" test-diff compare . --baseline "$WORK/baseline.json"
 ```
 
-Green → continue. Red → the failing tests and the first error are the report; nothing is committed.
+`clean` first, always: a report left by step 4b would otherwise read as this run's. Build and compare
+green → continue. Compare exit 2 → the regressions, the missing tests and the new failures it lists are
+the report, with the first error of each; nothing is committed, and a missing test is never answered by
+restoring it from the baseline's side. Only pre-existing failures → report them as that: the project was
+red before the upgrade and is no redder. No baseline (step 4b) → the failing tests and the first error
+are the report. A compile error and no report → that error is.
 When the project already has `.claude/hooks/ArchHook.jar`, run `java -jar .claude/hooks/ArchHook.jar
 doctor` too and put its `Platform` line in the report.
 
@@ -221,10 +314,15 @@ to type: `/arch-adopt` — now the project is at or above the floor, and a proje
 
 Source ....... <base_url host>, ref <ref>
 Engine ....... <engine artifact> <version>
+Baseline ..... <n> test cases, <n> failing before | none — the tree ran no tests
 Pass 1 ....... <n> files changed (<n> sources, <n> build)
+BOMs ......... <n> moved by the recipe, <n> by hand | not moved — no Initializr metadata
+Wrapper ...... <unchanged | Gradle <from> → <to>> (Gradle only)
 Pass 2 ....... <n> property renames applied | none declared by the jars
 Residue ...... <n> edits by hand — <one line each>
-Verify ....... <green | the failing tests, verbatim first line>
+Context ...... <n> @SpringBootTest classes green | Not verified: context load
+Verify ....... <green | no worse than the baseline: <n> pre-existing | the regressions, verbatim first line>
+Not verified . <what no step above ran — one line each | none>
 
 Review: git diff · Undo: git checkout -- .
 Next: /arch-adopt
@@ -238,7 +336,9 @@ inside `arch-adopt`: that skill runs remote content and travels into every proje
 of `.claude/`, and widening it to `src/**` would give the one skill that fetches the whole tree the
 right to rewrite the whole project. The mechanical part is deliberately **not** here — it is
 `ArchHook.jar upgrade-recipe`, Form 7c, because the same input has to produce the same recipe and
-a test has to be able to hold it. (`@.claude/decisions/0175-platform-upgrade-below-the-floor.md`)
+a test has to be able to hold it; for the same reason the comparison of the tests is `ArchHook.jar test-diff`
+and not the model reading report directories. (`@.claude/decisions/0175-platform-upgrade-below-the-floor.md`,
+`@.claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md`)
 
 Pinned to `opus`: it edits code it did not write and decides what a compile error means (`@.claude/decisions/0081-skill-model-required-per-class.md`).
 
@@ -253,8 +353,8 @@ wrapper — whose goals and tasks are the project's, not a fixed list — and th
 under `guard` and `guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
 
 **Reads** `doctor.platform` of `.claude/schemas/extensions.json` in the fetched source — the
-floor, the line patterns and the whole `upgrade` block — the project's build files and `src/**`,
-and what the Initializr and the engine's repositories serve.
+floor, the line patterns and the whole `upgrade` block — the project's build files, `src/**` and the
+JUnit reports its own build writes, and what the Initializr, Gradle and the engine's repositories serve.
 
 **Writes** the build file, wrapper files and `src/**` of the project, and `$WORK/**` outside it.
 Never `.claude/**`: that is `/arch-adopt`'s.

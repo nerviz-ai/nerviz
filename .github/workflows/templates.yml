@@ -17,7 +17,9 @@ name: templates
 #   6. `platform-upgrade` takes a project on the newest GA line below the floor to the
 #      Initializr's current one on Maven and Gradle: the recipe `upgrade-recipe` writes, run by
 #      the OpenRewrite core, then the renamed starter, types and properties, a green build
-#      (decision 0175)
+#      (decision 0175); the context loads (cache and Flyway starters), the Spring Cloud BOM
+#      moves, a Gradle wrapper older than the plugin is fixed, and no test is worse than before
+#      the bump (decision 0176)
 # Design: .claude/decisions/0099-ci-tests-for-verbatim-templates.md
 #
 # Path-filtered on purpose: every job downloads from Maven Central, GitHub or
@@ -186,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     # Two fixtures (Maven, Gradle) on cold caches: the engine, two Boot lines and their test
     # dependencies download once per build tool.
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -197,5 +199,5 @@ jobs:
 
       # Also the only check on `doctor.platform.upgrade`'s data: a path-filtered run on every PR
       # that touches `extensions.json`, since a rename list nobody ran is a guess (decision 0175).
-      - name: Maven and Gradle fixtures, 3.x to the Initializr's line, build green
+      - name: Maven and Gradle fixtures, 3.x to the Initializr's line, context loads, no test worse
         run: java .claude/.ci/PlatformUpgradeTest.java
