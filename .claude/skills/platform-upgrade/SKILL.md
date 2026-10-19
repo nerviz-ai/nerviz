@@ -58,6 +58,12 @@ build tool is the one whose file sits at the project root — `pom.xml` (Maven) 
 (`./mvnw`, `./gradlew`) is what runs everything below; none → stop and say so. This skill never
 adds a wrapper and never assumes a Maven or Gradle on `PATH`.
 
+The test run of step 4b and the context run of step 8b start containers when the project's tests use
+Testcontainers. Look for it (`grep -rl testcontainers` over the build file and `src/test`) and, when it
+is there, `docker info`: a daemon that is down turns every one of those tests red for a reason that has
+nothing to do with the upgrade. Say it before step 4b, and let the person start Docker or go on knowing
+the baseline will record those cases as failing.
+
 ### 2 · Fetch the source
 
 A project below the floor has no `ArchHook.jar` of this shape, so the mode that writes the recipe
@@ -66,9 +72,12 @@ comes from the source, fetched as `arch-adopt` § 2-3 does it: `$SRC` named once
 meaning, nothing about the URL written from memory. An adopted project that already has
 `.claude/` fetches too: a later floor needs the later data.
 
-The plugin that delivers this skill ships only this file, as it does for `arch-adopt`: the two
-Gradle init scripts it uses are read from `$SRC`, and so is the jar. Everything this procedure
-downloads or writes outside the project goes in one directory:
+The plugin that delivers this skill ships only this file, as it does for `arch-adopt`, and it can be
+older than the tag just fetched: the jar, the data and the two Gradle init scripts all come from
+`$SRC`. So the text follows them — run § 3b of `arch-adopt` now, with `platform-upgrade` as the running
+skill. If it hands over, read `$SRC/.claude/skills/platform-upgrade/SKILL.md` and continue in that
+file, from this step, without fetching again. The report's `Procedure` line says which text ran.
+Everything this procedure downloads or writes outside the project goes in one directory:
 
 ```bash
 WORK=${WORK:-/tmp/platform-upgrade}; mkdir -p "$WORK"
@@ -186,6 +195,17 @@ overrides it — remove it by hand and say so. Each BOM of `$WORK/initializr.jso
 reads the version the file lists; one that does not (a version in a catalog, or computed in a script)
 is set to it by hand.
 
+Two more the recipe leaves as they are, and the diff shows:
+
+- **A pin over a managed version.** A property or a plugin version the build sets by hand
+  (`set('testcontainers.version', …)`, `ext['x.version']`, a plugin at an old `version`) is not touched:
+  it overrides what the new BOM manages, and it can be the reason a later step fails. List each one in
+  the report (`Pins`) with the value the Initializr's starter or the BOM carries, and ask before
+  removing or raising any.
+- **Gradle `AddDependency` in a build that declares its dependencies in `ext {}`.** The added starter
+  can land in a second `dependencies {}` block after `ext {}` instead of the existing one. It works;
+  merge it into the existing block if the build had one outside `ext {}`.
+
 ### 5b · The Gradle wrapper — before the new plugin configures anything
 
 Gradle only. The bump put a Spring Boot plugin in the build that may refuse the wrapper's Gradle; every
@@ -206,6 +226,9 @@ properties, which no build configures, then let Gradle refresh the rest:
 ./gradlew wrapper --gradle-version <that version>   # refreshes the scripts and the jar
 ./gradlew -q help                                    # must pass
 ```
+
+`gradlew`, `gradlew.bat` and `gradle/wrapper/gradle-wrapper.jar` then show in `git diff`: they are
+Gradle's output, not edits to review line by line. The report names them as that.
 
 The message names no line → the `version` that `engine.gradle_current` returns. Never a version from
 memory, and never a major jump the message did not ask for.
@@ -236,7 +259,9 @@ CLAUDE_PROJECT_DIR="$SRC" java -jar "$SRC/.claude/hooks/ArchHook.jar" upgrade-re
 ```
 
 It reads the metadata each jar publishes and renames only what a jar itself declares an error with
-a replacement. It writes nothing, and says so, when no jar declares one: skip the run. Otherwise run
+a replacement. The count it prints is the number of **rules** it wrote, not of properties the project
+had: how many the run changed is `git diff` over the configuration files, and that is what the report
+counts. It writes nothing, and says so, when no jar declares one: skip the run. Otherwise run
 it the way step 5 did, with `properties_name` for the recipe, and **without compiling**: the
 sources do not compile until step 8, and the engine does not need them to rename a property.
 
@@ -263,6 +288,14 @@ What recurs, and its owner:
 | a third-party artifact the BOM no longer resolves, or a library built for the old line | the library moved on its own schedule | pass 1 already moved every one `$WORK/initializr.json` lists; any other, to the version Maven Central lists as `<release>` of that artifact, after reading its own notes |
 | anything else | an API that changed shape | the project's own code is changed, minimally; `engine.migration_guide` says what changed and why |
 
+**A green compile is not a migrated Jackson.** Jackson 2 stays on the classpath whenever a library
+still brings it, so `com.fasterxml.jackson.databind` compiles and the row above never fires. After the
+compile, `grep -rl 'com.fasterxml.jackson.databind' src` and, for the build tool in use,
+`./mvnw -B dependency:tree -Dincludes=com.fasterxml.jackson.core` or
+`./gradlew dependencyInsight --dependency jackson-databind`: a hit in `src` with Jackson 3 also resolved
+is code still on Jackson 2. List the files in the report (`Not verified`); migrating them is a decision
+per site, as the row says.
+
 Two rules, no exceptions: **a test that fails is reported, never deleted, skipped or loosened**, and
 **the same error three times in a row stops the loop** — say what was tried and ask.
 
@@ -271,12 +304,20 @@ Two rules, no exceptions: **a test that fails is reported, never deleted, skippe
 Compiling proves the sources agree with the new jars, not that the application starts: a starter whose
 auto-configuration moved out, a property no jar reads any more, a bean that now needs a module — all
 compile, and all fail only when the context is built. Run first, and on their own, the test classes
-annotated `@SpringBootTest` (`grep -rl '@SpringBootTest' src`):
+annotated `@SpringBootTest` (`grep -rl '@SpringBootTest' src`) **and every concrete class that extends
+one of them** — the annotation is inherited, so a subclass of an abstract base builds the context and the
+base alone is never a test to run:
 
 ```bash
+grep -rlE 'extends +<Base>\b' src/test                # per class found, until no new one appears
 ./mvnw -B -q test -Dtest='<Class>,<Class>' -Dsurefire.failIfNoSpecifiedTests=false   # Maven
 ./gradlew -q test --tests '<Class>' --tests '<Class>'                                # Gradle
 ```
+
+Select **concrete** classes only, and read the surefire or Gradle report directory afterwards: Maven with
+`failIfNoSpecifiedTests=false` exits 0 and writes nothing when the selection matched no test, which reads
+as a green context and is the opposite. No report for a class you selected → the selection was wrong,
+not the context.
 
 Red → the first `Caused by` names the bean or the property; fix its cause and run again, under the same
 three-strikes rule. A class that is `fail` in `$WORK/baseline.json` already failed before the upgrade
@@ -313,12 +354,14 @@ to type: `/arch-adopt` — now the project is at or above the floor, and a proje
 ✅ upgraded — <from line> → <target>, <Maven | Gradle>
 
 Source ....... <base_url host>, ref <ref>
+Procedure .... <the running text | the fetched text — arch-adopt § 3b>
 Engine ....... <engine artifact> <version>
 Baseline ..... <n> test cases, <n> failing before | none — the tree ran no tests
 Pass 1 ....... <n> files changed (<n> sources, <n> build)
 BOMs ......... <n> moved by the recipe, <n> by hand | not moved — no Initializr metadata
-Wrapper ...... <unchanged | Gradle <from> → <to>> (Gradle only)
-Pass 2 ....... <n> property renames applied | none declared by the jars
+Wrapper ...... <unchanged | Gradle <from> → <to>, gradlew · gradlew.bat · wrapper jar are Gradle's output> (Gradle only)
+Pins ......... <each override of a managed version and the value the BOM carries | none>
+Pass 2 ....... <n> properties renamed in the configuration files (git diff) | none declared by the jars
 Residue ...... <n> edits by hand — <one line each>
 Context ...... <n> @SpringBootTest classes green | Not verified: context load
 Verify ....... <green | no worse than the baseline: <n> pre-existing | the regressions, verbatim first line>

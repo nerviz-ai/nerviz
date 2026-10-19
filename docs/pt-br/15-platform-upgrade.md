@@ -99,7 +99,7 @@ projeto abaixo do piso não tem dados próprios.
 | # | Passo | O que garante |
 |---|---|---|
 | 1 | Recusar worktree suja; achar a ferramenta de build e o wrapper | `git diff` é como a pessoa revisa o upgrade e `git checkout -- .` como desfaz. Sem wrapper → para |
-| 2 | Buscar a fonte em `$SRC`, como o `arch-adopt` § 2-3; `grep` do modo | Um projeto abaixo do piso não tem um `ArchHook.jar` desta forma. Um ref anterior à skill não tem o modo, e um modo desconhecido sai com 0 — pareceria sucesso |
+| 2 | Buscar a fonte em `$SRC`, como o `arch-adopt` § 2-3; seguir o `SKILL.md` baixado se ele diferir (`arch-adopt` § 3b); `grep` do modo | Um projeto abaixo do piso não tem um `ArchHook.jar` desta forma. A cópia deste texto no plugin pode ser mais velha que a tag baixada e conduziria um jar e dados mais novos. Um ref anterior à skill não tem o modo, e um modo desconhecido sai com 0 — pareceria sucesso |
 | 3 | Resolver o alvo a partir de um projeto descartável que o Initializr gera, e baixar os metadados de `dependencies` dele | Invariante 8: versão nunca vem da memória. Sem rede → para e pergunta. Os metadados precisam ser da mesma versão do Boot, ou o `upgrade-recipe` os recusa |
 | 4 | Resolver a versão do motor no repositório que a serve | Veja a armadilha abaixo. Todo fetch segue redirecionamento (`curl -sS --fail -L`) |
 | 4b | O baseline: `clean verify` / `clean build --continue` na árvore intocada, depois `test-diff snapshot` | O passo 9 distingue o que o upgrade quebrou do que já estava quebrado. Sem relatório → sem baseline, dito no relatório |
@@ -108,7 +108,7 @@ projeto abaixo do piso não tem dados próprios.
 | 6 | Listar o classpath novo | Maven `dependency:build-classpath`; Gradle um init script de `templates/` |
 | 7 | Passada 2, sem compilar | Só o que um jar declara como erro com replacement |
 | 8 | O resíduo guiado | Compila, lê, corrige a causa, compila de novo |
-| 8b | O contexto sobe | As classes `@SpringBootTest`, primeiro e à parte: um starter que saiu da auto-configuração, ou uma propriedade que nenhum jar lê mais, compilam e só falham quando o contexto é montado. Nenhuma → `Not verified: context load`; a skill não escreve teste |
+| 8b | O contexto sobe | As classes `@SpringBootTest` e suas subclasses concretas (a anotação é herdada; uma base abstrata não seleciona nada, em silêncio no Maven), primeiro e à parte: um starter que saiu da auto-configuração, ou uma propriedade que nenhum jar lê mais, compilam e só falham quando o contexto é montado. Nenhuma → `Not verified: context load`; a skill não escreve teste |
 | 9 | Verificar | `clean verify` / `clean build`, depois `test-diff compare`: verde, não pior que o baseline, ou as regressões são o relatório |
 | 10 | Entregar o diff | `git status --short`, `git diff --stat`, sem commit, imprime `/arch-adopt` |
 

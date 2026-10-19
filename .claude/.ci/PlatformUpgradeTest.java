@@ -25,6 +25,10 @@
 // whose pin must not survive the rename; and, on Gradle, a wrapper older than the Boot plugin accepts,
 // refused by the new plugin and fixed the way step 5b does it.
 //
+// Decision 0177 adds one: the context test is an abstract `@SpringBootTest` base and one concrete
+// subclass. Step 8b resolves the subclass, and the test fails by name when the base alone is what gets
+// selected and nothing ran.
+//
 // Network and minutes: path-filtered, in `templates.yml`, never in `validate`.
 
 import java.io.*;
@@ -152,8 +156,7 @@ public class PlatformUpgradeTest {
                 + "</groupId>\n      <artifactId>" + ga[1] + "</artifactId>\n      <scope>test</scope>\n    </dependency>" + pom.substring(close));
 
         // step 8b — the context, on its own: only the cache and the Flyway starters make it load
-        Run context = sh(app, "./mvnw", "-B", "-q", "test", "-Dtest=ContextTest", "-Dsurefire.failIfNoSpecifiedTests=false");
-        if (context.exit != 0) { fail("maven — the @SpringBootTest class is red after the upgrade:\n" + tail(context.out)); return; }
+        if (!contextRun(app, true)) return;
         System.out.println("✅ maven: the context loads, the cache works and the migration ran");
 
         // step 9 — verify, then compare against the baseline
@@ -232,8 +235,7 @@ public class PlatformUpgradeTest {
         write(app.resolve("build.gradle"), build.replace("testRuntimeOnly", "testImplementation '" + starterDep + "'\n\ttestRuntimeOnly"));
 
         // step 8b — the context, on its own
-        Run context = sh(app, "./gradlew", "--no-daemon", "-q", "test", "--tests", "com.acme.ContextTest");
-        if (context.exit != 0) { fail("gradle — the @SpringBootTest class is red after the upgrade:\n" + tail(context.out)); return; }
+        if (!contextRun(app, false)) return;
         System.out.println("✅ gradle: the context loads, the cache works and the migration ran");
 
         // step 9 — build, then compare against the baseline
@@ -242,6 +244,54 @@ public class PlatformUpgradeTest {
         Run compare = testDiff(app, "compare", 0, "--baseline", baseline.toString());
         if (!compare.out.contains("3 test case(s) now, 3 in the baseline")) fail("gradle — the comparison saw other cases than the baseline:\n" + compare.out);
         else System.out.println("✅ gradle: " + oldBoot + " → " + target + ", build green, no test worse than the baseline");
+    }
+
+    /**
+     * The skill's step 8b. The classes annotated `@SpringBootTest` and every class that extends one, down to
+     * the concrete ones; the context is run on those, and a report for each must exist afterwards. The
+     * abstract base is selected first on purpose: it must run nothing, which is the silent failure the
+     * step names (Maven with `failIfNoSpecifiedTests=false` exits 0 there). If it ran the subclass, the
+     * case would prove nothing.
+     */
+    static boolean contextRun(Path app, boolean maven) throws Exception {
+        Path tests = app.resolve("src/test/java");
+        Map<String, String> source = new TreeMap<>();
+        try (Stream<Path> files = Files.walk(tests)) {
+            for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                source.put(f.getFileName().toString().replace(".java", ""), Files.readString(f));
+            }
+        }
+        Set<String> found = new TreeSet<>();
+        source.forEach((name, text) -> { if (text.contains("@SpringBootTest")) found.add(name); });
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (String base : List.copyOf(found)) {
+                for (Map.Entry<String, String> e : source.entrySet()) {
+                    if (!found.contains(e.getKey()) && Pattern.compile("extends\\s+" + base + "\\b").matcher(e.getValue()).find()) {
+                        found.add(e.getKey());
+                        grew = true;
+                    }
+                }
+            }
+        }
+        List<String> concrete = found.stream().filter(n -> !Pattern.compile("abstract\\s+class\\s+" + n + "\\b").matcher(source.get(n)).find()).toList();
+        if (!concrete.equals(List.of("ContextTest"))) {
+            fail((maven ? "maven" : "gradle") + " — step 8b's discovery found " + concrete + " (all " + found + "), expected only the concrete ContextTest");
+            return false;
+        }
+        String tool = maven ? "maven" : "gradle";
+        Path report = app.resolve(maven ? "target/surefire-reports" : "build/test-results/test").resolve("TEST-com.acme.ContextTest.xml");
+        Files.deleteIfExists(report);
+        if (maven) sh(app, "./mvnw", "-B", "-q", "test", "-Dtest=ContextBase", "-Dsurefire.failIfNoSpecifiedTests=false");
+        else sh(app, "./gradlew", "--no-daemon", "-q", "test", "--tests", "com.acme.ContextBase");
+        if (Files.exists(report)) { fail(tool + " — selecting the abstract base ran the subclass; the 8b case proves nothing"); return false; }
+        Run context = maven
+                ? sh(app, "./mvnw", "-B", "-q", "test", "-Dtest=" + String.join(",", concrete), "-Dsurefire.failIfNoSpecifiedTests=false")
+                : sh(app, "./gradlew", "--no-daemon", "-q", "test", "--tests", "com.acme." + concrete.get(0));
+        if (context.exit != 0) { fail(tool + " — the @SpringBootTest class is red after the upgrade:\n" + tail(context.out)); return false; }
+        if (!Files.exists(report)) { fail(tool + " — the context run exited 0 and wrote no report: the selection ran nothing"); return false; }
+        return true;
     }
 
     /**
@@ -443,7 +493,14 @@ public class PlatformUpgradeTest {
                 """);
         write(app.resolve("src/main/resources/db/migration/V1__greeting.sql"),
                 "create table greeting (id int primary key);\ninsert into greeting values (1);\n");
+        // An abstract base and one concrete subclass, the shape step 8b has to resolve: the annotation is
+        // inherited, so only the subclass is a test that builds the context (decision 0177).
         write(app.resolve("src/test/java/com/acme/ContextTest.java"), """
+                package com.acme;
+
+                class ContextTest extends ContextBase { }
+                """);
+        write(app.resolve("src/test/java/com/acme/ContextBase.java"), """
                 package com.acme;
 
                 import org.junit.jupiter.api.Test;
@@ -454,7 +511,7 @@ public class PlatformUpgradeTest {
                 import static org.junit.jupiter.api.Assertions.assertEquals;
 
                 @SpringBootTest
-                class ContextTest {
+                abstract class ContextBase {
                     @Autowired Lookup lookup;
                     @Autowired JdbcTemplate jdbc;
 

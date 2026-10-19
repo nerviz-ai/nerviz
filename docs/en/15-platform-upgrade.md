@@ -100,7 +100,7 @@ data of its own.
 | # | Step | What it guarantees |
 |---|---|---|
 | 1 | Refuse a dirty worktree; find the build tool and its wrapper | `git diff` is how the person reviews the upgrade and `git checkout -- .` how they undo it. No wrapper → stop |
-| 2 | Fetch the source into `$SRC`, as `arch-adopt` § 2-3 does; `grep` the mode | A project below the floor has no `ArchHook.jar` of this shape. A ref that predates the skill has no mode, and an unknown mode exits 0 — it would read as success |
+| 2 | Fetch the source into `$SRC`, as `arch-adopt` § 2-3 does; follow the fetched `SKILL.md` if it differs (`arch-adopt` § 3b); `grep` the mode | A project below the floor has no `ArchHook.jar` of this shape. The plugin's copy of this text can be older than the tag fetched, and it would drive a newer jar and newer data. A ref that predates the skill has no mode, and an unknown mode exits 0 — it would read as success |
 | 3 | Resolve the target from a throwaway project the Initializr generates, and download its `dependencies` metadata | Invariant 8: a version is never written from memory. No network → stop and ask. The metadata must be for the same Boot version, or `upgrade-recipe` refuses it |
 | 4 | Resolve the engine's version from the repository that serves it | See the trap below. Every fetch follows redirects (`curl -sS --fail -L`) |
 | 4b | The baseline: `clean verify` / `clean build --continue` on the untouched tree, then `test-diff snapshot` | Step 9 can tell what the upgrade broke from what was already broken. No report → no baseline, said in the report |
@@ -109,7 +109,7 @@ data of its own.
 | 6 | List the new classpath | Maven `dependency:build-classpath`; Gradle an init script from `templates/` |
 | 7 | Pass 2, without compiling | Only what a jar itself declares an error with a replacement |
 | 8 | The guided residue | Compile, read, fix the cause, compile again |
-| 8b | The context loads | The `@SpringBootTest` classes, first and on their own: a starter that moved out of the auto-configuration, or a property no jar reads any more, compile and fail only when the context is built. None → `Not verified: context load`; the skill writes no test |
+| 8b | The context loads | The `@SpringBootTest` classes and their concrete subclasses (the annotation is inherited; an abstract base selects nothing, silently on Maven), first and on their own: a starter that moved out of the auto-configuration, or a property no jar reads any more, compile and fail only when the context is built. None → `Not verified: context load`; the skill writes no test |
 | 9 | Verify | `clean verify` / `clean build`, then `test-diff compare`: green, no worse than the baseline, or the regressions are the report |
 | 10 | Hand the diff over | `git status --short`, `git diff --stat`, no commit, print `/arch-adopt` |
 
