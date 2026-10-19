@@ -193,7 +193,8 @@ configuration properties — through a recipe that `ArchHook.jar upgrade-recipe`
 `doctor.platform.upgrade` and from the jars' own metadata, run by the Apache-2.0 OpenRewrite core
 through the project's Maven or Gradle wrapper. A guided pass then fixes what no rename covers until
 the build is green. It refuses a dirty worktree, never commits, and ends by printing `/arch-adopt`.
-The plugin delivers it next to `arch-adopt`; an adopted project keeps it for the next floor.
+The plugin delivers it next to `arch-adopt`; an adopted project keeps it for the next floor. The full workflow is in
+[15-platform-upgrade.md](15-platform-upgrade.md).
 
 The version floor is only a floor: **there is no ceiling**. Spring Boot 5.x passes, and
 the norms and exemplars written for the 4 line may diverge from it with no warning from

@@ -4,7 +4,7 @@ English version: [`docs/en/`](en/README.md).
 
 Esta pasta documenta como as peças do `.claude/` deste repositório colaboram para
 executar os comandos principais — `/init-project`, `/new-feature`, `/arch-doctor`,
-`/audit-usage`, `/arch-adopt`, `/report-issue` e `/triage-issue` — e o que este projeto faz que os repositórios
+`/audit-usage`, `/arch-adopt`, `/platform-upgrade`, `/report-issue` e `/triage-issue` — e o que este projeto faz que os repositórios
 semelhantes não fazem.
 Quem chega pela primeira vez deve começar por
 [09-diferenciais.md](09-diferenciais.md).
@@ -34,6 +34,7 @@ os outros.
 | [12-issues.md](12-issues.md) | Issues, dos dois lados: o `/report-issue` abre, a partir de um projeto gerado, uma issue verificável e sem dados do projeto; o `/triage-issue` faz o `issue-verifier`, só-leitura, checar cada afirmação no `HEAD` — diagnóstico e fix proposto incluídos — antes de comentário, label ou design |
 | [13-github-copilot.md](13-github-copilot.md) | O que um projeto gerado entrega a quem usa GitHub Copilot, superfície por superfície (CLI, cloud agent, VS Code, code review): o que funciona igual, o que precisa de tradução de arquivo ou frontmatter, o que só o Claude Code tem, o que só o Copilot tem, e qual garantia do Nerviz continua valendo lá. Base da fase 8 do `roadmap.md` e do desenho do `AGENTS.md` |
 | [14-rules.md](14-rules.md) | O papel de cada rule de `.claude/rules/`: o que só ela decide, onde passa a palavra para outra, o que a verifica — e uma tabela de perguntas de fronteira (quem decide o status, o nível de log, a máscara, o TLS de entrada e de saída). Não repete as normas; aponta para elas |
+| [15-platform-upgrade.md](15-platform-upgrade.md) | Workflow de `/platform-upgrade`: levar um projeto que builda numa linha do Spring Boot abaixo do piso até ele — o modo `upgrade-recipe` e suas duas passadas, os dados que lê (`doctor.platform.upgrade`), o resíduo guiado, o que não faz, o que o CI prova |
 
 ## Como este repositório está organizado (referência rápida)
 

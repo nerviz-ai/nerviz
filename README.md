@@ -208,12 +208,25 @@ hand before overwriting it. On an update, it prints the `migrations` notes for c
 changes the project has not seen yet; it never runs them. See
 [`docs/en/10-arch-adopt.md`](docs/en/10-arch-adopt.md).
 
-A project on a Spring Boot line below this `.claude/`'s floor is refused by `export` and so by
-`/arch-adopt`. `/platform-upgrade` takes it up first: the version bump, the renamed starters and
-test slices, and the renamed configuration properties, through a recipe the hook writes from data
-and from Spring's own metadata and the Apache-licensed OpenRewrite core runs through the project's
-wrapper, Maven or Gradle; then a guided pass for what no rename covers, until the build is green. It
-never commits, and ends by printing `/arch-adopt`.
+### Project below the Spring Boot floor
+
+A project on a Spring Boot line below this `.claude/`'s floor is refused by `export`, and so by
+`/arch-adopt`. `/platform-upgrade` is the way up. Run it inside the project:
+
+```text
+/platform-upgrade
+```
+
+- **What it changes:** the Spring Boot version, the renamed starters and Testcontainers artifacts, the
+  renamed types (test slices, `@MockBean` and `@SpyBean`), and the renamed configuration properties.
+- **How:** a recipe that `ArchHook.jar upgrade-recipe` writes from data and from the property renames
+  Spring's own jars publish, run by the Apache-licensed OpenRewrite core through the project's own
+  Maven or Gradle wrapper. What no rename covers is a guided pass, one compile error at a time, until
+  the build is green.
+- **What it never does:** commit, write `.claude/`, or delete, skip or loosen a failing test. It
+  refuses a dirty worktree, and it ends by printing `/arch-adopt`.
+
+See [`docs/en/15-platform-upgrade.md`](docs/en/15-platform-upgrade.md).
 
 ### Silent failures to know about
 
@@ -625,6 +638,7 @@ exists inside the project:
 | [`10-arch-adopt.md`](docs/en/10-arch-adopt.md) | Installing or updating this `.claude/` in an existing project |
 | [`11-pitfalls.md`](docs/en/11-pitfalls.md) | Every silent trap, the runtime's and this repository's |
 | [`12-issues.md`](docs/en/12-issues.md) | `/report-issue` and `/triage-issue` |
+| [`15-platform-upgrade.md`](docs/en/15-platform-upgrade.md) | Taking a project below the Spring Boot floor up to it, before `/arch-adopt` |
 | [`roadmap.md`](roadmap.md) | Delivery phases and the feature checklist |
 
 Portuguese versions of every document live under [`docs/pt-br/`](docs/pt-br/README.md).
