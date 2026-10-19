@@ -208,6 +208,13 @@ hand before overwriting it. On an update, it prints the `migrations` notes for c
 changes the project has not seen yet; it never runs them. See
 [`docs/en/10-arch-adopt.md`](docs/en/10-arch-adopt.md).
 
+A project on a Spring Boot line below this `.claude/`'s floor is refused by `export` and so by
+`/arch-adopt`. `/platform-upgrade` takes it up first: the version bump, the renamed starters and
+test slices, and the renamed configuration properties, through a recipe the hook writes from data
+and from Spring's own metadata and the Apache-licensed OpenRewrite core runs through the project's
+wrapper, Maven or Gradle; then a guided pass for what no rename covers, until the build is green. It
+never commits, and ends by printing `/arch-adopt`.
+
 ### Silent failures to know about
 
 | Symptom | Cause | Check |
@@ -552,6 +559,7 @@ Startup costs about 0.3 s per invocation.
 | `audit` | eleven lifecycle events (generated project) | no | execution trail of every skill and agent |
 | `doctor` | manual (`/arch-doctor`), generated CI (`gate`) | `gate` only | diagnoses the setup on this machine, a personal skill shadowing a project one included; `gate` fails on a red committed check (`doctor.gate.labels`) |
 | `export` | manual (through `/arch-adopt`) | no | writes a target project's `.claude/` from the manifest, with the provenance stamp |
+| `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade` and the resolved jars' own property metadata |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 
 Every list the hook reads is data in `schemas/extensions.json`, never a constant in the

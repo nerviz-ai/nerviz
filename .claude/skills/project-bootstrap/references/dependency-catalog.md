@@ -52,6 +52,13 @@ template:
   on Maven Central); if you pin the version, pass just `4.1.1`. Preferable: don't pin
   and let the Initializr choose the current GA.
 
+**The renames a project below the floor needs are not listed here.** The coordinates, the
+packages of the test slices and the Testcontainers artifacts are data, owned by
+`doctor.platform.upgrade` in `@.claude/schemas/extensions.json` — `renames` for the mechanical
+ones, `test_starters` for the test slice a compile error names — and `platform-upgrade` applies
+them to a project that builds on an older line. A rename found in this section that the block
+lacks belongs in the block, not in a second list here (invariant 2).
+
 **Practical rule:** after `curl`-ing the Initializr, trust the `artifactId` that came
 back in the generated `pom.xml`/`build.gradle`, never the name you have from memory — it
 may have changed again.

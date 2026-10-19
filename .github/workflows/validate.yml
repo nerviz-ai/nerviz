@@ -195,6 +195,13 @@ jobs:
       - name: export refuses a Spring Boot line below the floor, and doctor reports it
         run: java .claude/.ci/PlatformLineTest.java
 
+      # Below the floor `export` refuses, and `/platform-upgrade` is the way up. Its recipe is a
+      # Form 7c mode that reads `doctor.platform.upgrade` and the jars' own metadata; a mode that
+      # throws exits 0 through `main`'s catch. The engine that reads the recipe is proven apart, in
+      # `templates.yml` (0175).
+      - name: upgrade-recipe writes the bump and the property renames, and refuses what it cannot spell
+        run: java .claude/.ci/UpgradeRecipeTest.java
+
       # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
       # the one gated line that reads code: it sweeps every source file with check's own match.
       # A sweep that matched nothing would read as a clean project, under any agent (0140).
