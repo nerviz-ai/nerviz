@@ -168,7 +168,7 @@
         "(?i)\\bspring[-_]?boot\\s*=\\s*\"(\\d+\\.\\d+)"
       ],
       "upgrade": {
-        "$comment": "Read by ArchHook.java `upgrade-recipe`, which writes the OpenRewrite recipe that the `platform-upgrade` skill runs on a project below `min_line`. Clean room: every `to` below comes from an exemplar this repository compiles on `min_line` in CI, or from an artifact the Spring Boot BOM manages; no entry is copied from a recipe module under another license (Moderne's `rewrite-spring`), and none is to be. A wrong `from` renames nothing, a wrong `to` breaks a build, so a `to` is checked against a published artifact before it lands and a `from` against the jar of the line it leaves. The engine is data as well: `recipes` names what runs and with which options, so replacing it edits this block and no Java (invariant 10). Placeholders: `${target}` the Boot version the skill resolved from the Initializr; `${from_group}`, `${from_artifact}`, `${to_group}`, `${to_artifact}` the two sides of a `group:artifact` entry; `${from}` and `${to}` the two sides of a type entry; `${key}` and `${replacement}` a property. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md",
+        "$comment": "Read by ArchHook.java `upgrade-recipe`, which writes the OpenRewrite recipe that the `platform-upgrade` skill runs on a project below `min_line`. Clean room: every `to` below comes from an exemplar this repository compiles on `min_line` in CI, or from an artifact the Spring Boot BOM manages; no entry is copied from a recipe module under another license (Moderne's `rewrite-spring`), and none is to be. A wrong `from` renames nothing, a wrong `to` breaks a build, so a `to` is checked against a published artifact before it lands and a `from` against the jar of the line it leaves. The engine is data as well: `recipes` names what runs and with which options, so replacing it edits this block and no Java (invariant 10). Placeholders: `${target}` the Boot version the skill resolved from the Initializr; `${from_group}`, `${from_artifact}`, `${to_group}`, `${to_artifact}` the two sides of a `group:artifact` entry; `${from}` and `${to}` the two sides of a type entry; `${key}` and `${replacement}` a property; `${group}`, `${artifact}`, `${type}` an added starter and the type that asks for it (`requires_starter`); `${group_regex}` and `${artifact_regex}` a coordinate with its dots escaped, for a recipe that edits text; `${version}` a BOM or dependency version read from the Initializr file `--initializr` names. `recipes.unpin` removes a version the old coordinate carried from every renamed or added one, because the Spring Boot BOM manages them all; `recipes.bom` moves each BOM the build declares to the version the Initializr serves for the target; `test_reports` is where `test-diff` looks for JUnit XML. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md and .claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md",
         "target_pattern": "\\d+\\.\\d+\\.\\d+",
         "metadata_entry": "META-INF/spring-configuration-metadata.json",
         "recipes": {
@@ -198,6 +198,24 @@
             {"type": "org.openrewrite.java.ChangeType",
              "options": {"oldFullyQualifiedTypeName": "${from}", "newFullyQualifiedTypeName": "${to}"}}
           ],
+          "add": [
+            {"type": "org.openrewrite.maven.AddDependency",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "version": "latest.release", "onlyIfUsing": "${type}"}},
+            {"type": "org.openrewrite.gradle.AddDependency",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "version": "latest.release", "configuration": "implementation", "onlyIfUsing": "${type}"}}
+          ],
+          "unpin": [
+            {"type": "org.openrewrite.text.FindAndReplace",
+             "options": {"find": "(<groupId>${group_regex}</groupId>\\s*<artifactId>${artifact_regex}</artifactId>)\\s*<version>[^<]*</version>", "replace": "$1", "regex": "true", "filePattern": "**/pom.xml"}},
+            {"type": "org.openrewrite.text.FindAndReplace",
+             "options": {"find": "(${group_regex}:${artifact_regex}):[^'\"\\s)]+", "replace": "$1", "regex": "true", "filePattern": "**/build.gradle*"}}
+          ],
+          "bom": [
+            {"type": "org.openrewrite.maven.UpgradeDependencyVersion",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "newVersion": "${version}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "newVersion": "${version}"}}
+          ],
           "property": [
             {"type": "org.openrewrite.properties.ChangePropertyKey",
              "options": {"oldPropertyKey": "${key}", "newPropertyKey": "${replacement}"}},
@@ -215,6 +233,10 @@
           "gradle_plugin_pom": "https://plugins.gradle.org/m2/org/openrewrite/plugin/{version}/plugin-{version}.pom",
           "central_bom": "https://repo.maven.apache.org/maven2/org/openrewrite/rewrite-bom/{version}/rewrite-bom-{version}.pom",
           "initializr_starter": "https://start.spring.io/starter.tgz",
+          "initializr_dependencies": "https://start.spring.io/dependencies",
+          "initializr_accept": "application/vnd.initializr.v2.2+json",
+          "gradle_versions_all": "https://services.gradle.org/versions/all",
+          "gradle_distribution": "https://services.gradle.org/distributions/gradle-{version}-bin.zip",
           "gradle_current": "https://services.gradle.org/versions/current",
           "migration_guide": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide",
           "gradle_candidates": 12
@@ -225,8 +247,18 @@
           "org.springframework.boot.data.jpa.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-jpa-test",
           "org.springframework.boot.data.mongodb.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-mongodb-test",
           "org.springframework.boot.data.elasticsearch.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-elasticsearch-test",
-          "org.springframework.boot.graphql.test.autoconfigure": "org.springframework.boot:spring-boot-starter-graphql-test"
+          "org.springframework.boot.graphql.test.autoconfigure": "org.springframework.boot:spring-boot-starter-graphql-test",
+          "org.springframework.boot.jdbc.test.autoconfigure": "org.springframework.boot:spring-boot-starter-jdbc-test"
         },
+        "requires_starter": {
+          "$comment": "Read by `upgrade-recipe --pass bump`: a type the sources use, and the starter that brings the auto-configuration which acts on it. On the line below `min_line` that auto-configuration lived in `spring-boot-autoconfigure`, so the type alone was enough; on the floor it moved into a module of its own (`CacheAutoConfiguration` is in `spring-boot-cache`, which only `spring-boot-starter-cache` brings), and the build compiles and the context fails to start. The recipe adds the starter with no version, only when a source uses the type. Each pair was checked on 2026-10-19: the class is absent from `spring-boot-autoconfigure` 4.0.8 and present in the module the starter's POM depends on.",
+          "org.springframework.cache.annotation.EnableCaching": "org.springframework.boot:spring-boot-starter-cache"
+        },
+        "test_reports": [
+          "**/target/surefire-reports/TEST-*.xml",
+          "**/target/failsafe-reports/TEST-*.xml",
+          "**/build/test-results/**/TEST-*.xml"
+        ],
         "renames": {
           "dependencies": [
             {"from": "org.springframework.boot:spring-boot-starter-web", "to": "org.springframework.boot:spring-boot-starter-webmvc"},
@@ -234,7 +266,9 @@
             {"from": "org.testcontainers:postgresql", "to": "org.testcontainers:testcontainers-postgresql"},
             {"from": "org.testcontainers:mongodb", "to": "org.testcontainers:testcontainers-mongodb"},
             {"from": "org.testcontainers:elasticsearch", "to": "org.testcontainers:testcontainers-elasticsearch"},
-            {"from": "org.testcontainers:junit-jupiter", "to": "org.testcontainers:testcontainers-junit-jupiter"}
+            {"from": "org.testcontainers:junit-jupiter", "to": "org.testcontainers:testcontainers-junit-jupiter"},
+            {"from": "org.flywaydb:flyway-core", "to": "org.springframework.boot:spring-boot-starter-flyway"},
+            {"from": "org.liquibase:liquibase-core", "to": "org.springframework.boot:spring-boot-starter-liquibase"}
           ],
           "types": [
             {"from": "org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest", "to": "org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest"},
@@ -253,7 +287,8 @@
             {"from": "org.springframework.boot.autoconfigure.http.client.ClientHttpRequestFactoryBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.ClientHttpRequestFactoryBuilderCustomizer"},
             {"from": "org.springframework.boot.autoconfigure.http.client.reactive.ClientHttpConnectorBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.reactive.ClientHttpConnectorBuilderCustomizer"},
             {"from": "org.testcontainers.containers.PostgreSQLContainer", "to": "org.testcontainers.postgresql.PostgreSQLContainer"},
-            {"from": "org.testcontainers.containers.MongoDBContainer", "to": "org.testcontainers.mongodb.MongoDBContainer"}
+            {"from": "org.testcontainers.containers.MongoDBContainer", "to": "org.testcontainers.mongodb.MongoDBContainer"},
+            {"from": "org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase", "to": "org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase"}
           ]
         }
       }

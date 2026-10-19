@@ -217,12 +217,15 @@ A project on a Spring Boot line below this `.claude/`'s floor is refused by `exp
 /platform-upgrade
 ```
 
-- **What it changes:** the Spring Boot version, the renamed starters and Testcontainers artifacts, the
-  renamed types (test slices, `@MockBean` and `@SpyBean`), and the renamed configuration properties.
+- **What it changes:** the Spring Boot version, the BOMs the Initializr lists (a Spring Cloud train), the
+  renamed starters and Testcontainers artifacts, the starter a used type now needs (`@EnableCaching`),
+  the renamed types (test slices, `@MockBean` and `@SpyBean`), the renamed configuration properties, and
+  a Gradle wrapper the new plugin refuses.
 - **How:** a recipe that `ArchHook.jar upgrade-recipe` writes from data and from the property renames
   Spring's own jars publish, run by the Apache-licensed OpenRewrite core through the project's own
   Maven or Gradle wrapper. What no rename covers is a guided pass, one compile error at a time, until
-  the build is green.
+  the build is green. The tests run before the bump and after, and `ArchHook.jar test-diff` tells what
+  the upgrade broke from what was already broken.
 - **What it never does:** commit, write `.claude/`, or delete, skip or loosen a failing test. It
   refuses a dirty worktree, and it ends by printing `/arch-adopt`.
 
@@ -572,7 +575,8 @@ Startup costs about 0.3 s per invocation.
 | `audit` | eleven lifecycle events (generated project) | no | execution trail of every skill and agent |
 | `doctor` | manual (`/arch-doctor`), generated CI (`gate`) | `gate` only | diagnoses the setup on this machine, a personal skill shadowing a project one included; `gate` fails on a red committed check (`doctor.gate.labels`) |
 | `export` | manual (through `/arch-adopt`) | no | writes a target project's `.claude/` from the manifest, with the provenance stamp |
-| `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade` and the resolved jars' own property metadata |
+| `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade`, the Initializr's metadata for the target and the resolved jars' own property metadata |
+| `test-diff` | manual (through `/platform-upgrade`) | no | records the test cases of a build's JUnit reports and compares a later run: exit 2 on a test that got worse or vanished, never on a failure that was already there |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 
 Every list the hook reads is data in `schemas/extensions.json`, never a constant in the

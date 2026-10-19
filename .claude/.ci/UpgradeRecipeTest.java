@@ -10,7 +10,11 @@
 // `spring-configuration-metadata.json` declares as an error with a replacement, in key order, the
 // first jar winning a key; a warning, an error with no replacement and a jar with no metadata
 // skipped; a classpath file read with a newline and with the OS path separator; exit 0 and nothing
-// written when no jar declares a rename.
+// written when no jar declares a rename. Decision 0176 adds, to the bump: one `AddDependency` pair per
+// `requires_starter` entry, with the type that asks for it; one `FindAndReplace` pair per renamed or
+// added coordinate, removing the version it carried; and, given `--initializr`, one version bump pair
+// per BOM and per versioned dependency of the Initializr file, in key order — refused when the file
+// is for another Boot version, unreadable, or when the data has no template to write it with.
 //
 // Why this test exists: the mode is Form 7c, and a mode that throws exits 0 through `main`'s catch —
 // it would look like a pass. The OpenRewrite engine that reads the file is proven apart, by the
@@ -96,6 +100,77 @@ public class UpgradeRecipeTest {
                 work, pom, target, "No `doctor.platform.upgrade.recipes` block");
         refusedBySource("an option placeholder no value fills", data.replace("\"newVersion\": \"${target}\"",
                 "\"newVersion\": \"${nothing}\""), work, pom, target, "keeps a placeholder with no value");
+
+        // bump — the starter a used type needs, the versions a renamed coordinate must not keep, the BOMs
+        Path outFull = work.resolve("bump-full.yml");
+        Path meta = work.resolve("initializr.json");
+        write(meta, "{\"bootVersion\":\"" + target + "\",\"boms\":{"
+                + "\"zeta-train\":{\"groupId\":\"org.example.zeta\",\"artifactId\":\"zeta-dependencies\",\"version\":\"9.9.9\"},"
+                + "\"alpha-train\":{\"groupId\":\"org.example.alpha\",\"artifactId\":\"alpha-bom\",\"version\":\"1.2.3\"}},"
+                + "\"dependencies\":{"
+                + "\"versioned\":{\"groupId\":\"org.example.lib\",\"artifactId\":\"lib-starter\",\"version\":\"4.5.6\"},"
+                + "\"managed\":{\"groupId\":\"org.springframework.boot\",\"artifactId\":\"spring-boot-starter-actuator\"}}}");
+        r = upgrade(source, pom, "--pass", "bump", "--target", target, "--initializr", meta.toString(), "--out", outFull.toString());
+        if (r.exit != 0 || !Files.isRegularFile(outFull)) {
+            fail("bump with --initializr — expected exit 0 and a file, got " + r.exit + "\n" + r.out);
+        } else {
+            String yaml = Files.readString(outFull, StandardCharsets.UTF_8);
+            Matcher starter = Pattern.compile("\"([^\"$][^\"]*)\":\\s*\"([^\":]+):([^\"]+)\"").matcher(requiresBlock(data));
+            int starters = 0;
+            while (starter.find()) {
+                starters++;
+                for (String tool : List.of("maven", "gradle")) {
+                    expectContains(yaml, "org.openrewrite." + tool + ".AddDependency:\n      groupId: \"" + starter.group(2)
+                            + "\"\n      artifactId: \"" + starter.group(3) + "\"\n      version: \"latest.release\"\n"
+                            + (tool.equals("gradle") ? "      configuration: \"implementation\"\n" : "")
+                            + "      onlyIfUsing: \"" + starter.group(1) + "\"",
+                            "bump adds " + starter.group(3) + " for " + tool + " only when " + starter.group(1) + " is used");
+                }
+                expectContains(yaml, "(" + quoteDots(starter.group(2)) + ":" + quoteDots(starter.group(3)) + "):[^'\\\"\\\\s)]+",
+                        "bump removes the version the added " + starter.group(3) + " would carry in a Gradle build");
+            }
+            if (starters == 0) fail("the production data holds no `requires_starter` entry — the cases above proved nothing");
+            Matcher pair = Pattern.compile("\"from\":\\s*\"([^\"]+:[^\"]+)\",\\s*\"to\":\\s*\"([^\"]+):([^\"]+)\"").matcher(renamesBlock(data));
+            while (pair.find()) {
+                expectContains(yaml, "<groupId>" + quoteDots(pair.group(2)) + "</groupId>\\\\s*<artifactId>" + quoteDots(pair.group(3))
+                        + "</artifactId>)\\\\s*<version>[^<]*</version>", "bump removes the version a renamed " + pair.group(3) + " carried in a POM");
+            }
+            expectContains(yaml, "org.openrewrite.maven.UpgradeDependencyVersion:\n      groupId: \"org.example.alpha\"\n"
+                    + "      artifactId: \"alpha-bom\"\n      newVersion: \"1.2.3\"", "bump moves a BOM of the Initializr file, for Maven");
+            expectContains(yaml, "org.openrewrite.gradle.UpgradeDependencyVersion:\n      groupId: \"org.example.lib\"\n"
+                    + "      artifactId: \"lib-starter\"\n      newVersion: \"4.5.6\"", "bump moves a versioned dependency, for Gradle");
+            if (yaml.contains("spring-boot-starter-actuator")) fail("bump moved a dependency the Initializr file gives no version");
+            if (yaml.indexOf("alpha-bom") > yaml.indexOf("zeta-dependencies")) fail("bump writes the BOMs in the order of the file, not in key order");
+            if (yaml.contains("${")) fail("bump with --initializr left a placeholder in the recipe");
+            // `FindAndReplace` reads a build file as text: a file it changes is no Maven or Gradle model to the
+            // recipes after it, which is how a Spring Cloud BOM stayed on the old line (0176). So the unpin
+            // steps are the last of the file, and every BOM step comes before the first of them.
+            int firstText = yaml.indexOf("org.openrewrite.text.FindAndReplace"), lastBom = yaml.lastIndexOf("UpgradeDependencyVersion");
+            int lastNonText = Math.max(yaml.lastIndexOf("AddDependency"), Math.max(yaml.lastIndexOf("ChangeType"), lastBom));
+            if (firstText < 0 || lastNonText > firstText) fail("bump — a step that reads the build as a model comes after the first text edit; the BOM would stay on the old line");
+            else System.out.println("✅ bump: the text edits come last");
+        }
+        Path withoutFile = work.resolve("bump-without.yml");
+        r = upgrade(source, pom, "--pass", "bump", "--target", target, "--out", withoutFile.toString());
+        if (r.exit == 0 && r.out.contains("no --initializr") && !Files.readString(withoutFile, StandardCharsets.UTF_8).contains("alpha-bom")
+                && Files.readString(withoutFile, StandardCharsets.UTF_8).contains("AddDependency")) {
+            System.out.println("✅ bump with no --initializr: the starters stay, no BOM is moved, and it says so");
+        } else {
+            fail("bump with no --initializr — expected exit 0, the starters, no BOM and a note, got " + r.exit + "\n" + r.out);
+        }
+        Path other = work.resolve("initializr-other.json");
+        write(other, "{\"bootVersion\":\"" + floorMajor + ".99.0\",\"boms\":{},\"dependencies\":{}}");
+        refusedWith(source, pom, work, "an Initializr file for another Boot version", "is for Spring Boot " + floorMajor + ".99.0",
+                "--pass", "bump", "--target", target, "--initializr", other.toString());
+        refusedWith(source, pom, work, "an Initializr file that is not there", "is not a readable JSON file",
+                "--pass", "bump", "--target", target, "--initializr", work.resolve("missing.json").toString());
+        for (String key : List.of("add", "unpin")) {
+            refusedBySourceWith("a source with no `recipes." + key + "` template", data.replace("\"" + key + "\": [", "\"" + key + "_gone\": ["),
+                    work, pom, "`doctor.platform.upgrade.recipes." + key + "` is empty", "--pass", "bump", "--target", target);
+        }
+        refusedBySourceWith("a source with no `recipes.bom` template", data.replace("\"bom\": [", "\"bom_gone\": ["),
+                work, pom, "`doctor.platform.upgrade.recipes.bom` is empty", "--pass", "bump", "--target", target,
+                "--initializr", meta.toString());
 
         // properties — one jar of each shape
         Path jars = Files.createTempDirectory("archhook-upgrade-jars");
@@ -190,6 +265,20 @@ public class UpgradeRecipeTest {
         throw new IllegalStateException("no renames block in doctor.platform.upgrade");
     }
 
+    /** The `requires_starter` object of `doctor.platform.upgrade`, by brace matching. */
+    static String requiresBlock(String data) {
+        int at = data.indexOf("\"requires_starter\"", data.indexOf("\"upgrade\":"));
+        int open = data.indexOf('{', at), depth = 0;
+        for (int i = open; i < data.length(); i++) {
+            if (data.charAt(i) == '{') depth++;
+            else if (data.charAt(i) == '}' && --depth == 0) return data.substring(open, i + 1);
+        }
+        throw new IllegalStateException("no requires_starter block in doctor.platform.upgrade");
+    }
+
+    /** A coordinate part as it stands in the recipe file: dots escaped for the regex, then the backslash doubled by YAML. */
+    static String quoteDots(String part) { return part.replace(".", "\\\\."); }
+
     static String starterParent(String v) {
         return "<project><parent><groupId>org.springframework.boot</groupId>"
                 + "<artifactId>spring-boot-starter-parent</artifactId><version>" + v + "</version></parent></project>\n";
@@ -214,6 +303,25 @@ public class UpgradeRecipeTest {
         Path broken = Files.createTempDirectory("archhook-upgrade-broken");
         write(broken.resolve(".claude/schemas/extensions.json"), brokenData);
         refused(broken, project, work, name, target, needle, "bump");
+        deleteTree(broken);
+    }
+
+    static void refusedWith(Path source, Path project, Path work, String name, String needle, String... args) throws Exception {
+        Path out = work.resolve("refused-with.yml");
+        Files.deleteIfExists(out);
+        List<String> all = new ArrayList<>(List.of(args));
+        all.addAll(List.of("--out", out.toString()));
+        Run r = upgrade(source, project, all.toArray(new String[0]));
+        if (r.exit != 2) fail(name + " — expected exit 2, got " + r.exit + "\n" + r.out);
+        else if (Files.exists(out)) fail(name + " — a recipe was written");
+        else if (!r.out.contains(needle)) fail(name + " — the message lacks \"" + needle + "\"\n" + r.out);
+        else System.out.println("✅ refused: " + name);
+    }
+
+    static void refusedBySourceWith(String name, String brokenData, Path work, Path project, String needle, String... args) throws Exception {
+        Path broken = Files.createTempDirectory("archhook-upgrade-broken");
+        write(broken.resolve(".claude/schemas/extensions.json"), brokenData);
+        refusedWith(broken, project, work, name, needle, args);
         deleteTree(broken);
     }
 

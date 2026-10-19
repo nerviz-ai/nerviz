@@ -1,8 +1,9 @@
 # `/platform-upgrade` — levar um projeto até o piso do Spring Boot
 
 Fonte primária: `.claude/skills/platform-upgrade/SKILL.md`, `.claude/hooks/ArchHook.java`
-(modo `upgrade-recipe`), bloco `doctor.platform` de `.claude/schemas/extensions.json`.
-Decisão: `@.claude/decisions/0175-platform-upgrade-below-the-floor.md`.
+(modos `upgrade-recipe` e `test-diff`), bloco `doctor.platform` de `.claude/schemas/extensions.json`.
+Decisões: `@.claude/decisions/0175-platform-upgrade-below-the-floor.md`,
+`@.claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md`.
 
 ## O que faz
 
@@ -19,6 +20,10 @@ ele declara até a que o Initializr serve hoje, e deixa o build verde e o diff *
 | A versão do Spring Boot no build | passo 1 da receita |
 | Starters e artefatos do Testcontainers renomeados | passo 1, de `renames.dependencies` |
 | Tipos renomeados — test slices, `@MockBean` e `@SpyBean`, customizers | passo 1, de `renames.types` |
+| Um starter de que o código agora precisa — `@EnableCaching` pede `spring-boot-starter-cache` | passada 1, de `requires_starter`, adicionado sem versão |
+| A versão que uma coordenada antiga carregava, deixada no sucessor renomeado ou adicionado | passada 1, removida: o BOM do Boot gerencia todas |
+| BOMs e bibliotecas que carregam versão própria — um train do Spring Cloud, Modulith, springdoc | passada 1, dos metadados que o Initializr serve para o alvo |
+| Um wrapper Gradle mais velho do que o plugin novo do Boot aceita | passo 5b, pela recusa do próprio plugin |
 | Propriedades de configuração renomeadas | passo 2, dos metadados dos próprios jars |
 | O que nenhum rename cobre — um test starter, código Jackson 3, uma API que mudou de forma | o resíduo guiado, pelo modelo, um erro de compilação por vez |
 
@@ -38,6 +43,7 @@ flowchart LR
     SK -->|2 · curl + tar| SRC["$SRC<br/>cópia buscada"]
     SK -->|3 · projeto descartável| INI["Initializr<br/>versão alvo"]
     SK -->|4 · metadados| ENG["versão do motor<br/>Maven · Gradle"]
+    SK -->|4b · baseline| TD["ArchHook.jar test-diff<br/>snapshot · compare"]
     SK -->|5 · invoca| MODE["ArchHook.jar upgrade-recipe<br/>(escreve a receita)"]
     MODE -->|lê| DATA["extensions.json<br/>doctor.platform.upgrade"]
     MODE -->|lê| JARS["META-INF/<br/>spring-configuration-metadata.json dos jars"]
@@ -46,12 +52,13 @@ flowchart LR
     OR --> DIFF["build e src/** do projeto"]
     SK -->|8 · edita| DIFF
     SK -->|9 · verifica| VER["./mvnw verify · ./gradlew build"]
+    VER -->|compare| TD
 
     classDef skill fill:#123a5c,stroke:#5aa9e6,color:#fff,stroke-width:2px
     classDef hook fill:#5c1a1a,stroke:#ff6b6b,color:#fff,stroke-width:2px
     classDef data fill:#5c4a1a,stroke:#e6b45a,color:#fff,stroke-width:2px
     class SK skill
-    class MODE hook
+    class MODE,TD hook
     class DATA,JARS data
 ```
 
@@ -66,6 +73,11 @@ causa contra as normas e o guia de migração do fornecedor, e compila de novo. 
 exceção: um teste que falha é reportado, nunca apagado, pulado ou afrouxado; e o mesmo erro três
 vezes seguidas para o laço e pergunta.
 
+**O que estava vermelho antes é o baseline que diz.** O passo 4b roda os testes na árvore como a pessoa
+a deixou; o passo 9 roda de novo, e o `ArchHook.jar test-diff` classifica cada caso — uma regressão, um
+teste que sumiu, uma falha que o baseline nunca viu, uma falha que já existia, uma correção. Só as três
+primeiras saem com 2. Um build vermelho que já era vermelho é reportado como isso.
+
 ### As duas passadas
 
 A receita é escrita em duas passadas porque a segunda precisa de um classpath que só existe depois
@@ -73,7 +85,7 @@ da primeira.
 
 | Passada | Comando | Escreve | Por que aqui |
 |---|---|---|---|
-| `bump` | `upgrade-recipe . --pass bump --target <x.y.z> --out <arquivo>` | o bump de versão, um rename de coordenada por entrada de `renames.dependencies`, um rename de tipo por entrada de `renames.types` | A receita roda contra o classpath que o projeto **ainda tem**. Um tipo antigo deixa de resolver quando o BOM novo entra, então os renames de tipo ficam aqui, antes dele |
+| `bump` | `upgrade-recipe . --pass bump --target <x.y.z> --initializr <arquivo> --out <arquivo>` | o bump de versão; com os metadados do Initializr, um bump por BOM e por biblioteca com versão que ele lista; um rename de coordenada por entrada de `renames.dependencies`; o starter de cada entrada de `requires_starter`, adicionado sem versão onde o tipo é usado; um rename de tipo por entrada de `renames.types`; por último, a remoção da versão que uma coordenada renomeada ou adicionada carregava | A receita roda contra o classpath que o projeto **ainda tem**. Um tipo antigo deixa de resolver quando o BOM novo entra, então os renames de tipo ficam aqui, antes dele. A remoção de versão é uma edição de texto e vai por último: um arquivo de build que ela mudou é texto puro para todo passo seguinte, e foi assim que um BOM do Spring Cloud ficou na linha antiga |
 | `properties` | `upgrade-recipe . --pass properties --classpath <arquivo> --out <arquivo>` | um rename por propriedade que um jar declara como `deprecation.level == "error"` com `replacement` | Os jars novos carregam os próprios renames como dado, então nenhuma tabela de propriedades é mantida à mão. Roda **sem compilar**: depois da passada 1 os testes não compilam até o starter deles entrar |
 
 O `upgrade-recipe` sai com 2 e não escreve nada para um alvo malformado, um alvo abaixo do piso, um
@@ -88,13 +100,16 @@ projeto abaixo do piso não tem dados próprios.
 |---|---|---|
 | 1 | Recusar worktree suja; achar a ferramenta de build e o wrapper | `git diff` é como a pessoa revisa o upgrade e `git checkout -- .` como desfaz. Sem wrapper → para |
 | 2 | Buscar a fonte em `$SRC`, como o `arch-adopt` § 2-3; `grep` do modo | Um projeto abaixo do piso não tem um `ArchHook.jar` desta forma. Um ref anterior à skill não tem o modo, e um modo desconhecido sai com 0 — pareceria sucesso |
-| 3 | Resolver o alvo a partir de um projeto descartável que o Initializr gera | Invariante 8: versão nunca vem da memória. Sem rede → para e pergunta |
-| 4 | Resolver a versão do motor no repositório que a serve | Veja a armadilha abaixo |
-| 5 | Passada 1 | O bump, coordenadas e tipos. `git diff --stat` precisa mostrar o arquivo de build alterado |
+| 3 | Resolver o alvo a partir de um projeto descartável que o Initializr gera, e baixar os metadados de `dependencies` dele | Invariante 8: versão nunca vem da memória. Sem rede → para e pergunta. Os metadados precisam ser da mesma versão do Boot, ou o `upgrade-recipe` os recusa |
+| 4 | Resolver a versão do motor no repositório que a serve | Veja a armadilha abaixo. Todo fetch segue redirecionamento (`curl -sS --fail -L`) |
+| 4b | O baseline: `clean verify` / `clean build --continue` na árvore intocada, depois `test-diff snapshot` | O passo 9 distingue o que o upgrade quebrou do que já estava quebrado. Sem relatório → sem baseline, dito no relatório |
+| 5 | Passada 1 | O bump, BOMs, coordenadas, starters e tipos. `git diff --stat` precisa mostrar o arquivo de build alterado; uma coordenada renomeada ou adicionada não carrega versão; cada BOM lê a versão do Initializr |
+| 5b | Só Gradle: perguntar ao build, `./gradlew -q help` | O plugin novo do Boot pode recusar o Gradle do wrapper, e o `./gradlew wrapper` é recusado do mesmo jeito. A menor major aceita, seu release final mais novo, em `gradle-wrapper.properties`; depois o `./gradlew wrapper` atualiza os scripts |
 | 6 | Listar o classpath novo | Maven `dependency:build-classpath`; Gradle um init script de `templates/` |
 | 7 | Passada 2, sem compilar | Só o que um jar declara como erro com replacement |
 | 8 | O resíduo guiado | Compila, lê, corrige a causa, compila de novo |
-| 9 | Verificar | `./mvnw -B verify` ou `./gradlew build`; verde, ou os testes que falham são o relatório |
+| 8b | O contexto sobe | As classes `@SpringBootTest`, primeiro e à parte: um starter que saiu da auto-configuração, ou uma propriedade que nenhum jar lê mais, compilam e só falham quando o contexto é montado. Nenhuma → `Not verified: context load`; a skill não escreve teste |
+| 9 | Verificar | `clean verify` / `clean build`, depois `test-diff compare`: verde, não pior que o baseline, ou as regressões são o relatório |
 | 10 | Entregar o diff | `git status --short`, `git diff --stat`, sem commit, imprime `/arch-adopt` |
 
 Tudo que o procedimento baixa ou escreve fora do projeto vai em um diretório só, o `$WORK`.
@@ -108,10 +123,12 @@ projeto é uma entrada que falta ali, nunca uma segunda lista em outro lugar.
 | Chave | Guarda |
 |---|---|
 | `recipes` | os nomes das receitas e no que cada tipo de entrada se transforma — modelos `{type, options}` com placeholders `${...}`. O motor é dado |
-| `renames.dependencies` | renames de starters e artefatos: `starter-web` → `starter-webmvc`, `starter-aop` → `starter-aspectj`, os artefatos `org.testcontainers:*` |
+| `renames.dependencies` | renames de starters e artefatos: `starter-web` → `starter-webmvc`, `starter-aop` → `starter-aspectj`, `flyway-core` e `liquibase-core` → seus starters, os artefatos `org.testcontainers:*` |
 | `renames.types` | renames de tipos: os test slices e suas anotações de auto-configure, `@MockBean` → `@MockitoBean`, `@SpyBean` → `@MockitoSpyBean`, customizers, as classes dos módulos do Testcontainers |
 | `test_starters` | pacote → test starter de escopo test. Um erro de compilação que nomeia o pacote de um slice se cura com o starter para o qual a chave aponta |
-| `engine` | onde as versões do motor são listadas, o endpoint do Initializr, o guia de migração, e quantas versões do plugin Gradle tentar |
+| `requires_starter` | tipo → starter. No piso, a auto-configuração que age sobre um tipo foi para um módulo próprio, então um código que usa o tipo compila e o contexto não sobe |
+| `test_reports` | os globs de onde o `test-diff` lê o XML JUnit: Surefire, Failsafe, Gradle |
+| `engine` | onde as versões do motor são listadas, os endpoints do Initializr, onde o Gradle lista seus releases, o guia de migração, e quantas versões do plugin Gradle tentar |
 
 Todo `to` de `renames` é um nome que um exemplar que este repositório compila no CI já usa, ou um
 artefato publicado. Todo `from` foi achado no jar da linha que se deixa. Um `from` errado não
@@ -137,8 +154,9 @@ pública se mover.
 - **Commit.** O diff é da pessoa para revisar.
 - **Escrever `.claude/`.** Isso é do `/arch-adopt`, para o qual a skill passa a vez.
 - **Renomear código Jackson 3.** Uma anotação ficou, um pacote se moveu e uma exceção virou
-  não verificada: uma decisão por ponto, não um rename. Fica no resíduo guiado, contra o bullet do
-  Jackson de `@.claude/rules/architecture-ddd.md`.
+  não verificada: uma decisão por ponto, não um rename. Fica no resíduo guiado, contra a seção de
+  Jackson do guia de migração do fornecedor (`engine.migration_guide`). A allowlist do teste de
+  arquitetura diz que raízes o domínio pode importar, não como migrar.
 - **Alcançar um rename que nenhum exemplar nomeia.** `renames` guarda o que os exemplares deste
   repositório usam; um pacote movido que nenhum deles toca é do resíduo.
 - **Contornar um build que esconde a versão.** Uma versão do Spring Boot em um POM pai que não é do
@@ -157,7 +175,8 @@ impõe. `.claude/**` fica fora.
 | Job | O que prova |
 |---|---|
 | `validate › hooks-cross-platform › upgrade-recipe writes the bump and the property renames, and refuses what it cannot spell` | `UpgradeRecipeTest`: o bump carrega o alvo e um passo por rename do dado de produção; cada recusa sai com 2 sem escrever nada; a passada de propriedades sobre jars de teste pula um warning, uma entrada sem replacement e um jar sem metadados |
-| `templates › platform-upgrade` | `PlatformUpgradeTest`, com rede: em Maven e em Gradle, um fixture na GA mais nova abaixo do piso passa pelo procedimento da skill e builda verde na linha do Initializr |
+| `validate › hooks-cross-platform › test-diff separates what the upgrade broke from what was already broken` | `TestDiffTest`: uma regressão, um teste que sumiu e uma falha nova saem cada uma com 2 sozinha; uma falha que já existia, uma correção e um skip saem com 0; sem relatório, um baseline alheio, um relatório que não é XML ou que traz DOCTYPE saem com 2 |
+| `templates › platform-upgrade` | `PlatformUpgradeTest`, com rede: em Maven e em Gradle, um fixture na GA mais nova abaixo do piso passa pelo procedimento da skill e builda verde na linha do Initializr — o contexto sobe com os starters de cache e de Flyway, um BOM do Spring Cloud se move, um starter fixado perde o pin, um wrapper Gradle antigo é consertado, e nenhum teste fica pior que antes |
 | `validate › design › schema` | a classe da skill, seções, território e entrada em `export` |
 | `validate › export-determinism` | a skill e o modo viajam iguais em todo SO |
 
@@ -180,10 +199,15 @@ Initializr e aos repositórios do motor. Termina com o relatório:
 
 Source ....... <host>, ref <ref>
 Engine ....... <engine artifact> <version>
+Baseline ..... <n> test cases, <n> failing before | none — the tree ran no tests
 Pass 1 ....... <n> files changed (<n> sources, <n> build)
+BOMs ......... <n> moved by the recipe, <n> by hand | not moved — no Initializr metadata
+Wrapper ...... <unchanged | Gradle <from> → <to>> (Gradle only)
 Pass 2 ....... <n> property renames applied | none declared by the jars
 Residue ...... <n> edits by hand — <one line each>
-Verify ....... <green | the failing tests, verbatim first line>
+Context ...... <n> @SpringBootTest classes green | Not verified: context load
+Verify ....... <green | no worse than the baseline: <n> pre-existing | the regressions, verbatim first line>
+Not verified . <what no step above ran — one line each | none>
 
 Review: git diff · Undo: git checkout -- .
 Next: /arch-adopt

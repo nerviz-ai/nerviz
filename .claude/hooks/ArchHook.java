@@ -29,6 +29,8 @@
 //   upgrade-recipe manual — writes the OpenRewrite recipe that takes a project below the Spring Boot
 //                         floor to it, from `doctor.platform.upgrade` and Spring's own metadata
 //                         (exit 2 on a target below the floor or data it cannot read)
+//   test-diff manual    — snapshots the JUnit reports of a build and compares a later run against it:
+//                         a test that was green and is red, or gone, is a regression (exit 2 on one)
 //   build   PostToolUse (this repo) + CI — compiles this file into ArchHook.jar
 //                         under the pinned JDK; --verify rejects a jar that differs (blocks)
 //
@@ -91,6 +93,7 @@ public class ArchHook {
                 case "export" -> export(args);
                 case "boundary-map" -> boundaryMap(args);
                 case "upgrade-recipe" -> upgradeRecipe(args);
+                case "test-diff" -> testDiff(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
@@ -1053,11 +1056,17 @@ public class ArchHook {
     static void upgradeRecipeUsage() {
         err("usage: java -jar .claude/hooks/ArchHook.jar upgrade-recipe <project> --pass bump"
                 + " --target <x.y.z> --out <file>");
+        err("       java -jar .claude/hooks/ArchHook.jar upgrade-recipe <project> --pass bump"
+                + " --target <x.y.z> --initializr <file> --out <file>");
         err("       java -jar .claude/hooks/ArchHook.jar upgrade-recipe <project> --pass properties"
                 + " --classpath <file> --out <file>");
         err("  <project>     the project's root; its build says which Spring Boot line it is on");
         err("  --pass bump        the version bump, the coordinate renames and the type renames of");
-        err("                     `doctor.platform.upgrade`, run on the classpath the project still has");
+        err("                     `doctor.platform.upgrade`, run on the classpath the project still has;");
+        err("                     also the starters a used type now needs and the version a renamed or added");
+        err("                     coordinate must not carry");
+        err("  --initializr  the Initializr's `dependencies` metadata for --target, already downloaded: with it,");
+        err("                the bump also moves each BOM and each versioned dependency it lists");
         err("  --pass properties  the property renames the jars on --classpath declare as errors,");
         err("                     run after the bump, once the new jars resolve");
         err("  --target      the Spring Boot version to move to, as the Initializr serves it");
@@ -1080,6 +1089,11 @@ public class ArchHook {
      * data does not spell as asked, or an option placeholder left unresolved; exit 0 and nothing
      * written when the jars declare no rename.
      *
+     * <p>The bump also adds, with no version, the starter a type the sources use now needs
+     * ({@code requires_starter}); removes the version a renamed or added coordinate carried; and, given
+     * {@code --initializr}, moves each BOM and each versioned dependency to the version the Initializr
+     * lists for the target. Design: .claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md
+     *
      * <p>Why a mode: the first design left the rename list to the model, which cannot be held by a
      * test and would have been a second owner of what {@code dependency-catalog.md} already lists
      * (invariant 2); the second would have copied a recipe module under a license that restricts
@@ -1089,10 +1103,11 @@ public class ArchHook {
      * <p>Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md
      */
     static void upgradeRecipe(String[] args) throws Exception {
-        String project = null, pass = null, target = null, classpath = null, out = null;
+        String project = null, pass = null, target = null, classpath = null, out = null, initializr = null;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--pass") && i + 1 < args.length) pass = args[++i];
+            else if (a.equals("--initializr") && i + 1 < args.length) initializr = args[++i];
             else if (a.equals("--target") && i + 1 < args.length) target = args[++i];
             else if (a.equals("--classpath") && i + 1 < args.length) classpath = args[++i];
             else if (a.equals("--out") && i + 1 < args.length) out = args[++i];
@@ -1142,17 +1157,53 @@ public class ArchHook {
             List<String> list = new ArrayList<>();
             Map<String, String> fixed = Map.of("target", target);
             for (Object e : asList(recipes.get("bump"))) list.add(recipeEntry(e, fixed));
+            // Order matters. `FindAndReplace` reads a build file as text, and a file it changes stops being
+            // a Maven or Gradle model for every recipe after it: the unpin steps run last, and the BOMs
+            // move before any step that edits the file.
+            if (initializr == null) {
+                err("ℹ️  upgrade-recipe: no --initializr — the BOMs and versioned dependencies the Initializr lists"
+                        + " are not moved.");
+            } else {
+                for (var c : initializrCoordinates(Paths.get(initializr).toAbsolutePath().normalize(), target).entrySet()) {
+                    String[] ga = coordinate(c.getKey());
+                    Map<String, String> ph = Map.of("group", ga[0], "artifact", ga[1], "version", c.getValue());
+                    requireTemplates(recipes, "bom", "--initializr");
+                    for (Object t : asList(recipes.get("bom"))) list.add(recipeEntry(t, ph));
+                }
+            }
             Map<String, Object> renames = asMap(up.get("renames"));
+            Set<String> unpinned = new LinkedHashSet<>();
             for (Object d : asList(renames == null ? null : renames.get("dependencies"))) {
                 String[] from = coordinate(asStr(get(d, "from"))), to = coordinate(asStr(get(d, "to")));
                 Map<String, String> ph = Map.of("from_group", from[0], "from_artifact", from[1],
                         "to_group", to[0], "to_artifact", to[1]);
                 for (Object t : asList(recipes.get("dependency"))) list.add(recipeEntry(t, ph));
+                unpinned.add(to[0] + ":" + to[1]);
+            }
+            Map<String, Object> starters = asMap(up.get("requires_starter"));
+            if (starters != null) {
+                for (var r : new TreeMap<>(starters).entrySet()) {
+                    if (r.getKey().startsWith("$")) continue;
+                    String[] ga = coordinate(asStr(r.getValue()));
+                    Map<String, String> ph = Map.of("group", ga[0], "artifact", ga[1], "type", r.getKey());
+                    requireTemplates(recipes, "add", "`requires_starter`");
+                    for (Object t : asList(recipes.get("add"))) list.add(recipeEntry(t, ph));
+                    unpinned.add(ga[0] + ":" + ga[1]);
+                }
             }
             for (Object d : asList(renames == null ? null : renames.get("types"))) {
                 Map<String, String> ph = Map.of("from", orEmpty(asStr(get(d, "from"))),
                         "to", orEmpty(asStr(get(d, "to"))));
                 for (Object t : asList(recipes.get("type"))) list.add(recipeEntry(t, ph));
+            }
+            // A renamed or added coordinate must not keep the version the old one carried: the Spring
+            // Boot BOM manages every one of them, and a pin left behind overrides it. Last, see above.
+            for (String c : unpinned) {
+                String[] ga = coordinate(c);
+                Map<String, String> ph = Map.of("group_regex", ga[0].replace(".", "\\."),
+                        "artifact_regex", ga[1].replace(".", "\\."));
+                requireTemplates(recipes, "unpin", "`renames.dependencies` and `requires_starter`");
+                for (Object t : asList(recipes.get("unpin"))) list.add(recipeEntry(t, ph));
             }
             yaml.append(recipeYaml(asStr(recipes.get("bump_name")), "Spring Boot " + target + " — version, coordinates, types", list));
             count = list.size();
@@ -1217,6 +1268,43 @@ public class ArchHook {
         return p;
     }
 
+    /** Exit 2 naming the block when the data has no template for something the mode has to emit. */
+    private static void requireTemplates(Map<String, Object> recipes, String key, String why) {
+        if (asList(recipes.get(key)).isEmpty()) {
+            err("❌ `doctor.platform.upgrade.recipes." + key + "` is empty, and " + why + " needs it. Nothing was written.");
+            System.exit(2);
+        }
+    }
+
+    /**
+     * The BOMs and the dependencies that carry their own version in the Initializr's metadata, as
+     * {@code group:artifact} → version, sorted so the same input writes the same recipe. The file
+     * must be for {@code target}: the Initializr serves one Boot line per answer, and a BOM from
+     * another one is a version nobody tested against it.
+     */
+    private static Map<String, String> initializrCoordinates(Path file, String target) {
+        String raw = readOrNull(file);
+        Map<String, Object> meta = raw == null ? null : asMap(Json.parse(raw));
+        if (meta == null) {
+            err("❌ --initializr " + file + " is not a readable JSON file. Nothing was written.");
+            System.exit(2);
+        }
+        if (!target.equals(asStr(meta.get("bootVersion")))) {
+            err("❌ --initializr " + file + " is for Spring Boot " + asStr(meta.get("bootVersion"))
+                    + ", not --target " + target + ". Download it again from `engine.initializr_dependencies`.");
+            System.exit(2);
+        }
+        Map<String, String> found = new TreeMap<>();
+        Map<String, Object> boms = asMap(meta.get("boms")), deps = asMap(meta.get("dependencies"));
+        List<Object> entries = new ArrayList<>(boms == null ? List.of() : boms.values());
+        entries.addAll(deps == null ? List.of() : deps.values());
+        for (Object e : entries) {
+            String group = asStr(get(e, "groupId")), artifact = asStr(get(e, "artifactId")), version = asStr(get(e, "version"));
+            if (group != null && artifact != null && version != null) found.putIfAbsent(group + ":" + artifact, version);
+        }
+        return found;
+    }
+
     /** One recipe of a `recipes` template: its type, then its options with the placeholders resolved. */
     private static String recipeEntry(Object template, Map<String, String> placeholders) {
         String type = asStr(get(template, "type"));
@@ -1250,6 +1338,173 @@ public class ArchHook {
                 + "\nrecipeList:\n");
         for (String e : entries) sb.append(e);
         return sb.toString();
+    }
+
+    static void testDiffUsage() {
+        err("usage: java -jar .claude/hooks/ArchHook.jar test-diff snapshot <project> --out <file>");
+        err("       java -jar .claude/hooks/ArchHook.jar test-diff compare <project> --baseline <file>");
+        err("  snapshot  records every test case in the JUnit XML reports under <project> and whether it passed");
+        err("  compare   reads the reports again and lists what changed against --baseline; exit 2 when a test");
+        err("            that passed is now failing or gone, or one the baseline never saw is failing");
+        err("  The report globs are `doctor.platform.upgrade.test_reports`, read from the source this jar belongs to.");
+        err("  Run the build with `clean` before each, or a report left by an earlier run reads as this one's.");
+    }
+
+    /**
+     * {@code test-diff} — {@code snapshot} writes the outcome of every test case found in the JUnit XML
+     * reports of a build ({@code doctor.platform.upgrade.test_reports}); {@code compare} reads the reports
+     * again and sorts each case against the snapshot: <em>regression</em> (passed, now failing),
+     * <em>missing</em> (passed, now absent — a deleted test is never a fix), <em>new failure</em> (absent
+     * from the baseline, failing now), <em>pre-existing</em> (failing in both), <em>fixed</em>. Exit 2 on
+     * a regression, a missing test or a new failure, and on a run with no report at all — a build that
+     * stopped before the tests ran must not read as green. Every error exits 2 too: the top-level catch
+     * of {@code main} exits 0, which here would be a pass.
+     *
+     * <p>Why a mode: "red" after an upgrade carries no information without the run before it, and the
+     * comparison is over hundreds of cases, which a model reads wrong and a test can hold. Invoked by the
+     * {@code platform-upgrade} skill (steps 4b and 9), by hand, never by a hook. The closest rejected form
+     * is the model comparing report directories: the same input would give a different answer each time.
+     *
+     * <p>Design: .claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md
+     */
+    static void testDiff(String[] args) {
+        try {
+            String verb = args.length > 1 ? args[1] : null, project = null, out = null, baseline = null;
+            for (int i = 2; i < args.length; i++) {
+                String a = args[i];
+                if (a.equals("--out") && i + 1 < args.length) out = args[++i];
+                else if (a.equals("--baseline") && i + 1 < args.length) baseline = args[++i];
+                else if (a.startsWith("--")) { err("❌ Unknown option: " + a); testDiffUsage(); System.exit(2); }
+                else if (project == null) project = a;
+                else { err("❌ Only one project is accepted, got also: " + a); testDiffUsage(); System.exit(2); }
+            }
+            boolean snapshot = "snapshot".equals(verb), compare = "compare".equals(verb);
+            if (project == null || !(snapshot || compare) || (snapshot && out == null) || (compare && baseline == null)) {
+                testDiffUsage();
+                System.exit(2);
+            }
+            Map<String, Object> spec = doctorSpec("platform");
+            List<String> globs = asStrList(get(spec, "upgrade", "test_reports"));
+            if (globs.isEmpty()) {
+                err("❌ No `doctor.platform.upgrade.test_reports` in " + SCHEMA_FILE + " — this mode reads where the reports are from it.");
+                System.exit(2);
+            }
+            Path root = Paths.get(project).toAbsolutePath().normalize();
+            Map<String, String> now = testReports(root, globs);
+            if (now.isEmpty()) {
+                err("❌ test-diff: no JUnit XML report under " + root + " (" + String.join(", ", globs) + ").");
+                err("   The build stopped before it ran the tests, or it ran them somewhere these globs do not look.");
+                System.exit(2);
+            }
+            if (snapshot) {
+                Path file = Paths.get(out).toAbsolutePath().normalize();
+                if (file.getParent() != null) Files.createDirectories(file.getParent());
+                StringBuilder sb = new StringBuilder("{\n  \"tests\": {");
+                String sep = "\n";
+                for (var t : now.entrySet()) {
+                    sb.append(sep).append("    \"").append(jsonEscape(t.getKey())).append("\": \"").append(t.getValue()).append('"');
+                    sep = ",\n";
+                }
+                Files.writeString(file, sb.append("\n  }\n}\n").toString(), StandardCharsets.UTF_8);
+                System.out.println("✅ test-diff: " + now.size() + " test case(s) recorded in " + file + " — "
+                        + countStatus(now, "fail") + " failing, " + countStatus(now, "skip") + " skipped.");
+                return;
+            }
+            String raw = readOrNull(Paths.get(baseline).toAbsolutePath().normalize());
+            Map<String, Object> was = raw == null ? null : asMap(get(Json.parse(raw), "tests"));
+            if (was == null) {
+                err("❌ --baseline " + baseline + " is not a snapshot `test-diff snapshot` wrote. Nothing was compared.");
+                System.exit(2);
+            }
+            List<String> regressed = new ArrayList<>(), missing = new ArrayList<>(), fresh = new ArrayList<>(),
+                    kept = new ArrayList<>(), fixed = new ArrayList<>();
+            for (var t : new TreeMap<>(was).entrySet()) {
+                String before1 = asStr(t.getValue()), after = now.get(t.getKey());
+                if ("pass".equals(before1) && after == null) missing.add(t.getKey());
+                else if ("pass".equals(before1) && "fail".equals(after)) regressed.add(t.getKey());
+                else if ("fail".equals(before1) && "fail".equals(after)) kept.add(t.getKey());
+                else if ("fail".equals(before1) && "pass".equals(after)) fixed.add(t.getKey());
+            }
+            for (var t : now.entrySet()) if ("fail".equals(t.getValue()) && !was.containsKey(t.getKey())) fresh.add(t.getKey());
+            boolean red = !(regressed.isEmpty() && missing.isEmpty() && fresh.isEmpty());
+            System.out.println((red ? "❌" : "✅") + " test-diff: " + now.size() + " test case(s) now, " + was.size() + " in the baseline — "
+                    + regressed.size() + " regression(s), " + missing.size() + " missing, " + fresh.size() + " new failure(s), "
+                    + kept.size() + " failing before and still, " + fixed.size() + " fixed.");
+            testDiffList("regression (passed before, failing now)", regressed);
+            testDiffList("missing (passed before, no report now)", missing);
+            testDiffList("new failure (not in the baseline)", fresh);
+            testDiffList("pre-existing failure (failing before the upgrade)", kept);
+            testDiffList("fixed", fixed);
+            if (red) System.exit(2);
+        } catch (Exception e) {
+            err("❌ test-diff failed: " + e);
+            System.exit(2);
+        }
+    }
+
+    private static void testDiffList(String title, List<String> names) {
+        if (names.isEmpty()) return;
+        System.out.println("  " + title + ":");
+        for (int i = 0; i < names.size() && i < 25; i++) System.out.println("    - " + names.get(i));
+        if (names.size() > 25) System.out.println("    … and " + (names.size() - 25) + " more");
+    }
+
+    private static long countStatus(Map<String, String> tests, String status) {
+        return tests.values().stream().filter(status::equals).count();
+    }
+
+    /** {@code class#name} → {@code pass | fail | skip} for every test case of every report the globs match. */
+    private static Map<String, String> testReports(Path root, List<String> globs) throws Exception {
+        List<Pattern> patterns = new ArrayList<>();
+        for (String g : globs) patterns.add(Pattern.compile(globRegex(g)));
+        List<Path> files = new ArrayList<>();
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override public FileVisitResult preVisitDirectory(Path d, java.nio.file.attribute.BasicFileAttributes a) {
+                String n = d.getFileName() == null ? "" : d.getFileName().toString();
+                return n.equals(".git") || n.equals("node_modules") ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+            }
+            @Override public FileVisitResult visitFile(Path f, java.nio.file.attribute.BasicFileAttributes a) {
+                String rel = root.relativize(f).toString().replace('\\', '/');
+                for (Pattern p : patterns) if (p.matcher(rel).matches()) { files.add(f); break; }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        Map<String, String> tests = new TreeMap<>();
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        for (Path f : files) {
+            var doc = factory.newDocumentBuilder().parse(f.toFile());
+            var cases = doc.getElementsByTagName("testcase");
+            for (int i = 0; i < cases.getLength(); i++) {
+                var c = (org.w3c.dom.Element) cases.item(i);
+                String status = "pass";
+                for (var n = c.getFirstChild(); n != null; n = n.getNextSibling()) {
+                    String tag = n.getNodeName();
+                    if (tag.equals("failure") || tag.equals("error")) { status = "fail"; break; }
+                    if (tag.equals("skipped")) status = "skip";
+                }
+                String key = c.getAttribute("classname") + "#" + c.getAttribute("name");
+                String old = tests.get(key);
+                // The same name twice: the worse outcome stands.
+                if (old == null || "fail".equals(status) || ("skip".equals(status) && "pass".equals(old))) tests.put(key, status);
+            }
+        }
+        return tests;
+    }
+
+    /** A glob with {@code **}, {@code *} and {@code ?} as a regex over a {@code /}-separated relative path; {@code **}/ may match nothing. */
+    private static String globRegex(String glob) {
+        StringBuilder re = new StringBuilder();
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            if (c == '*' && i + 1 < glob.length() && glob.charAt(i + 1) == '*') {
+                if (i + 2 < glob.length() && glob.charAt(i + 2) == '/') { re.append("(?:.*/)?"); i += 2; }
+                else { re.append(".*"); i++; }
+            } else if (c == '*') re.append("[^/]*");
+            else if (c == '?') re.append("[^/]");
+            else re.append(Pattern.quote(String.valueOf(c)));
+        }
+        return re.toString();
     }
 
     /** The `Platform` line: the Spring Boot line the build declares against the floor. Reported, never gated. */
