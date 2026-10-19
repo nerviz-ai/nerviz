@@ -166,7 +166,97 @@
         "id\\s*\\(?\\s*['\"]org\\.springframework\\.boot['\"]\\s*\\)?\\s*version\\s*['\"](\\d+\\.\\d+)",
         "org\\.springframework\\.boot:spring-boot-(?:dependencies|gradle-plugin):(\\d+\\.\\d+)",
         "(?i)\\bspring[-_]?boot\\s*=\\s*\"(\\d+\\.\\d+)"
-      ]
+      ],
+      "upgrade": {
+        "$comment": "Read by ArchHook.java `upgrade-recipe`, which writes the OpenRewrite recipe that the `platform-upgrade` skill runs on a project below `min_line`. Clean room: every `to` below comes from an exemplar this repository compiles on `min_line` in CI, or from an artifact the Spring Boot BOM manages; no entry is copied from a recipe module under another license (Moderne's `rewrite-spring`), and none is to be. A wrong `from` renames nothing, a wrong `to` breaks a build, so a `to` is checked against a published artifact before it lands and a `from` against the jar of the line it leaves. The engine is data as well: `recipes` names what runs and with which options, so replacing it edits this block and no Java (invariant 10). Placeholders: `${target}` the Boot version the skill resolved from the Initializr; `${from_group}`, `${from_artifact}`, `${to_group}`, `${to_artifact}` the two sides of a `group:artifact` entry; `${from}` and `${to}` the two sides of a type entry; `${key}` and `${replacement}` a property. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md",
+        "target_pattern": "\\d+\\.\\d+\\.\\d+",
+        "metadata_entry": "META-INF/spring-configuration-metadata.json",
+        "recipes": {
+          "bump_name": "org.nerviz.platform.Bump",
+          "properties_name": "org.nerviz.platform.Properties",
+          "bump": [
+            {"type": "org.openrewrite.maven.UpgradeParentVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-parent", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.maven.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-dependencies", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.maven.UpgradePluginVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-maven-plugin", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.plugins.UpgradePluginVersion",
+             "options": {"pluginIdPattern": "org.springframework.boot", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-gradle-plugin", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-dependencies", "newVersion": "${target}"}}
+          ],
+          "dependency": [
+            {"type": "org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId",
+             "options": {"oldGroupId": "${from_group}", "oldArtifactId": "${from_artifact}", "newGroupId": "${to_group}", "newArtifactId": "${to_artifact}"}},
+            {"type": "org.openrewrite.gradle.ChangeDependency",
+             "options": {"oldGroupId": "${from_group}", "oldArtifactId": "${from_artifact}", "newGroupId": "${to_group}", "newArtifactId": "${to_artifact}"}}
+          ],
+          "type": [
+            {"type": "org.openrewrite.java.ChangeType",
+             "options": {"oldFullyQualifiedTypeName": "${from}", "newFullyQualifiedTypeName": "${to}"}}
+          ],
+          "property": [
+            {"type": "org.openrewrite.properties.ChangePropertyKey",
+             "options": {"oldPropertyKey": "${key}", "newPropertyKey": "${replacement}"}},
+            {"type": "org.openrewrite.yaml.ChangePropertyKey",
+             "options": {"oldPropertyKey": "${key}", "newPropertyKey": "${replacement}"}}
+          ]
+        },
+        "metadata_deprecation": {"level": "error"},
+        "engine": {
+          "$comment": "Read by the `platform-upgrade` skill, never by the mode: where the engine's own versions are listed, which artifacts it runs from, and the one trap measured on 2026-10-19 — Maven Central stops its OpenRewrite core at one release (`rewrite-bom` 8.90.4) while the Gradle plugin on the Plugin Portal keeps publishing against newer BOMs Central does not serve (`org.openrewrite:plugin` 7.40.0 and 7.41.0 import `rewrite-bom` 8.91.0, a 404 there), so `latest.release` fails to resolve. The Gradle plugin version is therefore the newest in `gradle_plugin_metadata` whose POM's `rewrite-bom` version has a POM at `central_bom`. The Maven plugin lives on Central itself and its `release` is coherent with it. Every artifact named here is Apache 2.0 (`org.openrewrite:plugin`'s POM declares it, as do the core modules and `rewrite-maven-plugin`).",
+          "maven_plugin": "org.openrewrite.maven:rewrite-maven-plugin",
+          "maven_plugin_metadata": "https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml",
+          "gradle_plugin": "org.openrewrite:plugin",
+          "gradle_plugin_metadata": "https://plugins.gradle.org/m2/org/openrewrite/plugin/maven-metadata.xml",
+          "gradle_plugin_pom": "https://plugins.gradle.org/m2/org/openrewrite/plugin/{version}/plugin-{version}.pom",
+          "central_bom": "https://repo.maven.apache.org/maven2/org/openrewrite/rewrite-bom/{version}/rewrite-bom-{version}.pom",
+          "initializr_starter": "https://start.spring.io/starter.tgz",
+          "gradle_current": "https://services.gradle.org/versions/current",
+          "migration_guide": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide",
+          "gradle_candidates": 12
+        },
+        "test_starters": {
+          "$comment": "Read by the `platform-upgrade` skill, not by the mode: a test slice moved out of `spring-boot-test-autoconfigure` into one artifact per technology, which `spring-boot-starter-test` no longer brings. A compile error naming a package of the left column is cured by the test-scope dependency of the right one, `group:artifact` with no version (the BOM manages it). Each pair was resolved on Maven Central: the starter's POM depends on the module whose jar holds the package.",
+          "org.springframework.boot.webmvc.test.autoconfigure": "org.springframework.boot:spring-boot-starter-webmvc-test",
+          "org.springframework.boot.data.jpa.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-jpa-test",
+          "org.springframework.boot.data.mongodb.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-mongodb-test",
+          "org.springframework.boot.data.elasticsearch.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-elasticsearch-test",
+          "org.springframework.boot.graphql.test.autoconfigure": "org.springframework.boot:spring-boot-starter-graphql-test"
+        },
+        "renames": {
+          "dependencies": [
+            {"from": "org.springframework.boot:spring-boot-starter-web", "to": "org.springframework.boot:spring-boot-starter-webmvc"},
+            {"from": "org.springframework.boot:spring-boot-starter-aop", "to": "org.springframework.boot:spring-boot-starter-aspectj"},
+            {"from": "org.testcontainers:postgresql", "to": "org.testcontainers:testcontainers-postgresql"},
+            {"from": "org.testcontainers:mongodb", "to": "org.testcontainers:testcontainers-mongodb"},
+            {"from": "org.testcontainers:elasticsearch", "to": "org.testcontainers:testcontainers-elasticsearch"},
+            {"from": "org.testcontainers:junit-jupiter", "to": "org.testcontainers:testcontainers-junit-jupiter"}
+          ],
+          "types": [
+            {"from": "org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest", "to": "org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc", "to": "org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc"},
+            {"from": "org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest", "to": "org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest", "to": "org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.data.elasticsearch.DataElasticsearchTest", "to": "org.springframework.boot.data.elasticsearch.test.autoconfigure.DataElasticsearchTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.graphql.GraphQlTest", "to": "org.springframework.boot.graphql.test.autoconfigure.GraphQlTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.graphql.tester.AutoConfigureHttpGraphQlTester", "to": "org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester"},
+            {"from": "org.springframework.boot.test.mock.mockito.MockBean", "to": "org.springframework.test.context.bean.override.mockito.MockitoBean"},
+            {"from": "org.springframework.boot.test.mock.mockito.SpyBean", "to": "org.springframework.test.context.bean.override.mockito.MockitoSpyBean"},
+            {"from": "org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCustomizer", "to": "org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer"},
+            {"from": "org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizers", "to": "org.springframework.boot.transaction.autoconfigure.TransactionManagerCustomizers"},
+            {"from": "org.springframework.boot.autoconfigure.graphql.GraphQlSourceBuilderCustomizer", "to": "org.springframework.boot.graphql.autoconfigure.GraphQlSourceBuilderCustomizer"},
+            {"from": "org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest", "to": "org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest"},
+            {"from": "org.springframework.boot.autoconfigure.http.client.ClientHttpRequestFactoryBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.ClientHttpRequestFactoryBuilderCustomizer"},
+            {"from": "org.springframework.boot.autoconfigure.http.client.reactive.ClientHttpConnectorBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.reactive.ClientHttpConnectorBuilderCustomizer"},
+            {"from": "org.testcontainers.containers.PostgreSQLContainer", "to": "org.testcontainers.postgresql.PostgreSQLContainer"},
+            {"from": "org.testcontainers.containers.MongoDBContainer", "to": "org.testcontainers.mongodb.MongoDBContainer"}
+          ]
+        }
+      }
     }
   },
 
@@ -294,13 +384,23 @@
         "allowed_models": ["opus", "sonnet"],
         "write_allow": [],
         "required_sections": ["## Procedure"],
-        "skills": ["project-bootstrap", "docker-architect", "arch-adopt", "gof-design-patterns", "sonarqube-setup", "transport-security-setup"],
+        "skills": ["project-bootstrap", "docker-architect", "arch-adopt", "gof-design-patterns", "sonarqube-setup", "transport-security-setup", "platform-upgrade"],
         "overrides": {
           "project-bootstrap": { "write_allow": ["**"] },
           "docker-architect": { "write_allow": ["docker-compose*.yml", "docker/**", "Dockerfile", ".env", ".env.example", ".gitignore", ".dockerignore"] },
           "arch-adopt": { "write_allow": [".claude/**", ".gitignore", "CLAUDE.md"], "audited": false },
           "gof-design-patterns": { "write_allow": ["src/**", "**/src/**"] },
           "sonarqube-setup": { "write_allow": ["pom.xml", "build.gradle", ".github/workflows/**"] },
+          "platform-upgrade": {
+            "$comment": "The build and the sources of the project being brought up to `doctor.platform.min_line`: the root build file and the wrapper files, `src/**` for the type and property renames and the compile errors left over, every path twice, rooted and under `**/`, for a multi-module layout. Never `.claude/**` — that is `arch-adopt`'s, run afterwards. `$WORK` lives outside the working tree, which the guard does not judge. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md",
+            "write_allow": [
+              "pom.xml", "**/pom.xml",
+              "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
+              "**/build.gradle", "**/build.gradle.kts", "gradle/libs.versions.toml", "gradle.properties",
+              ".mvn/wrapper/**", "gradle/wrapper/**",
+              "src/**", "**/src/**"
+            ]
+          },
           "transport-security-setup": {
             "$comment": "The transport configuration, the HSTS filter and the two transport ITs, and the `**Transport:**` paragraph of the root CLAUDE.md. `src/test/**` whole, not the two IT names: with TLS on by default a `@SpringBootTest` that runs without the `test` profile can no longer start, and the setup adds the profile to each one it finds. Every path twice, rooted and under `**/`, for the multi-module layouts. Design: .claude/decisions/0122-transport-security-setup-and-secrets.md",
             "write_allow": [
@@ -934,6 +1034,7 @@
         "new-feature",
         "new-feature-implement",
         "persistence-architect",
+        "platform-upgrade",
         "report-issue",
         "rest-api-architect",
         "search-architect",

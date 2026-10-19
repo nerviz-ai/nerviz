@@ -80,7 +80,7 @@ skill pertence a exatamente uma das sete classes, e a classe declara duas coisas
 |---|---|---|
 | `design` | as 9 que escrevem parciais de caso de uso | a pasta do UC + `BACKLOG.md` |
 | `orchestrator` | `new-feature`; `new-feature-implement`; `init-project` | `docs/**` do caso de uso; `new-feature-implement` e `init-project` não escrevem nada (delegam) |
-| `build` | `project-bootstrap`, `docker-architect`, `arch-adopt`, `gof-design-patterns`, `sonarqube-setup`, `transport-security-setup` | um override por skill — a árvore toda, só o compose, só `.claude/`, só `src/`, só o build file raiz e `.github/workflows/`, ou o `application*.yml` do módulo principal + o filtro de HSTS + `src/test/**` + o `CLAUDE.md` raiz |
+| `build` | `project-bootstrap`, `docker-architect`, `arch-adopt`, `gof-design-patterns`, `sonarqube-setup`, `transport-security-setup`, `platform-upgrade` | um override por skill — a árvore toda, só o compose, só `.claude/`, só `src/`, só o build file raiz e `.github/workflows/`, o `application*.yml` do módulo principal + o filtro de HSTS + `src/test/**` + o `CLAUDE.md` raiz, ou os build files, os arquivos de wrapper e `src/**` |
 | `observer` | `arch-doctor`, `audit-usage` | nada |
 | `meta` | `claude-code-architect-designer` | `.claude/**`, `CLAUDE.md`, `.mcp.json`, `docs/**`, `.github/**` |
 | `ops` | `git-publish`, `triage-issue` | nada — o efeito é `git`, ou um comentário numa issue deste repo, via Bash |

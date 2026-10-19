@@ -14,6 +14,10 @@ name: templates
 #   5. the MapStruct build fragments wire Lombok, the configuration processor and MapStruct on
 #      Maven and Gradle, every MapStruct mapper exemplar compiles under them, and an unmapped
 #      target fails the compile (decision 0160)
+#   6. `platform-upgrade` takes a project on the newest GA line below the floor to the
+#      Initializr's current one on Maven and Gradle: the recipe `upgrade-recipe` writes, run by
+#      the OpenRewrite core, then the renamed starter, types and properties, a green build
+#      (decision 0175)
 # Design: .claude/decisions/0099-ci-tests-for-verbatim-templates.md
 #
 # Path-filtered on purpose: every job downloads from Maven Central, GitHub or
@@ -49,6 +53,9 @@ on:
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/platform-upgrade/templates/**'
+      - '.claude/.ci/PlatformUpgradeTest.java'
+      - '.claude/schemas/extensions.json'
       - '.github/workflows/templates.yml'
   pull_request:
     paths:
@@ -76,6 +83,9 @@ on:
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/platform-upgrade/templates/**'
+      - '.claude/.ci/PlatformUpgradeTest.java'
+      - '.claude/schemas/extensions.json'
       - '.github/workflows/templates.yml'
   workflow_dispatch:
 
@@ -170,3 +180,22 @@ jobs:
       # never caught the Docker-guard skip it exists for (decision 0127).
       - name: "@Nested ITs pass, a Docker-guard skip fails, on Maven and Gradle"
         run: java .claude/.ci/CiItCheckTest.java
+
+  platform-upgrade:
+    name: platform-upgrade takes a project below the floor to the current line
+    runs-on: ubuntu-latest
+    # Two fixtures (Maven, Gradle) on cold caches: the engine, two Boot lines and their test
+    # dependencies download once per build tool.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Also the only check on `doctor.platform.upgrade`'s data: a path-filtered run on every PR
+      # that touches `extensions.json`, since a rename list nobody ran is a guess (decision 0175).
+      - name: Maven and Gradle fixtures, 3.x to the Initializr's line, build green
+        run: java .claude/.ci/PlatformUpgradeTest.java

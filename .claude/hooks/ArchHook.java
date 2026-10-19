@@ -26,6 +26,9 @@
 //   doctor  manual      — diagnoses the setup on this machine         (never blocks)
 //   boundary-map manual — writes a generated project's .claude/forbidden-imports.txt from a
 //                         blueprint, derived for a single-module one                 (exit 2 on none)
+//   upgrade-recipe manual — writes the OpenRewrite recipe that takes a project below the Spring Boot
+//                         floor to it, from `doctor.platform.upgrade` and Spring's own metadata
+//                         (exit 2 on a target below the floor or data it cannot read)
 //   build   PostToolUse (this repo) + CI — compiles this file into ArchHook.jar
 //                         under the pinned JDK; --verify rejects a jar that differs (blocks)
 //
@@ -39,6 +42,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.*;
 import java.util.stream.*;
+import java.util.zip.ZipFile;
 
 public class ArchHook {
 
@@ -86,6 +90,7 @@ public class ArchHook {
                 case "context" -> context(args.length > 1 ? args[1] : "subagent", stdin);
                 case "export" -> export(args);
                 case "boundary-map" -> boundaryMap(args);
+                case "upgrade-recipe" -> upgradeRecipe(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
@@ -1040,8 +1045,211 @@ public class ArchHook {
         err("   Its norms, exemplars and architecture-test allowlist use APIs and packages that do");
         err("   not exist on " + line + ", so what they generate would not build or would misbehave there.");
         err("   Nothing was written. Migrate the project to Spring Boot " + floor + " or later first,");
-        err("   then run this again. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
+        err("   then run this again. The `platform-upgrade` skill does that migration; it is delivered");
+        err("   with `arch-adopt`. The floor is `doctor.platform.min_line` in " + SCHEMA_FILE + ".");
         System.exit(2);
+    }
+
+    static void upgradeRecipeUsage() {
+        err("usage: java -jar .claude/hooks/ArchHook.jar upgrade-recipe <project> --pass bump"
+                + " --target <x.y.z> --out <file>");
+        err("       java -jar .claude/hooks/ArchHook.jar upgrade-recipe <project> --pass properties"
+                + " --classpath <file> --out <file>");
+        err("  <project>     the project's root; its build says which Spring Boot line it is on");
+        err("  --pass bump        the version bump, the coordinate renames and the type renames of");
+        err("                     `doctor.platform.upgrade`, run on the classpath the project still has");
+        err("  --pass properties  the property renames the jars on --classpath declare as errors,");
+        err("                     run after the bump, once the new jars resolve");
+        err("  --target      the Spring Boot version to move to, as the Initializr serves it");
+        err("  --classpath   a file listing the resolved jars, one per line or joined by the OS path separator");
+        err("  --out         the recipe file to write");
+        err("  The data is read from the source this jar belongs to (CLAUDE_PROJECT_DIR, as `export` does),");
+        err("  never from <project>, which has no .claude/ of this shape yet.");
+    }
+
+    /**
+     * {@code upgrade-recipe} — writes the OpenRewrite recipe that takes a project below
+     * {@code doctor.platform.min_line} up to it. {@code --pass bump} emits the version bump, then a
+     * coordinate rename per {@code renames.dependencies} entry and a type rename per
+     * {@code renames.types} entry; {@code --pass properties} reads
+     * {@code META-INF/spring-configuration-metadata.json} out of every jar on {@code --classpath}
+     * and emits a property rename for each entry the jar itself declares as an error with a
+     * replacement. Which recipe each entry becomes, and with which options, is the {@code recipes}
+     * block of the same data, so the engine is swapped by editing it. Exit 2, nothing written, on a
+     * target that is malformed or below the floor, a project already at the floor, an entry the
+     * data does not spell as asked, or an option placeholder left unresolved; exit 0 and nothing
+     * written when the jars declare no rename.
+     *
+     * <p>Why a mode: the first design left the rename list to the model, which cannot be held by a
+     * test and would have been a second owner of what {@code dependency-catalog.md} already lists
+     * (invariant 2); the second would have copied a recipe module under a license that restricts
+     * derived products. Invoked by the {@code platform-upgrade} skill, by hand, never by a hook. The
+     * closest rejected form is a template recipe in the skill, which cannot read a jar's metadata.
+     *
+     * <p>Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md
+     */
+    static void upgradeRecipe(String[] args) throws Exception {
+        String project = null, pass = null, target = null, classpath = null, out = null;
+        for (int i = 1; i < args.length; i++) {
+            String a = args[i];
+            if (a.equals("--pass") && i + 1 < args.length) pass = args[++i];
+            else if (a.equals("--target") && i + 1 < args.length) target = args[++i];
+            else if (a.equals("--classpath") && i + 1 < args.length) classpath = args[++i];
+            else if (a.equals("--out") && i + 1 < args.length) out = args[++i];
+            else if (a.startsWith("--")) { err("❌ Unknown option: " + a); upgradeRecipeUsage(); System.exit(2); }
+            else if (project == null) project = a;
+            else { err("❌ Only one project is accepted, got also: " + a); upgradeRecipeUsage(); System.exit(2); }
+        }
+        boolean bump = "bump".equals(pass), props = "properties".equals(pass);
+        if (project == null || out == null || !(bump || props) || (bump && target == null)
+                || (props && classpath == null)) {
+            upgradeRecipeUsage();
+            System.exit(2);
+        }
+        Map<String, Object> spec = doctorSpec("platform");
+        Map<String, Object> up = spec == null ? null : asMap(spec.get("upgrade"));
+        Map<String, Object> recipes = up == null ? null : asMap(up.get("recipes"));
+        if (recipes == null) {
+            err("❌ No `doctor.platform.upgrade.recipes` block in " + SCHEMA_FILE
+                    + " — this mode reads what it emits from it.");
+            System.exit(2);
+        }
+        Path outFile = Paths.get(out).toAbsolutePath().normalize();
+        StringBuilder yaml = new StringBuilder();
+        int count;
+
+        if (bump) {
+            String floor = asStr(spec.get("min_line"));
+            String pattern = asStr(up.get("target_pattern"));
+            if (pattern == null || !target.matches(pattern)) {
+                err("❌ --target is a Spring Boot version such as `4.1.1`, matching `" + pattern
+                        + "` (`doctor.platform.upgrade.target_pattern`), got: " + target);
+                err("   Resolve it from the Initializr's metadata, never from memory (invariant 8).");
+                System.exit(2);
+            }
+            String targetLine = target.substring(0, target.indexOf('.', target.indexOf('.') + 1));
+            if (floor != null && lineBelow(targetLine, floor)) {
+                err("❌ --target " + target + " is below the floor " + floor + " of `doctor.platform.min_line`."
+                        + " Nothing was written.");
+                System.exit(2);
+            }
+            String line = bootLine(Paths.get(project).toAbsolutePath().normalize(), spec);
+            if (line != null && floor != null && !lineBelow(line, floor)) {
+                err("❌ " + project + " is already on Spring Boot " + line + ", at or above the floor " + floor
+                        + ". Nothing was written; there is nothing to upgrade.");
+                System.exit(2);
+            }
+            List<String> list = new ArrayList<>();
+            Map<String, String> fixed = Map.of("target", target);
+            for (Object e : asList(recipes.get("bump"))) list.add(recipeEntry(e, fixed));
+            Map<String, Object> renames = asMap(up.get("renames"));
+            for (Object d : asList(renames == null ? null : renames.get("dependencies"))) {
+                String[] from = coordinate(asStr(get(d, "from"))), to = coordinate(asStr(get(d, "to")));
+                Map<String, String> ph = Map.of("from_group", from[0], "from_artifact", from[1],
+                        "to_group", to[0], "to_artifact", to[1]);
+                for (Object t : asList(recipes.get("dependency"))) list.add(recipeEntry(t, ph));
+            }
+            for (Object d : asList(renames == null ? null : renames.get("types"))) {
+                Map<String, String> ph = Map.of("from", orEmpty(asStr(get(d, "from"))),
+                        "to", orEmpty(asStr(get(d, "to"))));
+                for (Object t : asList(recipes.get("type"))) list.add(recipeEntry(t, ph));
+            }
+            yaml.append(recipeYaml(asStr(recipes.get("bump_name")), "Spring Boot " + target + " — version, coordinates, types", list));
+            count = list.size();
+        } else {
+            String entry = asStr(up.get("metadata_entry"));
+            String level = asStr(get(up, "metadata_deprecation", "level"));
+            if (entry == null || level == null) {
+                err("❌ `doctor.platform.upgrade` has no `metadata_entry` or `metadata_deprecation.level`.");
+                System.exit(2);
+            }
+            Path cp = Paths.get(classpath).toAbsolutePath().normalize();
+            String raw = readOrNull(cp);
+            if (raw == null) { err("❌ --classpath " + cp + " is not a readable file."); System.exit(2); }
+            Map<String, String> renamed = new TreeMap<>();
+            int jars = 0;
+            for (String piece : raw.split("[\\r\\n" + Pattern.quote(File.pathSeparator) + "]+")) {
+                Path jar = Paths.get(piece.trim());
+                if (piece.isBlank() || !piece.trim().endsWith(".jar") || !Files.isRegularFile(jar)) continue;
+                jars++;
+                try (ZipFile zip = new ZipFile(jar.toFile())) {
+                    var e = zip.getEntry(entry);
+                    if (e == null) continue;
+                    Map<String, Object> meta;
+                    try (InputStream in = zip.getInputStream(e)) {
+                        meta = asMap(Json.parse(readAll(in)));
+                    }
+                    for (Object p : asList(meta == null ? null : meta.get("properties"))) {
+                        String key = asStr(get(p, "name"));
+                        String replacement = asStr(get(p, "deprecation", "replacement"));
+                        if (key == null || replacement == null || replacement.isBlank() || key.equals(replacement)
+                                || !level.equals(asStr(get(p, "deprecation", "level")))) continue;
+                        renamed.putIfAbsent(key, replacement);
+                    }
+                }
+            }
+            if (renamed.isEmpty()) {
+                System.out.println("ℹ️  upgrade-recipe: " + jars + " jar(s) on the classpath declare no property"
+                        + " rename — nothing written.");
+                return;
+            }
+            List<String> list = new ArrayList<>();
+            for (var r : renamed.entrySet()) {
+                Map<String, String> ph = Map.of("key", r.getKey(), "replacement", r.getValue());
+                for (Object t : asList(recipes.get("property"))) list.add(recipeEntry(t, ph));
+            }
+            yaml.append(recipeYaml(asStr(recipes.get("properties_name")), "Spring Boot property renames", list));
+            count = renamed.size();
+        }
+        if (outFile.getParent() != null) Files.createDirectories(outFile.getParent());
+        Files.writeString(outFile, yaml.toString(), StandardCharsets.UTF_8);
+        System.out.println("✅ upgrade-recipe: " + pass + " — " + count + (bump ? " recipe step(s)" : " property rename(s)")
+                + " written to " + outFile);
+    }
+
+    /** `group:artifact` as two parts; exit 2 naming the entry when it is anything else. */
+    private static String[] coordinate(String gav) {
+        String[] p = gav == null ? new String[0] : gav.split(":", -1);
+        if (p.length != 2 || p[0].isBlank() || p[1].isBlank()) {
+            err("❌ `doctor.platform.upgrade.renames.dependencies` entries are `group:artifact`, got: " + gav);
+            System.exit(2);
+        }
+        return p;
+    }
+
+    /** One recipe of a `recipes` template: its type, then its options with the placeholders resolved. */
+    private static String recipeEntry(Object template, Map<String, String> placeholders) {
+        String type = asStr(get(template, "type"));
+        Map<String, Object> options = asMap(get(template, "options"));
+        if (type == null) { err("❌ A `recipes` entry of `doctor.platform.upgrade` has no `type`."); System.exit(2); }
+        StringBuilder sb = new StringBuilder("  - " + type + ":\n");
+        if (options != null) {
+            for (var o : options.entrySet()) {
+                String v = asStr(o.getValue());
+                if (v == null) { err("❌ Option `" + o.getKey() + "` of " + type + " is not a string."); System.exit(2); }
+                for (var p : placeholders.entrySet()) v = v.replace("${" + p.getKey() + "}", p.getValue());
+                if (v.contains("${")) {
+                    err("❌ Option `" + o.getKey() + "` of " + type + " keeps a placeholder with no value: " + v);
+                    System.exit(2);
+                }
+                sb.append("      ").append(o.getKey()).append(": ").append(yamlQuote(v)).append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String yamlQuote(String v) {
+        return '"' + v.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
+
+    private static String recipeYaml(String name, String display, List<String> entries) {
+        if (name == null) { err("❌ `doctor.platform.upgrade.recipes` names no recipe for this pass."); System.exit(2); }
+        StringBuilder sb = new StringBuilder("---\ntype: specs.openrewrite.org/v1beta/recipe\nname: " + name
+                + "\ndisplayName: " + yamlQuote(display)
+                + "\ndescription: \"Written by ArchHook upgrade-recipe from doctor.platform.upgrade; do not edit.\""
+                + "\nrecipeList:\n");
+        for (String e : entries) sb.append(e);
+        return sb.toString();
     }
 
     /** The `Platform` line: the Spring Boot line the build declares against the floor. Reported, never gated. */
