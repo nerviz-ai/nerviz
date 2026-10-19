@@ -184,8 +184,16 @@ write into `.claude/`. So there are two kinds of outcome, and they should not be
 |---|---|---|
 | Not a git repository, or `git status --porcelain` was not empty | 1 | stops; nothing written |
 | Fetch without credentials, or an HTTP error | 3 | stops; `--fail` turns the 404 into an error rather than a broken tarball |
-| Spring Boot **below** `doctor.platform.min_line` (today `4.0`) | 5 | `export` exits 2 before writing a byte; there is no `--force` |
+| Spring Boot **below** `doctor.platform.min_line` (today `4.0`) | 5 | `export` exits 2 before writing a byte; there is no `--force`. The way up is `/platform-upgrade` (below) |
 | `schema` does not exit 0 after the export | 6 | the files are already written; the report shows the failure **first** and steps 7 to 9 do not run |
+
+**The way up is `/platform-upgrade`.** Inside the same project, it takes the build to the line the
+Initializr serves today — the version bump, the renamed starters and test slices, the renamed
+configuration properties — through a recipe that `ArchHook.jar upgrade-recipe` writes from
+`doctor.platform.upgrade` and from the jars' own metadata, run by the Apache-2.0 OpenRewrite core
+through the project's Maven or Gradle wrapper. A guided pass then fixes what no rename covers until
+the build is green. It refuses a dirty worktree, never commits, and ends by printing `/arch-adopt`.
+The plugin delivers it next to `arch-adopt`; an adopted project keeps it for the next floor.
 
 The version floor is only a floor: **there is no ceiling**. Spring Boot 5.x passes, and
 the norms and exemplars written for the 4 line may diverge from it with no warning from
