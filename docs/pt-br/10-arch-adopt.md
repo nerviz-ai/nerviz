@@ -196,7 +196,7 @@ de configuração renomeadas — por uma receita que o `ArchHook.jar upgrade-rec
 roda pelo wrapper Maven ou Gradle do projeto. Uma passada guiada corrige o que nenhum rename cobre,
 até o build ficar verde. Ele recusa worktree suja, nunca faz commit e termina imprimindo
 `/arch-adopt`. O plugin o entrega ao lado do `arch-adopt`; um projeto adotado o mantém para o
-próximo piso.
+próximo piso. O workflow completo está em [15-platform-upgrade.md](15-platform-upgrade.md).
 
 O piso de versão é só um piso: **não existe teto**. Um Spring Boot 5.x passa, e as normas e
 exemplares escritos para a linha 4 podem divergir dele sem nenhum aviso do `arch-adopt`.
