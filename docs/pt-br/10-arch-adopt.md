@@ -186,8 +186,17 @@ O `arch-adopt` não avalia o código do projeto. Ele só decide se é seguro esc
 |---|---|---|
 | Não é repositório git, ou `git status --porcelain` não veio vazio | 1 | para; nada escrito |
 | Fetch sem credencial, ou erro HTTP | 3 | para; `--fail` transforma o 404 em erro, não em tarball quebrado |
-| Spring Boot **abaixo** de `doctor.platform.min_line` (hoje `4.0`) | 5 | `export` sai com 2 antes de escrever um byte; não existe `--force` |
+| Spring Boot **abaixo** de `doctor.platform.min_line` (hoje `4.0`) | 5 | `export` sai com 2 antes de escrever um byte; não existe `--force`. O caminho para cima é o `/platform-upgrade` (abaixo) |
 | `schema` não sai com 0 depois do export | 6 | os arquivos já foram escritos; o relatório mostra a falha **antes** de tudo e os passos 7 a 9 não rodam |
+
+**O caminho para cima é o `/platform-upgrade`.** No mesmo projeto, ele leva o build até a linha que
+o Initializr serve hoje — o bump de versão, os starters e slices de teste renomeados, as propriedades
+de configuração renomeadas — por uma receita que o `ArchHook.jar upgrade-recipe` escreve a partir de
+`doctor.platform.upgrade` e dos metadados dos próprios jars, e que o núcleo OpenRewrite (Apache 2.0)
+roda pelo wrapper Maven ou Gradle do projeto. Uma passada guiada corrige o que nenhum rename cobre,
+até o build ficar verde. Ele recusa worktree suja, nunca faz commit e termina imprimindo
+`/arch-adopt`. O plugin o entrega ao lado do `arch-adopt`; um projeto adotado o mantém para o
+próximo piso.
 
 O piso de versão é só um piso: **não existe teto**. Um Spring Boot 5.x passa, e as normas e
 exemplares escritos para a linha 4 podem divergir dele sem nenhum aviso do `arch-adopt`.
