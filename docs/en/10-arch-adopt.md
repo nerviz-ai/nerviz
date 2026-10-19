@@ -167,6 +167,98 @@ it already exists in the destination and changes. Running it twice into the same
 destination produces byte-identical trees outside the stamp — determinism verified across
 the 9 official blueprints on every change to the manifest.
 
+## A project not generated here: what blocks and what does not
+
+`arch-adopt` does not assess the project's code. It only decides whether it is safe to
+write into `.claude/`. So there are two kinds of outcome, and they should not be confused:
+
+- **`arch-adopt` stops** — nothing (or almost nothing) is written, and the person fixes
+  it before trying again.
+- **`arch-adopt` finishes, and `/arch-doctor` points it out** — what it finds becomes a
+  report line, and only the lines of `doctor.gate.labels` fail CI (see
+  [04-arch-doctor.md § What blocks CI](04-arch-doctor.md#what-blocks-ci-and-what-does-not)).
+
+### What makes `arch-adopt` stop
+
+| Situation | Step | Effect |
+|---|---|---|
+| Not a git repository, or `git status --porcelain` was not empty | 1 | stops; nothing written |
+| Fetch without credentials, or an HTTP error | 3 | stops; `--fail` turns the 404 into an error rather than a broken tarball |
+| Spring Boot **below** `doctor.platform.min_line` (today `4.0`) | 5 | `export` exits 2 before writing a byte; there is no `--force` |
+| `schema` does not exit 0 after the export | 6 | the files are already written; the report shows the failure **first** and steps 7 to 9 do not run |
+
+The version floor is only a floor: **there is no ceiling**. Spring Boot 5.x passes, and
+the norms and exemplars written for the 4 line may diverge from it with no warning from
+`arch-adopt`. A build that hides its version (corporate parent, external BOM) passes too,
+because no `line_patterns` entry reads it.
+
+### What does not make it stop
+
+| Scenario | What `arch-adopt` does | `/arch-doctor` afterwards | Blocks CI? |
+|---|---|---|---|
+| Spring Boot 5.x | installs normally | `Platform` ✅ | no |
+| Unreadable Boot version | installs normally | `Platform` ⚪ | no |
+| Architecture outside every blueprint, no DDD | step 4: no blueprint matches, so it offers the existing ones and `custom.template.yaml`, stating the cost. Nearly matching is the dangerous case: it names the packages that differ before anything else. `src/` stays untouched | `Boundaries` ❌ until `boundary-map` runs; then `Boundary violations` ❌ listing `file → prefix` | **yes**, both |
+| No tests at all | nothing: step 6 only runs `schema` and `doctor`. `test-architect` is not chained | no line looks at `src/test` | no |
+| Already has its own `.claude/` | overwrites what has the **same path** as the manifest; what has another name survives. `settings.json` is overwritten **whole**, with no merge: the project's hooks and `permissions` disappear and show up in `git diff` | `Hooks` reflects only Nerviz's hooks. `Schema` ❌ if an own skill or agent has invalid frontmatter or no class in `skill_classes` / `agent_classes` | `Schema`, `Hooks` and `MCP`: **yes**. `Skill shadowing`: no |
+
+Two details on the last case:
+
+- `--dry-run` first. With files already at those paths, it is what shows the `Overwrites`
+  list before any byte is written.
+- With no `.arch-provenance.json` but a `.claude/rules/00-index.md`, the skill treats the
+  project as "adopted before the stamp": it shows the blueprint `00-index.md` cites and
+  asks for a single confirmation, instead of running the detection again.
+
+### Validation script
+
+Each fixture is a git repository with one commit. The base is a hexagonal project on Boot
+4.0 with tests and a wrapper; adjust the package names to the real `packages.map`
+(`ls .claude/blueprints/*/`).
+
+```
+f0-control/
+├── pom.xml                      # spring-boot-starter-parent 4.0.x
+├── mvnw, mvnw.cmd, .mvn/
+├── CLAUDE.md                    # no "Bounded context" or "**Transport:"
+└── src/
+    ├── main/java/com/acme/orders/
+    │   ├── domain/model/Order.java
+    │   ├── application/port/in/CreateOrderUseCase.java
+    │   ├── application/port/out/OrderRepository.java
+    │   ├── application/service/CreateOrderService.java
+    │   ├── adapter/in/web/OrderController.java
+    │   └── adapter/out/persistence/OrderJpaAdapter.java
+    └── test/java/com/acme/orders/CreateOrderServiceTest.java
+```
+
+| Fixture | Difference from the base | Expected result |
+|---|---|---|
+| F1a | parent `3.5.x`; F1d: `spring-boot = "3.5.1"` in `libs.versions.toml` | `export` exits 2, `git status --short` empty, no `.claude/` |
+| F1b | parent `5.0.x` | installs; `Platform` ✅ |
+| F1c | parent `com.acme:acme-parent` with no Boot version | installs; `Platform` ⚪ |
+| F2 | packages `controller/ service/ repository/ model/ util/`, no `src/test/` | step 4 finds no blueprint; `src/` untouched |
+| F2b | `application/usecase/` in place of `application/service/` | near-match warning naming both packages |
+| F3 | no `src/test/` | same as the base |
+| F4 | `.claude/settings.json` with its own hook, `rules/00-index.md`, a skill named like a Nerviz one, one with broken frontmatter, its own `.mcp.json` | `--dry-run` lists the `Overwrites`; `schema` fails on the broken skill; the own hook vanishes in `git diff` |
+| F5a | no `git init` | step 1 stops |
+| F5b | a modified, uncommitted file | step 1 stops |
+| F5c | the base already adopted, run again | update: the blueprint comes from the stamp, without asking |
+| F6 | F2 + F3 + F4 together | `Boundaries` ❌, `Schema` ❌, `Setup incomplete` footer, `src/` untouched |
+
+For every fixture:
+
+```bash
+# in the project: /arch-adopt --source <path to nerviz>
+java .claude/hooks/ArchHook.java schema </dev/null
+java .claude/hooks/ArchHook.java doctor
+java .claude/hooks/ArchHook.java doctor gate; echo "exit=$?"
+git diff --stat -- src          # must stay empty
+git log --oneline | head -1     # arch-adopt does not commit
+```
+
+Undo: `git checkout -- .claude && git clean -fd .claude`.
+
 ## What this command does not do
 
 - **Doesn't generate a project.** With no `pom.xml`/`build.gradle`, `/init-project` is what

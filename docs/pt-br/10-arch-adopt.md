@@ -169,6 +169,98 @@ existe no destino e muda. Rodar duas vezes no mesmo destino
 produz árvores byte-identical fora do stamp — determinismo verificado nos 9 blueprints
 oficiais a cada mudança do manifesto.
 
+## Projeto que não foi gerado aqui: o que bloqueia e o que não bloqueia
+
+O `arch-adopt` não avalia o código do projeto. Ele só decide se é seguro escrever em
+`.claude/`. Por isso há dois tipos de resultado, e convém não confundi-los:
+
+- **O `arch-adopt` para** — nada (ou quase nada) é escrito, e a pessoa corrige antes de
+  tentar de novo.
+- **O `arch-adopt` termina, e o `/arch-doctor` aponta** — o que ele encontra vira linha
+  do relatório, e só as linhas de `doctor.gate.labels` derrubam o CI (veja
+  [04-arch-doctor.md § O que bloqueia o CI](04-arch-doctor.md#o-que-bloqueia-o-ci-e-o-que-não-bloqueia)).
+
+### O que faz o `arch-adopt` parar
+
+| Situação | Passo | Efeito |
+|---|---|---|
+| Não é repositório git, ou `git status --porcelain` não veio vazio | 1 | para; nada escrito |
+| Fetch sem credencial, ou erro HTTP | 3 | para; `--fail` transforma o 404 em erro, não em tarball quebrado |
+| Spring Boot **abaixo** de `doctor.platform.min_line` (hoje `4.0`) | 5 | `export` sai com 2 antes de escrever um byte; não existe `--force` |
+| `schema` não sai com 0 depois do export | 6 | os arquivos já foram escritos; o relatório mostra a falha **antes** de tudo e os passos 7 a 9 não rodam |
+
+O piso de versão é só um piso: **não existe teto**. Um Spring Boot 5.x passa, e as normas e
+exemplares escritos para a linha 4 podem divergir dele sem nenhum aviso do `arch-adopt`.
+Um build que esconde a versão (parent corporativo, BOM externo) também passa, porque
+nenhum padrão de `line_patterns` o lê.
+
+### O que não faz parar
+
+| Cenário | O que o `arch-adopt` faz | `/arch-doctor` depois | Bloqueia o CI? |
+|---|---|---|---|
+| Spring Boot 5.x | instala normalmente | `Platform` ✅ | não |
+| Versão do Boot ilegível | instala normalmente | `Platform` ⚪ | não |
+| Arquitetura fora de qualquer blueprint, sem DDD | passo 4: nenhum blueprint casa, então oferece os existentes e o `custom.template.yaml`, dizendo o custo. Quase casar é o caso perigoso: avisa quais pacotes diferem antes de qualquer coisa. `src/` fica intocado | `Boundaries` ❌ até o `boundary-map` rodar; depois, `Boundary violations` ❌ listando `arquivo → prefixo` | **sim**, nas duas |
+| Sem nenhum teste | nada: o passo 6 só roda `schema` e `doctor`. O `test-architect` não é encadeado | nenhuma linha olha `src/test` | não |
+| Já tem `.claude/` próprio | sobrescreve o que tem o **mesmo caminho** que o manifesto; o que tem outro nome sobrevive. `settings.json` é sobrescrito **inteiro**, sem merge: hooks e `permissions` do projeto somem e aparecem no `git diff` | `Hooks` reflete só os hooks do Nerviz. `Schema` ❌ se uma skill ou agent próprio tiver frontmatter inválido ou nenhuma classe em `skill_classes` / `agent_classes` | `Schema`, `Hooks` e `MCP`: **sim**. `Skill shadowing`: não |
+
+Dois detalhes do último caso:
+
+- `--dry-run` primeiro. Com arquivos já presentes nesses caminhos, é ele que mostra a lista
+  de `Overwrites` antes de qualquer byte.
+- Sem `.arch-provenance.json`, mas com `.claude/rules/00-index.md`, a skill trata o projeto
+  como "adotado antes do stamp": mostra o blueprint que o `00-index.md` cita e pede uma só
+  confirmação, em vez de repetir a detecção.
+
+### Roteiro de validação
+
+Cada fixture é um repositório git com um commit. A base é um projeto hexagonal em Boot 4.0
+com testes e wrapper; ajuste os nomes de pacote aos `packages.map` reais
+(`ls .claude/blueprints/*/`).
+
+```
+f0-control/
+├── pom.xml                      # spring-boot-starter-parent 4.0.x
+├── mvnw, mvnw.cmd, .mvn/
+├── CLAUDE.md                    # sem "Bounded context" nem "**Transport:"
+└── src/
+    ├── main/java/com/acme/orders/
+    │   ├── domain/model/Order.java
+    │   ├── application/port/in/CreateOrderUseCase.java
+    │   ├── application/port/out/OrderRepository.java
+    │   ├── application/service/CreateOrderService.java
+    │   ├── adapter/in/web/OrderController.java
+    │   └── adapter/out/persistence/OrderJpaAdapter.java
+    └── test/java/com/acme/orders/CreateOrderServiceTest.java
+```
+
+| Fixture | Diferença para a base | Resultado esperado |
+|---|---|---|
+| F1a | parent `3.5.x`; F1d: `spring-boot = "3.5.1"` em `libs.versions.toml` | `export` sai com 2, `git status --short` vazio, sem `.claude/` |
+| F1b | parent `5.0.x` | instala; `Platform` ✅ |
+| F1c | parent `com.acme:acme-parent` sem versão do Boot | instala; `Platform` ⚪ |
+| F2 | pacotes `controller/ service/ repository/ model/ util/`, sem `src/test/` | passo 4 sem blueprint; `src/` intocado |
+| F2b | `application/usecase/` no lugar de `application/service/` | aviso de near-match nomeando os dois pacotes |
+| F3 | sem `src/test/` | igual à base |
+| F4 | `.claude/settings.json` com hook próprio, `rules/00-index.md`, uma skill com o nome de uma do Nerviz, uma com frontmatter quebrado, `.mcp.json` próprio | `--dry-run` lista os `Overwrites`; `schema` falha pela skill quebrada; hook próprio some no `git diff` |
+| F5a | sem `git init` | passo 1 para |
+| F5b | arquivo modificado e não commitado | passo 1 para |
+| F5c | base já adotada, rodar de novo | update: o blueprint vem do stamp, sem perguntar |
+| F6 | F2 + F3 + F4 juntos | `Boundaries` ❌, `Schema` ❌, rodapé `Setup incomplete`, `src/` intocado |
+
+Para toda fixture:
+
+```bash
+# no projeto: /arch-adopt --source <caminho do nerviz>
+java .claude/hooks/ArchHook.java schema </dev/null
+java .claude/hooks/ArchHook.java doctor
+java .claude/hooks/ArchHook.java doctor gate; echo "exit=$?"
+git diff --stat -- src          # tem que ficar vazio
+git log --oneline | head -1     # o arch-adopt não comita
+```
+
+Desfazer: `git checkout -- .claude && git clean -fd .claude`.
+
 ## O que este comando não faz
 
 - **Não gera projeto.** Sem `pom.xml`/`build.gradle`, é `/init-project` que você quer.

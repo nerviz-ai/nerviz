@@ -78,7 +78,7 @@ sequenceDiagram
 | `Hooks` | N registros válidos em M eventos | ❌ evento desconhecido, `matcher` em evento que não lê um, ou string de shell no `command` — os quatro modos de falhar silenciosamente de um hook. Também quando `enabledPlugins` não traz `"<id>": false` para um plugin de `settings.blocked_plugins` (decisão 0138) |
 | `Skill shadowing` | nenhuma pasta do diretório pessoal de skills (`$CLAUDE_CONFIG_DIR/skills`, ou `~/.claude/skills`) tem o nome de uma skill de `.claude/skills/` | ❌ lista as skills pessoais que substituem as do projeto — o Claude Code resolve um nome como enterprise > pessoal > projeto, então a pessoal roda no lugar, sem aviso. Renomear ou remover a pessoal. ⚪ sem o diretório. Estado da máquina: nunca entra no `doctor gate` (decisão 0138) |
 | `Agent instructions` | o `AGENTS.md` raiz, o `.github/copilot-instructions.md`, e para cada módulo do blueprint ativo com `forbidden_imports` um `AGENTS.md` listando todo prefixo, ao lado de um `CLAUDE.md` com `@AGENTS.md`; todo caminho citado entre crases existe | ⚠️ nomeia o arquivo que falta, o prefixo não listado, o `CLAUDE.md` que não importa — sem ele o Claude Code pula o `AGENTS.md` do módulo — e o caminho morto. Calada sem stamp de proveniência. Só reporta, nunca entra no `doctor gate`: quem recusa um import proibido é o build (decisão 0139) |
-| `Provenance` | nenhum arquivo do `.claude/` editado depois do stamp `.claude/.arch-provenance.json` | ⚠️ lista os arquivos editados localmente — um `arch-adopt` sobrescreveria cada um. No repositório de origem: `⚪ origin repository — writes stamps, carries none` |
+| `Provenance` | nenhum arquivo do `.claude/` editado depois do stamp `.claude/.arch-provenance.json` | ❌ lista os arquivos editados localmente — um `arch-adopt` sobrescreveria cada um; ⚠️ sem stamp — este `.claude/` não foi escrito por `export`. No repositório de origem: `⚪ origin repository — writes stamps, carries none` |
 | `Compose` | todo serviço do compose `running`, nenhuma porta declarada ocupada por container alheio, nenhuma tag de `image:` divergindo da que `src/test` fixa em `DockerImageName.parse`, e toda porta publicada no host anunciada em um endereço que o host resolve, e todo `${VAR:default}` que aponta para um serviço do compose valendo no host e no container `app` | ❌ serviço em `created`/`exited`, porta publicada por outro projeto quando já existe container deste projeto (antes disso, um aviso ⚠️), tag divergente, ou serviço que publica porta anunciando só o hostname da rede do compose, ou placeholder cujo default o host não alcança ou que o `app` não sobrescreve — detalhe linha a linha. A comparação de tags, a checagem de endereço anunciado e a de placeholders não precisam de Docker: leem os arquivos |
 | `git HEAD` | existe pelo menos 1 commit | ❌ sem commits — o hook `tests` não roda (`git diff HEAD` falha) |
 | `UC references` | toda pasta `docs/use-cases/UC-NNN-slug/` citada por um arquivo versionado existe no disco | ❌ citação órfã, com arquivo e linha — apagar ou renomear um caso de uso deixa as citações para trás, e cada uma estava correta no commit que a escreveu. Sem `docs/use-cases/`, "nothing to check (optional)" — é o caso deste meta-repo |
@@ -87,6 +87,89 @@ sequenceDiagram
 A linha final resume: `✅ Setup operational.` só aparece quando **ao mesmo tempo**
 `Boundaries` tem regras > 0 **e** o wrapper do Maven foi encontrado. Qualquer outra
 combinação vira `⚠️ Setup incomplete — see marked lines above.`
+
+## O que bloqueia o CI e o que não bloqueia
+
+O `doctor` tem duas formas, e só uma delas bloqueia alguma coisa:
+
+| Forma | Exit | Onde roda |
+|---|---|---|
+| `java .claude/hooks/ArchHook.java doctor` (é o que o `/arch-doctor` injeta) | sempre 0 — só imprime | na máquina de quem pediu |
+| `java .claude/hooks/ArchHook.java doctor gate` | 1 quando uma linha de `doctor.gate.labels` imprimiu ❌ | no job `architectural boundaries` do CI do projeto gerado |
+
+O `doctor` não participa do build Maven ou Gradle: quem recusa compilar é o próprio build
+(Checkstyle, ArchUnit, JaCoCo). O que o `doctor gate` bloqueia é o job de CI. O rodapé
+`Setup incomplete` também não bloqueia nada — o veredito do gate vem das linhas listadas
+abaixo, não do rodapé.
+
+A regra de corte (decisão 0128): entra no gate o check de um **arquivo versionado que um
+push pode quebrar**. Fica de fora o que é estado do runner ou da máquina, e o que é só
+defeito de documentação. A lista é dado — `doctor.gate.labels` em
+`.claude/schemas/extensions.json` — e cada label bate com o primeiro argumento de
+`report(...)` em `ArchHook.java`.
+
+### Bloqueiam o CI
+
+| Linha | Por que bloqueia |
+|---|---|
+| `Boundaries` | `forbidden-imports.txt` é versionado; sem regra, a fronteira não é aplicada em ninguém |
+| `Boundary violations` | um import proibido commitado quebra quem clonar; é a única linha que lê código-fonte (decisão 0140) |
+| `Schema` | frontmatter inválido é um arquivo versionado quebrado |
+| `Hook jar` | com um jar defasado todo hook sai com 1, o que não bloqueia: a proteção some em silêncio |
+| `Hooks` | o runtime ignora, sem erro, um evento desconhecido ou um `matcher` que o evento não lê |
+| `MCP` | inclui a varredura de segredo literal no `.mcp.json` (invariante 11) |
+| `Audit overrides` | os overrides moram em arquivo versionado |
+
+### Não bloqueiam o CI
+
+| Linha | Por que não bloqueia |
+|---|---|
+| `CLAUDE_PROJECT_DIR` | estado do runner — o CI nunca define a variável |
+| `Compose` | estado do runner — o CI não sobe os serviços |
+| `Maven wrapper` | o job de build já falha sem ele; e o check não enxerga `gradlew`, então num projeto Gradle fica sempre ❌ |
+| `Audit` | só mede gasto; não gateia nada |
+| `git HEAD` | num checkout de CI é sempre verdadeiro |
+| `UC references`, `BL references` | defeito de documentação |
+| `Mods` | estado da máquina — depende de qual `claude` está no PATH; calada onde não há pasta de mods, como num projeto gerado |
+| `Skill shadowing` | o runner de CI não tem skills pessoais |
+| `Agent instructions` | gatear deixaria vermelho todo projeto adotado sem esses arquivos (decisão 0139) |
+| `Platform`, `Virtual threads` | imprimem ⚠️ ou ⚪, nunca ❌ — não há como falhar o gate |
+| `Provenance`, `Plan limits`, `Audit rule inference` | fora de `doctor.gate.labels` |
+
+Quatro detalhes que mudam o resultado:
+
+- **O gate só enxerga ❌ impresso por `report(...)`.** Uma linha ⚠️ ou ⚪ não bloqueia nem
+  se alguém a listar em `gate.labels`: o código da linha teria de mudar também.
+- **Linha que não é impressa passa.** Sem `.mcp.json`, sem `.claude/audit-usage/`, sem
+  pasta de mods, a linha nem aparece e o gate segue.
+- **Lista vazia ou ausente falha fechada**, com exit 1. Um `/arch-adopt` em modo update
+  reescreve a lista.
+- **Um ❌ fora do gate continua sendo um ❌.** Ele não derruba o CI, mas é o que o
+  `/arch-doctor` aponta — e o rodapé `Setup incomplete` só considera `Boundaries` e o wrapper.
+
+### Projeto adotado com `/arch-adopt`
+
+O `export` não escreve `.claude/forbidden-imports.txt`. Quem o escreve é o `boundary-map`,
+que `project-bootstrap` § 5 roda na geração. Num projeto adotado, o `doctor` mostra:
+
+```
+  Boundaries          ❌ 0 rules — ENFORCEMENT OFF. Generated by /init-project
+  Boundary violations ✅ nothing to sweep — no boundary rule
+  ...
+⚠️  Setup incomplete — see marked lines above.
+```
+
+`Boundaries` está no gate. Se o projeto tem um job de CI que roda `doctor gate`, ele falha
+nessa linha até o arquivo existir — e o `arch-adopt` só escreve em `.claude/`, então esse
+job também precisa existir por outra via. Para gerar o arquivo:
+
+```bash
+java .claude/hooks/ArchHook.java boundary-map . --blueprint <id> --package <base.package>
+```
+
+Com o arquivo no lugar, `Boundary violations` passa a varrer o código existente. Um
+projeto cuja arquitetura foge do blueprint falha o gate listando até 8 linhas
+`arquivo → prefixo`. Isso é o gate funcionando, não um defeito da adoção.
 
 ## Exemplo de invocação e saída (fictício, projeto `pedidos-api`)
 
