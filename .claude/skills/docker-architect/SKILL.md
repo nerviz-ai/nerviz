@@ -380,7 +380,7 @@ vendor on its own — but it is a starting point, not the end of the road: step 
 so the gap gets named out loud instead of waiting for someone to notice that "the traces
 work" and "I can see the traces" are different sentences.
 
-Other engines and brokers (Oracle, RabbitMQ, SQS via LocalStack) follow the same shape as
+Other engines and brokers (Oracle, RabbitMQ) follow the same shape as
 the templates above: image, fixed dev port, named volume for data, healthcheck,
 environment for user/password/database (or broker-equivalent). Write the block by hand
 from that shape; don't wait for a template to exist before extending a project that needs

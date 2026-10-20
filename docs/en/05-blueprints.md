@@ -90,7 +90,7 @@ is the one that actually translates `packages.map` into ArchUnit rules.
 Corollary for whoever writes a blueprint: adding a feature means adding a line to
 `project-bootstrap`'s `dependency-catalog.md`, not a code sample.
 
-## Validation rules (the 6 that `project-bootstrap` runs at step 2)
+## Validation rules (the 7 that `project-bootstrap` runs at step 2)
 
 1. The `depends_on` graph is acyclic.
 2. Exactly **one** module has `contains_main: true`.
@@ -99,6 +99,8 @@ Corollary for whoever writes a blueprint: adding a feature means adding a line t
 5. Under `layout: single-module`, `modules` has a single element, and
    `forbidden_imports` is enforced per package, not per module.
 6. `architecture_paths` exists and is not empty.
+7. `features.messaging-sqs` is absent or `false`. The feature was retired until a skill can
+   carry it; a blueprint that turns it on is refused.
 
 **There's no external validator, nothing to install** — this template assumes only
 the JDK, git, and curl — the Maven wrapper comes in the Initializr's `starter.tgz`. The
@@ -201,7 +203,7 @@ features:
   # ...
 ```
 
-Validation is the 6-rule checklist above, run by the agent at step 2 of
+Validation is the 7-rule checklist above, run by the agent at step 2 of
 `project-bootstrap` — the same validation any native blueprint goes through. There's
 no separate "publish" step: as soon as the `.yaml` exists and validates, it appears in
 the dynamic listing `init-project` shows during the interview

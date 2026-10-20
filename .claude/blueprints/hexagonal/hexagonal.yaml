@@ -190,7 +190,6 @@ features:
   uuid-v7: true # persistence.md requires UUID v7 and JDK 21 only generates v4
   flyway: true
   messaging-kafka: false
-  messaging-sqs: false
   openapi: true
   testcontainers: true
   actuator: true

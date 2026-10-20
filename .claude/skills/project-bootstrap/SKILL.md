@@ -164,6 +164,7 @@ Read the YAML and check, one by one:
 | 4 | Every `feature` referenced by a module exists in `features` | Stop and name the feature |
 | 5 | Every `templates.<role>` points to an existing file | Stop and name the path |
 | 6 | `architecture_paths` is not an empty list | Stop — without this, step 6.6 has nothing to write |
+| 7 | `features.messaging-sqs` is absent or `false` | Stop — the feature was retired (`@.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`): no skill or template delivers an SQS adapter. Say to set the key `false` or remove it |
 
 Don't invent defaults for `dependency_rules` — it's the backbone of the enforcement.
 
