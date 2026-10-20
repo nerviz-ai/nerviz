@@ -73,7 +73,7 @@ sequenceDiagram
         CMD->>AG: Agent tool com todas as respostas (contexto isolado, tools restritos, sem AskUserQuestion, model sonnet)
         AG->>BOOT: segue o procedimento definido
         BOOT->>BP: lista .claude/blueprints/*/*.yaml dinamicamente
-        BOOT->>BOOT: valida blueprint (6 regras — CLAUDE.md § _schema.md)
+        BOOT->>BOOT: valida blueprint (7 regras — CLAUDE.md § _schema.md)
         BOOT->>INIT: curl start.spring.io/starter.tgz (versões reais, nunca de memória)
         INIT-->>BOOT: starter.tgz (pom.xml, mvnw, Application.java)
         BOOT->>BOOT: restrutura por módulo (multi-module) ou packages (single-module)
@@ -130,7 +130,7 @@ principal e antes de delegar: build (já veio, também pula), **features**, TLS 
 (as perguntas de `transport-security-setup` e `sonarqube-setup`), no máximo quatro perguntas
 por chamada. O agent não pergunta nada. Features só são perguntadas onde o blueprint as marca
 `false`: o `hexagonal` já liga REST, JPA+Flyway, OpenAPI, Testcontainers e Actuator, então a
-única pergunta oferece Kafka e SQS. Suponha que o usuário não marca nenhuma.
+única pergunta oferece Kafka, como sim ou não. Suponha que o usuário responde não.
 
 O **contexto delimitado** (`--bounded-context`) é uma pergunta própria, com o artifactId
 como default. É um fato do projeto, não uma resposta por

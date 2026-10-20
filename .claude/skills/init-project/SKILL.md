@@ -49,8 +49,11 @@ $ARGUMENTS
       rest typed by `id` under Other. Never a list written by hand.
    2. *Build* — Maven or Gradle.
    3. *Features* — multi-select, and **only** over the features the chosen blueprint sets
-      `false`, among REST, JPA + Flyway, Kafka, SQS, OpenAPI, Testcontainers, Actuator. Every
-      feature it sets `true` is already confirmed and never asked. None `false` → no question.
+      `false`, among REST, JPA + Flyway, Kafka, OpenAPI, Testcontainers, Actuator. Every
+      feature it sets `true` is already confirmed and never asked. None `false` → no question;
+      exactly one `false` → a single-select with two options, on and off, since a multi-select
+      with one option is refused. SQS is not offered: it was retired until a skill can carry it
+      (`@.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`).
       An active feature is a dependency and its configuration, never business code
       (`@.claude/decisions/0011-bootstrap-without-business-code.md`); ArchUnit and coverage are
       not asked, `test-architect` installs them later.

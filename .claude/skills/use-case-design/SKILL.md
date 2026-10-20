@@ -74,7 +74,7 @@ Pinned to `opus`: the partial is what the executor implements verbatim. A pinned
 
 | Doesn't decide | Why | Who decides |
 |---|---|---|
-| Kafka or SQS | The broker is an architecture choice, fixed earlier: the blueprint's `features` | The user, in `/init-project` |
+| Which broker | The broker is an architecture choice, fixed earlier: the blueprint's `features` | The user, in `/init-project` |
 | **Weighing** relational, document or search for a case — scenarios, trade-offs, pros and cons, a recommendation | A decision interview is a different job from recording a fact. This skill records the storage family and the search engine the request states, or asks one factual question when it does not (step 3, the `Storage` block); it never argues for one | A planned solution-design step, which will write the same `Storage` and `Search index` rows |
 | Which design pattern to apply | A pattern shapes the classes of one layer, and this spec fixes no class | Each layer's partial, through `gof-design-patterns` § Design-time use |
 | Writing classes, tests, or migrations | The spec describes what to create; creating is a different phase | The layer skills and, eventually, the executor agent |

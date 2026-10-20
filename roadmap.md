@@ -260,6 +260,8 @@ mixed team reports a gap it did not close.
 
 - [ ] `/refactoring` — new orchestrating, invocable skill
 - [ ] `/solution-design-architect` — new orchestrating, invocable skill
+- [ ] `aws-architect` — brings SQS (and SNS) back as a blueprint feature, with its adapter skill and
+      templates; the retirement is `.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`
 
 Done: GitHub remote-repo creation in `project-initializer`, shipped as the `git-publish`
 skill (Form 1, decision matrix § 2.1 CLI-first check — `gh repo create` + `git push`,

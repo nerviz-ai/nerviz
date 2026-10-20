@@ -8,7 +8,6 @@ Used in step 3 to build the `-d dependencies=` parameter.
 | `persistence-jpa` | `data-jpa` | Also adds the driver: `postgresql`, `mysql`, `h2` |
 | `flyway` | `flyway` | Migrations in `db/migration` |
 | `messaging-kafka` | `kafka` | |
-| `messaging-sqs` | — | Doesn't exist in the Initializr; add `spring-cloud-aws-starter-sqs` by hand |
 | `openapi` | — | Doesn't exist in the Initializr; add `springdoc-openapi-starter-webmvc-ui` |
 | `testcontainers` | `testcontainers` | Adds the module for the chosen DB |
 | `actuator` | `actuator` | |
@@ -91,7 +90,7 @@ In a multi-module layout, dependencies **don't** all go to the root:
 |---|---|
 | `web`, `springdoc` | inbound REST adapter |
 | `data-jpa`, driver, `flyway` | outbound persistence adapter |
-| `kafka`, `sqs` | messaging adapter |
+| `kafka` | messaging adapter |
 | `actuator`, `observability` | bootstrap |
 | `validation` | wherever validation happens — never in `domain` |
 | `uuid-v7` | wherever the id is generated: the application layer, not `domain` |

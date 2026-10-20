@@ -72,6 +72,9 @@ Corollary for whoever writes a blueprint: adding a feature means adding a line t
 5. Under `layout: single-module`, `modules` has a single element and
    `forbidden_imports` is enforced per package, not per module.
 6. `architecture_paths` exists and is not empty.
+7. `features.messaging-sqs` is absent or `false`. The feature was retired
+   (`@.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`); a blueprint that sets it `true` is
+   refused, and the key is set `false` or removed.
 
 ## Creating your own blueprint
 
