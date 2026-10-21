@@ -81,6 +81,12 @@ jobs:
       - name: hook blocks forbidden import, from the payload and from argv
         run: java .claude/.ci/BoundaryTest.java
 
+      # Issue #167: `check` and `doctor` resolved `mvnw` only, so a Gradle project — a supported
+      # `build.tool` — got no incremental compile and a red `Maven wrapper` forever (0180). The
+      # tools are `build_tools` data now; a fake wrapper records what each one is handed.
+      - name: check compiles with the project's Maven or Gradle wrapper
+        run: java .claude/.ci/BuildToolTest.java
+
       # Issue #60: `moduleOf` never looked at the root POM, so `format`, `check` and `tests`
       # returned before calling Maven in every single-module project, silently (0107).
       - name: format, check and tests hand Maven the module the edited file belongs to

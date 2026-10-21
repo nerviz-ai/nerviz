@@ -76,14 +76,19 @@ same scenario is a contract bug.
 
 ## Errors — 400 family
 
-Distinction that decides almost every case: **400 is shape, 422 is rule.** A body that
+Distinction that decides almost every case: **400 is input, 422 is rule.** A body that
 doesn't parse, has the wrong type, or is missing a required field never reaches the
-domain — it's 400. A valid body that the aggregate rejects is 422.
+domain — it's 400. A field value that a value object refuses at construction — an email with
+no `@`, a negative quantity — reaches the domain and is still input the caller got wrong:
+400, through `ValidationException` (`@.claude/rules/error-handling.md`). A well-formed
+request whose values are each valid, and that the aggregate rejects by a business rule —
+the email is already registered, the order is already shipped — is 422.
 
 | Scenario | Status |
 |---|---|
 | Malformed JSON, incompatible type, unknown enum | 400 |
 | Bean validation on the DTO, invalid query or path param | 400 |
+| A field value a value object refuses at construction (`ValidationException`) | 400 |
 | Required `Idempotency-Key` missing or malformed | 400 |
 | API version not supported — never offered, or past its sunset | 400 |
 | No credential, invalid or expired credential | 401 |
@@ -166,10 +171,12 @@ is not structural — the request was well formed and refused for load — and c
   and in a path matcher, and a header splits one cached URL into several representations
   that only `Vary` tells apart.
 - **The framework's API versioning resolves it, from one configuration per project.** The
-  `/api/v{version}` prefix is added by configuration to the REST adapter package's
-  controllers alone, never spelled in a class mapping — a framework's own controller
-  (the OpenAPI endpoint) must not receive it. The version is read only from paths under
-  `/api/`, so `/actuator` and the OpenAPI endpoints are never parsed as a version.
+  `/api/v{version}` prefix is added by configuration to the application's own REST
+  controllers — every one under the application's base package, in whichever module or
+  adapter package it lives — never spelled in a class mapping; a framework's own controller
+  (the OpenAPI endpoint) sits outside that package and must not receive it. The version is
+  read only from paths under `/api/`, so `/actuator` and the OpenAPI endpoints are never
+  parsed as a version.
 - **A version is required under `/api/`, and the supported versions are an explicit list.**
   The prefix makes the segment part of every project mapping, so a request names a version
   or matches no mapping. The framework's own "version required" flag stays **off**: it

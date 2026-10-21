@@ -247,7 +247,7 @@ Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is 
 - [ ] 16. Test fixtures
 - [ ] 17. Unit tests
 - [ ] 18. Integration + contract tests
-- [ ] 19. `./mvnw verify` — green build, coverage gate
+- [ ] 19. `./mvnw verify` (Gradle: `./gradlew build`) — green build, coverage gate
 
 ---
 
@@ -259,7 +259,7 @@ differently; empty when there were none.
 
 | Fact | Discarded value | Adopted value | Decided by |
 |---|---|---|---|
-| Invalid payload status | `422` (`00-use-case.md`) | `400` | `30-rest.md` — `422` is reserved for business-rule violations |
+| Status when a value object refuses a field | `422` (`00-use-case.md`) | `400` | `30-rest.md` — a refused field is input; `422` is reserved for business-rule violations |
 
 <!--
 HOW TO USE THIS:
