@@ -28,7 +28,7 @@ trade_offs:
 
 build:
   layout: single-module
-  tool: maven
+  tool: maven   # default — /init-project offers maven | gradle
 
 # Broad on purpose. Domain/application/adapter repeat once per bounded-context module
 # (`order.internal.domain`, `inventory.internal.domain`, ...) and the module names

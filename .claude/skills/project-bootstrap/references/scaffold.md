@@ -137,7 +137,7 @@ package com.example.demoapp.commons.logging;
 | `observability` | Merges `templates/features/observability/application-observability.yml.example` into the same `application.yml` — the tracing bridge's export destination. Owned exemplar, same mechanism as `actuator`'s; the container it points at is provisioned in step 4.10, not here. Also adds the method in `templates/features/observability/ApplicationTests-tracer.java.example` to the generated `*ApplicationTests`: a context that starts without a `Tracer` bean is a generation gap, and nothing else catches it before the first use case |
 | `flyway` | Creates `src/main/resources/db/migration/` in the module with the `infrastructure.persistence` role, **empty**. No `.gitkeep` and no `V1__`: `spring.flyway.fail-on-missing-locations` defaults to `false` (verified in `spring-boot-flyway`'s metadata), so a missing or empty location doesn't break startup. The first migration comes from `java-spring-boot-developer`, materialized from the SQL `persistence-architect` fixed in the partial |
 | `persistence-jpa`, `rest`, `openapi`, `testcontainers`, `archunit` | Nothing here. They're dependencies (step 3) and POM configuration (step 4). The code that uses them comes from the first feature |
-| `spring-modulith` | Writes `<main-module>/src/test/java/**/ModularityTests.java`, from `templates/features/spring-modulith/ModularityTests.java.example`, adjusting only the package and the `@SpringBootApplication` class reference. Safe to write now, unlike ArchUnit — `ApplicationModules.of(...).verify()` passes meaningfully over zero modules; it isn't gated behind business code existing |
+| `spring-modulith` | Writes `<main-module>/src/test/java/**/ModularityTests.java`, from `templates/features/spring-modulith/ModularityTests.java.example`, adjusting only the package and the `@SpringBootApplication` class reference. Safe to write now, unlike ArchUnit — `ApplicationModules.of(...).verify()` passes meaningfully over zero modules; it isn't gated behind business code existing. Also writes `<main-module>/src/main/java/<package of the `shared` role>/package-info.java` from `templates/features/spring-modulith/shared-package-info.java.example`, replacing the one sentence 4.7.a wrote there: the blueprint declares `shared` as `@ApplicationModule(type = OPEN)` and nothing else marks it. `ModularityTests` runs under both build tools (`rules/testing.md` § Names and shape), so a missing marker fails the first module that imports a `shared` type |
 
 **No business classes.** No entity, no controller, no use case, no migration with a
 table. Each one's shape has an owner — `domain-modeling`, `persistence-architect`,
@@ -256,6 +256,15 @@ that second category — a made-up aggregate competing with a real spec — not 
      `localhost`, silently.
    - A feature with no service template (`rest`, `openapi`, `testcontainers`, `flyway`
      — Flyway rides on the same Postgres connection, `archunit`) adds nothing here.
+   - **No `latest` image survives in `TestcontainersConfiguration.java`.** The Initializr
+     writes `postgres:latest` and, with `messaging-kafka`, `apache/kafka-native:latest`.
+     Set the Postgres tag to the one of the service just merged — `ArchHook.java compose`
+     fails on the pair otherwise — and **remove the Kafka container and its `@ServiceConnection`
+     bean**: the project has no producer or consumer yet, so every context test would start a
+     broker nothing uses, and no compose service exists to compare its tag with. The first
+     messaging case adds it back, through `test-architect`, with compose's repository and tag.
+     Any other `latest` the Initializr wrote gets the tag of the matching `docker-architect`
+     template; with no template, say it in the Output contract (`verify-and-report.md` § 8).
 4. Same rule as § andaime (step 4): the exemplar's top comment explaining *why* stays;
    anything describing the file as a template goes.
 

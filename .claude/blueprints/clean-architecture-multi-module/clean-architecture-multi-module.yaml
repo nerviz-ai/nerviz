@@ -19,7 +19,7 @@ trade_offs:
 
 build:
   layout: multi-module
-  tool: maven
+  tool: maven   # default — /init-project offers maven | gradle
 
 # Globs that identify the code covered by `rules/architecture-ddd.md` (DDD +
 # dependency direction). They go verbatim into the `paths` frontmatter of the file the
