@@ -66,11 +66,17 @@ modules:
 # stand-in business module, and it gives project-bootstrap's step 4.7 something literal
 # to create — satisfying the "at least one glob matches something built in step 4.7"
 # check the same way `hexagonal`'s `domain/` skeleton does. The first real
-# bounded-context module (`order`, ...) is created later, by `domain-modeling`, the
-# first time a use case needs one — same package shape as `shared`, minus the `OPEN`
-# marker, nested one level under `<module>.` instead of at the root.
+# bounded-context module (`order`, ...) is designed by `domain-modeling` and written by
+# the executor, the first time a use case needs one — same package shape as `shared`,
+# minus the `OPEN` marker, nested one level under `<module>.` instead of at the root.
+#
+# `module_slot` names that repeating segment. `boundary-map` writes it as `{module}` in
+# `.claude/forbidden-imports.txt`, and `check` matches `{module}` against any one
+# directory, so a module created after bootstrap is held to the same domain → framework
+# and layer rules as `shared` from its first file — decision 0180.
 packages:
   base: "{{groupId}}.{{artifactName}}"
+  module_slot: shared
   map:
     domain.model: "shared.internal.domain.model"
     domain.event: "shared.internal.domain.event"

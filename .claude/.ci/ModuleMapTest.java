@@ -85,6 +85,11 @@ public class ModuleMapTest {
     /** A throwaway project with a recording wrapper, a root POM, and optionally a module. */
     static Path project(boolean rootPom, String module) throws Exception {
         Path dir = Files.createTempDirectory("archhook-modulemap").toRealPath();
+        // The real extensions.json: `build_tools` is where the wrapper, the module files and the
+        // compile arguments live (decision 0180), so the fixture must carry production data.
+        Path schemas = dir.resolve(".claude/schemas");
+        Files.createDirectories(schemas);
+        Files.copy(Paths.get(".claude/schemas/extensions.json"), schemas.resolve("extensions.json"));
         if (rootPom) Files.writeString(dir.resolve("pom.xml"), POM);
         if (module != null) {
             Files.createDirectories(dir.resolve(module));

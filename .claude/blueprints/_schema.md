@@ -25,6 +25,7 @@ cuts across several architectures lives in `.claude/blueprints/references/`, sha
 | `modules[]` | ✅ | list | See below |
 | `packages.base` | ✅ | string | Template, e.g. `{{groupId}}.{{artifactName}}` |
 | `packages.map` | ✅ | map | Logical role → package suffix |
+| `packages.module_slot` | — | string | The first segment of `packages.map` values that repeats once per module created after bootstrap (`shared` in `modular-monolith`). `boundary-map` writes it as `{module}`, which the boundary check matches against any one directory — so the boundary holds for modules whose names are feature data |
 | `architecture_paths` | ✅ | string[] | Globs identifying the code covered by `rules/architecture-ddd.md`. They go verbatim into the `paths` of the file the bootstrap generates at `<project>/.claude/rules/architecture-ddd.md` — the bootstrap does not infer them from `modules[].path`, it only uses what's here |
 | `dependency_rules.direction` | ✅ | `inward` \| `explicit` | |
 | `dependency_rules.forbidden[]` | ✅ | list | `{from, to[], reason}` |

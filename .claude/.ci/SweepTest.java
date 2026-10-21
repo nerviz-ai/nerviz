@@ -131,6 +131,16 @@ public class SweepTest {
                 "UC-006-order/20-persistence.md", "UC-006-spec.md",
                 "a write no tool-time guard saw — still reported, admitted ones are not");
 
+        // A write into the now-approved folder, in a session with no phase open: refused as
+        // frozen, and the refusal names the status moves guard.status_transitions admits from
+        // `approved` — the message once said only "the spec's own `status:` line" (issue #167,
+        // decision 0180).
+        String s5 = "ci-sweep-" + System.nanoTime();
+        failures += guard(hook, repo, "write", "{\"session_id\":\"" + s5
+                + "\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"" + abs(repo, partial)
+                + "\"}}", 2, "only from `approved` to `implemented` or `implemented-blocked`", null,
+                "write into an approved folder — refused, naming the admitted status moves");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `guard sweep` is NOT"
                     + " separating what this turn wrote from what was already dirty.");

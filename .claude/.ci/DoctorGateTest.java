@@ -2,7 +2,7 @@
 //
 // CI test: proves `ArchHook.jar doctor gate` exits 1 when a line `doctor.gate.labels` lists
 // prints ❌, naming it, and exits 0 on a healthy project although runner-state lines
-// (CLAUDE_PROJECT_DIR, Compose, Maven wrapper, git HEAD) are red — while the bare `doctor`
+// (CLAUDE_PROJECT_DIR, Compose, Build wrapper, git HEAD) are red — while the bare `doctor`
 // keeps exiting 0 on the same broken tree, which is what this repository's own CI relies on.
 //
 // Why this test exists: the generated project's "architectural boundaries" job ran the bare
@@ -35,7 +35,7 @@ public class DoctorGateTest {
             if (!healthy.contains("  " + l + " .")) fail("gated label `" + l + "` is never printed by doctor"
                     + " — renamed in ArchHook.java? The gate would skip it in silence");
         }
-        for (String l : List.of("CLAUDE_PROJECT_DIR", "Maven wrapper", "Compose", "git HEAD")) {
+        for (String l : List.of("CLAUDE_PROJECT_DIR", "Build wrapper", "Compose", "git HEAD")) {
             if (!Pattern.compile("  " + Pattern.quote(l) + " \\.+ ❌").matcher(healthy).find()) {
                 fail("healthy fixture should show `" + l + "` red, to prove it does not gate");
             }

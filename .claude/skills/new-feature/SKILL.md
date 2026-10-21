@@ -687,6 +687,14 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      report repeats it, citing the same `BL-NN` — a use case that answers 422
      on every real call is not a detail the reader should have to find in a test fixture
      (lessons-learned-013 § 5)
+   - **Every `errorCode` a partial names exists in its owner, or consolidation stops.** The
+     precedence table gives `errorCode` to `10-domain.md`, but precedence only settles a fact
+     written twice with different values — a code written once, in a downstream partial, is
+     settled by nothing and reaches the executor with no exception behind it (issue #167:
+     `ORDER_ALREADY_EXISTS` in `20-persistence.md`, absent from the domain). Walk every partial:
+     each code is declared in `10-domain.md` § 2 with its exception class, and each one an HTTP
+     path can return has a row in `30-rest.md` § 3 · Error map. A code missing from either is not
+     inferred into place — **stop and ask** which partial is wrong
    - **A partial that applies must carry its declared-dependency section, or consolidation
      stops.** `20-persistence.md` § 6 always; `31-graphql.md` § 11 whenever step 3g ran; `32-security.md` § 8 whenever step 3b ran;
      `28-http-client.md` § 8 whenever step 3c ran; `29-ai.md` § 10 whenever step 3d ran; `23-search.md` § 9 whenever step 3e ran;
@@ -794,6 +802,19 @@ second half of the pipeline lives in its own skill, so an implement run never lo
 (`@.claude/decisions/0135-new-feature-split-spec-and-implement.md`).
 
 ### Approval — asked on every run that consolidated a spec
+
+**Read the consolidated spec once more before asking.** Approval freezes the folder — after it,
+the guard admits only the status moves and checklist toggles `guard.status_transitions` names,
+and reopening is by hand (`@.claude/decisions/0066-spec-state-machine.md`) — so whatever is
+wrong in the spec at this moment ships to the executor. Two defects a real run approved
+(issue #167), fixed here, never after:
+
+- a `§` reference to a section, step or row the spec does not have — every one resolves inside
+  `UC-NNN-spec.md` or names the partial that holds it
+- text addressed to the approver or to a later run instead of the executor — "confirm before
+  approving", "TBD", "to be decided" — which either becomes a decision now or a stop-and-ask
+
+Fix each in the spec while it is still `draft`, then ask.
 
 `AskUserQuestion`: **Approve `UC-NNN-spec.md`** / **Keep as draft**.
 

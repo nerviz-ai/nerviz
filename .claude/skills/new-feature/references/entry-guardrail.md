@@ -101,8 +101,10 @@ handling was improvised because no state in either skill described it.
 
 ## 3 · Project
 
-Checks `pom.xml` (exists + parseable), `.claude/forbidden-imports.txt`, and that a domain
-package exists. **Discover it, don't assume it.**
+Checks the root build file (exists + parseable) — `pom.xml` on Maven, `build.gradle.kts` or
+`build.gradle` on Gradle; the wrapper beside it (`mvnw` / `gradlew`) says which —
+`.claude/forbidden-imports.txt`, and that a domain package exists. **Discover it, don't
+assume it.**
 
 ```bash
 find src/main/java -type d -name domain

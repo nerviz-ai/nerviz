@@ -203,8 +203,9 @@ Before writing code:
    this agent to touch `pom.xml`. Missing → spec defect, report and stop. Consolidation gates
    this too; this check is what stops a spec approved before that gate existed from becoming a
    `pom.xml` edit
-4. **Valid project** — `pom.xml` (parseable), `.claude/forbidden-imports.txt`, and a
-   domain package **discovered, never assumed**
+4. **Valid project** — the root build file (parseable): `pom.xml`, or `build.gradle(.kts)`
+   when the project carries `gradlew`; `.claude/forbidden-imports.txt`; and a domain package
+   **discovered, never assumed**
 5. **Checklist** — spec.md has the 19-item checklist, each item either open or marked `n/a`
    with a reason (or aborts, it's not an executable spec). An `n/a` step is skipped, not
    improvised. A spec with `path: short` has no partials: every row already names its
