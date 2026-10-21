@@ -107,9 +107,10 @@ The lesson stays a file; the next Gradle modular monolith ships without module v
 | `skills/test-architect/SKILL.md` | the messaging IT row names the broker container, with compose's repository and tag |
 | `skills/init-project/SKILL.md` | "three" placeholders; `ls ../<name>` whatever the listing shows; git note in step 7 |
 | `blueprints/*/*.yaml` (nine) and `blueprints/README.md` | `build.tool` is a default; Maven or Gradle is asked |
+| `schemas/extensions.json` `migrations.entries` | two entries for projects generated before: `gradle-test-filter-tests-suffix` (nine blueprints; the prompt checks Gradle and the filter first and stops) and `modulith-shared-open` (`modular-monolith`; applied after the first). Not migrated: the Modulith starters (a project that got past the context load already dealt with them), the `latest` images (`compose` reports the Postgres tag), the `init-project` and blueprint-comment fixes (they touch no generated code) |
 | `.claude/.ci/TestNameFilterTest.java`, `.github/workflows/validate.yml`, `docs/{en,pt-br}/07-ci-validate.md` | the CI check |
 
-Goes to the generated project: **only `rules/testing.md`, `persistence-architect` and `test-architect`**
+Goes to the generated project: **`rules/testing.md`, `persistence-architect`, `test-architect`, and the two migrations through `arch-adopt`**
 (already in `export`; no manifest change). `project-bootstrap`, `init-project` and the blueprint
 catalog stay here, as before. `ArchHook.java` is untouched, so the jar is not rebuilt.
 
