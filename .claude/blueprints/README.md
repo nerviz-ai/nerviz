@@ -26,6 +26,10 @@ those invariants.
 | [`vertical-slice`](#vertical-slice-feature-slices) | single-module | One self-contained package per use case (`features.<feature>.<usecase>`), not per technical layer |
 | [`custom-template`](#custom-template) | — | Starting point to describe your own architecture |
 
+The `Build` column is the module layout, not the build tool. Every blueprint declares
+`build.tool: maven` as a **default**: `/init-project` asks Maven or Gradle for any of them, and
+the Gradle exemplars live in `project-bootstrap/templates/`, not in the blueprint.
+
 ---
 
 ## `layered` (N-Tier)

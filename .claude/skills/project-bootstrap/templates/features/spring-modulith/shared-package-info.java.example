@@ -1,0 +1,18 @@
+/*
+ * EXEMPLAR — written once, at bootstrap time, when `features.spring-modulith` is active
+ * (`modular-monolith` blueprint), as `package-info.java` of the package the blueprint's
+ * `packages.map` calls `shared` (the Shared Kernel). It replaces the one-sentence
+ * `package-info.java` step 4.7.a writes for that role.
+ * Without the marker Spring Modulith treats `shared` like any bounded context, and the
+ * first module that imports one of its types fails `ModularityTests`.
+ * Compilable as-is — not pseudo-code.
+ */
+/**
+ * Shared Kernel: the few value objects and events genuinely common to more than one
+ * module. {@code OPEN} lets every module reference it, internals included; a package
+ * that is not common to several modules does not belong here.
+ */
+@ApplicationModule(type = ApplicationModule.Type.OPEN)
+package com.exemplo.minhaapi.shared;
+
+import org.springframework.modulith.ApplicationModule;

@@ -32,8 +32,9 @@ $ARGUMENTS
 ## Procedure
 
 1. The project is generated next to this repository, at `../<artifactId>`
-   (`project-bootstrap` § Where the project is born). If `--name` is given and the listing above
-   shows that name, check it with `ls -a` on that directory. If it holds `pom.xml` or
+   (`project-bootstrap` § Where the project is born). If `--name` is given, check it with
+   `ls -a` on that directory whatever the listing above shows — it is cut at 30 lines, so a
+   name sorting late is invisible in it. If it holds `pom.xml` or
    `build.gradle`, **do not initialize**: report what you found and suggest `/new-feature` from
    a session opened in that directory. Stop here.
 2. **Interview — every question of the run, here, before delegating.** The agent runs in the
@@ -106,7 +107,9 @@ $ARGUMENTS
    caller after a generation: the agent no longer chains it.
 7. End by telling the user to open a new session in the generated project
    (`cd ../<artifactId> && claude`). That session loads the project's own `settings.json` and
-   hooks; this one keeps this repository's.
+   hooks; this one keeps this repository's. When `git-publish` ended without a commit (the
+   person declined gate 1), add that `/arch-doctor` keeps its `git HEAD` line red until the first
+   commit.
 
 ## Why this is a manually-invoked skill
 
@@ -126,7 +129,7 @@ Runs on `sonnet` with `effort: low`: the interview reads its questions from the 
 skill in `@.claude/schemas/extensions.json`, and it is **empty**: this skill writes no file
 itself. Everything is written by `project-initializer`, which the guard bypasses as an
 executor agent, and by `project-bootstrap` under it. `ArchHook.java guard` enforces it. The one
-write it causes is `audit genesis` replacing four placeholders in the generated project's
+write it causes is `audit genesis` replacing three placeholders in the generated project's
 `GENESIS.md`, outside this repository — done by the hook's code, never by a `Write`.
 
 **Reads** the blueprint listing and the listing of this repository's parent directory injected

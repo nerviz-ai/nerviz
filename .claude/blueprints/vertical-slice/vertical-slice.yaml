@@ -43,7 +43,7 @@ trade_offs:
 
 build:
   layout: single-module
-  tool: maven
+  tool: maven   # default — /init-project offers maven | gradle
 
 # Broad on purpose, same technique as `layered` and `modular-monolith`: there is no
 # Maven module physically delimiting a slice, only the package under one

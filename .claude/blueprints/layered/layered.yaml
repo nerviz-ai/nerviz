@@ -27,7 +27,7 @@ trade_offs:
 
 build:
   layout: single-module
-  tool: maven
+  tool: maven   # default — /init-project offers maven | gradle
 
 # Globs by package, not by module folder — same technique as
 # `clean-architecture-single-module`: there is no Maven module physically delimiting a

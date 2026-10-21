@@ -385,6 +385,12 @@ jobs:
       - name: exemplars let Lombok write the logger, the plain constructor and the field modifiers
         run: java .claude/.ci/TemplateLombokTest.java
 
+      # The Gradle exemplar included only `*Test`, so `ModularityTests` and the Initializr's
+      # `*ApplicationTests` never ran under Gradle with the build green. No job built the templates'
+      # own build files (`BlueprintSkeletonTest` writes its own), so this one reads them (0179).
+      - name: Gradle and Maven run the same test classes, and every test exemplar is named for both
+        run: java .claude/.ci/TestNameFilterTest.java
+
       # `hexagonal-single-module` lists its ten adapter packages against each other by hand (a package
       # has no `adapters/*` wildcard), and the `check` hook of a generated project refuses an import the
       # derived map forbids. A typo in that matrix, or an exemplar importing a sibling adapter, ships

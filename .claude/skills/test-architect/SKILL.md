@@ -141,7 +141,11 @@ what's left to cover outside of transport.
    partial derived, so a reader sees which names are contract. It adds nothing to § 5: Springwolf is
    the messaging partial's declared dependency, and the test uses `MockMvc`, the Jackson 3
    `JsonMapper` and AssertJ the project already has. A case-level test of the adapters against a real
-   broker is a separate row and stays where it was.
+   broker is a separate row and stays where it was. The bootstrap leaves no broker container in
+   `TestcontainersConfiguration` (nothing in the project uses one yet), so that row also
+   names the container to add, with the repository and tag of the `kafka` service in
+   `docker-compose.yml` — never `latest`, and never the Initializr's `kafka-native` image, which
+   `ArchHook.java compose` cannot compare with compose's.
 
    **`28-http-client.md`, when it exists, fixes cases this partial must test — all of § 9.**
    Every outbound adapter is tested through its port against a real socket, never
