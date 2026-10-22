@@ -88,6 +88,10 @@ public class PluginBlockTest {
             throws Exception {
         Path tmp = Files.createTempDirectory("archhook-plugins-ci");
         copyTree(Paths.get(".claude").toAbsolutePath(), tmp.resolve(".claude"));
+        // `export.copy` names LICENSE and NOTICE at the root, outside `.claude/`
+        for (String name : new String[] {"LICENSE", "NOTICE"}) {
+            Files.copy(Paths.get(name), tmp.resolve(name));
+        }
         mutation.apply(tmp);
 
         ProcessBuilder pb = new ProcessBuilder(
