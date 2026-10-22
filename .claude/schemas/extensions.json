@@ -1005,7 +1005,9 @@
 
     "copy": [
       { "$comment": "`verbatim`: copied byte for byte, skipping `transform`. The jar below carries the SHA-256 of THIS source, and `schema` compares the two inside the generated project too — a citation cut here would make every exported jar read as stale. Design: .claude/decisions/0075-precompiled-hook-jar.md", "from": ".claude/hooks/ArchHook.java", "to": ".claude/hooks/ArchHook.java", "verbatim": true },
-      { "from": ".claude/schemas/extensions.json", "to": ".claude/schemas/extensions.json" }
+      { "from": ".claude/schemas/extensions.json", "to": ".claude/schemas/extensions.json" },
+      { "$comment": "Apache License 2.0 § 4 obliges whoever redistributes the work to hand over the license text and the NOTICE; what `export` writes under `.claude/` is a redistribution. They sit INSIDE `.claude/`, never at the project root: the root `LICENSE` of a generated project is its owner's choice. Design: .claude/decisions/0181-apache-2-license-notice-and-trademark.md", "from": "LICENSE", "to": ".claude/LICENSE", "verbatim": true },
+      { "from": "NOTICE", "to": ".claude/NOTICE", "verbatim": true }
     ],
 
     "$comment_binary": "Copied as bytes, never read as text, never transformed. What every hook registration launches (`java -jar`), so a project that lacked it would have every hook exit 1 — which does not block. Design: .claude/decisions/0075-precompiled-hook-jar.md",
