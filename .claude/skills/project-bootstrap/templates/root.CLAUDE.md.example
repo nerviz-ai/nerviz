@@ -60,7 +60,7 @@ copy step isn't updated alongside it.
 | Tests, coverage, installing ArchUnit | skill `test-architect` |
 | A mapper — DTO, entity, document, payload or provider DTO to and from the model — MapStruct, `@Mapper`, the annotation processor path | `.claude/rules/mapping.md` — the mechanism is this file's **Mappers:** paragraph under the title, manual while it is absent; `/new-feature-implement` asks once and runs `mapstruct-installer` |
 | Designing a full feature (use case → domain → REST → persistence → tests) up to an approved spec | skill `new-feature` — manual only: the user types `/new-feature <description>`, the model can't invoke it. One use case per run |
-| Implementing an approved spec | skill `new-feature-implement` — manual only: `/new-feature-implement UC-NNN-<slug>` after `/clear`. Pre-flight, the executor in three block groups, then `git-publish` |
+| Implementing an approved spec | skill `new-feature-implement` — manual only: `/new-feature-implement UC-NNN-<slug>` after `/clear`. Pre-flight, the executor in three block groups, then it prints `/clear` and `/git-publish …` for you to type |
 | Diagnosing hooks and enforcement | `/arch-doctor` |
 | What a skill or agent run cost, what it chained, what it changed — invoked by `/command` or by the model | skill `audit-usage` — consolidates spend per skill and agent and failures across runs, and points at the report to open. The reports themselves are `.claude/audit-usage/<timestamp>--<piece>.md`, written by the `audit` hook at every `Stop`, never by hand; `history.jsonl` next to them is one line per top-level run, `nodes.jsonl` one line per piece it chained. Delete the directory to switch the trail off |
 | Kafka producer/consumer, publishing or consuming a domain event over a broker, a listener's retry or DLQ (blocking, or non-blocking with `@RetryableTopic`), the ack mode | skill `messaging-architect` — norms in `.claude/rules/messaging.md` § Retry and DLQ |
@@ -73,7 +73,7 @@ copy step isn't updated alongside it.
 | Reducing SonarQube issues at their source — run the analysis, trace each group of issues to the `.claude/` template or norm that produced it, report it upstream | skill `sonar-lessons` — manual only (`/sonar-lessons`). Writes `docs/lessons-learned/sonar-NNN.md` and ends with the `/report-issue` command that files it |
 | Reporting a defect or a gap in this `.claude/` upstream, to Nerviz — from a description or a `docs/lessons-learned/` file | skill `report-issue` — manual only (`/report-issue`). Asks for the evidence a maintainer needs to verify it, warns when this project is behind the latest release, opens the issue only after confirmation, carrying no path, package or code of this project |
 | Pulling a newer version of this `.claude/` into the project | skill `arch-adopt` — manual only (`/arch-adopt`), refuses a dirty worktree |
-| Creating a git repo, committing, or pushing this project | skill `git-publish` — chained automatically after `java-spring-boot-developer` succeeds; behind two confirmations |
+| Creating a git repo, committing, or pushing this project | skill `git-publish` — typed by you (`/git-publish`), the line `/new-feature` and `/new-feature-implement` print after `/clear`; behind two confirmations |
 
 ## Under another agent
 

@@ -1538,7 +1538,7 @@ claude-help.md                     # this guide; cited from CLAUDE.md, not impor
 │   ├── new-feature/                       # orchestrates the pipeline above
 │   ├── gof-design-patterns/               # catalog: read at design time, injected into the executor
 │   ├── docker-architect/                  # extends docker-compose after bootstrap
-│   └── git-publish/                       # chained after /init-project and the executor
+│   └── git-publish/                       # chained after /init-project; typed after /new-feature and /new-feature-implement
 ├── agents/
 │   ├── project-initializer.md         # subagent: interviews, validates, delegates
 │   ├── java-spring-boot-developer.md  # /new-feature's executor

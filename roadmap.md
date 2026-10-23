@@ -150,7 +150,7 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `archunit-installer` (agent, `test-architect`'s setup mode)
 - [x] `commons-logging-installer` (agent, `/new-feature-implement`'s pre-flight)
 - [x] `compose-service-installer` (agent, `/new-feature-implement`'s infrastructure step —
-      runs `docker-architect` after the `tests` group ends green and before `git-publish`)
+      runs `docker-architect` after the `tests` group ends green and before the final report)
 - [x] `ArchHook.java` + `ArchHook.jar` + `schemas/extensions.json`
 
 ### Enforcement

@@ -67,9 +67,10 @@ this meta-repo's own `examples/`, which is 100% gitignored). The pipeline runs n
 run's own state carries the fact forward instead of `git-publish` discovering a `git
 status` that doesn't match the feature just implemented (lessons-learned-006 § 8:
 `src/`, `docs/use-cases/` all ignored, only an unrelated dirty file showed up in
-`status`). `IGNORED` → note it in the run's context and pass it to `git-publish`'s
-invocation at the end of the run so its own state check (`@.claude/skills/git-publish/SKILL.md`
-step 1) knows to warn instead of assuming the diff matches the feature.
+`status`). `IGNORED` → note it in the run's context and print it in the `/git-publish` line
+at the end of the run (` — pre-existing: IGNORED`) so `git-publish`'s own state check
+(`@.claude/skills/git-publish/SKILL.md` step 1) knows to warn instead of assuming the diff
+matches the feature.
 
 **Fourth case: the worktree already carries changes from before this run.**
 
@@ -78,8 +79,15 @@ git status --porcelain 2>/dev/null
 ```
 
 Non-empty → work that is **not** this run's. Report it here, in full (path count and what
-the paths are, staged and unstaged alike), and carry **the list itself** to `git-publish`
-the same way `IGNORED` travels — not just the fact that something was dirty.
+the paths are, staged and unstaged alike), and carry **the list itself** into the
+`/git-publish` line the run prints, the same way `IGNORED` travels (` — pre-existing: <paths>`,
+collapsed to directories past 20 paths) — not just the fact that something was dirty.
+
+**`/new-feature-implement` leaves out the run's own input:** the approved case's folder
+`docs/use-cases/UC-NNN-<slug>/` and `docs/use-cases/BACKLOG.md`. A spec nobody committed yet is
+what the run implements and goes in its `feat(UC-NNN-<slug>)` commit; listing it as pre-existing
+would split it into a `chore: commit changes from before this run` commit with the wrong
+label (`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`).
 
 `git status --porcelain`, never `git diff --cached`: the index is half the picture, and the
 half that was already known. An unstaged edit and an untracked file from a previous run are
@@ -91,7 +99,8 @@ the guardrail reported a clean start (lessons-learned-014 § 11). Harmless there
 **`.claude/audit-usage/**` is never pre-existing work** — leave those paths out of the list.
 The previous run's report and its `history.jsonl` line are written at `Stop` and on the next
 prompt, both after that run's commit, so every run starts with them dirty by construction;
-`git-publish` stages the directory with this run's commit anyway (lessons-learned-016 § 8).
+`git-publish` stages the directory with the run's commit anyway (lessons-learned-016 § 8) — and
+since the commit is typed after `/clear`, that directory already holds the whole run.
 Reporting them would make every start look dirty and teach the reader to ignore the report.
 
 This is the cheap moment to decide: at the end of the flow the run's own deliverable is mixed

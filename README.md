@@ -299,8 +299,7 @@ would pay for that on every turn.
      │
      ▼  consolidates into UC-NNN-spec.md (status: draft)
      ▼  asks approval → status: approved (the guard hook freezes the folder from here)
-     ▼  git-publish (the approved spec only)
-     ▼  prints the next two commands:  /clear  ·  /new-feature-implement UC-NNN-slug
+     ▼  prints the next commands:  /clear  ·  /git-publish (the approved spec only)  ·  /new-feature-implement UC-NNN-slug
 ```
 
 **Flow 2 — implement the spec.** `/new-feature-implement UC-NNN-slug` over an approved spec,
@@ -321,7 +320,7 @@ after `/clear`
      ▼  status: implemented (or implemented-blocked)
      ▼  agent: compose-service-installer → docker-architect, for each service the spec
      │         marked materialize — the container lands in the same commit as the code
-     ▼  git-publish (feature commit)
+     ▼  prints the next commands:  /clear  ·  /git-publish (feature commit)  ·  /new-feature <next>
 ```
 
 Each step's output contract is literally the next step's input contract. A free-prose

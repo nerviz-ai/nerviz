@@ -88,8 +88,9 @@ through. Record: `@.claude/decisions/0058-skill-classes-territory-schema.md`
 (`@.claude/skills/new-feature-implement/SKILL.md`).
 
 **Never runs `git add`, `git commit`, or `git push`.** Neither does any skill it chains.
-Git happens only through `git-publish`, behind its two confirmations, at the end steps
-below. No end of this flow is left without an explicit git instruction.
+Git happens only through `git-publish`, which the person types — the final report prints the
+command, this flow never invokes it (`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`).
+No end of this flow is left without an explicit git instruction.
 
 **Integrates with (sequence ordered by depends-on):**
 1. `use-case-design` — invoked for a new case; skipped on resume when `00-use-case.md` exists
@@ -205,7 +206,8 @@ just wrote. Cache is block 3.4, implemented by the conditional Block C last amon
 blocks, after Block J — a decorator compiles against the port and needs its delegate, and every
 writer that must go through it already exists. The pipeline orders by who needs whose requirements;
 the spec orders by what compiles against what.
-8. `git-publish` — invoked at § Approval, per § End of flow, to commit the approved spec
+
+`git-publish` is not a step: § Approval prints its command for the person to type.
 
 The executor, `java-spring-boot-developer`, is not a step of this skill: `/new-feature-implement`
 delegates to it over an `approved` spec, in a clean session.
@@ -340,7 +342,7 @@ Usage: …
 ### 2 · Worktree, project, disk
 
 `references/entry-guardrail.md` §§ 2–4, in that order, before any question or write.
-`IGNORED` and the list of pre-existing changes travel to `git-publish` at § Approval.
+`IGNORED` and the list of pre-existing changes travel into the `/git-publish` line § Approval prints.
 
 ---
 
@@ -788,15 +790,15 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
 
 ## End of flow
 
-Every branch below ends in an explicit instruction. None of them runs git outside
-`git-publish`.
+Every branch below ends in an explicit instruction. None of them runs git, and none invokes
+`git-publish`: the final report prints its command for the person to type, after `/clear`.
 
 **Design and implementation never share a session.** This skill designs; a run that
 consolidated a spec ends at § Approval. An `approved` spec is implemented only by
 `/new-feature-implement UC-NNN-<slug>`, typed after `/clear`. The executor never inherits the
 conversation, but the orchestrator's thread does: every hand-back it receives, every group it
-launches and the `git-publish` after them would otherwise run at the 250–370k context the
-design phase leaves behind
+launches would otherwise run at the 250–370k context the design phase leaves behind — and so
+would a chained `git-publish`, which is why the report prints it after `/clear` instead
 (`@.claude/decisions/0130-executor-split-by-block-group-implement-in-clean-session.md`). The
 second half of the pipeline lives in its own skill, so an implement run never loads this body
 (`@.claude/decisions/0135-new-feature-split-spec-and-implement.md`).
@@ -820,17 +822,25 @@ Fix each in the spec while it is still `draft`, then ask.
 
 - **Keep as draft** → report the spec path and the resume command
   (`/new-feature UC-NNN-<slug>`), and stop. No git: a draft isn't a deliverable.
-- **Approve** → change the spec's line to `status: approved`, then **invoke** `git-publish`
-  via the `Skill` tool, with context `docs(UC-NNN-<slug>): approved spec` and
-  `docs/use-cases/UC-NNN-<slug>/` plus `docs/use-cases/BACKLOG.md` as the paths to stage.
-  Nothing else: a design-only run writes nothing outside `docs/`, and the guard is what makes
-  that true rather than intended. Then the final report, which ends with the two lines to
-  type next:
+- **Approve** → change the spec's line to `status: approved`. Nothing else: a design-only run
+  writes nothing outside `docs/`, and the guard is what makes that true rather than intended.
+  No `Skill` call to `git-publish` — the commit is the person's, at any moment, and a chained
+  one ran at the design phase's context and committed before the run's audit trail existed
+  (`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`). The
+  final report ends with the three lines to type next:
 
   ```
   /clear
+  /git-publish docs(UC-NNN-<slug>): approved spec — paths: docs/use-cases/UC-NNN-<slug>/ docs/use-cases/BACKLOG.md
   /new-feature-implement UC-NNN-<slug>
   ```
+
+  When the guardrail's worktree step listed pre-existing changes (`IGNORED` or paths), the
+  `/git-publish` line ends with ` — pre-existing: <paths>` — the list itself, collapsed to
+  directories past 20 paths — so the typed command still names what it must not mix into the
+  spec's commit. `/git-publish` is optional: the person may skip it and run
+  `/new-feature-implement` first, in which case the spec rides in the `feat(UC-NNN-<slug>)`
+  commit.
 
   What used to be staged here — `docker-compose.yml` and `docker/init/**`, when the pipeline
   chained `docker-architect` — is no longer written during the run at all. Every
@@ -852,8 +862,8 @@ have — **every item a partial deferred, with the owner it left it to** (a chec
 idempotency is assumed or unknown** (or "none"), and **every personal-data field that crosses
 a boundary in clear, with its receiver** (or "none") — now a repeat of what § 8 and § 6 of the
 partials already recorded, not the first time anyone asks — three findings a reader must not have to
-reconstruct from a fixture comment or a Javadoc sentence — what `git-publish`
-did, and the next commands. After § Approval those are `/clear` and
+reconstruct from a fixture comment or a Javadoc sentence — and the next commands. After
+§ Approval those are `/clear`, the `/git-publish` line above and
 `/new-feature-implement UC-NNN-<slug>`; after **Keep as draft**, `/new-feature UC-NNN-<slug>`.
 
 ---
@@ -914,6 +924,8 @@ See `templates/feature-spec.md.example` for the full shape.
   never share a session; the implement flow is `/new-feature-implement`, a skill of its own.
 - **`@.claude/decisions/0037-lessons-learned-005-remediation.md`** — closed input table,
   one use case per run, spec lifecycle, no `src/` and no git outside `git-publish`.
+- **`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`** — the
+  flow prints `/git-publish` instead of invoking it.
 - **Invariant 2** (`@CLAUDE.md`) — single owner. The orchestrator owns `UC-NNN-spec.md`;
   `use-case-design` owns number and slug.
 - **Invariant 8** (`@CLAUDE.md`) — specs via skills; code via executor.

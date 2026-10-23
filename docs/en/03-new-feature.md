@@ -19,11 +19,11 @@ real project.
 
 | Flow | Command | Ends with |
 |---|---|---|
-| 1 · Create the spec | `/new-feature <description>` (or `UC-NNN-slug` of a draft to resume) | the spec approved and committed by `git-publish`, and the two commands to type next: `/clear` · `/new-feature-implement UC-NNN-slug` |
-| 2 · Implement the spec | `/new-feature-implement UC-NNN-slug` over an `approved` spec, after `/clear` | the pre-flight, then `java-spring-boot-developer` in three chained groups — `domain` (blocks 1–2) → `adapters` (H, 3, S, M, J) → `tests` (block 4) — `status: implemented`, and the feature commit |
+| 1 · Create the spec | `/new-feature <description>` (or `UC-NNN-slug` of a draft to resume) | the spec approved, and the commands to type next: `/clear` · `/git-publish …` (the approved spec's paths) · `/new-feature-implement UC-NNN-slug` |
+| 2 · Implement the spec | `/new-feature-implement UC-NNN-slug` over an `approved` spec, after `/clear` | the pre-flight, then `java-spring-boot-developer` in three chained groups — `domain` (blocks 1–2) → `adapters` (H, 3, S, M, J) → `tests` (block 4) — `status: implemented`, and the commands to type next: `/clear` · `/git-publish …` (the feature commit) · `/new-feature <next>` |
 
 The design leaves the main thread at 250–370k tokens of context; implementing on top of it
-would pay for that on every hand-back and on `git-publish`. Each executor group starts again
+would pay for that on every hand-back — and on a chained `git-publish`, which is why neither flow chains it: each prints the `/git-publish` line to type after `/clear`. Each executor group starts again
 from the spec and the disk instead of carrying the earlier blocks
 (`.claude/decisions/0130-executor-split-by-block-group-implement-in-clean-session.md`).
 Since decision 0135 the implement flow is its own skill, `new-feature-implement`: it runs on
@@ -40,8 +40,9 @@ with `exit 2`, `permissions.ask` prompts, or consolidation stops:
 - **A design run materializes no file outside `docs/`.** `guard` refuses the *call* itself
   to a `build`-class skill — `docker-architect` included — while the run is open. A missing
   compose service is **recorded** in the partial, with the command that creates it.
-- **Git goes only through `git-publish`**, behind its two confirmations — on every end
-  of the flow, including the one without the executor. `git push` is always `ask`.
+- **Git goes only through `git-publish`**, behind its two confirmations — typed by you, from
+  the line each flow's final report prints after `/clear`; neither flow invokes it
+  (`.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`). `git push` is always `ask`.
 - **An approved spec is immutable.** A later case records the change it needs in its
   own `## Impact on approved use cases` section, plus one line in the `CHANGELOG.md` of
   every altered case's folder. `guard` freezes the files — and exempts exactly that
@@ -157,8 +158,8 @@ sequenceDiagram
     alt keep as draft
         NF-->>U: resume command, no git
     else approve (status: approved)
-        NF->>GIT: docs of the approved spec only — two gates
-        NF-->>U: final report + /clear, then /new-feature-implement UC-NNN-slug
+        NF-->>U: final report + /clear, /git-publish (spec paths), /new-feature-implement UC-NNN-slug
+        U->>GIT: typed after /clear — docs of the approved spec only, two gates
     end
 ```
 
@@ -191,8 +192,8 @@ sequenceDiagram
         CMP->>DKR: Skill, admitted because the caller is a classed agent
         CMP-->>NFI: one line per row — added, already present or failed
     end
-    NFI->>GIT: feat(UC-NNN-slug) — two gates
-    NFI-->>U: final report + recommend /clear
+    NFI-->>U: final report + /clear, /git-publish feat(UC-NNN-slug)
+    U->>GIT: typed after /clear — two gates
 ```
 
 ## Pieces and what each writes
@@ -215,7 +216,7 @@ sequenceDiagram
 | — | `new-feature` (consolidation) | all above | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | `approved` spec | code and migrations in `src/**` |
 | 7 | `compose-service-installer` (agent) | `implemented` code, and a `materialize` row in `## Infrastructure` | the service block in `docker-compose.yml`, written by `docker-architect` |
-| — | `git-publish` | end of flow | commit + push, behind two gates |
+| — | `git-publish` | typed after the flow's `/clear` | commit + push, behind two gates |
 
 **Diagrams in the spec.** `00-use-case.md` carries two. A `sequenceDiagram` under `## Flow`
 draws who calls whom on the path that succeeds, one message per step of the numbered list. A
@@ -247,9 +248,9 @@ user will add it, and records the answer (`materialize`, `external` or `pending`
 partial's `## Compose services`. Consolidation copies those rows into the spec's
 `## Infrastructure`; absence stops consolidation. `/new-feature-implement` then launches
 `compose-service-installer` for every `materialize` row, after the `tests` group ends green
-and before `git-publish`. The agent runs `docker-architect` through `Skill` — the guard admits
+and before the final report. The agent runs `docker-architect` through `Skill` — the guard admits
 it because a classed agent's call is skipped, while the implement thread's own call stays
-refused — and `git-publish` commits the compose change with the code. The final report lists
+refused — and the `/git-publish` you type commits the compose change with the code. The final report lists
 every `## Infrastructure` row with what the run did to it
 (`.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
 

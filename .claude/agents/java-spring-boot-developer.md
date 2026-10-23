@@ -179,8 +179,8 @@ from the destination map surveyed in the guardrail, never from a path written he
   single report from a background agent and refuses a second, so a progress note sent early is
   the only report the caller ever gets (`@.claude/decisions/0119-audit-ignores-subagent-handback-executor-single-report.md`)
 - Does **not** invoke `git-publish` itself — stays out of its tool list on purpose, see
-  invariant 6 reason 2 (restrict tools). `/new-feature-implement` invokes it after
-  this agent reports success
+  invariant 6 reason 2 (restrict tools). `/new-feature-implement` does not invoke it
+  either: its final report prints the `/git-publish` line for the person to type
 
 ---
 
@@ -1280,8 +1280,8 @@ UC-001-order implemented ✅ COMPLETE
 ✅ Checklist: 19/19 complete
 ✅ Spec: status: implemented          (or `implemented-blocked`, naming the case it blocks on)
 
-🔧 Next step: the caller (`/new-feature-implement`) offers `git-publish` next — commit and push
-happen there, not in this agent.
+🔧 Next step: the caller (`/new-feature-implement`) prints the `/git-publish` line — commit and
+push happen there, typed by the person, not in this agent.
 ```
 
 ---
@@ -1377,14 +1377,14 @@ Called by `/new-feature-implement` once `/new-feature` approved the spec:
 /new-feature REST endpoint that creates an order in the orders table
   → consolidates UC-001-spec.md (status: draft) ✅
   → "Approve UC-001-spec.md?" > Approve (status: approved)
-  → git-publish commits the spec; prints /clear + /new-feature-implement UC-001-order
+  → prints /clear, /git-publish docs(UC-001-order): approved spec — paths: …, /new-feature-implement UC-001-order
 
 /clear
 /new-feature-implement UC-001-order
   → invokes java-spring-boot-developer, group domain    → steps 1-12 ticked
   → invokes java-spring-boot-developer, group adapters  → steps 13-15 ticked
   → invokes java-spring-boot-developer, group tests     → steps 16-19, status: implemented
-  → "Green build. Next: git-publish offers commit + push"
+  → "Green build. Next: /clear, then /git-publish feat(UC-001-order): …"
 ```
 
 Or manual invocation (advanced):
