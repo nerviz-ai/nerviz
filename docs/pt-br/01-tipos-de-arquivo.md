@@ -207,7 +207,7 @@ para `java-spring-boot-developer` quando `/new-feature-implement UC-NNN-slug` im
 aprovada — três vezes, uma por grupo de blocos, `test-architect` delega para
 `archunit-installer` no modo setup (sem argumento), e o pre-flight de `new-feature-implement` delega
 para `commons-logging-installer` quando `commons` está vazio. Depois que o grupo `tests` termina verde e
-antes do `git-publish`, `new-feature-implement` delega para `compose-service-installer` quando a spec tem
+antes do relatório final, `new-feature-implement` delega para `compose-service-installer` quando a spec tem
 uma linha `materialize` no `## Infrastructure`.
 
 **Fork — um caso diferente de agent:** um *fork* herda a conversa inteira em vez de

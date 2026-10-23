@@ -209,7 +209,7 @@ via the `Agent tool`: `init-project` delegates to `project-initializer`,
 an approved spec — three times, one per block group,
 `test-architect` delegates to `archunit-installer` in setup mode (no argument), and
 `new-feature-implement`'s pre-flight delegates to `commons-logging-installer` when `commons` is empty.
-After the `tests` group ends green and before `git-publish`, `new-feature-implement` delegates to
+After the `tests` group ends green and before its final report, `new-feature-implement` delegates to
 `compose-service-installer` when the spec has a `materialize` row in its `## Infrastructure`.
 
 **Fork — a different kind of agent:** a *fork* inherits the entire conversation
