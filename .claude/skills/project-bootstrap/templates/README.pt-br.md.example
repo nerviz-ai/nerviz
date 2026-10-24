@@ -45,7 +45,7 @@ memória:
 
 - Java {{javaVersion}}
 - Spring Boot {{springBootVersion}}
-- Build: {{buildTool}}
+- Build: {{buildTool}} (wrapper {{wrapperVersion}})
 
 ## Features ativas
 

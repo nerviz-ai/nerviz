@@ -9,7 +9,7 @@ that doesn't exist is worse than not routing at all.
 
 # {{projectName}}
 
-Spring Boot · Java {{javaVersion}} · Build: {{buildTool}} · Architecture: **{{blueprint.name}}**
+Spring Boot · Java {{javaVersion}} · Build: {{buildTool}} (wrapper {{wrapperVersion}}) · Architecture: **{{blueprint.name}}**
 
 **Bounded context: `{{boundedContext}}`.** First segment of every topic name, for every use
 case, forever — renaming it is a migration of every topic, not a refactor. Whoever designs
@@ -113,6 +113,12 @@ of truth for its topic and is cited, never copied.
   broad `git *` permission mid-task.
 - **`/clear` between two runs** — between designing a spec (`/new-feature`) and implementing it
   (`/new-feature-implement`), and before the next use case. One use case per run, in a clean context.
+- **An IDE may refuse the build tool the wrapper pins.** `./mvnw` and `./gradlew` use the
+  version in the header above (`.mvn/wrapper/maven-wrapper.properties`,
+  `gradle/wrapper/gradle-wrapper.properties`); an IDE that imports through its own bundled
+  Maven or Gradle can fail where the command line is green. Point the IDE at the wrapper or
+  at its bundled tool, or update the IDE. Do not edit `distributionUrl` to make an import
+  pass: it changes the version the command line and CI build with.
 {{#if features.persistence-jpa}}
 - **Local values live in the untracked `.env`** — `DB_PASSWORD` and any host port moved off
   its default. docker compose reads it for the services, and `application.yml` imports it for
