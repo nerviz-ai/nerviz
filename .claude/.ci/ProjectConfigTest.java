@@ -71,14 +71,14 @@ public class ProjectConfigTest {
         for (String rel : List.of(".claude/compose-gate.json", ".claude/audit-usage/audited.json",
                 ".claude/audit-usage/plan-limits.json")) {
             Res r = run(2, "{\"session_id\":\"cfg\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\""
-                    + p.resolve(rel) + "\"}}", "guard", "write");
+                    + p.resolve(rel).toString().replace("\\", "\\\\") + "\"}}", "guard", "write");
             check(r.out.contains("config set"), "guard write refuses " + rel + " and names config set");
         }
         Res bash = run(2, "{\"session_id\":\"cfg\",\"tool_input\":{\"command\":\"echo {} > .claude/compose-gate.json\"}}",
                 "guard", "bash");
         check(bash.out.contains("config set"), "guard bash refuses a redirect into a project setting");
         run(0, "{\"session_id\":\"cfg\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\""
-                + p.resolve("notes.md") + "\"}}", "guard", "write");
+                + p.resolve("notes.md").toString().replace("\\", "\\\\") + "\"}}", "guard", "write");
 
         // The sweep: a `/project-config` phase (class ops, nothing writable) is open, `config`
         // writes the file, Stop must pass. A stray file in the same turn must still be caught.
