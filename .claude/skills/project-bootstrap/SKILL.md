@@ -232,6 +232,20 @@ grep -m1 '<version>' pom.xml && grep -m1 'java.version' pom.xml
 grep -m1 "id 'org.springframework.boot'" build.gradle && grep -m1 'sourceCompatibility\|JavaVersion' build.gradle
 ```
 
+The build tool's own version is the one the wrapper pins. Read it from the file the
+`starter.tgz` extracted — never write it, never edit that file:
+
+```bash
+# maven
+grep distributionUrl .mvn/wrapper/maven-wrapper.properties
+
+# gradle
+grep distributionUrl gradle/wrapper/gradle-wrapper.properties
+```
+
+The version in the distribution's file name (`apache-maven-<v>-bin.zip`, `gradle-<v>-bin.zip`)
+is `{{wrapperVersion}}`, shown in the root `CLAUDE.md`, the README and the report below.
+
 If the network isn't available, **stop and ask** the user for the versions. Never write
 them from memory. If you pin `bootVersion` explicitly, don't use the `.RELEASE`
 suffix — see the note in `references/dependency-catalog.md`.
@@ -356,7 +370,7 @@ Modules:
   <path> → depends on <list>
   ...
 
-Versions (resolved by the Initializr): Java <x> · Spring Boot <y> · <build tool>
+Versions (resolved by the Initializr): Java <x> · Spring Boot <y> · <build tool> (wrapper <z>)
 Active features: <list>
 Business code: none — by design. <n> package-info.java written
 Boundaries: <n> rules in .claude/forbidden-imports.txt — blocking verified ✓

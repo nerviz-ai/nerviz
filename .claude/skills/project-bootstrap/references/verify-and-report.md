@@ -98,9 +98,9 @@ Every `{{...}}` placeholder resolves from data this procedure already computed �
 - `{{blueprint.id}}`, `{{blueprint.oneLineDescription}}` — step 1/2, the `name` and a
   one-line cut of the blueprint YAML's own description. Don't paraphrase past what the
   YAML says.
-- `{{javaVersion}}`, `{{springBootVersion}}`, `{{buildTool}}` — step 3's resolved
-  versions, the same ones already in `SKILL.md` § Output contract. Never re-resolve, never
-  restate from memory.
+- `{{javaVersion}}`, `{{springBootVersion}}`, `{{buildTool}}`, `{{wrapperVersion}}` — step 3's
+  resolved versions (the last one read from the wrapper's `distributionUrl`), the same ones
+  already in `SKILL.md` § Output contract. Never re-resolve, never restate from memory.
 - `{{featuresList}}` — the active features from step 3/4.7, one bullet each.
 - `{{boundedContext}}` — step 3's input, defaulting to `{{artifactId}}` when the caller
   gave none. It is the first segment of every topic name
