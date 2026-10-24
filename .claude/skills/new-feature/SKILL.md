@@ -808,13 +808,17 @@ second half of the pipeline lives in its own skill, so an implement run never lo
 **Read the consolidated spec once more before asking.** Approval freezes the folder — after it,
 the guard admits only the status moves and checklist toggles `guard.status_transitions` names,
 and reopening is by hand (`@.claude/decisions/0066-spec-state-machine.md`) — so whatever is
-wrong in the spec at this moment ships to the executor. Two defects a real run approved
-(issue #167), fixed here, never after:
+wrong in the spec at this moment ships to the executor. Three defects real runs approved
+(issues #167 and #168), fixed here, never after:
 
 - a `§` reference to a section, step or row the spec does not have — every one resolves inside
   `UC-NNN-spec.md` or names the partial that holds it
 - text addressed to the approver or to a later run instead of the executor — "confirm before
   approving", "TBD", "to be decided" — which either becomes a decision now or a stop-and-ask
+- a fact about another system — an identifier it assigns, a path or header it expects, a limit or
+  period it enforces, a code it answers with — that carries no source, flagged or not
+  (`@.claude/rules/spec-external-facts.md`): the source is found now, or the person who owns the
+  integration is asked, and a spec that cannot be sourced in this run stays a draft
 
 Fix each in the spec while it is still `draft`, then ask.
 

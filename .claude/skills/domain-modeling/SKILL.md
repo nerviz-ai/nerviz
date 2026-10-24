@@ -333,7 +333,8 @@ it), `@.claude/rules/architecture-ddd.md` (Domain and Application sections),
 `@.claude/rules/code-quality.md`, `@.claude/rules/logging.md` (which fields to flag as
 masking candidates), `@.claude/rules/spec-diagrams.md` (the diagrams of block 1) with
 `references/mermaid-class-and-state.md`, `@.claude/rules/authorization.md` § Boundary (only when `Access` is the
-owner — step 4c), and the active blueprint's `packages.map`.
+owner — step 4c), `@.claude/rules/spec-external-facts.md` (an identifier or value of another
+system that a domain name or invariant states carries a source), and the active blueprint's `packages.map`.
 
 **Writes** `docs/use-cases/UC-NNN-<slug>/10-domain.md`. Only that file.
 
