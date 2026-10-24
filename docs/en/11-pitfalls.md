@@ -256,6 +256,15 @@ four sit in `permissions.ask` of `.claude/settings.json` — the prompt shows up
 issue is third-party text. This repo only; a generated project has none of these lines.
 Design: `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
 
+**A project setting cannot be edited, not even outside any skill.** A Write, an Edit or a shell
+redirect into a file `project_config` lists (`audited.json`, `plan-limits.json`,
+`compose-gate.json`) is refused by `guard write` / `guard bash`, phase or no phase. That is not
+a broken tool. Those files have one writer, `java -jar .claude/hooks/ArchHook.jar config set
+<id> <key> <value>`, which validates before it writes, and the refusal names it. `guard sweep`
+skips these paths, so the write `config` makes during `/project-config` never blocks the Stop.
+Editing by hand outside Claude Code still works, and `doctor` still validates the result. See
+`16-project-config.md`. Design: `.claude/decisions/0187-project-config-registry-skill-and-mod.md`.
+
 ### Classes and models
 
 **Every skill declares `model`, from its class's set.** `schema` fails a `SKILL.md` without
@@ -303,7 +312,7 @@ project's container. A `created` container, which failed to bind, and a collisio
 running service still block. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`;
 Issue #175, `.claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md`.
 The `exited` line itself still blocks, and the block names the way out: `docker compose down`,
-or `{"exited": "warn"}` in the project's versioned `.claude/compose-gate.json`, which turns
+or `{"exited": "warn"}` in the project's versioned `.claude/compose-gate.json` (`config set compose-gate exited warn`, its only writer; see `16-project-config.md`), which turns
 that one line into a warning `compose` and `doctor` keep printing. `export` never names the
 file, so `/arch-adopt` leaves it alone; `doctor` validates it on the `Compose overrides` line.
 

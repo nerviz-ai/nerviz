@@ -90,9 +90,10 @@ lista: uma classe que declara `audited: false` não abre run próprio para nenhu
 
 ### Por projeto: `.claude/audit-usage/audited.json`
 
-Um dos dois arquivos de `.claude/` que um projeto gerado escreve para si (o outro é o
-`plan-limits.json`, abaixo). O `export` nunca o nomeia,
-então o `/arch-adopt` nunca mexe nele. Ausente → cada peça segue a classe, como acima.
+Um dos arquivos de `.claude/` que pertencem ao projeto gerado (`project_config`, ver
+[`16-project-config.md`](16-project-config.md)). O `export` nunca o nomeia, então o
+`/arch-adopt` nunca mexe nele, e só o `ArchHook.jar config set audited skills.<nome> false`
+(ou o `/project-config`) o grava — o `guard` recusa edição direta. Ausente → cada peça segue a classe, como acima.
 
 ```json
 { "skills": { "report-issue": false, "git-publish": true }, "agents": {} }

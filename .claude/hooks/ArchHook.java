@@ -95,6 +95,7 @@ public class ArchHook {
                 case "upgrade-recipe" -> upgradeRecipe(args);
                 case "test-diff" -> testDiff(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
+                case "config" -> config(args);
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
             }
@@ -103,7 +104,9 @@ public class ArchHook {
             err("⚠️  ArchHook (" + mode + ") failed: " + e);
             // `doctor gate` is a CI gate, not a hook: a throw there must fail closed, or the
             // job goes green on a report that never finished.
-            System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1]) ? 1 : 0);
+            // `config` is typed or called to change a file: a throw there must not read as written.
+            System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1])
+                    || "config".equals(mode) ? 1 : 0);
         }
         System.exit(0);
     }
@@ -504,14 +507,14 @@ public class ArchHook {
             List<String> ovr = auditSch == null ? null : auditOverrideProblems(auditSch, auditDir);
             if (ovr != null) {
                 String set = ovr.remove(ovr.size() - 1);
-                report("Audit overrides", ovr.isEmpty(),
+                report(projectConfigLabel(auditSch, "audited"), ovr.isEmpty(),
                         set.isEmpty() ? "none set — every piece follows its class" : set,
                         String.join("; ", ovr));
             }
             List<String> lim = auditSch == null ? null : planLimitProblems(auditSch, auditDir);
             if (lim != null) {
                 String set = lim.remove(lim.size() - 1);
-                report("Plan limits", lim.isEmpty(),
+                report(projectConfigLabel(auditSch, "plan-limits"), lim.isEmpty(),
                         set.isEmpty() ? "no budget set — no plan window projection" : set,
                         String.join("; ", lim));
             }
@@ -597,7 +600,7 @@ public class ArchHook {
         List<String> cOvr = composeSch == null ? null : composeOverrideProblems(composeSch);
         if (cOvr != null) {
             String set = cOvr.remove(cOvr.size() - 1);
-            report("Compose overrides", cOvr.isEmpty(),
+            report(projectConfigLabel(composeSch, "compose-gate"), cOvr.isEmpty(),
                     set.isEmpty() ? "none set — the gate follows its defaults" : set,
                     String.join("; ", cOvr));
         }
@@ -1750,6 +1753,373 @@ public class ArchHook {
         err("  " + label + " " + pad.replace(' ', '.') + " " + (ok ? "✅ " + yes : "❌ " + no));
     }
 
+    // ── config ───────────────────────────────────────────────────────────────
+
+    /**
+     * {@code config [list]} · {@code config set <id> <key> <value>} · {@code config unset <id> <key>}
+     * — the files a generated project configures in its own `.claude/`, listed in
+     * `project_config` of `.claude/schemas/extensions.json`: `list` prints them as one JSON
+     * line (each file, its keys, defaults and current values, and what `doctor` would say), `set`
+     * and `unset` are the only writers. `set` builds the file as it would be, runs the validator
+     * `doctor` runs on it, and writes nothing when that finds a problem (exit 2). `unset` removes a
+     * key and deletes a file left empty, since an absent file is the default.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, invoked by no hook event: by the
+     * `project-config` skill through Bash, by any agent or person on any platform, and later by a
+     * mod through `$.process.run`. Axis 1 motivated it: a project owner did not know these files
+     * existed, and one hand-edited a wrong key that switched nothing until `doctor` ran. The
+     * closest rejected form was the skill writing the JSON with Edit — a second owner of each
+     * file's shape (invariant 2), and nothing to stop a model where `disable-model-invocation`
+     * is not honoured; `guard` now refuses that write and names this command. Design:
+     * `.claude/decisions/0187-project-config-registry-skill-and-mod.md`.
+     */
+    static void config(String[] args) throws IOException {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        if (sch == null || projectConfigIds(sch).isEmpty()) {
+            err("config: no `project_config` in " + SCHEMA_FILE + " — nothing to configure.");
+            System.exit(1);
+        }
+        String sub = args.length > 1 ? args[1] : "list";
+        switch (sub) {
+            case "list" -> System.out.println(configList(sch));
+            case "set" -> {
+                if (args.length != 5) configUsage();
+                configWrite(sch, args[2], args[3], args[4], false);
+            }
+            case "unset" -> {
+                if (args.length != 4) configUsage();
+                configWrite(sch, args[2], args[3], null, true);
+            }
+            default -> configUsage();
+        }
+    }
+
+    static void configUsage() {
+        err("usage: config [list] | config set <id> <key> <value> | config unset <id> <key>");
+        System.exit(1);
+    }
+
+    /** The `project_config` entry of one file, or null. */
+    static Map<String, Object> projectConfigEntry(Map<String, Object> sch, String id) {
+        return sch == null || id == null ? null : asMap(get(sch, "project_config", "files", id));
+    }
+
+    /** The `doctor` line that validates one project file — `doctor.gate.labels` names the gated ones. */
+    static String projectConfigLabel(Map<String, Object> sch, String id) {
+        return Objects.requireNonNullElse(asStr(get(projectConfigEntry(sch, id), "doctor_label")), id);
+    }
+
+    static List<String> projectConfigIds(Map<String, Object> sch) {
+        Map<String, Object> f = asMap(get(sch, "project_config", "files"));
+        return f == null ? List.of() : new ArrayList<>(f.keySet());
+    }
+
+    /** The entry's `path` as written — relative to the trail directory for `base: audit`. */
+    static String projectConfigName(Map<String, Object> sch, String id) {
+        Map<String, Object> e = projectConfigEntry(sch, id);
+        return e == null ? null : asStr(e.get("path"));
+    }
+
+    /** Repo-relative path: what `guard` compares a write against and `config list` prints. */
+    static String projectConfigRel(Map<String, Object> sch, String id) {
+        Map<String, Object> e = projectConfigEntry(sch, id);
+        String p = projectConfigName(sch, id);
+        if (e == null || p == null) return null;
+        return "audit".equals(asStr(e.get("base"))) ? AUDIT_DIR + "/" + p : p;
+    }
+
+    static Path projectConfigPath(Map<String, Object> sch, String id, Path trail) {
+        Map<String, Object> e = projectConfigEntry(sch, id);
+        String p = projectConfigName(sch, id);
+        if (e == null || p == null) return null;
+        return "audit".equals(asStr(e.get("base"))) ? trail.resolve(p) : ROOT.resolve(p);
+    }
+
+    /** The id of the project setting at a repo-relative path, or null. */
+    static String projectConfigIdAt(Map<String, Object> sch, String rel) {
+        for (String id : projectConfigIds(sch)) {
+            if (rel.equals(projectConfigRel(sch, id))) return id;
+        }
+        return null;
+    }
+
+    /**
+     * What `doctor` says about one project file: null when the project wrote none, else the
+     * problems (empty when valid) and, as the last element, what it sets.
+     */
+    static List<String> projectConfigFileProblems(Map<String, Object> sch, String id, Path trail) {
+        Path f = projectConfigPath(sch, id, trail);
+        if (f == null || !Files.isRegularFile(f)) return null;
+        Map<String, Object> root = asMap(Json.parse(readOrNull(f)));
+        if (root == null) return new ArrayList<>(List.of(projectConfigName(sch, id) + " is not a JSON object", ""));
+        return projectConfigProblems(sch, id, root);
+    }
+
+    /** One file's content through the validator its entry names — the closed set below. */
+    static List<String> projectConfigProblems(Map<String, Object> sch, String id, Map<String, Object> root) {
+        Map<String, Object> e = projectConfigEntry(sch, id);
+        return switch (orEmpty(asStr(e.get("validator")))) {
+            case "audit_overrides" -> auditOverrideContentProblems(sch, root, projectConfigName(sch, id));
+            case "plan_limits" -> planLimitContentProblems(sch, root);
+            case "keys" -> keysContentProblems(e, root);
+            default -> new ArrayList<>(List.of("project_config.files." + id + " names no known validator", ""));
+        };
+    }
+
+    /** The `keys` validator: only the listed keys, each one of its `values`. */
+    static List<String> keysContentProblems(Map<String, Object> entry, Map<String, Object> root) {
+        Map<String, Map<String, Object>> keys = new LinkedHashMap<>();
+        for (Object o : asList(entry.get("keys"))) {
+            Map<String, Object> k = asMap(o);
+            if (k != null && asStr(k.get("key")) != null) keys.put(asStr(k.get("key")), k);
+        }
+        List<String> out = new ArrayList<>();
+        List<String> set = new ArrayList<>();
+        for (Map.Entry<String, Object> e : root.entrySet()) {
+            Map<String, Object> k = keys.get(e.getKey());
+            List<String> values = k == null ? List.of() : asStrList(k.get("values"));
+            if (k == null) {
+                out.add("`" + e.getKey() + "` — only " + keys.keySet().stream().map(s -> "`" + s + "`")
+                        .collect(Collectors.joining(", ")) + " allowed");
+            } else if (!(e.getValue() instanceof String v) || !values.contains(v)) {
+                out.add("`" + e.getKey() + "` must be " + values.stream().map(s -> "\"" + s + "\"")
+                        .collect(Collectors.joining(" or ")));
+            } else if (!v.equals(asStr(k.get("default")))) {
+                set.add("`" + e.getKey() + "` = \"" + v + "\"");
+            }
+        }
+        out.add(String.join(", ", set));
+        return out;
+    }
+
+    /**
+     * {@code config list}: every registered file, as one JSON line. A key carrying `{skill}`,
+     * `{agent}`, `{budget_plan}` or `{window_budget}` is expanded to the concrete keys, each with
+     * its current value — so a reader never has to know which names exist.
+     */
+    static String configList(Map<String, Object> sch) {
+        Path trail = auditDir();
+        List<String> files = new ArrayList<>();
+        for (String id : projectConfigIds(sch)) {
+            Map<String, Object> e = projectConfigEntry(sch, id);
+            Path f = projectConfigPath(sch, id, trail);
+            boolean exists = f != null && Files.isRegularFile(f);
+            Object root = exists ? Json.parse(readOrNull(f)) : null;
+            List<String> problems = projectConfigFileProblems(sch, id, trail);
+            String summary = problems == null ? "" : problems.remove(problems.size() - 1);
+            List<String> keys = new ArrayList<>();
+            for (Object o : asList(e.get("keys"))) {
+                Map<String, Object> k = asMap(o);
+                if (k == null) continue;
+                for (String key : configExpand(sch, asStr(k.get("key")))) {
+                    StringBuilder b = new StringBuilder("{\"key\":\"").append(jsonEscape(key)).append('"')
+                            .append(",\"type\":").append(jsonOf(k.get("type")))
+                            .append(",\"default\":").append(jsonOf(configDefault(sch, id, key, k.get("default"))))
+                            .append(",\"effect\":").append(jsonOf(k.get("effect")))
+                            .append(",\"value\":").append(jsonOf(get(root, key.split("\\."))));
+                    if (k.get("values") != null) b.append(",\"values\":").append(jsonOf(k.get("values")));
+                    if (configFixed(sch, id, key)) b.append(",\"fixed\":true");
+                    keys.add(b.append('}').toString());
+                }
+            }
+            files.add("{\"id\":\"" + jsonEscape(id) + "\""
+                    + ",\"path\":" + jsonOf(projectConfigRel(sch, id))
+                    + ",\"exists\":" + exists
+                    + ",\"summary\":" + jsonOf(e.get("summary"))
+                    + ",\"decision\":" + jsonOf(e.get("decision"))
+                    + ",\"doctor_label\":" + jsonOf(e.get("doctor_label"))
+                    + ",\"available\":" + configAvailable(e, trail)
+                    + ",\"in_force\":" + jsonOf(summary)
+                    + ",\"problems\":" + jsonArray(problems == null ? List.of() : problems)
+                    + ",\"keys\":[" + String.join(",", keys) + "]}");
+        }
+        return "{\"files\":[" + String.join(",", files) + "]}";
+    }
+
+    /** False when a setting of the audit trail would land in a trail this project switched off. */
+    static boolean configAvailable(Map<String, Object> entry, Path trail) {
+        return !"audit".equals(asStr(entry.get("base"))) || Files.isDirectory(trail);
+    }
+
+    /**
+     * The value a key has with nothing written: for an `audit_overrides` piece, the boolean its
+     * class decides (its fixed override first) — the same order `isAuditExcluded` reads; for any
+     * other key, the entry's `default` as written.
+     */
+    static Object configDefault(Map<String, Object> sch, String id, String key, Object written) {
+        if (!"audit_overrides".equals(asStr(get(projectConfigEntry(sch, id), "validator")))) return written;
+        String[] p = key.split("\\.", 2);
+        if (p.length < 2) return written;
+        boolean agent = "agents".equals(p[0]);
+        String group = agent ? "agent_classes" : "skill_classes";
+        String cls = agent ? agentClassOf(sch, p[1]) : skillClassOf(sch, p[1]);
+        if (cls == null) return written;
+        if (get(sch, group, "classes", cls, "overrides", p[1], "audited") instanceof Boolean b) return b;
+        return !Boolean.FALSE.equals(get(sch, group, "classes", cls, "audited"));
+    }
+
+    /** A key fixed upstream, out of the project's reach — today `arch-adopt` in `audited`. */
+    static boolean configFixed(Map<String, Object> sch, String id, String key) {
+        if (!"audit_overrides".equals(asStr(get(projectConfigEntry(sch, id), "validator")))) return false;
+        String[] p = key.split("\\.", 2);
+        if (p.length < 2) return false;
+        boolean agent = "agents".equals(p[0]);
+        String cls = agent ? agentClassOf(sch, p[1]) : skillClassOf(sch, p[1]);
+        return cls != null && get(sch, agent ? "agent_classes" : "skill_classes", "classes", cls,
+                "overrides", p[1], "audited") != null;
+    }
+
+    /** One key pattern of `project_config` as the concrete keys it stands for on this disk. */
+    static List<String> configExpand(Map<String, Object> sch, String pattern) {
+        List<String> out = new ArrayList<>();
+        if (pattern == null) return out;
+        if (pattern.contains("{skill}")) {
+            for (String n : listNames(ROOT.resolve(".claude/skills"), true)) out.add(pattern.replace("{skill}", n));
+        } else if (pattern.contains("{agent}")) {
+            for (String n : listNames(ROOT.resolve(".claude/agents"), false)) out.add(pattern.replace("{agent}", n));
+        } else if (pattern.contains("{window_budget}")) {
+            String plan = orEmpty(asStr(get(sch, "audit", "budget_plan")));
+            for (String[] w : planWindows(sch)) {
+                if (w[3] != null) out.add(pattern.replace("{budget_plan}", plan).replace("{window_budget}", w[3]));
+            }
+        } else {
+            out.add(pattern.replace("{budget_plan}", orEmpty(asStr(get(sch, "audit", "budget_plan")))));
+        }
+        return out;
+    }
+
+    /** Skill folders holding a SKILL.md, or agent files, by name, sorted. */
+    static List<String> listNames(Path dir, boolean skills) {
+        if (!Files.isDirectory(dir)) return List.of();
+        try (Stream<Path> s = Files.list(dir)) {
+            return s.filter(p -> skills ? Files.isRegularFile(p.resolve("SKILL.md"))
+                            : p.getFileName().toString().endsWith(".md"))
+                    .map(p -> p.getFileName().toString().replaceFirst("\\.md$", ""))
+                    .sorted().toList();
+        } catch (IOException e) {
+            return List.of();
+        }
+    }
+
+    /**
+     * {@code config set} and {@code config unset}: the file as it would be, through the validator
+     * `doctor` runs, written only when clean. `unset` is never refused — it is how a key the
+     * validator names is taken out — and a file left empty is deleted, the default.
+     */
+    @SuppressWarnings("unchecked")
+    static void configWrite(Map<String, Object> sch, String id, String key, String raw, boolean unset)
+            throws IOException {
+        Map<String, Object> entry = projectConfigEntry(sch, id);
+        if (entry == null) {
+            err("❌ config: no project setting `" + id + "` — one of: " + String.join(", ", projectConfigIds(sch)));
+            System.exit(2);
+        }
+        Path trail = auditDir();
+        if (!configAvailable(entry, trail)) {
+            err("❌ config: the audit trail is off in this project (no " + AUDIT_DIR + "/), and creating it");
+            err("   to hold `" + id + "` would switch the trail on. Create " + AUDIT_DIR + "/ first if that is intended.");
+            System.exit(2);
+        }
+        Path file = projectConfigPath(sch, id, trail);
+        String rel = projectConfigRel(sch, id);
+        Map<String, Object> root;
+        if (Files.isRegularFile(file)) {
+            root = asMap(Json.parse(readOrNull(file)));
+            if (root == null) {
+                err("❌ config: " + rel + " is not a JSON object — fix or delete it by hand, then run again.");
+                System.exit(2);
+            }
+        } else {
+            root = new LinkedHashMap<>();
+        }
+        String[] path = key.split("\\.");
+        if (unset) {
+            configRemove(root, path, 0);
+        } else {
+            if (configFixed(sch, id, key)) {
+                err("❌ config: `" + key + "` is fixed upstream (an `overrides` entry of its class) — a project cannot set it.");
+                System.exit(2);
+            }
+            Map<String, Object> at = root;
+            for (int i = 0; i < path.length - 1; i++) {
+                Object next = at.get(path[i]);
+                if (next == null) { next = new LinkedHashMap<String, Object>(); at.put(path[i], next); }
+                if (!(next instanceof Map)) {
+                    err("❌ config: `" + String.join(".", Arrays.copyOf(path, i + 1)) + "` in " + rel
+                            + " is not an object — `config unset " + id + " " + path[i] + "` first.");
+                    System.exit(2);
+                }
+                at = (Map<String, Object>) next;
+            }
+            at.put(path[path.length - 1], configValue(raw));
+            List<String> problems = projectConfigProblems(sch, id, root);
+            problems.remove(problems.size() - 1);
+            if (!problems.isEmpty()) {
+                err("❌ config: " + rel + " would not be valid — nothing written.");
+                problems.forEach(p -> err("   " + p));
+                err("   Keys and values: `java -jar .claude/hooks/ArchHook.jar config list`; a key already in");
+                err("   the file that is named above comes out with `config unset " + id + " <key>`.");
+                System.exit(2);
+            }
+        }
+        if (root.isEmpty()) {
+            Files.deleteIfExists(file);
+            System.out.println("✅ " + rel + " — removed, every key at its default");
+            return;
+        }
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, jsonPretty(root, "") + "\n", StandardCharsets.UTF_8);
+        System.out.println("✅ " + rel + " — " + (unset ? key + " back to its default" : key + " = " + jsonOf(configValue(raw))));
+    }
+
+    /** A value typed on the command line: true/false, null, a number, else a string. */
+    static Object configValue(String raw) {
+        String s = raw.strip();
+        if ("true".equals(s)) return Boolean.TRUE;
+        if ("false".equals(s)) return Boolean.FALSE;
+        if ("null".equals(s)) return null;
+        if (s.matches("-?\\d+(\\.\\d+)?")) return Double.valueOf(s);
+        if (s.length() > 1 && s.startsWith("\"") && s.endsWith("\"")) return s.substring(1, s.length() - 1);
+        return s;
+    }
+
+    /** Removes a dotted key and every object it leaves empty. */
+    @SuppressWarnings("unchecked")
+    static void configRemove(Map<String, Object> at, String[] path, int i) {
+        if (i == path.length - 1) { at.remove(path[i]); return; }
+        if (at.get(path[i]) instanceof Map<?, ?> m) {
+            configRemove((Map<String, Object>) m, path, i + 1);
+            if (m.isEmpty()) at.remove(path[i]);
+        }
+    }
+
+    /** One JSON value on one line; a whole number is written without a fraction. */
+    static String jsonOf(Object o) {
+        if (o == null) return "null";
+        if (o instanceof Boolean b) return b.toString();
+        if (o instanceof Number n) {
+            double d = n.doubleValue();
+            return d == Math.rint(d) && !Double.isInfinite(d) ? String.valueOf((long) d) : String.valueOf(d);
+        }
+        if (o instanceof Map<?, ?> m) {
+            return m.entrySet().stream().map(e -> "\"" + jsonEscape(String.valueOf(e.getKey())) + "\":" + jsonOf(e.getValue()))
+                    .collect(Collectors.joining(",", "{", "}"));
+        }
+        if (o instanceof List<?> l) return l.stream().map(ArchHook::jsonOf).collect(Collectors.joining(",", "[", "]"));
+        return "\"" + jsonEscape(String.valueOf(o)) + "\"";
+    }
+
+    /** The same, indented two spaces per level — the shape a person reads in a diff. */
+    static String jsonPretty(Object o, String indent) {
+        if (o instanceof Map<?, ?> m && !m.isEmpty()) {
+            String in = indent + "  ";
+            return m.entrySet().stream()
+                    .map(e -> in + "\"" + jsonEscape(String.valueOf(e.getKey())) + "\": " + jsonPretty(e.getValue(), in))
+                    .collect(Collectors.joining(",\n", "{\n", "\n" + indent + "}"));
+        }
+        return jsonOf(o);
+    }
+
     // ── build ────────────────────────────────────────────────────────────────
 
     /** DOS epoch plus one month: the earliest timestamp every zip reader agrees on. */
@@ -2056,7 +2426,8 @@ public class ArchHook {
         err("Fix docker-compose.yml, or run `java .claude/hooks/ArchHook.java compose` for the");
         err("full report. A service stopped on purpose is still a stopped service here:");
         err("`docker compose down` clears it, or the project sets `\"exited\": \"warn\"` in "
-                + Optional.ofNullable(composeProjectFile()).orElse("the compose gate file") + ".");
+                + Optional.ofNullable(composeProjectFile()).orElse("the compose gate file")
+                + " with `java -jar .claude/hooks/ArchHook.jar config set compose-gate exited warn`.");
         System.exit(2);
     }
 
@@ -5984,7 +6355,7 @@ public class ArchHook {
      *
      * Three levels, first boolean wins: the piece's own `overrides.<name>.audited` in its
      * class (fixed upstream — `arch-adopt` is never audited, whatever the project says),
-     * then the project's `audit.project_overrides` file in the trail directory (the one
+     * then the project's `audited` file of `project_config`, in the trail directory (the one
      * thing about `.claude/` a generated project sets for itself, never written by
      * `export`), then the class flag. Design: decisions/0111-audit-opt-out-owned-by-the-project.md
      */
@@ -6003,9 +6374,9 @@ public class ArchHook {
         return cls != null && Boolean.FALSE.equals(get(sch, group, "classes", cls, "audited"));
     }
 
-    /** The project's compose gate file, named by `compose.project_overrides`, or null. */
+    /** The project's compose gate file, the `compose-gate` entry of `project_config`, or null. */
     static String composeProjectFile() {
-        return asStr(get(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))), "compose", "project_overrides"));
+        return projectConfigRel(asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))), "compose-gate");
     }
 
     /**
@@ -6023,54 +6394,34 @@ public class ArchHook {
     /**
      * What `doctor` says about the project's compose gate file: null when there is none, else
      * the problems (empty when valid) and, as the last element, what it sets. Strict like
-     * `audited.json`: one key, two values, so a typo does not switch nothing in silence.
+     * `audited.json`: the keys and values `project_config` lists, so a typo does not switch
+     * nothing in silence.
      */
     static List<String> composeOverrideProblems(Map<String, Object> sch) {
-        String file = asStr(get(sch, "compose", "project_overrides"));
-        if (file == null || !Files.isRegularFile(ROOT.resolve(file))) return null;
-        List<String> out = new ArrayList<>();
-        Map<String, Object> root = asMap(Json.parse(readOrNull(ROOT.resolve(file))));
-        if (root == null) {
-            out.add(file + " is not a JSON object");
-            out.add("");
-            return out;
-        }
-        String set = "";
-        for (Map.Entry<String, Object> e : root.entrySet()) {
-            if (!"exited".equals(e.getKey())) {
-                out.add("`" + e.getKey() + "` — only `exited` is allowed");
-            } else if (!"block".equals(e.getValue()) && !"warn".equals(e.getValue())) {
-                out.add("`exited` must be \"block\" or \"warn\"");
-            } else if ("warn".equals(e.getValue())) {
-                set = "`exited` warns instead of blocking";
-            }
-        }
-        out.add(set);
-        return out;
+        return projectConfigFileProblems(sch, "compose-gate", auditDir());
     }
 
     /** The project's own audited/not-audited map, or null when the project wrote none. */
     static Object auditProjectOverrides(Map<String, Object> sch, Path dir) {
-        String file = asStr(get(sch, "audit", "project_overrides"));
+        String file = projectConfigName(sch, "audited");
         return file == null ? null : Json.parse(readOrNull(dir.resolve(file)));
     }
 
     /**
      * What `doctor` says about the project's override file: null when there is none, else
      * the problems (empty when valid) and, as the last element, the summary of what it sets.
-     * Strict on purpose: the file may change only which pieces are audited, and a misspelled
-     * name would otherwise switch nothing, in silence.
      */
     static List<String> auditOverrideProblems(Map<String, Object> sch, Path dir) {
-        String file = asStr(get(sch, "audit", "project_overrides"));
-        if (file == null || !Files.isRegularFile(dir.resolve(file))) return null;
+        return projectConfigFileProblems(sch, "audited", dir);
+    }
+
+    /**
+     * The `audit_overrides` validator of `project_config`. Strict on purpose: the file may
+     * change only which pieces are audited, and a misspelled name would otherwise switch
+     * nothing, in silence. Problems first, then, as the last element, what it sets.
+     */
+    static List<String> auditOverrideContentProblems(Map<String, Object> sch, Map<String, Object> root, String file) {
         List<String> out = new ArrayList<>();
-        Map<String, Object> root = asMap(Json.parse(readOrNull(dir.resolve(file))));
-        if (root == null) {
-            out.add(file + " is not a JSON object");
-            out.add("");
-            return out;
-        }
         List<String> set = new ArrayList<>();
         for (Map.Entry<String, Object> e : root.entrySet()) {
             boolean agent = "agents".equals(e.getKey());
@@ -7299,7 +7650,7 @@ public class ArchHook {
 
     /** The project's budgets for `audit.budget_plan`, or null when it wrote no plan-limits file. */
     static Map<String, Object> planBudgets(Map<String, Object> sch, Path dir) {
-        String file = asStr(get(sch, "audit", "plan_limits"));
+        String file = projectConfigName(sch, "plan-limits");
         String base = asStr(get(sch, "audit", "budget_plan"));
         if (file == null || base == null) return null;
         Object root = Json.parse(readOrNull(dir.resolve(file)));
@@ -7329,7 +7680,7 @@ public class ArchHook {
         List<String[]> windows = sch == null ? List.of() : planWindows(sch);
         if (windows.isEmpty()) return "";
         StringBuilder md = new StringBuilder("## 🪟 Plan windows\n\n");
-        String file = asStr(get(sch, "audit", "plan_limits"));
+        String file = projectConfigName(sch, "plan-limits");
         Map<String, Object> budgets = planBudgets(sch, dir);
         if (budgets == null) {
             return md.append("No `.claude/audit-usage/").append(file).append("` — no projection. Anthropic publishes")
@@ -7365,7 +7716,7 @@ public class ArchHook {
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         List<String[]> windows = sch == null ? List.of() : planWindows(sch);
         if (windows.isEmpty()) return "";
-        String file = asStr(get(sch, "audit", "plan_limits"));
+        String file = projectConfigName(sch, "plan-limits");
         Map<String, Object> budgets = planBudgets(sch, dir);
         StringBuilder o = new StringBuilder("\n### Plan windows (runs per window, mean per piece, as if nothing else ran)\n\n");
         if (budgets == null) {
@@ -7429,16 +7780,13 @@ public class ArchHook {
      * misspelled field would otherwise project nothing, in silence.
      */
     static List<String> planLimitProblems(Map<String, Object> sch, Path dir) {
-        String file = asStr(get(sch, "audit", "plan_limits"));
-        String base = asStr(get(sch, "audit", "budget_plan"));
-        if (file == null || base == null || !Files.isRegularFile(dir.resolve(file))) return null;
+        return projectConfigFileProblems(sch, "plan-limits", dir);
+    }
+
+    /** The `plan_limits` validator of `project_config`: problems, then what it sets. */
+    static List<String> planLimitContentProblems(Map<String, Object> sch, Map<String, Object> root) {
+        String base = orEmpty(asStr(get(sch, "audit", "budget_plan")));
         List<String> out = new ArrayList<>();
-        Map<String, Object> root = asMap(Json.parse(readOrNull(dir.resolve(file))));
-        if (root == null) {
-            out.add(file + " is not a JSON object");
-            out.add("");
-            return out;
-        }
         Set<String> fields = new LinkedHashSet<>();
         for (String[] w : planWindows(sch)) if (w[3] != null) fields.add(w[3]);
         List<String> set = new ArrayList<>();
@@ -8248,6 +8596,19 @@ public class ArchHook {
         List<String> out = new ArrayList<>();
         Map<String, Object> cfg = asMap(sch.get("guard"));
 
+        // 0. A project setting has one writer, `config set`, which validates before it writes
+        //    (decision 0187). The sweep never reaches here with one: it skips them, since the
+        //    write `config` made came from no tool.
+        String setting = projectConfigIdAt(sch, rel);
+        if (setting != null && !sweep) {
+            out.add("❌ " + rel + " is a project setting (`project_config.files." + setting
+                    + "` in " + SCHEMA_FILE + ") — no tool writes it directly.");
+            out.add("Run `java -jar .claude/hooks/ArchHook.jar config set " + setting
+                    + " <key> <value>` (or `config unset " + setting + " <key>`), which validates first;");
+            out.add("`config list` prints every key, its values and its default. `/project-config` walks through it.");
+            return out;
+        }
+
         // 1. Territory, deny by default. `agent_type` is present only when the call comes from
         //    a subagent: an agent with a class is judged by ITS OWN territory and the caller's
         //    phase is irrelevant — no state file is read, so there is nothing to race with. An
@@ -8518,7 +8879,8 @@ public class ArchHook {
             if (entry.isBlank() || before.contains(entry)) continue;
             String rel = porcelainPath(entry);
             if (rel == null) continue;
-            if (matchesAny(exempt, rel) || admitted.contains(rel)) continue;
+            if (matchesAny(exempt, rel) || admitted.contains(rel)
+                    || projectConfigIdAt(sch, rel) != null) continue;
             List<String> v = guardViolations(sch, state, in, rel, true);
             if (!v.isEmpty()) { lines.add(""); lines.addAll(v); }
         }

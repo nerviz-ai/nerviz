@@ -263,6 +263,16 @@ convencer o `issue-verifier` a tentar publicar algo. Não é ferramenta quebrada
 issue pública é de terceiros. Só aqui; o projeto gerado não tem essas linhas. Design:
 `.claude/decisions/0103-issue-filing-and-skeptical-triage.md`.
 
+**Uma configuração do projeto não se edita, nem fora de qualquer skill.** Write, Edit ou
+redirect de shell num arquivo listado em `project_config` (`audited.json`, `plan-limits.json`,
+`compose-gate.json`) é recusado pelo `guard write` / `guard bash`, com ou sem fase aberta. Não
+é ferramenta quebrada. Esses arquivos têm um único escritor,
+`java -jar .claude/hooks/ArchHook.jar config set <id> <chave> <valor>`, que valida antes de
+gravar, e a recusa nomeia esse comando. O `guard sweep` pula esses caminhos, então a escrita
+que o `config` faz durante o `/project-config` não bloqueia o Stop. Editar à mão fora do Claude
+Code continua possível, e o `doctor` continua validando o resultado. Ver
+`16-project-config.md`. Design: `.claude/decisions/0187-project-config-registry-skill-and-mod.md`.
+
 ### Classes e modelos
 
 **Toda skill declara `model`, dentro do conjunto da sua classe.** `schema` reprova um
@@ -311,7 +321,7 @@ container `created`, que falhou ao bindar, e uma colisão ao lado de um serviço
 continuam bloqueando. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`;
 Issue #175, `.claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md`.
 A própria linha `exited` continua bloqueando, e o bloqueio nomeia a saída: `docker compose down`,
-ou `{"exited": "warn"}` no `.claude/compose-gate.json` versionado do projeto, que transforma só
+ou `{"exited": "warn"}` no `.claude/compose-gate.json` versionado do projeto (`config set compose-gate exited warn`, o único escritor; ver `16-project-config.md`), que transforma só
 essa linha em aviso, ainda impresso por `compose` e `doctor`. O `export` nunca nomeia o
 arquivo, então o `/arch-adopt` o deixa em paz; o `doctor` o valida na linha `Compose overrides`.
 

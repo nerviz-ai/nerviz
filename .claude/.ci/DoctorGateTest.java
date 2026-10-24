@@ -61,7 +61,7 @@ public class DoctorGateTest {
                 "{\"exited\":\"warn\",\"foreign_ports\":\"warn\"}"));
         String warns = run(new String[] {"doctor", "gate"}, p -> write(p.resolve(".claude/compose-gate.json"),
                 "{\"exited\":\"warn\"}"), 0, "compose gate file sets exited to warn — gate passes");
-        if (!warns.contains("`exited` warns instead of blocking")) {
+        if (!warns.contains("`exited` = \"warn\"")) {
             fail("a valid compose gate file is not reported as in force on the `Compose overrides` line");
         }
 
