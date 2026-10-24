@@ -357,7 +357,7 @@ java .claude/.ci/TestDiffTest.java
 java .claude/.ci/BoundaryMapTest.java
 java .claude/.ci/BlueprintSkeletonTest.java selftest
 # mods.yml — a Claude Code CLI at mods.ci_version or later:
-claude plugin validate .claude/mods && claude plugin test .claude/mods/nerviz-cockpit
+claude plugin validate .claude/mods && claude plugin test .claude/mods/nerviz-cockpit && claude plugin test .claude/mods/nerviz-config
 # templates.yml — network, ~1 min with a warm Maven cache:
 java .claude/.ci/CheckstyleConfigTest.java
 java .claude/.ci/JavaTemplatesTest.java

@@ -16,7 +16,9 @@
   the `config list` JSON that merge fixes, under its own Form 9 run of
   `claude-code-architect-designer` that amends this record
 - **State:** approved by Lucas Fernandes, on 2026-10-24 — Option A, split in two: phase 1 now,
-  the mod's UI after phase 1 is merged
+  the mod's UI after phase 1 is merged. **Phase 2 approved the same day**, after phase 1 landed
+  in `main` (`c13c8b2`): prototype `r2` of `nerviz-config`, variant A, ideas 1, 2, 3, 4 and 6 of
+  the style round, option B for the brand color; idea 5 refused
 
 ## What exists today
 
@@ -57,9 +59,9 @@ documentation a fourth time.
 | C | As A without the mod | 7 | Rejected as the end state — it is phase 1 of A |
 | D | Create nothing beyond a documentation page | 3 | Rejected — a wrong key still waits for `doctor`; a fourth override reinvents everything |
 
-## Phase 2 — the mod, after phase 1 is merged
+## Phase 2 — what phase 1 fixed, and what its own run decided
 
-Not started on purpose. What phase 1 leaves fixed for it, and what its own design run decides:
+What phase 1 left fixed for the mod, and what its own design run decides:
 
 - **Fixed by phase 1:** the `config list` JSON line (each file's `id`, `path`, `exists`,
   `available`, `in_force`, `problems`, and per key `key`, `type`, `values`, `default`, `value`,
@@ -148,6 +150,90 @@ Everything A guarantees, without a second repository or a mod. Leaves request 2 
 Answers "did not know it existed". A wrong key still waits for `doctor`; a fourth override
 still reinvents shape, validator and docs. **CI:** nothing testable.
 
+## Phase 2 — built
+
+Approved on 2026-10-24 from `docs/prototypes/nerviz-config-0.1.0.html` (untracked on purpose:
+`docs/prototypes/` carries its own `.gitignore`, and a prototype does not go to the public
+repository). Decisions of the prototype rounds:
+
+| Round | Decision |
+|---|---|
+| Variant | A, the pane alone. Nothing runs until `/nerviz-config` is typed; no `java` per session. The band that would have shown a problem was refused: it costs a process per session and repeats `doctor` |
+| Language | pt-BR and en, from the `/config` Language row, else the process locale |
+| Writes | A dialog before every one, `unset` included |
+| Style 1 | The N of the logo in block glyphs at the top, its diagonal in the brand blue |
+| Style 2 | The blue marks only what is off its default: `●` blue against a ghost `○` |
+| Style 3 | A spine `╭─ ├─ ╰─`, one node per file |
+| Style 4 | A seal `nerviz ▸ config`, with what `config list` gives: file and problem counts (it does not give the jar's version) |
+| Style 5 | **Refused** — the mesh of banner curves in the empty states |
+| Style 6 | The identity in the prototype only: ground, ink, Plex fonts, the mark in the chrome |
+| Color | **B** — the brand hex lives in `palettes.ts` only (`#8EA2FF` dark, `#2747D9` light, by the `theme` row of `$.config.list()`); any other theme gets the `suggestion` theme key. The `mod-workflow` rule "theme keys only" does not name this exception; that skill is the author's own and sits outside this repository |
+
+**Shape built:**
+
+```
+.claude/mods/nerviz-config/
+  .claude-plugin/plugin.json   hooks/hooks.json   tsconfig.json
+  hooks/register.ts   events, $ calls, Button/Input wiring — the only file that calls `$`
+  hooks/model.ts      config list JSON → lines; no `$`, no rule
+  hooks/palettes.ts   the one hex
+  hooks/words.ts      pt-BR and en
+  tests/config.test.ts
+```
+
+It hooks `session.start` (register the command only when `.claude/hooks/ArchHook.jar` exists),
+`command.run` and `ui.render` on `Pane`; no event of `gating_events`, so no `.catch`. A press
+asks through `$.ui.ask`, then runs `java -jar .claude/hooks/ArchHook.jar config set|unset`; an
+exit 2 is shown as it came. A jar that answers `Unknown mode: config` is an old one: the pane
+says to run `/arch-adopt`. Where `$.session.surfaces()` is empty the command prints the listing
+as text.
+
+**Deviations from the approved prototype, all forced by the data or the API:**
+
+- A section's title is the registry's `doctor_label` (`Compose overrides`, `Plan limits`,
+  `Audit overrides`), which is how `doctor` names the same file, not the prototype's friendlier
+  names — the registry holds no other label.
+- A file with more than 8 keys (`audited`, 39) shows only what is off its default; `show all`
+  opens it eight keys at a time with `previous` and `next` buttons, since a pane's scroll is not
+  an API a mod can drive from here.
+- The `doctor` button fills `/arch-doctor`, not `/nerviz-doctor`: the first exists in every
+  project, the second only where the cockpit loads.
+- A changed enum key also offers `reset`, which runs `config unset`; picking the default value
+  would write it instead of removing the key.
+- A file with no file on disk reads `not written`, also for the compose gate, which the
+  prototype showed as `default`.
+
+**Still outside this change:** the vendoring of the mod by the `nerviz` plugin — a separate
+pull request in `nerviz-ai/marketplace`, after the source tag.
+
+### Propagation of phase 2
+
+| File | Change |
+|---|---|
+| `.claude/mods/nerviz-config/**` | New — the mod above |
+| `.claude/mods/.claude-plugin/marketplace.json` | The `nerviz-config` entry |
+| `.claude/settings.json` | `"nerviz-config@nerviz-mods": true` in `enabledPlugins` |
+| `.claude/schemas/extensions.json` | `mods.$comment_calls` names the one write admitted: `ArchHook.jar config set\|unset` |
+| `CLAUDE.md` | The mod row of the routing table names both shipped mods |
+| `docs/{en,pt-br}/16-project-config.md` | A `The pane` section; the "planned mod" bullet replaced |
+| `docs/{en,pt-br}/06-claude-code-architect-designer.md` | Two mods are shipped |
+| `docs/{en,pt-br}/07-ci-validate.md` | The `mods.yml` command names both mods |
+| `docs/{en,pt-br}/13-github-copilot.md` | `nerviz-config` listed with the cockpit as Claude Code only |
+
+Not touched: `export` (no mod travels, 0131), `ArchHook.java` (the pane reads `config list`,
+which phase 1 fixed), `project-bootstrap`'s templates.
+
+### CI coverage of phase 2
+
+| Pipeline · job › step | What it proves | Run |
+|---|---|---|
+| `mods · mods load and pass their own tests › claude plugin validate` | The marketplace and `nerviz-config` load as the engine reads them, no gating hook without `.catch` | Green locally on Claude Code 2.1.308 and on 2.1.293, the `mods.ci_version` the job pins |
+| `mods · … › claude plugin test` (`tests/config.test.ts`, 15 cases) | The pane names every file; the blue marks only what is off its default; the light theme and the fallback theme key; a press asks first and writes through `config set` only on `Write`; `Cancel` writes nothing; a refusal is shown as it came; reset runs `config unset`; a fixed key has no button; a file with the trail off offers nothing; an empty number resets; an old jar says `/arch-adopt`; no jar, no command; `claude -p` prints the listing and writes nothing | 15 pass. Red, each failing by name, with the defect injected: dialog answer ignored (1), every key drawn as changed (3), unknown theme given a hex (2), old jar not recognized (1), fixed key given a button (1, after the test was fixed — it passed the first time), command registered with no jar (1) |
+| `validate · hooks-cross-platform › ModsSchemaTest` and `design › frontmatter schema` | The mod is in the marketplace and in `enabledPlugins`; one module, a test file, events and calls allowed | `schema` exit 0; `doctor` › `Mods` reads `2 mod(s) … loads them` |
+
+What the mod's tests cannot prove, and `ProjectConfigTest` already does: what `config list`
+prints, and that `config set` refuses before it writes.
+
 ## References
 
 | Claim | Source |
@@ -164,7 +250,7 @@ still reinvents shape, validator and docs. **CI:** nothing testable.
 
 ## Propagation
 
-Phase 1 only.
+Phase 1. Phase 2's is its own table under `Phase 2 — built`.
 
 | File | Change |
 |---|---|

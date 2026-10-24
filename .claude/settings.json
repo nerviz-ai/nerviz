@@ -237,6 +237,7 @@
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": false,
     "mattpocock-skills@claude-plugins-official": false,
-    "nerviz-cockpit@nerviz-mods": true
+    "nerviz-cockpit@nerviz-mods": true,
+    "nerviz-config@nerviz-mods": true
   }
 }

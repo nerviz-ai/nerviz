@@ -52,6 +52,23 @@ Como o `config` se comporta:
 Esses arquivos são versionados. Faça o commit da configuração junto com a mudança que a
 motivou, para que o motivo fique ao lado dela no histórico.
 
+## O painel
+
+`/nerviz-config` abre as mesmas configurações num painel, a partir do mod `nerviz-config`
+deste repositório. Não gasta turno. O painel abre com o N do logo no topo, e uma espinha desce por ele com
+um nó por arquivo. Um nó e um valor ficam azuis só quando o arquivo guarda um valor diferente
+do padrão; o resto é um `○` fantasma. Um botão é uma mudança: pergunta antes (`Gravar` ou
+`Cancelar`) e só então roda `config set` ou `config unset`. Quando o `config` recusa, o painel
+mostra o que ele imprimiu e nada foi gravado. Onde nada desenha (`claude -p`), o comando
+imprime a listagem como texto e não muda nada.
+
+O mod não guarda regra: todo valor, padrão e recusa é do `config`. Ele fica em silêncio num
+projeto sem `.claude/hooks/ArchHook.jar` e manda rodar `/arch-adopt` quando o jar não tem o
+modo `config`. Não carrega em `claude -p`, no VS Code nem numa sessão na nuvem, e por isso a
+skill e o comando continuam sendo o caminho para mudar uma configuração em qualquer lugar. A
+entrega aos projetos pelo plugin é uma mudança à parte em `nerviz-ai/marketplace`; nada em
+`.claude/mods/` passa pelo `export` (0131).
+
 ## Em outras plataformas agênticas
 
 - **`config`** é Java puro. Funciona igual no Claude Code, no GitHub Copilot CLI, no VS Code,
@@ -89,5 +106,4 @@ da 0187.
   sobrescreve os dois.
 - **`.claude/settings.local.json` e `~/.claude/settings.json`** são configuração pessoal, não
   versionada.
-- **Uma visualização dessas configurações** será um mod, planejado para depois do merge da
-  branch que entrega esta página (0187).
+- **Um painel que funcione fora do Claude Code:** o mod só carrega onde o Claude Code carrega mods.
