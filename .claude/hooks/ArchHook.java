@@ -593,6 +593,14 @@ public class ArchHook {
         report("Compose", comp.ok(), comp.summary(), comp.summary());
         for (String d : comp.detail()) err("    " + d);
         for (String cw : comp.warnings()) err("    ⚠️  " + cw);
+        Map<String, Object> composeSch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        List<String> cOvr = composeSch == null ? null : composeOverrideProblems(composeSch);
+        if (cOvr != null) {
+            String set = cOvr.remove(cOvr.size() - 1);
+            report("Compose overrides", cOvr.isEmpty(),
+                    set.isEmpty() ? "none set — the gate follows its defaults" : set,
+                    String.join("; ", cOvr));
+        }
 
         boolean git = false;
         try { git = run("git", "rev-parse", "HEAD").exit == 0; } catch (Exception ignored) { }
@@ -2046,7 +2054,9 @@ public class ArchHook {
         err("❌ Compose: " + r.summary());
         for (String d : r.detail()) err("   " + d);
         err("Fix docker-compose.yml, or run `java .claude/hooks/ArchHook.java compose` for the");
-        err("full report. A service stopped on purpose is still a stopped service here.");
+        err("full report. A service stopped on purpose is still a stopped service here:");
+        err("`docker compose down` clears it, or the project sets `\"exited\": \"warn\"` in "
+                + Optional.ofNullable(composeProjectFile()).orElse("the compose gate file") + ".");
         System.exit(2);
     }
 
@@ -2090,7 +2100,8 @@ public class ArchHook {
 
         List<String> detail = new ArrayList<>();
         Set<String> ours = new LinkedHashSet<>();
-        int running = 0, total = 0;
+        int running = 0, total = 0, binding = 0;
+        boolean exitedWarns = composeExitedWarns();
         for (Object o : composeEntries(ps.out())) {
             Map<String, Object> m = asMap(o);
             if (m == null) continue;
@@ -2100,22 +2111,29 @@ public class ArchHook {
             String state = Optional.ofNullable(asStr(m.get("State"))).orElse("?")
                     .toLowerCase(Locale.ROOT);
             ours.add(name);
+            boolean stopped = "exited".equals(state) || "dead".equals(state);
+            if (!stopped) binding++;
             if (state.startsWith("running")) { running++; continue; }
-            detail.add("service `" + svc + "` is " + state + ", not running"
+            (stopped && exitedWarns ? warnings : detail).add("service `" + svc + "` is " + state
+                    + ", not running"
                     + ("created".equals(state)
                             ? " — a `created` container usually failed to bind a"
                               + " published port; see the port collisions below"
                             : "")
-                    + "  →  docker compose logs " + svc);
+                    + "  →  docker compose logs " + svc
+                    + (stopped ? ", or docker compose down if it was stopped on purpose" : ""));
         }
 
         // A foreign container holding one of our host ports. This is the check that would
         // have answered lessons-learned-008 in seconds, and it runs even when every
         // service above is fine: the collision is what stops a service from starting.
-        // With no container of ours at all, nothing is binding yet: the line is a warning
-        // for the next `up`, so `compose gate` does not block a turn on another project's
-        // state. Design: .claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md
-        List<String> collisions = total == 0 ? warnings : detail;
+        // With no container of ours binding — none at all, or every one `exited` or `dead` —
+        // nothing holds or wants the port yet: the line is a warning for the next `up`, so
+        // `compose gate` does not block a turn on another project's state. A `created`
+        // container failed to bind, so its collision stays a blocker.
+        // Design: .claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md
+        // and .claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md
+        List<String> collisions = binding == 0 ? warnings : detail;
         Set<String> wanted = declared.values().stream().flatMap(Set::stream)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (!wanted.isEmpty()) {
@@ -2134,9 +2152,9 @@ public class ArchHook {
                             collisions.add("host port " + p + " is held by `" + name
                                     + "`, a container of ANOTHER project — "
                                     + declaredBy(declared, p) + " here cannot bind it"
-                                    + (total == 0
+                                    + (binding == 0
                                             ? " once `docker compose up` runs (nothing of"
-                                              + " this project is up yet, so not blocking)"
+                                              + " this project is running, so not blocking)"
                                             : "")
                                     + "  →  docker stop " + name);
                         }
@@ -5983,6 +6001,52 @@ public class ArchHook {
             return !b;
         }
         return cls != null && Boolean.FALSE.equals(get(sch, group, "classes", cls, "audited"));
+    }
+
+    /** The project's compose gate file, named by `compose.project_overrides`, or null. */
+    static String composeProjectFile() {
+        return asStr(get(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))), "compose", "project_overrides"));
+    }
+
+    /**
+     * True when the project's compose gate file sets {@code exited} to {@code warn}. An absent
+     * file, an absent key and any other value mean {@code block}, today's behaviour — the file
+     * is validated by {@link #composeOverrideProblems}, never trusted to be well formed here.
+     * Design: decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md
+     */
+    static boolean composeExitedWarns() {
+        String file = composeProjectFile();
+        Map<String, Object> root = file == null ? null : asMap(Json.parse(readOrNull(ROOT.resolve(file))));
+        return root != null && "warn".equals(root.get("exited"));
+    }
+
+    /**
+     * What `doctor` says about the project's compose gate file: null when there is none, else
+     * the problems (empty when valid) and, as the last element, what it sets. Strict like
+     * `audited.json`: one key, two values, so a typo does not switch nothing in silence.
+     */
+    static List<String> composeOverrideProblems(Map<String, Object> sch) {
+        String file = asStr(get(sch, "compose", "project_overrides"));
+        if (file == null || !Files.isRegularFile(ROOT.resolve(file))) return null;
+        List<String> out = new ArrayList<>();
+        Map<String, Object> root = asMap(Json.parse(readOrNull(ROOT.resolve(file))));
+        if (root == null) {
+            out.add(file + " is not a JSON object");
+            out.add("");
+            return out;
+        }
+        String set = "";
+        for (Map.Entry<String, Object> e : root.entrySet()) {
+            if (!"exited".equals(e.getKey())) {
+                out.add("`" + e.getKey() + "` — only `exited` is allowed");
+            } else if (!"block".equals(e.getValue()) && !"warn".equals(e.getValue())) {
+                out.add("`exited` must be \"block\" or \"warn\"");
+            } else if ("warn".equals(e.getValue())) {
+                set = "`exited` warns instead of blocking";
+            }
+        }
+        out.add(set);
+        return out;
     }
 
     /** The project's own audited/not-audited map, or null when the project wrote none. */

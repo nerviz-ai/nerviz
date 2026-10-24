@@ -119,6 +119,7 @@ defeito de documentação. A lista é dado — `doctor.gate.labels` em
 | `Hooks` | o runtime ignora, sem erro, um evento desconhecido ou um `matcher` que o evento não lê |
 | `MCP` | inclui a varredura de segredo literal no `.mcp.json` (invariante 11) |
 | `Audit overrides` | os overrides moram em arquivo versionado |
+| `Compose overrides` | `.claude/compose-gate.json` é arquivo versionado; um malformado não ligaria nada, em silêncio (decisão 0186) |
 
 ### Não bloqueiam o CI
 

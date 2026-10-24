@@ -118,6 +118,7 @@ each label matches the first argument of `report(...)` in `ArchHook.java`.
 | `Hooks` | the runtime silently ignores an unknown event or a `matcher` the event does not read |
 | `MCP` | includes the literal-secret scan of `.mcp.json` (invariant 11) |
 | `Audit overrides` | the overrides live in a versioned file |
+| `Compose overrides` | `.claude/compose-gate.json` is a versioned file; a malformed one would switch nothing in silence (decision 0186) |
 
 ### Does not block CI
 
