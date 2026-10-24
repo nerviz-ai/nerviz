@@ -115,8 +115,9 @@ includes time the user spent thinking. Then add what the block can't:
    `/audit-usage <fragment>` that opens it.
 
 If the plan windows say `not configured`, say so and point at
-`.claude/audit-usage/plan-limits.json` — `{"pro": {"five_hour_tokens": <n>, "weekly_tokens": <n>}}`,
-the billable tokens the person saw a Pro window hold (the audit's total when `/usage` reached
+`.claude/audit-usage/plan-limits.json`, set with `/project-config` or
+`java -jar .claude/hooks/ArchHook.jar config set plan-limits pro.five_hour_tokens <n>` (and
+`pro.weekly_tokens`) — never by editing the JSON, which `guard` refuses — the billable tokens the person saw a Pro window hold (the audit's total when `/usage` reached
 100%). Never suggest a budget: Anthropic publishes none, and one written from memory looks as
 authoritative as a measured one. Never convert anything to a currency either: the trail prices
 nothing, and a rate written from memory is wrong the day after it changes.
@@ -165,9 +166,10 @@ single session a report stays stamped `⏳ in progress` until something ends the
 asking for the report is what finalizes it.
 
 `arch-adopt` is never recorded either — fixed in its own class override. Any other piece
-can be switched per project in `.claude/audit-usage/audited.json` (`{"skills": {"<name>":
-false}, "agents": {}}`), the one file of `.claude/` the project owns and `/arch-adopt` never
-overwrites; `doctor`'s `Audit overrides` line validates it.
+can be switched per project in `.claude/audit-usage/audited.json`, one of the files of
+`.claude/` the project owns and `/arch-adopt` never overwrites — through `/project-config` or
+`java -jar .claude/hooks/ArchHook.jar config set audited skills.<name> false`, the only
+writer; `doctor`'s `Audit overrides` line validates it.
 
 Runs on `sonnet` with `effort: low`: `audit summary` already did the sums, and what is
 left is ranking and rendering (`@.claude/decisions/0080-procedural-skills-on-sonnet.md`).

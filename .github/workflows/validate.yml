@@ -170,6 +170,13 @@ jobs:
       - name: doctor gate fails on every gated line and only on those
         run: java .claude/.ci/DoctorGateTest.java
 
+      # `config` is the only writer of the files a generated project owns in its `.claude/`
+      # (`project_config`, 0187): a value its validator lets through is the silent
+      # switch-nothing file 0111 and 0186 made doctor fail on, and a guard that let a tool write
+      # the JSON would bring back two owners of each file's shape.
+      - name: config writes only valid project settings, and guard leaves it the only writer
+        run: java .claude/.ci/ProjectConfigTest.java
+
       # A plugin enabled at user level loads again, in silence, the moment its project-level
       # `false` is gone; the list sits in two settings files and drifts on the first edit to
       # one of them. `settings.blocked_plugins` is the owner, and both files must follow (0138).

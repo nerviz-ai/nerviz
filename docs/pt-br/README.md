@@ -35,6 +35,7 @@ os outros.
 | [13-github-copilot.md](13-github-copilot.md) | O que um projeto gerado entrega a quem usa GitHub Copilot, superfície por superfície (CLI, cloud agent, VS Code, code review): o que funciona igual, o que precisa de tradução de arquivo ou frontmatter, o que só o Claude Code tem, o que só o Copilot tem, e qual garantia do Nerviz continua valendo lá. Base da fase 8 do `roadmap.md` e do desenho do `AGENTS.md` |
 | [14-rules.md](14-rules.md) | O papel de cada rule de `.claude/rules/`: o que só ela decide, onde passa a palavra para outra, o que a verifica — e uma tabela de perguntas de fronteira (quem decide o status, o nível de log, a máscara, o TLS de entrada e de saída). Não repete as normas; aponta para elas |
 | [15-platform-upgrade.md](15-platform-upgrade.md) | Workflow de `/platform-upgrade`: levar um projeto que builda numa linha do Spring Boot abaixo do piso até ele — o modo `upgrade-recipe` e suas duas passadas, o baseline do `test-diff`, os dados que lê (`doctor.platform.upgrade`), o resíduo guiado e a execução do contexto, o que não faz, o que o CI prova |
+| [16-project-config.md](16-project-config.md) | O que um projeto gerado configura no próprio `.claude/`: as três configurações, `ArchHook.jar config` como único escritor, `/project-config`, como adicionar uma nova |
 
 ## Como este repositório está organizado (referência rápida)
 

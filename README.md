@@ -576,6 +576,7 @@ Startup costs about 0.3 s per invocation.
 | `export` | manual (through `/arch-adopt`) | no | writes a target project's `.claude/` from the manifest, with the provenance stamp |
 | `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade`, the Initializr's metadata for the target and the resolved jars' own property metadata |
 | `test-diff` | manual (through `/platform-upgrade`) | no | records the test cases of a build's JUnit reports and compares a later run: exit 2 on a test that got worse or vanished, never on a failure that was already there |
+| `config` | manual, `/project-config` | `set` refuses an invalid value | lists the files a generated project owns in its `.claude/` (`project_config` of `extensions.json`) and is their only writer: `set` validates with `doctor`'s validator before it writes, `unset` restores a default |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 
 Every list the hook reads is data in `schemas/extensions.json`, never a constant in the
@@ -642,6 +643,7 @@ exists inside the project:
 | [`11-pitfalls.md`](docs/en/11-pitfalls.md) | Every silent trap, the runtime's and this repository's |
 | [`12-issues.md`](docs/en/12-issues.md) | `/report-issue` and `/triage-issue` |
 | [`15-platform-upgrade.md`](docs/en/15-platform-upgrade.md) | Taking a project below the Spring Boot floor up to it, before `/arch-adopt` |
+| [`16-project-config.md`](docs/en/16-project-config.md) | What a generated project configures in its own `.claude/`, `/project-config` and `ArchHook.jar config` |
 | [`roadmap.md`](roadmap.md) | Delivery phases and the feature checklist |
 
 Portuguese versions of every document live under [`docs/pt-br/`](docs/pt-br/README.md).

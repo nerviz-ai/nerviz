@@ -90,9 +90,10 @@ a class that declares `audited: false` leaves no run of its own for any skill it
 
 ### Per project: `.claude/audit-usage/audited.json`
 
-One of the two files of `.claude/` a generated project writes for itself (the other is
-`plan-limits.json`, below). `export` never names it,
-so `/arch-adopt` never touches it. Absent → every piece follows its class, as above.
+One of the files of `.claude/` a generated project owns (`project_config`, see
+[`16-project-config.md`](16-project-config.md)). `export` never names it, so `/arch-adopt`
+never touches it, and only `ArchHook.jar config set audited skills.<name> false` (or
+`/project-config`) writes it — `guard` refuses a direct edit. Absent → every piece follows its class, as above.
 
 ```json
 { "skills": { "report-issue": false, "git-publish": true }, "agents": {} }
