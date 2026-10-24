@@ -1,0 +1,22 @@
+// EXEMPLAR — what the module with `contains_main: true` adds to its build.gradle, the only one
+// that builds the executable jar.
+//
+// `archiveFileName` is why this file exists: bootJar's default is <name>-<version>.jar, so the
+// jar the Dockerfile copies would change name with every version bump and `docker build` would
+// break while `./gradlew build` stays green. `app.jar` is the name Dockerfile-gradle.example
+// copies: `{{MAIN_MODULE_JAR_PATH}}` is `build/libs/app.jar` (single-module) or
+// `<module-path>/build/libs/app.jar` (multi-module), never a name with a version in it.
+//
+// single-module: the Initializr's build.gradle already applies the plugin — add only the
+// `bootJar` block.
+// multi-module: both blocks go into the build.gradle of the module with `contains_main: true`,
+// the `plugins {}` block first in the file. The version comes from the root build.gradle, where
+// the plugin is declared `apply false`.
+
+plugins {
+    id 'org.springframework.boot'
+}
+
+bootJar {
+    archiveFileName = 'app.jar'
+}
