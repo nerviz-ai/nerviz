@@ -204,6 +204,14 @@ skill.
    reopen it per use case: the controller calls `IdempotentExecution`, the command
    carries no key, and `10-domain.md`'s use case signature doesn't change for it.
 
+   **Show the cost when the key table is new.** The key stays mandatory on a creating `POST`
+   whatever `00-use-case.md`'s `Repetition` row says about domain uniqueness
+   (`@.claude/rules/api-rest.md` § Idempotency). When `idempotency_keys` is **NEW** in the project,
+   the partial opens its idempotency section with one line the approver reads: what this case adds
+   — the aspect, interceptor, store, table with its migrations and the cleanup job — paid once
+   per project and inherited by every later key endpoint. When the table already exists the
+   line is absent: the cost is not this case's.
+
    **Every `Idempotency-Key` endpoint, including the first one in the project, uses
    `@Idempotent` + `IdempotencyAspect`** (`templates/IdempotencyAspect.java.example`,
    `templates/IdempotencyKeyInterceptor.java.example`'s annotation-based variant,

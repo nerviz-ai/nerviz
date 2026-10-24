@@ -593,7 +593,8 @@ jobs:
           # transport-security.md, the placeholder rule to secrets.md, which four norms used to
           # restate (0122).
           for term in "Constructor injection" "Zero framework" "RuntimeException" \
-                      "forward-headers-strategy" "reload-on-update" "A placeholder for a secret has no default"; do
+                      "forward-headers-strategy" "reload-on-update" "A placeholder for a secret has no default" \
+                      "A value with no source is not a fact"; do
             HITS=$(grep -rl "$term" .claude/rules/ || true)
             N=$(echo "$HITS" | grep -c . || true)
             if [ "$N" -gt 1 ]; then
