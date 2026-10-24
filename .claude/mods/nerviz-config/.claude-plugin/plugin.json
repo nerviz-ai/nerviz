@@ -1,0 +1,5 @@
+{
+  "name": "nerviz-config",
+  "version": "0.1.0",
+  "description": "A pane over `ArchHook.jar config`: the settings a project owns in its own .claude/, in the nerviz identity, changed only through `config set` and `config unset` after a dialog."
+}

@@ -1295,7 +1295,7 @@
       "classic.PreToolUse", "classic.UserPromptSubmit", "classic.Stop", "classic.SubagentStop",
       "classic.PostToolBatch", "classic.PermissionRequest"
     ],
-    "$comment_calls": "What a mod here never calls: the network, the model (it spends the person's plan), a prompt or message sent as the person, a change to the environment every later command inherits, and a file write that no tool-time guard sees. `process_allow` is the only program `$.process.run` may start — the first element of its argument list, as a string literal; the mod reaches the repository's rules through `java -jar .claude/hooks/ArchHook.jar`, and nothing else.",
+    "$comment_calls": "What a mod here never calls: the network, the model (it spends the person's plan), a prompt or message sent as the person, a change to the environment every later command inherits, and a file write that no tool-time guard sees. One write is admitted: `ArchHook.jar config set|unset`, the single writer of a project's own settings — it validates before it writes and refuses with nothing written, and `guard` refuses every other path to those files (0187). `process_allow` is the only program `$.process.run` may start — the first element of its argument list, as a string literal; the mod reaches the repository's rules through `java -jar .claude/hooks/ArchHook.jar`, and nothing else.",
     "forbidden_calls": [
       "$.http.fetch", "$.model.complete", "$.model.fork", "$.model.classify",
       "$.prompt.submit", "$.session.send", "$.env.set", "$.fs.write", "$.process.spawn"

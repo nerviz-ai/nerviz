@@ -238,7 +238,7 @@ has its own hooks (`chat.useHooks`) and reads the Claude format with `chat.useCl
 | `permissions.deny` in the project's `settings.json` | No equivalent in a repository file |
 | `hooks` **inside** skill or agent frontmatter | Only VS Code documents `hooks` on an agent (preview) |
 | Module `CLAUDE.md`, per-module `CLAUDE.local.md` | Only `AGENTS.md` nesting exists |
-| Mods (`.claude/mods/`, `nerviz-cockpit`) | Claude Code only |
+| Mods (`.claude/mods/`, `nerviz-cockpit`, `nerviz-config`) | Claude Code only |
 | Audit trail read from `~/.claude/projects/*.jsonl` (`audit`, `GENESIS.md`, `/audit-usage`) | The CLI transcript has another format and path; tokens unverified. Cloud agent: no file |
 | Skill phases in `guard` (territory per class, keyed on `tool_input.skill` of the `Skill` event) | With no `Skill` event, no phase opens: `guard` could only judge by `agent_type`, which in Copilot arrives as `agentName` |
 | `effort`, `permissionMode`, `maxTurns`, `skills`, `memory`, `isolation` on an agent | No documented equivalent |

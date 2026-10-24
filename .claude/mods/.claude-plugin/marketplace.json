@@ -11,6 +11,11 @@
       "name": "nerviz-cockpit",
       "source": "./nerviz-cockpit",
       "description": "The open skill phase and its write territory above the prompt, /nerviz-doctor in a pane, and a guard refusal held behind two buttons."
+    },
+    {
+      "name": "nerviz-config",
+      "source": "./nerviz-config",
+      "description": "The settings a project owns in its own .claude/ in a pane, changed only through ArchHook.jar config after a dialog."
     }
   ]
 }

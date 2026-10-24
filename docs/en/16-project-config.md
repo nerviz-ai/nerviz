@@ -51,6 +51,23 @@ How `config` behaves:
 These files are versioned. Commit a setting together with the change it serves, so the
 reason sits next to it in the history.
 
+## The pane
+
+`/nerviz-config` opens the same settings in a pane, from the `nerviz-config` mod of this
+repository. It spends no turn. The pane opens with the N of the logo on top, and a spine runs down it with
+one node per file. A node and a value are blue only when the file holds a value that differs
+from the default; the rest is a ghost `○`. A button is a change: it asks first (`Write` or
+`Cancel`), then runs `config set` or `config unset`. When `config` refuses, the pane shows
+what it printed and nothing was written. Where nothing draws (`claude -p`) the command prints
+the listing as text and changes nothing.
+
+The mod holds no rule: every value, default and refusal is `config`'s. It stays silent in a
+project whose `.claude/hooks/ArchHook.jar` is missing, and says to run `/arch-adopt` for a jar
+that has no `config` mode. It does not load in `claude -p`, VS Code or a cloud session, which
+is why the skill and the command stay the way to change a setting everywhere. Delivery to
+projects through the plugin is a separate change in `nerviz-ai/marketplace`; nothing under
+`.claude/mods/` goes through `export` (0131).
+
 ## On other agentic platforms
 
 `config` is plain Java, so it works the same in Claude Code, the GitHub Copilot CLI, VS
@@ -85,5 +102,4 @@ Never add a fourth file declared in its own block, the way the first three were 
   overwrites them.
 - `.claude/settings.local.json` and `~/.claude/settings.json`: personal configuration that is
   not versioned.
-- A visual view of these settings: a mod, planned after the branch that ships this lands
-  (0187).
+- A pane that works outside Claude Code: the mod loads only where Claude Code loads mods.
