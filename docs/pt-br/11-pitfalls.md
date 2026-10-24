@@ -305,8 +305,15 @@ bug. Design: `.claude/decisions/0064-compose-gate-on-stop.md`. A exceção é um
 outro projeto numa das portas de host declaradas: enquanto nenhum container deste projeto
 existe (`docker compose ps -a` não lista nada), ela vira um aviso que `compose` e `doctor`
 mostram e o gate não bloqueia, porque uma stack que ninguém subiu ainda não tem o que bindar.
-Assim que existe qualquer container do projeto, parado ou `created` inclusive, bloqueia como
-antes. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`.
+O mesmo vale enquanto todo container do projeto está `exited` ou `dead`: nada dele segura ou
+quer a porta, e a única forma de limpar a linha seria parar o container de outro projeto. Um
+container `created`, que falhou ao bindar, e uma colisão ao lado de um serviço em execução
+continuam bloqueando. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`;
+Issue #175, `.claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md`.
+A própria linha `exited` continua bloqueando, e o bloqueio nomeia a saída: `docker compose down`,
+ou `{"exited": "warn"}` no `.claude/compose-gate.json` versionado do projeto, que transforma só
+essa linha em aviso, ainda impresso por `compose` e `doctor`. O `export` nunca nomeia o
+arquivo, então o `/arch-adopt` o deixa em paz; o `doctor` o valida na linha `Compose overrides`.
 
 **Um healthcheck que passa não prova nada sobre alcance a partir do host** — ele roda dentro
 do container, onde `localhost` é o próprio serviço. Um serviço que publica uma porta no host

@@ -297,8 +297,15 @@ too; that is a gate, not a bug. Design: `.claude/decisions/0064-compose-gate-on-
 A foreign container on one of the declared host ports is the exception: while no container of
 this project exists (`docker compose ps -a` lists nothing), it is a warning that `compose` and
 `doctor` print and the gate does not block on, since a stack nobody started has nothing to
-bind yet. Once any container of the project exists, stopped or `created` included, it blocks
-as before. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`.
+bind yet. The same holds while every container of the project is `exited` or `dead`: nothing
+of it holds or wants the port, and the only way to clear the line would be to stop another
+project's container. A `created` container, which failed to bind, and a collision beside a
+running service still block. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`;
+Issue #175, `.claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md`.
+The `exited` line itself still blocks, and the block names the way out: `docker compose down`,
+or `{"exited": "warn"}` in the project's versioned `.claude/compose-gate.json`, which turns
+that one line into a warning `compose` and `doctor` keep printing. `export` never names the
+file, so `/arch-adopt` leaves it alone; `doctor` validates it on the `Compose overrides` line.
 
 **A healthcheck that passes proves nothing about host reachability** — it runs inside the
 container, where `localhost` is the service. A service that publishes a port to the host

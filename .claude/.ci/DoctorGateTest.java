@@ -55,6 +55,15 @@ public class DoctorGateTest {
                 "{\"mcpServers\":{\"x\":{\"command\":\"npx\",\"not-a-field\":1}}}"));
         broken("Audit overrides", p -> write(p.resolve(".claude/audit-usage/audited.json"),
                 "{\"skills\":{\"no-such-skill\":true}}"));
+        broken("Compose overrides", p -> write(p.resolve(".claude/compose-gate.json"),
+                "{\"exited\":\"maybe\"}"));
+        broken("Compose overrides", p -> write(p.resolve(".claude/compose-gate.json"),
+                "{\"exited\":\"warn\",\"foreign_ports\":\"warn\"}"));
+        String warns = run(new String[] {"doctor", "gate"}, p -> write(p.resolve(".claude/compose-gate.json"),
+                "{\"exited\":\"warn\"}"), 0, "compose gate file sets exited to warn — gate passes");
+        if (!warns.contains("`exited` warns instead of blocking")) {
+            fail("a valid compose gate file is not reported as in force on the `Compose overrides` line");
+        }
 
         run(new String[] {"doctor"}, p -> Files.delete(p.resolve(".claude/forbidden-imports.txt")), 0,
                 "bare doctor on ENFORCEMENT OFF — still exit 0, report only");
@@ -117,6 +126,7 @@ public class DoctorGateTest {
         write(p.resolve(".claude/settings.json"), blockedPluginsOff());
         write(p.resolve(".mcp.json"), "{\"mcpServers\":{}}");
         write(p.resolve(".claude/audit-usage/audited.json"), "{}");
+        write(p.resolve(".claude/compose-gate.json"), "{}");
         // Advertised only on its compose-network name: Compose is red with or without Docker.
         write(p.resolve("docker-compose.yml"), """
                 services:
