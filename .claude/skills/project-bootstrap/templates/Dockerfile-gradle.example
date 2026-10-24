@@ -13,7 +13,8 @@ RUN ./gradlew -q --no-daemon bootJar -x test
 FROM eclipse-temurin:{{JAVA_VERSION}}-jre-alpine
 WORKDIR /app
 # {{MAIN_MODULE_JAR_PATH}} is the module with contains_main: true — single-module
-# layouts copy from build/libs/, multi-module layouts from <module>/build/libs/.
+# layouts copy build/libs/app.jar, multi-module layouts <module>/build/libs/app.jar. The name is
+# fixed by build.gradle.main-boot.example's archiveFileName: a version bump must not change it.
 COPY --from=build /workspace/{{MAIN_MODULE_JAR_PATH}} app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

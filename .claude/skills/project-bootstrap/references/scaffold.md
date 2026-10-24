@@ -208,15 +208,18 @@ that second category — a made-up aggregate competing with a real spec — not 
    gradle`) — never both, same exemplar the resolved build tool has used since step 3.
    Fill `{{JAVA_VERSION}}` with the version resolved in step 3 and
    `{{MAIN_MODULE_JAR_PATH}}` with the jar path of the module with `contains_main:
-   true`:
-   - Maven: `target/<artifactId>-<version>.jar` in `single-module`,
-     `<module-path>/target/<artifactId>-<version>.jar` in `multi-module`. In
+   true`. The jar name is fixed, `app.jar`, never one built from the artifactId and the version: the build step
+   already pinned it (`pom.main-build.xml.example`'s `<finalName>`, `build.gradle.main-boot.example`'s
+   `archiveFileName`), and a version in the `COPY` source breaks `docker build` on the next
+   version bump while `verify` stays green (issue #149):
+   - Maven: `target/app.jar` in `single-module`,
+     `<module-path>/target/app.jar` in `multi-module`. In
      `multi-module`, replace `{{MODULE_POM_COPIES}}` with one `COPY <module>/pom.xml
      <module>/` line per module, so the dependency-resolution layer caches correctly;
      in `single-module`, delete that placeholder line — there's nothing to copy beyond
      the root `pom.xml` already copied above.
-   - Gradle: `build/libs/<artifactId>-<version>.jar` in `single-module`,
-     `<module-path>/build/libs/<artifactId>-<version>.jar` in `multi-module`. In
+   - Gradle: `build/libs/app.jar` in `single-module`,
+     `<module-path>/build/libs/app.jar` in `multi-module`. In
      `multi-module`, replace `{{MODULE_BUILD_GRADLE_COPIES}}` with one `COPY
      <module>/build.gradle <module>/` line per module, same caching reason; in
      `single-module`, delete that placeholder line — there's nothing to copy beyond the
