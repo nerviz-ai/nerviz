@@ -126,6 +126,14 @@ below eliminates candidate forms, and an unanswered axis leaves the decision gue
 | 19 | Guarantee beneath — which settings hook or `permissions` rule already decides what the piece shows or holds | Form 9 only on top of one; none → Form 7 or 8 first, or the mod only observes |
 | 20 | State — what the piece keeps, and for how long: nothing, the session (`$.state`), or across sessions (`$.store`, shared by every session on the machine) | Which mods API the mod calls; `$.store` is not atomic — one key per item |
 
+**Prior art, before the first question.** Grep the scenario's key terms — the mechanism,
+the piece, the symptom — in `.claude/decisions/[0-9]*.md` and `.claude/lessons-learned/*.md`,
+and read only the hits: a record's `State` and rejected options, a lesson's findings and
+`Next`. A record that already rejected the mechanism being proposed is a constraint on
+the interview, not a fresh question — re-opening it needs a fact the record did not have.
+Every hit used goes into the Phase 3 references table. The injected inventory gives titles
+only, and a title does not say what was rejected (`@.claude/decisions/0189-architect-designer-reads-prior-decisions-and-lessons.md`).
+
 Axis 9 is checked against the inventory injected at the top, not from memory. Two pieces
 writing to the same paths is an ownership bug, not a style decision.
 
@@ -512,7 +520,8 @@ registered in this meta-repository at all. A new skill is **incomplete** until a
 
 **Reads** `@claude-help.md`, `@CLAUDE.md` (the eleven invariants),
 `@docs/pt-br/11-pitfalls.md` (every silent trap, runtime and repository), `@.claude/rules/00-index.md`, `@.claude/blueprints/_schema.md` when the decision touches
-blueprints, and the inventory injected at the top. Reads this skill's `references/`
+blueprints, the inventory injected at the top, and the hits of the Phase 1 prior-art grep
+in `.claude/decisions/` and `.claude/lessons-learned/`. Reads this skill's `references/`
 before classifying — the matrix is deliberately not in the body — and
 `.github/workflows/*.yml` for axis 17, since `references/ci-coverage.md` quotes them and they
 win where the two disagree.
