@@ -10,7 +10,7 @@
 //   check     validate, re-render in memory, compare byte for byte with the committed files,
 //             and each dist/ file's .source-sha256 with the SVG it came from. CI runs it.
 //
-// Java 21, no dependency, no network. Project dir: --root <dir>, else $CLAUDE_PROJECT_DIR,
+// JDK 21+, no dependency, no network. Project dir: --root <dir>, else $CLAUDE_PROJECT_DIR,
 // else the working directory. Exit 0 ok, 2 a finding, 1 a usage error.
 // Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md
 
