@@ -9333,8 +9333,10 @@ public class ArchHook {
     static void footprint() throws IOException {
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         Map<String, Object> fp = sch == null ? null : asMap(sch.get("footprint"));
+        // System.out is cp1252 on Windows; the report carries em dashes and `·`.
+        PrintStream stdout = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
         if (fp == null) {
-            System.out.println("❌ footprint: no `footprint` block in " + SCHEMA_FILE
+            stdout.println("❌ footprint: no `footprint` block in " + SCHEMA_FILE
                     + " — nothing measured.");
             return;
         }
@@ -9532,7 +9534,7 @@ public class ArchHook {
         out.append("\n### Past a limit\n\n");
         if (over.isEmpty()) out.append("None.\n");
         for (String o : over) out.append("- ").append(o).append('\n');
-        System.out.print(out);
+        stdout.print(out);
     }
 
     static long fpImports(Path file, int depth, int max, Set<Path> seen, List<String[]> rows,
