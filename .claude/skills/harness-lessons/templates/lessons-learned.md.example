@@ -47,7 +47,7 @@ First run (no previous `harness-*.md`): drop the two right-hand columns.
 
 **Saving:** {{~n tokens per session / per run, estimate — or the behavior that stops}}.
 
-**Decided on purpose?** {{no | yes — .claude/decisions/NNNN, and why it still holds or no longer does}}
+**Decided on purpose?** {{no | yes — decisions/NNNN, and why it still holds or no longer does}}
 
 ---
 

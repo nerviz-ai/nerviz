@@ -61,7 +61,7 @@ run. Record: `@.claude/decisions/0188-harness-lessons-and-footprint-mode.md`.
 - `.claude/.arch-provenance.json` exists → **generated project**: § Measured and § Spent
   both count; the lessons folder is `docs/lessons-learned/` — gitignored there, and where
   `/report-issue` reads — and the handoff is `/report-issue`.
-- No stamp and `.claude/decisions/` exists → **the Nerviz repository**: the trail is off here
+- No stamp and a `decisions/` folder sits under `.claude/` → **the Nerviz repository**: the trail is off here
   by design, so § Spent is empty and only § Measured counts; the lessons folder is
   `.claude/lessons-learned/`, beside the run reports — `docs/` is the public documentation —
   and the handoff is `/claude-code-architect-designer`.
@@ -104,7 +104,7 @@ For each finding decide:
 4. **Priority** — saving × how often it is paid: every session beats every `/new-feature`,
    which beats a manual skill run once a month.
 
-Then check each candidate against `.claude/decisions/` when it exists: a size or a pin
+Then check each candidate against the `decisions/` folder under `.claude/` when it exists: a size or a pin
 decided on purpose (`0080`, `0081`) is reported with its record, never as a defect.
 
 ### 4 · Write `<lessons folder>/harness-NNN.md`
@@ -162,7 +162,7 @@ Next ...... <the ## Next line>
 
 **Reads** the output of `ArchHook.jar footprint` and `audit summary`,
 `references/best-practices.md`, `.claude/audit-usage/*.md` for the report § Spent names,
-`.claude/.arch-provenance.json`, `.claude/decisions/` when present, and the files a finding
+`.claude/.arch-provenance.json`, the `decisions/` folder under `.claude/` when present, and the files a finding
 points at. WebFetch only the URLs of the reference's `Sources` table.
 
 **Writes** `docs/lessons-learned/harness-NNN.md` in a generated project,
