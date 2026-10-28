@@ -623,3 +623,6 @@ exemplars and the `tools.jackson..` allowlist this `.claude/` ships do not apply
 line. There is no flag to bypass it. A version held in a property, a corporate parent or a
 catalog no pattern reads is not refused, because a refusal needs evidence; `doctor` prints
 `Platform ⚪` there. Design: `.claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md`.
+
+**A hand-edited file under `docs/diagrams/` turns CI red.**
+Every `.drawio`, `.excalidraw`, `.svg` and `dist/` file is a render of a `view.json` and of the data it cites (`extensions.json`, the `### Step` headings of `new-feature/SKILL.md`, the tree on disk); `Diagrams.java check` compares them byte for byte. Edit `view.json` and run `Diagrams.java render`, never the rendered file. Adding a skill, agent or class — or rewording a step heading — needs `render` in the same PR. Design: `.claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md`.

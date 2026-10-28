@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nerviz-diagrams/view.schema.json",
+  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md",
+  "title": "nerviz-diagrams view",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "title", "groups"],
+  "properties": {
+    "kind": {
+      "enum": ["layers", "classes", "pipeline", "territory"],
+      "x-fix": "kind is one of layers, classes, pipeline, territory"
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "caption": { "type": "string" },
+    "groups": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/group" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "steps": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "x-fix": "steps lists the ids of entities (fact ids), groups or edges (\"<from>><to>\") in the order the animation reveals them"
+    },
+    "emphasis": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "x-fix": "emphasis lists the ids of entities (fact ids) or groups drawn with the heavier stroke"
+    }
+  },
+  "$defs": {
+    "factId": {
+      "type": "string",
+      "pattern": "^[a-z]+:[A-Za-z0-9._-]+$",
+      "x-fix": "a fact id is <kind>:<name>, as listed in docs/diagrams/facts.json after `Diagrams.java facts`"
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "nodes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-fix": "a group id is lowercase words joined by hyphens, never containing a colon (a colon marks a fact id)"
+        },
+        "label": { "$ref": "#/$defs/groupLabel" },
+        "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "groupLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fact": { "$ref": "#/$defs/factId" },
+        "caption": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [{ "required": ["fact"] }, { "required": ["caption"] }],
+      "x-fix": "a group label is {\"fact\":\"<id>\"} or, as free text, {\"caption\":\"<text>\"}"
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fact": { "$ref": "#/$defs/factId" },
+        "from": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [{ "required": ["fact"] }, { "required": ["from"] }],
+      "x-fix": "every entity is {\"fact\":\"<id>\"} or a selector {\"from\":\"<path into facts>\"}; free text belongs in title or caption, never in an entity"
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "evidence": { "$ref": "#/$defs/factId" },
+        "derive": { "enum": ["depends_on"] }
+      },
+      "oneOf": [{ "required": ["from", "to"] }, { "required": ["derive"] }],
+      "x-fix": "an edge is {\"from\":\"<entity or group id>\",\"to\":\"<entity or group id>\",\"evidence\":\"<fact id>\"} or {\"derive\":\"depends_on\"}"
+    }
+  }
+}
