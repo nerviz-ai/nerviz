@@ -510,6 +510,14 @@
           "harness-lessons": {"write_allow": ["docs/lessons-learned/**", ".claude/lessons-learned/harness-*.md"]}
         },
         "skills": ["sonar-lessons", "report-issue", "harness-lessons"]
+      },
+      "media": {
+        "$comment": "Renders diagrams of this repository's own `.claude/` from its data and writes them under docs/diagrams/ — and nothing else. Not `report`, whose reason to exist is an analyzer that writes a findings file and publishes it through report-issue: a renderer is neither, and borrowing its class with an override would name a territory the class does not describe (option B of the record). `blocked_during_design` because rendering is not part of a design run. Meta-repository only: the skill is in export.skills.exclude. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md",
+        "blocked_during_design": true,
+        "allowed_models": ["sonnet"],
+        "write_allow": ["docs/diagrams/**"],
+        "required_sections": ["## Procedure", "## Failure modes"],
+        "skills": ["nerviz-diagrams"]
       }
     }
   },
@@ -1185,7 +1193,7 @@
         "transport-security-setup",
         "use-case-design"
       ],
-      "exclude": ["claude-code-architect-designer", "init-project", "new-project", "project-bootstrap", "triage-issue"]
+      "exclude": ["claude-code-architect-designer", "init-project", "nerviz-diagrams", "new-project", "project-bootstrap", "triage-issue"]
     },
 
     "agents": {

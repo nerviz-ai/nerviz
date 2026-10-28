@@ -303,6 +303,15 @@ jobs:
       # list that lived only in this YAML and that a generated project never ran. The list
       # is `types.skill.native_commands` now, and `schema` above fails on it (0084).
 
+      # The diagrams under docs/diagrams/ are renders of view.json and of the data it cites.
+      # `Diagrams.java check` is Java only; the test proves each way a committed one drifts —
+      # a renamed cited skill, a skill added to a class, a hand-edited byte, a node with no
+      # evidence, a reworded step heading, a dist/ hash — goes red by name (0190).
+      - name: committed diagrams match the data they cite
+        run: |
+          java .claude/skills/nerviz-diagrams/scripts/Diagrams.java check
+          java .claude/.ci/DiagramsTest.java
+
       - name: decisions/ doesn't grow paths or enter 00-index.md
         run: |
           FAIL=0

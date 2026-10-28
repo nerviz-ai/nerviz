@@ -1,0 +1,14 @@
+{
+  "kind": "pipeline",
+  "title": "Nerviz — the /new-feature pipeline",
+  "caption": "Each step depends on the ones above it; a dashed step runs only when the use case needs it.",
+  "groups": [
+    { "id": "pipeline", "label": { "caption": "/new-feature" }, "nodes": [{ "from": "step:*" }] }
+  ],
+  "edges": [{ "derive": "depends_on" }],
+  "steps": [
+    "step:1", "step:2", "step:3", "step:3g", "step:3c", "step:3d", "step:3e", "step:4",
+    "step:3b", "step:4b", "step:5", "step:5b", "step:6", "step:consolidation"
+  ],
+  "emphasis": ["step:consolidation"]
+}

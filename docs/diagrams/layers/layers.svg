@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="856" viewBox="0 0 1008 856" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Nerviz — the layers of .claude/</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
+<rect width="1008" height="856" fill="#FBFAF7"/>
+<text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — the layers of .claude/</text>
+<text x="32" y="78" font-size="12" fill="#52606D">Dependencies point down; the leaf holds norms and data. Counts are the entries on disk when this was rendered.</text>
+<g id="row-interface">
+<rect x="32" y="96" width="944" height="88" rx="8" fill="#DCEFF7" fill-opacity="0.45" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="48" y="125" font-size="13" font-weight="700" fill="#1F2933">Interface</text>
+</g>
+<g id="row-enforcement">
+<rect x="32" y="224" width="944" height="88" rx="8" fill="#FBE3D6" fill-opacity="0.45" stroke="#C4572A" stroke-width="1.5"/>
+<text x="48" y="253" font-size="13" font-weight="700" fill="#1F2933">Infrastructure — enforcement</text>
+</g>
+<g id="row-procedure">
+<rect x="32" y="352" width="944" height="88" rx="8" fill="#E4F1DE" fill-opacity="0.45" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="48" y="381" font-size="13" font-weight="700" fill="#1F2933">Procedure and exemplars</text>
+</g>
+<g id="row-isolation">
+<rect x="32" y="480" width="944" height="88" rx="8" fill="#EBE1F5" fill-opacity="0.45" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="48" y="509" font-size="13" font-weight="700" fill="#1F2933">Isolated execution</text>
+</g>
+<g id="row-norms">
+<rect x="32" y="608" width="944" height="88" rx="8" fill="#F7EBC4" fill-opacity="0.45" stroke="#A6841A" stroke-width="3"/>
+<text x="48" y="637" font-size="13" font-weight="700" fill="#1F2933">Norms and data — the leaf</text>
+</g>
+<g id="row-history">
+<rect x="32" y="736" width="944" height="88" rx="8" fill="#ECECEC" fill-opacity="0.45" stroke="#7A7A7A" stroke-width="1.5"/>
+<text x="48" y="765" font-size="13" font-weight="700" fill="#1F2933">History — outside the graph</text>
+</g>
+<g id="edge-row-interface_row-enforcement">
+<line x1="504" y1="184" x2="504" y2="224" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-row-enforcement_row-procedure">
+<line x1="504" y1="312" x2="504" y2="352" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-row-procedure_row-isolation">
+<line x1="504" y1="440" x2="504" y2="480" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-row-isolation_row-norms">
+<line x1="504" y1="568" x2="504" y2="608" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="layer_mods">
+<rect x="288" y="112" width="208" height="56" rx="8" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="392" y="138" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">mods</text>
+<text x="392" y="154" font-size="11" text-anchor="middle" fill="#52606D">2 entries</text>
+</g>
+<g id="layer_hooks">
+<rect x="288" y="240" width="208" height="56" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="392" y="266" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">hooks</text>
+<text x="392" y="282" font-size="11" text-anchor="middle" fill="#52606D">2 entries</text>
+</g>
+<g id="layer_settings">
+<rect x="520" y="240" width="208" height="56" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="624" y="266" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">settings.json</text>
+<text x="624" y="282" font-size="11" text-anchor="middle" fill="#52606D">4 hook events</text>
+</g>
+<g id="layer_skills">
+<rect x="288" y="368" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="392" y="394" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">skills</text>
+<text x="392" y="410" font-size="11" text-anchor="middle" fill="#52606D">34 entries</text>
+</g>
+<g id="layer_agents">
+<rect x="288" y="496" width="208" height="56" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="392" y="522" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">agents</text>
+<text x="392" y="538" font-size="11" text-anchor="middle" fill="#52606D">7 entries</text>
+</g>
+<g id="layer_rules">
+<rect x="288" y="624" width="208" height="56" rx="8" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="392" y="650" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">rules</text>
+<text x="392" y="666" font-size="11" text-anchor="middle" fill="#52606D">28 entries</text>
+</g>
+<g id="layer_blueprints">
+<rect x="520" y="624" width="208" height="56" rx="8" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="624" y="650" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">blueprints</text>
+<text x="624" y="666" font-size="11" text-anchor="middle" fill="#52606D">13 entries</text>
+</g>
+<g id="layer_mcp">
+<rect x="752" y="624" width="208" height="56" rx="8" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="856" y="650" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">.mcp.json</text>
+<text x="856" y="666" font-size="11" text-anchor="middle" fill="#52606D">0 servers</text>
+</g>
+<g id="layer_decisions">
+<rect x="288" y="752" width="208" height="56" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5"/>
+<text x="392" y="778" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">decisions</text>
+<text x="392" y="794" font-size="11" text-anchor="middle" fill="#52606D">175 entries</text>
+</g>
+</svg>

@@ -351,6 +351,23 @@ public class SkillTerritoryTest {
         // The meta class writes the README's skill list and counts when it adds a piece (0144 to
         // 0162 did), and nothing else at the repository's root but CLAUDE.md and .mcp.json.
         // Before decision 0163 the README was outside it, and the edit went in unguarded.
+        // class `media` (decision 0190): diagrams of this `.claude/` under docs/diagrams/, and no
+        // spec folder — `.drawio`/`.excalidraw` beside a spec stay refused (decision 0143).
+        String media = "ci-territory-media-" + System.nanoTime();
+        failures += run(hook, "prompt", media,
+                "{\"session_id\":\"%s\",\"prompt\":\"/nerviz-diagrams\"}",
+                0, "prompt opens nerviz-diagrams' media phase");
+
+        failures += run(hook, "write", media,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\"docs/diagrams/layers/layers.svg\"}}",
+                0, "docs/diagrams/** — allowed for class media");
+
+        failures += run(hook, "write", media,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\"docs/use-cases/UC-001-x/a.drawio\"}}",
+                2, "a diagram beside a spec is not media's — blocked");
+
         String meta = "ci-territory-meta-" + System.nanoTime();
         failures += run(hook, "prompt", meta,
                 "{\"session_id\":\"%s\",\"prompt\":\"/claude-code-architect-designer x\"}",
@@ -374,6 +391,7 @@ public class SkillTerritoryTest {
                 + " build-class calls refused mid-design,"
                 + " same-class chains summing territories, report-class runs held to"
                 + " docs/lessons-learned/ (harness-lessons also its own .claude/lessons-learned/harness-*.md),"
+                + " media-class runs held to docs/diagrams/**,"
                 + " and no restriction with no phase open.");
     }
 

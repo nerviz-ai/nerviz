@@ -637,3 +637,6 @@ linha mais antiga. Não há flag para contornar. Uma versão guardada numa propr
 corporativo ou num catálogo que nenhum padrão lê não é recusada, porque recusar exige
 evidência; o `doctor` imprime `Platform ⚪` nesse caso. Decisão:
 `.claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md`.
+
+**Um arquivo editado à mão em `docs/diagrams/` deixa o CI vermelho.**
+Todo `.drawio`, `.excalidraw`, `.svg` e arquivo de `dist/` é a renderização de um `view.json` e dos dados que ele cita (`extensions.json`, os títulos `### Step` de `new-feature/SKILL.md`, a árvore em disco); `Diagrams.java check` compara byte a byte. Edite o `view.json` e rode `Diagrams.java render`, nunca o arquivo renderizado. Adicionar skill, agente ou classe — ou reescrever um título de etapa — exige `render` no mesmo PR. Decisão: `.claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md`.
