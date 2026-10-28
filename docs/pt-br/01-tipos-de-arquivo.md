@@ -84,7 +84,7 @@ skill pertence a exatamente uma das sete classes, e a classe declara duas coisas
 | `observer` | `arch-doctor`, `audit-usage` | nada |
 | `meta` | `claude-code-architect-designer` | `.claude/**`, `CLAUDE.md`, `.mcp.json`, `docs/**`, `.github/**` |
 | `ops` | `git-publish`, `triage-issue` | nada — o efeito é `git`, ou um comentário numa issue deste repo, via Bash |
-| `report` | `sonar-lessons`, `report-issue` | `docs/lessons-learned/**` — e, só no `report-issue` e depois de confirmação, uma issue fora da árvore, via `gh` |
+| `report` | `sonar-lessons`, `report-issue`, `harness-lessons` | `docs/lessons-learned/**` — o `harness-lessons` também `.claude/lessons-learned/harness-*.md`, sua pasta neste repositório, onde `docs/` é público — e, só no `report-issue` e depois de confirmação, uma issue fora da árvore, via `gh` |
 
 `ArchHook.java schema` cobra a estrutura (classe declarada no corpo com `**Class:** <c>`,
 seções obrigatórias presentes) e `guard` cobra o território, com exit 2 em qualquer

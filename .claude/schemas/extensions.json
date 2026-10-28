@@ -368,6 +368,26 @@
     }
   },
 
+  "footprint": {
+    "$comment": "Read by ArchHook.java `footprint`, the read-only mode `harness-lessons` injects: what this `.claude/` puts in context every session (root CLAUDE.md and what it imports, rules without `paths`, the listing of every model-invocable skill and every agent, MCP servers) and what each piece adds when it loads (skill body, references, injections; agent body and preloaded skills), plus hook registrations per event and how many of those on a `settings.matcher_events` event spawn a process on every occurrence. Report only: `limits` marks a number past a documented threshold with `over`, and nothing exits non-zero on it — no run was ever measured over one (0188, mirror of invariant 6). `bytes_per_token` turns bytes into an ESTIMATE the output labels as such: the exact count needs the `count_tokens` API, a network call and a key. Each limit's source is the `harness-lessons` reference that cites it, re-read past its window; a limit changes here, never in the Java. Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md",
+    "bytes_per_token": 4,
+    "claude_md": ["CLAUDE.md", ".claude/CLAUDE.md"],
+    "import_max_depth": 4,
+    "skills": ".claude/skills/*/SKILL.md",
+    "agents": ".claude/agents/*.md",
+    "rules": ".claude/rules/*.md",
+    "settings": ".claude/settings.json",
+    "mcp": ".mcp.json",
+    "listing_fields": ["description", "when_to_use"],
+    "limits": {
+      "claude_md_lines": 200,
+      "skill_body_lines": 500,
+      "listing_chars": 1536,
+      "reference_toc_lines": 100
+    },
+    "toc_dirs": ["references"]
+  },
+
   "tests": {
     "$comment": "Read by ArchHook.java `tests`. `tests agent-start` (SubagentStart) and `tests agent-end` (SubagentStop), registered only in project-bootstrap/templates/settings.json.example, keep one marker per `agent_id` for every agent whose class in `agent_classes` has `executor: true`; the `Stop` gate defers, exit 0 with one stderr line, while a marker younger than `writer_agent_max_minutes` exists. A background executor's Stop otherwise ran Maven over its half-written tree and blocked a main thread that cannot write src/ (issue #76). The cap is what an agent killed by machine sleep, which never reaches SubagentStop, costs: past it the marker is deleted and the gate runs again. Design: .claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md",
     "writer_agent_max_minutes": 120,
@@ -481,12 +501,15 @@
         "skills": ["git-publish", "triage-issue", "new-project", "project-config"]
       },
       "report": {
-        "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md",
+        "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `harness-lessons` is the one override: in the Nerviz repository its lessons file is history about this `.claude/`, so it goes beside the run reports in `.claude/lessons-learned/` instead of the public `docs/` tree; in a generated project it stays in `docs/lessons-learned/`, gitignored there and read by `report-issue`. The glob is `harness-*.md` alone, never the run reports beside it. Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md",
         "blocked_during_design": true,
         "allowed_models": ["opus"],
         "write_allow": ["docs/lessons-learned/**"],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["sonar-lessons", "report-issue"]
+        "overrides": {
+          "harness-lessons": {"write_allow": ["docs/lessons-learned/**", ".claude/lessons-learned/harness-*.md"]}
+        },
+        "skills": ["sonar-lessons", "report-issue", "harness-lessons"]
       }
     }
   },
@@ -1143,6 +1166,7 @@
         "git-publish",
         "gof-design-patterns",
         "graphql-api-architect",
+        "harness-lessons",
         "http-client-architect",
         "jobs-architect",
         "messaging-architect",

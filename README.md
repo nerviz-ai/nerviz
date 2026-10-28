@@ -392,7 +392,7 @@ proposed fix, before anything is commented or designed. Details:
 |---|---|---|
 | Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 30 | `.claude/skills/` |
+| Skills (design, orchestration, build, ops, meta…) | 33 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
 | Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
