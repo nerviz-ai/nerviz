@@ -96,6 +96,7 @@ public class ArchHook {
                 case "test-diff" -> testDiff(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "config" -> config(args);
+                case "footprint" -> footprint();
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
             }
@@ -9310,6 +9311,342 @@ public class ArchHook {
     }
 
     static void err(String s) { ERR.println(s); }
+
+    // ── footprint ────────────────────────────────────────────────────────────
+
+    /**
+     * {@code footprint} — what this {@code .claude/} puts in context: every session (root
+     * CLAUDE.md and what it imports, rules without `paths`, the listing of every model-invocable
+     * skill and every agent, MCP servers), what each piece adds once it loads (skill body, its
+     * files, injections; agent body and preloaded skills), and hook registrations per event.
+     * Markdown on stdout, read-only, exit 0 — a report, never a gate: a number past a limit is
+     * marked `over` and nothing fails on it.
+     *
+     * Why this is a mode (Form 7c) and not arithmetic left to the model: `harness-lessons`
+     * injects it, and reading ten thousand lines of SKILL.md to measure token economy would
+     * spend the tokens it measures, with numbers that change from run to run. No hook
+     * registration invokes it — the skill's injection and a person typing it are the only
+     * callers; the closest rejected form was the skill measuring alone. Paths, limits and the
+     * bytes-per-token ratio are the `footprint` block of extensions.json (invariant 10).
+     * Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md
+     */
+    static void footprint() throws IOException {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> fp = sch == null ? null : asMap(sch.get("footprint"));
+        if (fp == null) {
+            System.out.println("❌ footprint: no `footprint` block in " + SCHEMA_FILE
+                    + " — nothing measured.");
+            return;
+        }
+        double bpt = fpNum(fp.get("bytes_per_token"), 4);
+        Map<String, Object> lim = asMap(fp.get("limits"));
+        long limClaude = (long) fpNum(get(lim, "claude_md_lines"), Long.MAX_VALUE);
+        long limBody = (long) fpNum(get(lim, "skill_body_lines"), Long.MAX_VALUE);
+        long limListing = (long) fpNum(get(lim, "listing_chars"), Long.MAX_VALUE);
+        long limToc = (long) fpNum(get(lim, "reference_toc_lines"), Long.MAX_VALUE);
+        List<String> listingFields = asStrList(fp.get("listing_fields"));
+        List<String> tocDirs = asStrList(fp.get("toc_dirs"));
+        List<String> over = new ArrayList<>();
+
+        StringBuilder out = new StringBuilder();
+        out.append("## Footprint — ").append(ROOT.getFileName())
+           .append("\n\nTokens are an estimate: bytes ÷ ").append(fmtNum(bpt))
+           .append(" (`footprint.bytes_per_token`). `over` marks a number past `footprint.limits`.\n");
+
+        // ── every session ──
+        List<String[]> session = new ArrayList<>();
+        long sessionBytes = 0;
+        for (String rel : asStrList(fp.get("claude_md"))) {
+            Path p = ROOT.resolve(rel);
+            String c = readOrNull(p);
+            if (c == null) continue;
+            long lines = c.lines().count(), bytes = utf8(c);
+            String note = lines > limClaude ? "over " + limClaude + " lines" : "";
+            if (!note.isEmpty()) over.add("`" + rel + "` — " + lines + " lines (limit " + limClaude + ")");
+            session.add(new String[] {"`" + rel + "`", "" + lines, "" + bytes, tok(bytes, bpt), note});
+            sessionBytes += bytes;
+            List<String[]> imports = new ArrayList<>();
+            sessionBytes += fpImports(p, 1, (int) fpNum(fp.get("import_max_depth"), 4),
+                    new HashSet<>(Set.of(p.normalize())), imports, bpt);
+            session.addAll(imports);
+        }
+
+        List<Path> rules = fpFiles(asStr(fp.get("rules")));
+        List<String[]> scopedRules = new ArrayList<>();
+        List<String> unscoped = new ArrayList<>();
+        long unscopedBytes = 0, unscopedLines = 0;
+        for (Path r : rules) {
+            String c = readOrNull(r);
+            if (c == null) continue;
+            Map<String, String> fm = frontmatter(c);
+            String body = fpBody(c);
+            long bytes = utf8(body), lines = body.lines().count();
+            String name = r.getFileName().toString();
+            if (fm != null && fm.containsKey("paths")) {
+                scopedRules.add(new String[] {"`" + name + "`", "" + lines, tok(bytes, bpt),
+                        String.join(", ", fpList(c, "paths"))});
+            } else {
+                unscoped.add(name);
+                unscopedBytes += bytes;
+                unscopedLines += lines;
+            }
+        }
+        if (!unscoped.isEmpty()) {
+            session.add(new String[] {"rules without `paths` (" + unscoped.size() + "): "
+                    + String.join(", ", unscoped), "" + unscopedLines, "" + unscopedBytes,
+                    tok(unscopedBytes, bpt), ""});
+            sessionBytes += unscopedBytes;
+        }
+
+        // Skills: the listing is per session, the body per invocation.
+        List<Path> skillFiles = fpFiles(asStr(fp.get("skills")));
+        List<long[]> skillNums = new ArrayList<>();
+        List<String[]> skillRows = new ArrayList<>();
+        Map<String, Long> skillBodyBytes = new HashMap<>();
+        long listingChars = 0;
+        int listed = 0;
+        for (Path s : skillFiles) {
+            String c = readOrNull(s);
+            if (c == null) continue;
+            String name = s.getParent().getFileName().toString();
+            Map<String, String> fm = frontmatter(c);
+            if (fm == null) fm = Map.of();
+            boolean manual = "true".equals(fm.get("disable-model-invocation"));
+            long chars = 0;
+            for (String f : listingFields) chars += fpText(c, f).length();
+            if (!manual) { listingChars += Math.min(chars, limListing); listed++; }
+            String body = fpBody(c);
+            long lines = body.lines().count(), bytes = utf8(body);
+            skillBodyBytes.put(name, bytes);
+            String scanned = TICK_SPAN.matcher(FENCE.matcher(body).replaceAll("")).replaceAll("");
+            Matcher im = INJECTION.matcher(scanned);
+            int inj = 0;
+            while (im.find()) inj++;
+            long[] files = {0, 0};
+            List<String> noToc = new ArrayList<>();
+            try (Stream<Path> w = Files.walk(s.getParent())) {
+                for (Path f : w.filter(Files::isRegularFile).filter(f -> !f.equals(s)).sorted()
+                        .collect(Collectors.toList())) {
+                    String fc = readOrNull(f);
+                    files[0]++;
+                    files[1] += fc == null ? 0 : utf8(fc);
+                    String frel = s.getParent().relativize(f).toString().replace('\\', '/');
+                    if (fc != null && frel.endsWith(".md") && tocDirs.stream().anyMatch(d -> frel.startsWith(d + "/"))
+                            && fc.lines().count() > limToc
+                            && !Pattern.compile("(?im)^#+\\s*(table of )?contents\\b").matcher(fc).find())
+                        noToc.add(frel);
+                }
+            }
+            List<String> flags = new ArrayList<>();
+            if (lines > limBody) {
+                flags.add("over " + limBody + " lines");
+                over.add("skill `" + name + "` — body " + lines + " lines (limit " + limBody + ")");
+            }
+            if (chars > limListing) {
+                flags.add("listing truncated");
+                over.add("skill `" + name + "` — listing " + chars + " chars (limit " + limListing + ")");
+            }
+            for (String n : noToc) {
+                over.add("skill `" + name + "` — `" + n + "` over " + limToc + " lines without a contents list");
+            }
+            skillNums.add(new long[] {bytes, skillRows.size()});
+            skillRows.add(new String[] {"`" + name + "`", "" + lines, tok(bytes, bpt),
+                    manual ? "manual" : "" + chars, files[0] + " / " + tok(files[1], bpt), "" + inj,
+                    fm.getOrDefault("model", "—"), fm.getOrDefault("effort", "—"),
+                    String.join("; ", flags)});
+        }
+        session.add(new String[] {"skill listing (" + listed + " model-invocable of "
+                + skillRows.size() + ")", "—", listingChars + " chars", tok(listingChars, bpt), ""});
+        sessionBytes += listingChars;
+
+        List<Path> agentFiles = fpFiles(asStr(fp.get("agents")));
+        List<String[]> agentRows = new ArrayList<>();
+        long agentListing = 0;
+        for (Path a : agentFiles) {
+            String c = readOrNull(a);
+            if (c == null) continue;
+            Map<String, String> fm = frontmatter(c);
+            if (fm == null) fm = Map.of();
+            agentListing += fpText(c, "description").length();
+            String body = fpBody(c);
+            long lines = body.lines().count(), bytes = utf8(body), pre = 0;
+            for (String sk : fpList(c, "skills")) pre += skillBodyBytes.getOrDefault(sk, 0L);
+            agentRows.add(new String[] {"`" + a.getFileName().toString().replaceFirst("\\.md$", "") + "`",
+                    "" + lines, tok(bytes, bpt), pre == 0 ? "—" : tok(pre, bpt),
+                    fm.getOrDefault("model", "—"), fm.getOrDefault("effort", "—")});
+        }
+        session.add(new String[] {"agent listing (" + agentRows.size() + ")", "—",
+                agentListing + " chars", tok(agentListing, bpt), ""});
+        sessionBytes += agentListing;
+
+        Map<String, Object> mcp = asMap(get(Json.parse(readOrNull(ROOT.resolve(
+                Optional.ofNullable(asStr(fp.get("mcp"))).orElse(".mcp.json")))), "mcpServers"));
+        List<String> servers = mcp == null ? List.of() : new ArrayList<>(mcp.keySet());
+        session.add(new String[] {"MCP servers (" + servers.size() + ")"
+                + (servers.isEmpty() ? "" : ": " + String.join(", ", servers)),
+                "—", "—", "names + instructions", ""});
+
+        out.append("\n### Every session\n\n| Source | Lines | Bytes | ~Tokens | Note |\n|---|---|---|---|---|\n");
+        for (String[] r : session) out.append(fpRow(r));
+        out.append("| **Total** | | ").append(sessionBytes).append(" | ")
+           .append(tok(sessionBytes, bpt)).append(" | MCP not counted |\n");
+
+        out.append("\n### Skills — once invoked, largest first\n\n")
+           .append("| Skill | Body lines | ~Tokens | Listing chars | Files / ~tokens | Injections | Model | Effort | Flags |\n")
+           .append("|---|---|---|---|---|---|---|---|---|\n");
+        skillNums.sort((x, y) -> Long.compare(y[0], x[0]));
+        for (long[] n : skillNums) out.append(fpRow(skillRows.get((int) n[1])));
+
+        out.append("\n### Agents — once started\n\n| Agent | Body lines | ~Tokens | Preloaded ~tokens | Model | Effort |\n|---|---|---|---|---|---|\n");
+        for (String[] r : agentRows) out.append(fpRow(r));
+
+        out.append("\n### Rules with `paths` — once a matching file is read\n\n| Rule | Lines | ~Tokens | paths |\n|---|---|---|---|\n");
+        for (String[] r : scopedRules) out.append(fpRow(r));
+
+        // Hooks: an entry on a matcher event with neither matcher nor `if` spawns on every call.
+        Map<String, Object> hooks = asMap(get(Json.parse(readOrNull(ROOT.resolve(
+                Optional.ofNullable(asStr(fp.get("settings"))).orElse(".claude/settings.json")))), "hooks"));
+        Set<String> matcherEvents = new HashSet<>(asStrList(get(sch, "settings", "matcher_events")));
+        out.append("\n### Hooks — process spawns\n\n| Event | Entries | Narrowed (`matcher` or `if`) | Every occurrence |\n|---|---|---|---|\n");
+        List<String> unnarrowed = new ArrayList<>();
+        if (hooks != null) for (Map.Entry<String, Object> ev : hooks.entrySet()) {
+            int entries = 0, narrowed = 0;
+            for (Object g : asList(ev.getValue())) {
+                String matcher = asStr(get(g, "matcher"));
+                boolean byMatcher = matcherEvents.contains(ev.getKey())
+                        && matcher != null && !matcher.isBlank() && !"*".equals(matcher.strip());
+                for (Object h : asList(get(g, "hooks"))) {
+                    entries++;
+                    if (byMatcher || asStr(get(h, "if")) != null) narrowed++;
+                    else if (matcherEvents.contains(ev.getKey()))
+                        unnarrowed.add(ev.getKey() + " › " + Optional.ofNullable(asStr(get(h, "command"))).orElse("?")
+                                + " " + String.join(" ", asStrList(get(h, "args"))));
+                }
+            }
+            out.append(fpRow(new String[] {ev.getKey(), "" + entries,
+                    matcherEvents.contains(ev.getKey()) ? "" + narrowed : "— (no matcher read)",
+                    "" + (entries - narrowed)}));
+        }
+        for (String u : unnarrowed) over.add("hook with neither `matcher` nor `if` on a tool event — " + u);
+
+        out.append("\n### Past a limit\n\n");
+        if (over.isEmpty()) out.append("None.\n");
+        for (String o : over) out.append("- ").append(o).append('\n');
+        System.out.print(out);
+    }
+
+    static long fpImports(Path file, int depth, int max, Set<Path> seen, List<String[]> rows,
+                          double bpt) {
+        if (depth > max) return 0;
+        String c = readOrNull(file);
+        if (c == null) return 0;
+        String scanned = FP_CODE_SPAN.matcher(FENCE.matcher(c).replaceAll("")).replaceAll("");
+        Matcher m = FP_IMPORT.matcher(scanned);
+        long total = 0;
+        while (m.find()) {
+            String ref = m.group(1).replaceAll("[.,;:)]+$", "");
+            if (ref.startsWith("~")) continue;                 // outside the project: approved per person
+            Path p = (ref.startsWith("/") ? Paths.get(ref) : file.getParent().resolve(ref)).normalize();
+            if (!Files.isRegularFile(p) || !seen.add(p)) continue;
+            String ic = readOrNull(p);
+            long bytes = utf8(ic), lines = ic.lines().count();
+            rows.add(new String[] {"↳ `@" + ref + "` (import, hop " + depth + ")", "" + lines,
+                    "" + bytes, tok(bytes, bpt), ""});
+            total += bytes + fpImports(p, depth + 1, max, seen, rows, bpt);
+        }
+        return total;
+    }
+
+    /** `@path` outside code, the form the runtime imports. */
+    static final Pattern FP_IMPORT = Pattern.compile("(?m)(?:^|\\s)@([A-Za-z0-9_./~-]+)");
+    static final Pattern FP_CODE_SPAN = Pattern.compile("`[^`\\n]*`");
+
+    /** Files matching a glob relative to ROOT, walked from the glob's fixed prefix. */
+    static List<Path> fpFiles(String pattern) throws IOException {
+        if (pattern == null) return List.of();
+        String prefix = pattern.contains("*") ? pattern.substring(0, pattern.indexOf('*')) : pattern;
+        prefix = prefix.contains("/") ? prefix.substring(0, prefix.lastIndexOf('/')) : "";
+        Path start = ROOT.resolve(prefix);
+        if (!Files.isDirectory(start)) return List.of();
+        try (Stream<Path> w = Files.walk(start)) {
+            return w.filter(Files::isRegularFile).filter(p -> matches(pattern, relative(p)))
+                    .sorted().collect(Collectors.toList());
+        }
+    }
+
+    /** The text after the frontmatter block — what the runtime loads. */
+    static String fpBody(String c) {
+        List<String> lines = c.lines().collect(Collectors.toList());
+        int i = 0;
+        while (i < lines.size() && lines.get(i).isBlank()) i++;
+        if (i >= lines.size() || !lines.get(i).strip().equals("---")) return c;
+        for (int j = i + 1; j < lines.size(); j++)
+            if (lines.get(j).strip().equals("---"))
+                return String.join("\n", lines.subList(j + 1, lines.size()));
+        return c;
+    }
+
+    /** A frontmatter key's text: a plain or quoted scalar, or a folded/literal block joined. */
+    static String fpText(String c, String key) {
+        List<String> lines = fpFrontLines(c);
+        for (int i = 0; i < lines.size(); i++) {
+            String l = lines.get(i);
+            if (!l.startsWith(key + ":")) continue;
+            String v = l.substring(key.length() + 1).strip();
+            if (!(v.startsWith(">") || v.startsWith("|"))) return v.replaceAll("^[\"']|[\"']$", "");
+            List<String> parts = new ArrayList<>();
+            for (int j = i + 1; j < lines.size(); j++) {
+                String n = lines.get(j);
+                if (!n.isBlank() && !Character.isWhitespace(n.charAt(0))) break;
+                if (!n.isBlank()) parts.add(n.strip());
+            }
+            return String.join(" ", parts);
+        }
+        return "";
+    }
+
+    /** A frontmatter key's list: `[a, b]`, `a, b`, or indented `- a` lines. */
+    static List<String> fpList(String c, String key) {
+        List<String> lines = fpFrontLines(c), out = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String l = lines.get(i);
+            if (!l.startsWith(key + ":")) continue;
+            String v = l.substring(key.length() + 1).strip().replaceAll("^\\[|\\]$", "");
+            if (!v.isEmpty()) {
+                for (String s : v.split(",")) if (!s.isBlank()) out.add(s.strip().replaceAll("^[\"']|[\"']$", ""));
+                return out;
+            }
+            for (int j = i + 1; j < lines.size(); j++) {
+                String n = lines.get(j).strip();
+                if (n.startsWith("#")) continue;
+                if (!n.startsWith("- ")) break;
+                out.add(n.substring(2).strip().replaceAll("^[\"']|[\"']$", ""));
+            }
+            return out;
+        }
+        return out;
+    }
+
+    static List<String> fpFrontLines(String c) {
+        List<String> lines = c.lines().collect(Collectors.toList());
+        int i = 0;
+        while (i < lines.size() && lines.get(i).isBlank()) i++;
+        if (i >= lines.size() || !lines.get(i).strip().equals("---")) return List.of();
+        for (int j = i + 1; j < lines.size(); j++)
+            if (lines.get(j).strip().equals("---")) return lines.subList(i + 1, j);
+        return List.of();
+    }
+
+    static double fpNum(Object o, double dflt) { return o instanceof Number n ? n.doubleValue() : dflt; }
+    static long utf8(String s) { return s == null ? 0 : s.getBytes(StandardCharsets.UTF_8).length; }
+    static String tok(long bytes, double bpt) {
+        long t = Math.round(bytes / bpt);
+        return t < 1000 ? "" + t : String.format(Locale.ROOT, "%.1fk", t / 1000.0);
+    }
+    static String fmtNum(double d) { return d == Math.rint(d) ? "" + (long) d : "" + d; }
+    static String fpRow(String[] cells) {
+        return "| " + Arrays.stream(cells).map(x -> x.replace("|", "\\|")).collect(Collectors.joining(" | ")) + " |\n";
+    }
 
     // ── access to already-parsed JSON ───────────────────────────────────────
 

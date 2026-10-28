@@ -1,0 +1,69 @@
+<!--
+Exemplar of `harness-NNN.md` — `docs/lessons-learned/` in a generated project, `.claude/lessons-learned/`
+in the Nerviz repository — written by step 4 of harness-lessons/SKILL.md.
+Every {{…}} is filled from steps 1-3; this comment is cut from the real file. Numbers are copied
+from the `footprint` and `audit summary` blocks, never recomputed. Token figures are estimates
+(bytes ÷ footprint.bytes_per_token) and say so.
+-->
+
+# Harness lessons {{NNN}} — {{one line: what prompted this run}}
+
+Run date: {{YYYY-MM-DD}}. Where: {{generated project, Nerviz `stamp.ref` (`stamp.commit, short`),
+blueprint `stamp.blueprint` | the Nerviz repository at `git rev-parse --short HEAD`}}.
+Focus: {{whole harness | <piece>}}. Audit trail: {{on — <N> closed runs | off}}.
+
+---
+
+## Snapshot
+
+| Measure | Value | Previous (`harness-{{NNN-1}}`) | Δ |
+|---|---|---|---|
+| Every session, ~tokens | {{n}} | {{n}} | {{±n}} |
+| `CLAUDE.md` lines | {{n}} | {{n}} | {{±n}} |
+| Rules without `paths` | {{n}} | {{n}} | {{±n}} |
+| Skill listing, chars | {{n}} | {{n}} | {{±n}} |
+| Skills past the body limit | {{n}} | {{n}} | {{±n}} |
+| Hooks spawning on every tool call | {{n}} | {{n}} | {{±n}} |
+| Billable tokens, all runs | {{n — or "trail off"}} | {{n}} | {{±n}} |
+| Worst failure ratio | {{piece — x/y}} | {{…}} | {{…}} |
+
+First run (no previous `harness-*.md`): drop the two right-hand columns.
+
+## Findings, by priority
+
+| # | Lens | Owner | Practice | Saving | Status |
+|---|---|---|---|---|---|
+| 1 | {{every-session · invocation · behavior · guarantee}} | `{{.claude path}}` | {{BP-NN / AP-NN}} | {{~n tokens per session / run · or what stops happening}} | {{new · recurring — § M of harness-NNN-1}} |
+
+---
+
+## § {{N}} · `{{owner path}}` — {{what it costs}}
+
+**Evidence:** {{the row of footprint or audit summary, quoted}}.
+
+**Practice:** {{BP-NN — the practice, one line}} ({{source key}}).
+
+**Change at the owner:** {{concrete: what moves where, what is cut, which field changes}}.
+
+**Saving:** {{~n tokens per session / per run, estimate — or the behavior that stops}}.
+
+**Decided on purpose?** {{no | yes — .claude/decisions/NNNN, and why it still holds or no longer does}}
+
+---
+
+## Gone since harness-{{NNN-1}}
+
+- {{§ M — owner — what changed}}
+
+## Baseline
+
+`references/best-practices.md` verified on {{date}}. {{Within the window — not re-read. |
+Revalidated now: the practices below changed or vanished.}}
+
+| Practice | Was | Now | Source |
+|---|---|---|---|
+| {{BP-NN}} | {{…}} | {{…}} | {{url}} |
+
+## Next
+
+{{not filed yet — /report-issue docs/lessons-learned/harness-NNN.md | /claude-code-architect-designer <top finding, one sentence> — .claude/lessons-learned/harness-NNN.md}}

@@ -151,6 +151,12 @@ jobs:
       - name: guard status prints the open phase the cockpit draws
         run: java .claude/.ci/GuardStatusTest.java
 
+      # harness-lessons judges the harness from these numbers and never recomputes them: a
+      # manual skill counted in the listing, or a backticked path counted as an import, would
+      # file a saving that does not exist (0188).
+      - name: footprint counts what loads every session the way the runtime loads it
+        run: java .claude/.ci/FootprintTest.java
+
       # A mod that hooks an unknown event, gates without `.catch`, calls the network or the
       # model, or that the marketplace or settings forgot, loads half-way in silence. The
       # `mods` workflow runs the TypeScript; this is the half that runs on every OS (0131).

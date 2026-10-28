@@ -113,6 +113,10 @@ includes time the user spent thinking. Then add what the block can't:
    repeatedly is a bad spec, not bad luck.
 4. **What to read next** — the single most relevant report, and the exact
    `/audit-usage <fragment>` that opens it.
+5. **What to cut** — only when one piece holds the largest share of own tokens, the worst
+   failure ratio, or a peak that stands out: print `/harness-lessons <piece>`, which judges that
+   piece against the harness best practices and writes the lesson. Print it, never invoke it —
+   it runs on `opus` and writes a file (`@.claude/decisions/0188-harness-lessons-and-footprint-mode.md`).
 
 If the plan windows say `not configured`, say so and point at
 `.claude/audit-usage/plan-limits.json`, set with `/project-config` or

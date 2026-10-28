@@ -234,6 +234,29 @@ public class SkillTerritoryTest {
                 "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"src/main/java/A.java\"}}",
                 2, "src/ is not a report's — blocked");
 
+        // harness-lessons' override (decision 0188): in this repository its file is history
+        // about `.claude/`, beside the run reports — never in the public docs/ tree. The glob is
+        // `harness-*.md`, so a run report next to it stays out of reach.
+        String harness = "ci-territory-harness-" + System.nanoTime();
+        failures += run(hook, "prompt", harness,
+                "{\"session_id\":\"%s\",\"prompt\":\"/harness-lessons\"}",
+                0, "prompt opens harness-lessons' report phase");
+
+        failures += run(hook, "write", harness,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/harness-002.md\"}}",
+                0, ".claude/lessons-learned/harness-*.md — allowed by the override");
+
+        failures += run(hook, "write", harness,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/lessons-learned-026.md\"}}",
+                2, "a run report beside it is not harness-lessons' — blocked");
+
+        failures += run(hook, "write", report,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/harness-002.md\"}}",
+                2, "the override is harness-lessons' alone — sonar-lessons blocked");
+
         // `blocked_during_design`: a report is a full build, so a design run cannot reach it.
         String reportMidDesign = "ci-territory-report-design-" + System.nanoTime();
         failures += run(hook, "prompt", reportMidDesign,
@@ -350,7 +373,8 @@ public class SkillTerritoryTest {
                 + " agent_type judged by its own class on writes and Skill calls,"
                 + " build-class calls refused mid-design,"
                 + " same-class chains summing territories, report-class runs held to"
-                + " docs/lessons-learned/, and no restriction with no phase open.");
+                + " docs/lessons-learned/ (harness-lessons also its own .claude/lessons-learned/harness-*.md),"
+                + " and no restriction with no phase open.");
     }
 
     /** Runs one `guard <phase>` with the given stdin and checks the exit code. */
