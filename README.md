@@ -16,10 +16,26 @@
 [![GitHub issues](https://img.shields.io/github/issues/nerviz-ai/nerviz.svg)](https://github.com/nerviz-ai/nerviz/issues)
 [![Last commit](https://img.shields.io/github/last-commit/nerviz-ai/nerviz.svg)](https://github.com/nerviz-ai/nerviz/commits)
 
-**An agent harness for Spring Boot on Claude Code.** It generates the project from an
-architecture declared as data, designs every feature as an approved spec before any code
-is written, and blocks at write time what that architecture forbids. Generated projects
-carry the whole harness with them and can update it later.
+**Spec-driven development, AI governance and an agent harness for Spring Boot on Claude Code.**
+
+- **Spec-driven development.** Every feature is designed layer by layer as a spec you
+  approve, then frozen, before a single line of code exists.
+- **AI governance.** What the model may write is enforced by hooks, not requested in a
+  prompt: write territories, forbidden imports, frozen specs. Every run leaves an audit
+  report with time, tokens and files touched.
+- **Agent harness.** Architecture is data (nine blueprints), versions come from Spring
+  Initializr, and the generated project carries the whole harness and can update it later.
+
+<p align="center">
+  <img src="docs/assets/init-project.gif" alt="/init-project interviews, generates the bank-app project with a green build and offers to publish it" width="80%">
+</p>
+<p align="center"><sub><code>/init-project</code>: an interview, then a Spring Boot project with a green build (shown at 2x).</sub></p>
+
+<p align="center">
+  <img src="docs/assets/spec-conflict.gif" alt="/new-feature stops when the request conflicts with a project rule and asks which contract to follow" width="49%">
+  <img src="docs/assets/executor-handoff.gif" alt="/new-feature-implement runs the approved spec through the domain, adapters and tests groups" width="49%">
+</p>
+<p align="center"><sub>Left: the design pipeline finds a request that conflicts with a project rule and asks before writing the spec.<br>Right: the executor builds the approved spec in three chained groups.</sub></p>
 
 Documentation: [`docs/en/`](docs/en/README.md) (English) · [`docs/pt-br/`](docs/pt-br/README.md)
 (português). How it compares with similar projects, with sources:
@@ -398,11 +414,11 @@ proposed fix, before anything is commented or designed. Details:
 
 | Piece | Count | Where |
 |---|---|---|
-| Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
+| Architecture blueprints | 9 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
 | Skills (design, orchestration, build, ops, meta…) | 34 | `.claude/skills/` |
-| Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
-| Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
+| Agents (driver, executor, installer, verifier) | 7 | `.claude/agents/` |
+| Hook modes, in one Java file | 16 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
 
 **Design skills of the `/new-feature` pipeline:** `use-case-design`, `domain-modeling`,
@@ -519,7 +535,7 @@ The rules that follow from it, all gated in CI (the full list of eleven invarian
 | "This skill may only write under `docs/use-cases/`" | `schemas/extensions.json` → `skill_classes` | Territory is data a hook reads |
 | A ritual you trigger by hand (`/release`) | `skills/release/SKILL.md` + `disable-model-invocation: true` | No new `commands/` |
 
-New pieces are designed with `/claude-code-architect-designer`, which picks one of eight
+New pieces are designed with `/claude-code-architect-designer`, which picks one of nine
 forms (or "create nothing") and records hooks and permissions under `decisions/`. The
 frontmatter fields the runtime recognizes are data in `schemas/extensions.json`, explained
 in [`frontmatter-fields.md`](.claude/skills/claude-code-architect-designer/references/frontmatter-fields.md).
@@ -543,7 +559,7 @@ nerviz/
     ├── skills/                    # procedures + templates/*.example
     ├── agents/                    # isolated execution
     ├── hooks/
-    │   ├── ArchHook.java          # enforcement, one file, eleven modes
+    │   ├── ArchHook.java          # enforcement, one file, sixteen modes
     │   └── ArchHook.jar           # what every hook runs — committed, rebuilt by `build`
     ├── decisions/                 # why each piece has its form — history, not norms
     ├── lessons-learned/           # what real runs broke — history, not norms
@@ -585,6 +601,8 @@ Startup costs about 0.3 s per invocation.
 | `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade`, the Initializr's metadata for the target and the resolved jars' own property metadata |
 | `test-diff` | manual (through `/platform-upgrade`) | no | records the test cases of a build's JUnit reports and compares a later run: exit 2 on a test that got worse or vanished, never on a failure that was already there |
 | `config` | manual, `/project-config` | `set` refuses an invalid value | lists the files a generated project owns in its `.claude/` (`project_config` of `extensions.json`) and is their only writer: `set` validates with `doctor`'s validator before it writes, `unset` restores a default |
+| `boundary-map` | manual (through `project-bootstrap` § 5) | no | writes a generated project's `.claude/forbidden-imports.txt` from the blueprint |
+| `footprint` | manual (through `/harness-lessons`) | no | prints what this `.claude/` puts in context, per session, skill, agent, rule and hook event |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 
 Every list the hook reads is data in `schemas/extensions.json`, never a constant in the
