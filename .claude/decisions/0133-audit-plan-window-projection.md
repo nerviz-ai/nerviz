@@ -11,6 +11,11 @@
 > table blanked every total on each new model, and the projection with it (issue #111). The
 > rest of this record stands.
 
+> **Real account usage — reopened by `0194-audit-plan-usage-delta-from-a-personal-status-line-snapshot.md`.**
+> Fact 5 no longer excludes it: a status line in the person's own `~/.claude/settings.json`
+> writes a snapshot the audit reads, and no project carries a `statusLine`. The projection
+> above stands beside the measured delta.
+
 ## What the runtime and Anthropic publish
 
 Checked against the official pages, not from memory (a `claude-code-guide` run in this session):

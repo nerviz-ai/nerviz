@@ -344,13 +344,23 @@
     "plans_source": "https://claude.com/pricing, read 2026-10-08",
     "budget_plan": "pro",
     "windows": {
-      "five_hour": {"label": "5 h", "hours": 5, "budget": "five_hour_tokens"},
-      "weekly": {"label": "week", "hours": 168, "budget": "weekly_tokens"}
+      "five_hour": {"label": "5 h", "hours": 5, "budget": "five_hour_tokens", "rate_limits_key": "five_hour"},
+      "weekly": {"label": "week", "hours": 168, "budget": "weekly_tokens", "rate_limits_key": "seven_day"}
     },
     "plans": {
       "pro": {"label": "Pro", "multipliers": {"five_hour": 1, "weekly": 1}},
       "max-5x": {"label": "Max 5x", "multipliers": {"five_hour": 5, "weekly": null}},
       "max-20x": {"label": "Max 20x", "multipliers": {"five_hour": 20, "weekly": null}}
+    },
+    "$comment_plan_usage": "The account's real plan usage, measured around a run: the snapshot a personal status line (or any personal producer writing the same shape) leaves at `snapshot` — the status line's stdin as received. `audit` reads `<root>.<window rate_limits_key>.<used>` and `.<resets_at>` at run open, at `flush` (provisional) and at `close` (final: the status line refreshes 300 ms after the last response, after `Stop`), and copies those numbers only, never other text of the file — no redaction applies. Older than `max_age_minutes`, absent or unreadable → `not captured`; absent with a `not_available_env` variable set → `not available`; a changed `resets_at` → `not valid`. `~` is `user.home`. The producer never travels: its snippet is .claude/skills/audit-usage/templates/statusline-rate-limits.json.example, pasted by the person into ~/.claude/settings.json; an existing project learns of it from the `audit-plan-usage-statusline` entry of `migrations`, whose prompt the person pastes. Design: .claude/decisions/0194-audit-plan-usage-delta-from-a-personal-status-line-snapshot.md",
+    "plan_usage": {
+      "snapshot": "~/.claude/rate-limits.json",
+      "max_age_minutes": 15,
+      "root": "rate_limits",
+      "used": "used_percentage",
+      "resets_at": "resets_at",
+      "resolution_pp": 0.1,
+      "not_available_env": ["CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_USE_MANTLE", "ANTHROPIC_API_KEY"]
     },
     "$comment_genesis": "Read by `audit genesis <project> <session-id>`, which `/init-project` runs after `project-initializer` returns and before `git-publish`. `file` is the generated project's genesis record, relative to its root; `command` the skill whose entry marks Started in this session's transcript — a `<command-name>` message when it was typed, or the prompt behind a Skill tool result whose `toolUseResult.commandName` names it (0164); `placeholders` the three literals step 8.6 of project-bootstrap leaves in the file and this mode replaces — Started, Finished (the moment it runs), and the tokens of the main transcript and every subagent transcript from Started on — no cost, the trail prices nothing (0134). The model never writes those three values. Design: .claude/decisions/0123-lessons-learned-020-init-project-run.md, Started anchors amended by .claude/decisions/0164-genesis-started-from-the-skill-tool-path.md",
     "genesis": {
@@ -1061,6 +1071,12 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
         "note": "The executable jar now has a fixed name, `app.jar`, and the Dockerfile copies that. Code generated before this change copies `<artifactId>-<version>.jar`: the first version bump renames the jar, `docker build` fails on the COPY, and `./mvnw verify` or `./gradlew build` stays green because nothing in the build or the generated CI builds the image. Nothing breaks until the version changes; the fix is two lines in the build file of the module that holds the `@SpringBootApplication` class and one in the Dockerfile.",
         "prompt": "Give this project's executable jar a fixed name and make the Dockerfile copy that. If there is no Dockerfile at the root, tell me so and stop. Find the module that holds the @SpringBootApplication class (the root project in a single-module layout). Maven: in that module's pom.xml, add <finalName>app</finalName> as the first child of <build>; if the module has no spring-boot-maven-plugin in <build><plugins> (a multi-module project whose parent does not declare it), add it too, without a version. Gradle: in that module's build.gradle, add bootJar { archiveFileName = 'app.jar' } and, if the org.springframework.boot plugin is not applied there, apply it in a plugins {} block at the top of the file, without a version. Then in the Dockerfile change the COPY --from=build source to <that module's path, empty for a single-module layout>target/app.jar on Maven, or build/libs/app.jar under the module's path on Gradle. Change nothing else. Run docker build -t app-check . and show me the result; if Docker is not available, run ./mvnw -DskipTests package or ./gradlew bootJar instead and show me the path of the jar it wrote."
+      },
+      {
+        "id": "audit-plan-usage-statusline",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The audit can now report how many percentage points of your plan's 5-hour and weekly windows each skill or agent run consumed, measured from the account (decision 0194). It reads a snapshot that a status line in your own ~/.claude/settings.json writes — never one in the project's settings, which would override everyone else's. Optional and personal: no project code is left behind, nothing breaks without it, and on an API key, Bedrock, Vertex or Foundry there is nothing to measure. Without it, reports say `not captured` and `/arch-doctor` shows `Plan usage ⚪`. POSIX sh only (macOS, Linux, WSL).",
+        "prompt": "Add the plan-usage status line to my personal Claude Code settings. Read .claude/skills/audit-usage/templates/statusline-rate-limits.json.example, including its `$comment`. Then read ~/.claude/settings.json (if it does not exist, the result is a new file holding only the `statusLine` key). If it has no `statusLine`, the result adds the template's `statusLine` entry as is. If it already has one, keep my command running: append `; printf '%s' \"$input\" | <my current command>` to the template's command, keep my own `padding` and `refreshInterval` if set, and tell me what you changed. Touch no other key of the file and never write this into the project's .claude/settings.json. Show me the whole resulting `statusLine` block and wait for my confirmation before writing. After writing, tell me to restart claude, since settings are read at startup, and that `java -jar .claude/hooks/ArchHook.jar doctor` should then show the `Plan usage` line with ✅ once a session has had a response."
       }
     ]
   },

@@ -129,6 +129,57 @@ only `pro`, only `five_hour_tokens` and `weekly_tokens`, a number above 0 or `nu
 sessions share the real window, and a token weighs the same on every model here, which it
 does not on the plan. Decisions 0133 and 0134.
 
+### Measured plan usage: `~/.claude/rate-limits.json`
+
+The projection above is an estimate. The measured answer — what share of the account's 5-hour
+and weekly windows a run took — exists only in the status line's input (`rate_limits`, each
+window with `used_percentage` and `resets_at`), which no hook receives. So the person's own
+status line leaves a snapshot and `audit` reads it. Paste
+`.claude/skills/audit-usage/templates/statusline-rate-limits.json.example` into
+`~/.claude/settings.json` — never into a project's settings, which would override the status
+line of everyone who clones it:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "f=\"$HOME/.claude/rate-limits.json\"; input=$(cat); case \"$input\" in *'\"rate_limits\"'*) printf '%s' \"$input\" > \"$f.tmp\" && mv \"$f.tmp\" \"$f\";; esac",
+    "refreshInterval": 60
+  }
+}
+```
+
+POSIX `sh`, no `jq` — macOS, Linux and WSL; on native Windows the shell is not documented, so
+nothing is claimed. With a status line of your own, append `; printf '%s' "$input" | <your
+command>`. The path must equal `audit.plan_usage.snapshot` of `extensions.json`; under
+`CLAUDE_CONFIG_DIR`, edit both.
+
+- **The contract is open.** The file is the status line's input as received; the audit reads
+  only `<root>.<window>.<used>` and `.<resets_at>` and copies those numbers, never any other
+  text of the file. Any personal producer that writes that subset works (a personal mod on
+  `session.measure`, for one); Nerviz documents only the status line.
+- **Three readings per run.** At the run's open (`before`), at `flush` (`provisional`) and at
+  `close` (`after`). The final reading is taken at `close`, not at `Stop`: the status line
+  refreshes 300 ms after the last response, after the `Stop` hook has run.
+- **A fresh session writes nothing.** Before its first response the input has no
+  `rate_limits` — right after `/clear`, when `/new-feature-implement` starts — and the snippet
+  writes only when the input carries them, so it never overwrites a good snapshot.
+- **The cells.** `+3.5 pp` (both readings valid, same `resets_at`) · `< 0.1 pp` (equal
+  readings; the number is `resolution_pp`) · `provisional` (rendered at `flush`) ·
+  `not valid — the window reset mid-run` · `not captured — no snapshot at <path>` · `not
+  captured — snapshot <N> min old (max <M>)` (`max_age_minutes`) · `not captured — unreadable
+  snapshot` · `not captured — window absent in the snapshot` · `not available — <VAR> is set`
+  (no usable snapshot and a provider variable such as `CLAUDE_CODE_USE_BEDROCK` or
+  `ANTHROPIC_API_KEY` is set: that account has no plan window to read).
+- **Where it shows.** The report's `📉 Plan usage (account, measured)` section, the
+  `plan_usage` field of the run's `history.jsonl` row, the `Plan usage (measured)` table of
+  `audit summary` (mean delta per piece, over runs with a valid one, and `n`), and `doctor`'s
+  `Plan usage` line — never in the CI gate.
+- **Attribution.** The delta is the account's: chat, other sessions and other machines in the
+  same window count too. It is the run's only if nothing else ran.
+
+Decision 0194; it reopens the account-usage question 0133 closed.
+
 ## Anatomy of a report
 
 One `.md` per top-level invocation, at `.claude/audit-usage/<timestamp>--<piece>.md`.
@@ -167,7 +218,7 @@ its numbers are unchanged. Reports written before 0085 stay in Portuguese on dis
 
 Sections, in order: header · initial command (redacted, with the original's `sha256`)
 · longest steps · chain · tokens per piece · aggregate tokens (input, output,
-cache read, cache write, billable, cache hit) · plan windows · where the run spent ·
+cache read, cache write, billable, cache hit) · plan usage (measured) · plan windows · where the run spent ·
 permissions added (a diff of `settings.local.json` between start and end) · rules
 loaded · files touched · rework.
 
@@ -388,7 +439,7 @@ order, so no boundary may depend on which of them ran first.
 
 ## What `doctor` shows
 
-`/arch-doctor` carries two lines about the trail: `Audit` (how many runs recorded) and `Audit rule inference` (a synthetic file matching a
+`/arch-doctor` carries three lines about the trail: `Plan usage` (the snapshot, its age and its windows; never gated) when the trail exists, `Audit` (how many runs recorded) and `Audit rule inference` (a synthetic file matching a
 real norm's `paths` — the exact shape that once threw
 `ArrayIndexOutOfBoundsException` inside the inference and froze every report from that
 point on, silently). Without the directory: `⚪ no .claude/audit-usage/ — execution

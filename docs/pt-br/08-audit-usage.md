@@ -129,6 +129,57 @@ escrito antes da decisão 0134 é recusado pelo nome. É uma estimativa: chat e 
 dividem a janela real, e um token pesa igual em todo modelo aqui, o que não vale no plano.
 Decisões 0133 e 0134.
 
+### Uso do plano medido: `~/.claude/rate-limits.json`
+
+A projeção acima é uma estimativa. A resposta medida — que fração das janelas de 5 horas e
+semanal da conta uma execução consumiu — só existe na entrada da status line (`rate_limits`,
+cada janela com `used_percentage` e `resets_at`), que nenhum hook recebe. Então a status line
+pessoal deixa um snapshot e o `audit` o lê. Cole
+`.claude/skills/audit-usage/templates/statusline-rate-limits.json.example` no
+`~/.claude/settings.json` — nunca nas settings de um projeto, que sobrescreveriam a status
+line de quem clonar:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "f=\"$HOME/.claude/rate-limits.json\"; input=$(cat); case \"$input\" in *'\"rate_limits\"'*) printf '%s' \"$input\" > \"$f.tmp\" && mv \"$f.tmp\" \"$f\";; esac",
+    "refreshInterval": 60
+  }
+}
+```
+
+`sh` POSIX, sem `jq` — macOS, Linux e WSL; no Windows nativo o shell não é documentado, então
+nada se afirma. Se você já tem uma status line, acrescente `; printf '%s' "$input" | <seu
+comando>`. O caminho tem de ser igual a `audit.plan_usage.snapshot` do `extensions.json`; com
+`CLAUDE_CONFIG_DIR`, edite os dois.
+
+- **O contrato é aberto.** O arquivo é a entrada da status line como chegou; o audit lê só
+  `<root>.<janela>.<used>` e `.<resets_at>` e copia esses números, nunca outro texto do
+  arquivo. Qualquer produtor pessoal que escreva esse subconjunto serve (um mod pessoal em
+  `session.measure`, por exemplo); o Nerviz documenta só a status line.
+- **Três leituras por execução.** Na abertura (`before`), no `flush` (`provisional`) e no
+  `close` (`after`). A leitura final é feita no `close`, não no `Stop`: a status line atualiza
+  300 ms depois da última resposta, depois que o hook `Stop` já rodou.
+- **Sessão nova não escreve nada.** Antes da primeira resposta a entrada não tem
+  `rate_limits` — logo após `/clear`, quando o `/new-feature-implement` começa — e o snippet
+  só escreve quando a entrada os traz, então nunca sobrescreve um snapshot bom.
+- **As células.** `+3.5 pp` (as duas leituras válidas, mesmo `resets_at`) · `< 0.1 pp` (leituras
+  iguais; o número é `resolution_pp`) · `provisional` (renderizado no `flush`) ·
+  `not valid — the window reset mid-run` · `not captured — no snapshot at <path>` · `not
+  captured — snapshot <N> min old (max <M>)` (`max_age_minutes`) · `not captured — unreadable
+  snapshot` · `not captured — window absent in the snapshot` · `not available — <VAR> is set`
+  (sem snapshot utilizável e com uma variável de provedor, como `CLAUDE_CODE_USE_BEDROCK` ou
+  `ANTHROPIC_API_KEY`: essa conta não tem janela de plano para ler).
+- **Onde aparece.** Na seção `📉 Plan usage (account, measured)` do relatório, no campo
+  `plan_usage` da linha da execução no `history.jsonl`, na tabela `Plan usage (measured)` do
+  `audit summary` (delta médio por peça, sobre as execuções com delta válido, e o `n`) e na
+  linha `Plan usage` do `doctor` — nunca no gate de CI.
+- **Atribuição.** O delta é da conta: chat, outras sessões e outras máquinas na mesma janela
+  contam também. Só é da execução se nada mais rodou.
+
+Decisão 0194; ela reabre a questão do uso real da conta que a 0133 havia fechado.
+
 ## Anatomia de um relatório
 
 Um `.md` por invocação de topo, em `.claude/audit-usage/<timestamp>--<peça>.md`. Desde a
@@ -168,7 +219,7 @@ Relatórios gravados antes da 0085 continuam em português no disco:
 
 Seções, na ordem: cabeçalho · comando inicial (redigido, com `sha256` do original) ·
 etapas mais longas · encadeamento · tokens por peça · tokens agregados (input, output,
-cache read, cache write, faturável, cache hit) · janelas dos planos · onde o run gastou ·
+cache read, cache write, faturável, cache hit) · uso do plano medido · janelas dos planos · onde o run gastou ·
 permissões adicionadas (diff de `settings.local.json` entre início e fim) · regras
 carregadas · arquivos tocados · retrabalho.
 
@@ -389,7 +440,7 @@ fronteira pode depender de qual deles rodou primeiro.
 
 ## O que `doctor` mostra
 
-`/arch-doctor` traz duas linhas sobre a trilha: `Audit` (quantas execuções registradas) e `Audit rule inference` (um arquivo sintético que casa com
+`/arch-doctor` traz as linhas da trilha: `Plan usage` (o snapshot, sua idade e suas janelas; nunca no gate) quando a trilha existe, `Audit` (quantas execuções registradas) e `Audit rule inference` (um arquivo sintético que casa com
 o `paths` de uma norma real — a forma exata que uma vez lançou
 `ArrayIndexOutOfBoundsException` dentro da inferência e congelou todo relatório dali
 em diante, em silêncio). Sem o diretório: `⚪ no .claude/audit-usage/ — execution trail

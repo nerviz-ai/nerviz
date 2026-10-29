@@ -87,6 +87,9 @@ What the block's vocabulary means:
   `budget` or `time` says which limit binds. Max 5x and 20x are multiples of Pro on 5 hours,
   the only multiplier Anthropic publishes; Max weekly has no column. A root row counts the
   whole run, what typing that command spends; a `(chained, own)` row only that piece's share.
+- **Plan usage (measured)** — the account's 5-hour and weekly percentages before and after a
+  run, from the personal status line's snapshot; the block computed the delta and each cell's
+  reason; never recomputed.
 
 ## Procedure
 
@@ -125,6 +128,10 @@ If the plan windows say `not configured`, say so and point at
 100%). Never suggest a budget: Anthropic publishes none, and one written from memory looks as
 authoritative as a measured one. Never convert anything to a currency either: the trail prices
 nothing, and a rate written from memory is wrong the day after it changes.
+
+If the plan usage says `not captured — no snapshot`, say so and point at
+`.claude/skills/audit-usage/templates/statusline-rate-limits.json.example` and § Plan usage of
+`docs/<lang>/08-audit-usage.md`; never write `~/.claude/settings.json`.
 
 ### 3 · Single run
 
