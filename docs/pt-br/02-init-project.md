@@ -50,6 +50,13 @@ tem `disable-model-invocation` ausente (portanto invocável pelo modelo também)
 prática só é acionada por este caminho e por `/new-feature` quando um projeto ainda
 não existe.
 
+## Diagrama de passos
+
+Renderizado pelo `/nerviz-diagrams` a partir do contrato de passos do `SKILL.md` da skill; um
+passo tracejado só roda quando é necessário.
+
+![/init-project, passo a passo](../diagrams/init-project/init-project.animated.svg)
+
 ## Diagrama de sequência
 
 ```mermaid

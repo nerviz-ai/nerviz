@@ -43,7 +43,8 @@ diagram draws, animates and routes in that order.
    is conditional. `self` as in `<ref>` below.
 6. **Depends on / Reads.** Ids of steps of the same skill, each **written before** the step, else exit
    2: `step <id> depends on|reads '<x>', which is written after it — the written order is the execution
-   order`. `Depends on` draws an edge; `Reads` is a soft dependency: it orders the layout and draws none.
+   order`. `Depends on` draws an edge and sets the row; `Reads` is a soft dependency: it draws none and
+   takes no row of its own.
    A step with no `Depends on` is drawn after the step written before it.
 7. **Gate.** The words live in `view.schema.json` `$defs.gate.enum`, the ones that branch in
    `$defs.branchGate.enum`; `Diagrams.java` reads both from there. Repetition is meaningful:

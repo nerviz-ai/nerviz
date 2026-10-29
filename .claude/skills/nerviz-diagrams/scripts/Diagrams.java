@@ -1844,23 +1844,21 @@ public class Diagrams {
             for (Info s : st)
                 if (!s.diamond && !s.brs.isEmpty())
                     throw new Fail("view " + r.name + ": step " + s.f.get("id") + " of " + r.skill + " carries a branch and runs more than `self`; a depends_on view draws a branch only as the diamond of a step that runs `self` alone, with exactly one branch (references/step-contract.md)");
-            List<List<Info>> rows = new ArrayList<>();
-            List<Info> cur = null;
-            Set<String> inCur = new HashSet<>();
-            boolean curBranch = false;
-            for (Info s : st) {
-                boolean need = cur == null || !s.brs.isEmpty() || curBranch;
-                if (!need) {
-                    for (String d : deps.get(s.fid)) if (inCur.contains(d)) need = true;
-                    for (Object o : list(s.f.get("reads"))) if (inCur.contains(o)) need = true;
-                }
-                if (need) { cur = new ArrayList<>(); rows.add(cur); inCur.clear(); curBranch = false; }
-                cur.add(s);
-                inCur.add(s.fid);
-                if (!s.brs.isEmpty()) curBranch = true;
-            }
+            // a step sits one row below the deepest step it depends on, beside the others of that depth in
+            // the written order; a branch step keeps a row of its own, so nothing written after it climbs above it
             Map<String, Integer> rowOf = new HashMap<>();
-            for (int k = 0; k < rows.size(); k++) for (Info s : rows.get(k)) rowOf.put(s.fid, k);
+            int last = -1, floor = 0;
+            for (Info s : st) {
+                int k = floor;
+                for (String d : deps.get(s.fid)) k = Math.max(k, rowOf.get(d) + 1);
+                if (!s.brs.isEmpty()) k = Math.max(k, last + 1);
+                rowOf.put(s.fid, k);
+                last = Math.max(last, k);
+                if (!s.brs.isEmpty()) floor = k + 1;
+            }
+            List<List<Info>> rows = new ArrayList<>();
+            for (int k = 0; k <= last; k++) rows.add(new ArrayList<>());
+            for (Info s : st) rows.get(rowOf.get(s.fid)).add(s);
             // edges: depends_on minus what a longer path implies; the first step hangs from the root
             List<String[]> edges = new ArrayList<>();
             for (Info s : st) for (String d : deps.get(s.fid)) {

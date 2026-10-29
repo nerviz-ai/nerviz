@@ -97,6 +97,8 @@ The two flows below are two runs, with `/clear` between them.
 
 ### Flow 1 — create the spec: `/new-feature <description>`
 
+![/new-feature, step by step](../diagrams/new-feature/new-feature.animated.svg)
+
 ```mermaid
 sequenceDiagram
     actor U as User
@@ -164,6 +166,8 @@ sequenceDiagram
 ```
 
 ### Flow 2 — implement the spec: `/new-feature-implement UC-NNN-slug` over an approved spec
+
+![/new-feature-implement, step by step](../diagrams/new-feature-implement/new-feature-implement.animated.svg)
 
 ```mermaid
 sequenceDiagram

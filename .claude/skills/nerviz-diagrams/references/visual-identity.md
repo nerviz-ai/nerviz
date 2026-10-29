@@ -30,8 +30,9 @@ right the chain of who runs it, none when the orchestrator runs it itself (`self
 `orchestrator.territory_any`); the arrow into a chip is labelled by `orchestrator.tools`, and a skill that
 declares `context: fork` carries `orchestrator.fork_marker`. A step that runs in several phases draws each
 as a block under a caption (`orchestrator.phase`), joined by arrows; chains of one phase run in either
-order and sit in a dotted box. A dashed chip is a conditional chain. `depends_on` is rows in the written
-order, centred on one axis, with the dependencies drawn and no chips; an edge that skips a row runs in
+order and sit in a dotted box. A dashed chip is a conditional chain. `depends_on` is rows by depth — a step
+sits one row below the deepest step it depends on, beside the others of that depth in the written order,
+and a decision keeps a row of its own — centred on one axis, with the dependencies drawn and no chips; an edge that skips a row runs in
 the left gutter, one lane per edge (`orchestrator.routing`), and crosses no box. The handoff is a dashed
 box captioned `orchestrator.handoff_caption`. What each gate word and each field line means is owned by
 `step-contract.md`, not here.

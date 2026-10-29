@@ -229,6 +229,8 @@ A project on a Spring Boot line below this `.claude/`'s floor is refused by `exp
 - **What it never does:** commit, write `.claude/`, or delete, skip or loosen a failing test. It
   refuses a dirty worktree, and it ends by printing `/arch-adopt`.
 
+![/platform-upgrade, step by step](docs/diagrams/platform-upgrade/platform-upgrade.animated.svg)
+
 See [`docs/en/15-platform-upgrade.md`](docs/en/15-platform-upgrade.md).
 
 ### Silent failures to know about
@@ -272,6 +274,8 @@ greens, which is why `/arch-doctor` exists. More traps, runtime and repository a
      └─ if the build is green: OFFERS git-publish — two independent confirmations
 ```
 
+![/init-project, step by step](docs/diagrams/init-project/init-project.animated.svg)
+
 No business code is generated: no `ExampleController` to delete. The first feature comes
 from a real spec.
 
@@ -302,6 +306,8 @@ would pay for that on every turn.
      ▼  prints the next commands:  /clear  ·  /git-publish (the approved spec only)  ·  /new-feature-implement UC-NNN-slug
 ```
 
+![/new-feature, the design pipeline](docs/diagrams/new-feature/new-feature.animated.svg)
+
 **Flow 2 — implement the spec.** `/new-feature-implement UC-NNN-slug` over an approved spec,
 after `/clear`
 
@@ -322,6 +328,8 @@ after `/clear`
      │         marked materialize — the container lands in the same commit as the code
      ▼  prints the next commands:  /clear  ·  /git-publish (feature commit)  ·  /new-feature <next>
 ```
+
+![/new-feature-implement, step by step](docs/diagrams/new-feature-implement/new-feature-implement.animated.svg)
 
 Each step's output contract is literally the next step's input contract. A free-prose
 handoff degrades by the third hop. Details: [`docs/en/03-new-feature.md`](docs/en/03-new-feature.md).
