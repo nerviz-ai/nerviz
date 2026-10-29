@@ -46,6 +46,8 @@ before is reported as that — never as the upgrade's, and never fixed by editin
 
 **Runs:** self · **Gate:** stop
 
+**Stops when:** dirty tree, no git or no wrapper? · **Says:** says what to run; never offers to commit
+
 ```bash
 git rev-parse --is-inside-work-tree && git status --porcelain
 ```
@@ -69,6 +71,8 @@ the baseline will record those cases as failing.
 ### 2 · Fetch the source
 
 **Runs:** self · **Gate:** stop
+
+**Stops when:** ref predates this skill? · **Says:** says --ref must name a newer one
 
 A project below the floor has no `ArchHook.jar` of this shape, so the mode that writes the recipe
 comes from the source, fetched as `arch-adopt` § 2-3 does it: `$SRC` named once there, the
@@ -131,6 +135,8 @@ download failed → go on without it, and the report says the BOMs were not move
 
 **Runs:** self · **Gate:** stop
 
+**Stops when:** no engine version resolves? · **Says:** the engine's public line moved; engine is the block to edit
+
 Read both from the repository that serves them. Print the versions chosen, so the report can name
 them.
 
@@ -169,6 +175,8 @@ go on; step 9 then reports any red as it is.
 ### 5 · Pass 1 — the bump, the coordinates, the types
 
 **Runs:** cmd:upgrade-recipe · **Gate:** stop
+
+**Stops when:** recipe refused (exit 2)? · **Says:** shows the exit as it is; or: nothing to upgrade
 
 The project's line is read from its own build by the mode:
 
@@ -348,7 +356,9 @@ three-strikes rule. A class that is `fail` in `$WORK/baseline.json` already fail
 
 ### 9 · Verify
 
-**Runs:** cmd:test-diff, cmd:doctor · **Gate:** gate
+**Runs:** cmd:test-diff, cmd:doctor? · **Gate:** gate
+
+**Stops when:** test-diff exits 2? · **Says:** regressions are the report; nothing is committed
 
 ```bash
 ./mvnw -B -fae clean verify -Dmaven.test.failure.ignore=true   # Maven

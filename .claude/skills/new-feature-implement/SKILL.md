@@ -74,12 +74,7 @@ confirmations; the final report prints the command
 (`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`). No end of
 this flow is left without an explicit git instruction.
 
-**Integrates with:**
-1. `test-architect` (setup mode), `commons-logging-installer` and `mapstruct-installer` —
-   pre-flight, each only when its gap is found; the first two when the user answers **Install
-   now**, the third with whichever mechanism the user picks
-2. `java-spring-boot-developer` — three chained delegations, one per block group
-3. `compose-service-installer` — on success, only when the spec has a `materialize` row
+**Integrates with** the agents and skills step 2's field lines name, phase by phase; when each runs is step 2's body.
 
 `git-publish` is not an integration: § 4 prints its command.
 
@@ -90,6 +85,8 @@ this flow is left without an explicit git instruction.
 ### 1 · Entry guardrail
 
 **Runs:** self · **Gate:** stop
+
+**Stops when:** no approved case given? · **Says:** prints the error and usage; or lists the cases (empty)
 
 Runs before any skill invocation, any delegation, and any question. **Read
 `@.claude/skills/new-feature/references/entry-guardrail.md`** and run its § 1 (survey and
@@ -127,7 +124,15 @@ approved spec nobody committed yet is the run's input and goes in its `feat` com
 
 ### 2 · Implement
 
-**Runs:** skill:test-architect>agent:archunit-installer, agent:commons-logging-installer, agent:mapstruct-installer, agent:java-spring-boot-developer, agent:compose-service-installer>skill:docker-architect · **Gate:** ask, stop
+**Runs:** agent:mapstruct-installer? · **Gate:** ask, stop · **Note:** pre-flight, first and alone when it installs
+
+**Then runs:** skill:test-architect>agent:archunit-installer?, agent:commons-logging-installer? · **Note:** pre-flight
+
+**Then runs:** agent:java-spring-boot-developer · **Note:** three groups, chained: domain, adapters, tests
+
+**Stops when:** a group fails? · **Says:** reports the failing group; the chain stops there
+
+**Then runs:** agent:compose-service-installer>skill:docker-architect? · **Note:** only with a materialize row
 
 1. **One-time setup pre-flight, before delegating.** The executor is about to write the
    first `.java` under `src/` for this project run — the only point in the pipeline

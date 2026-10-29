@@ -1,20 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "nerviz-diagrams/view.schema.json",
-  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md and .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md. The gate vocabulary of the step contract (references/step-contract.md) is $defs.gate.enum: Diagrams.java reads it from here, never from a constant.",
+  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md, .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md and .claude/decisions/0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md. The gate vocabulary of the step contract (references/step-contract.md) is $defs.gate.enum, the gate words that branch are $defs.branchGate.enum, and the limits of the texts a step declares are $defs.branchCondition, branchLine and phaseNote (validated by the same interpreter, their x-fix printed): Diagrams.java reads all of it from here, never from a constant.",
   "title": "nerviz-diagrams view",
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "title", "groups"],
   "properties": {
     "kind": {
-      "enum": ["layers", "classes", "pipeline", "territory", "orchestrator"],
-      "x-fix": "kind is one of layers, classes, pipeline, territory, orchestrator"
+      "enum": ["layers", "classes", "territory", "orchestrator"],
+      "x-fix": "kind is one of layers, classes, territory, orchestrator; an orchestrator view draws a skill's steps, and derive picks its layout"
     },
     "skill": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "x-fix": "skill is the directory name of the skill whose steps a pipeline or orchestrator view draws, as in skill:<name>"
+      "x-fix": "skill is the directory name of the skill whose steps an orchestrator view draws, as in skill:<name>"
     },
     "title": { "type": "string", "minLength": 1 },
     "caption": { "type": "string" },
@@ -23,12 +23,12 @@
     "steps": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
-      "x-fix": "steps lists the ids of entities (fact ids), groups or edges (\"<from>><to>\") in the order the animation reveals them"
+      "x-fix": "steps lists the ids of entities (fact ids), groups or edges (\"<from>><to>\") in the order the animation reveals them; an orchestrator view takes none, its animation follows the written order"
     },
     "emphasis": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
-      "x-fix": "emphasis lists the ids of entities (fact ids) or groups drawn with the heavier stroke"
+      "x-fix": "emphasis lists the ids of entities (fact ids) or groups drawn with the heavier stroke; layers, classes and territory views only"
     }
   },
   "$defs": {
@@ -54,6 +54,25 @@
     "gate": {
       "enum": ["ask", "confirm", "stop", "gate"],
       "x-fix": "a gate word is one of ask, confirm, stop, gate (references/step-contract.md)"
+    },
+    "branchGate": {
+      "enum": ["stop", "gate"],
+      "x-fix": "a gate word that branches (references/step-contract.md): its step carries one **Stops when:** line per word"
+    },
+    "branchCondition": {
+      "type": "string",
+      "pattern": "^.{1,33}\\?$",
+      "x-fix": "a branch condition is a question of at most 34 characters, phrased so that yes is the exit"
+    },
+    "branchLine": {
+      "type": "string",
+      "pattern": "^.{1,34}$",
+      "x-fix": "each part of **Says:** is at most 34 characters; two parts at most, separated by '; '"
+    },
+    "phaseNote": {
+      "type": "string",
+      "pattern": "^.{1,48}$",
+      "x-fix": "a **Note:** is at most 48 characters"
     },
     "groupLabel": {
       "type": "object",
@@ -85,7 +104,7 @@
         "derive": { "enum": ["depends_on", "sequence"] }
       },
       "oneOf": [{ "required": ["from", "to"] }, { "required": ["derive"] }],
-      "x-fix": "an edge is {\"from\":\"<entity or group id>\",\"to\":\"<entity or group id>\",\"evidence\":\"<fact id>\"} or {\"derive\":\"depends_on\"} (a pipeline) or {\"derive\":\"sequence\"} (an orchestrator)"
+      "x-fix": "an edge is {\"from\":\"<entity or group id>\",\"to\":\"<entity or group id>\",\"evidence\":\"<fact id>\"} or {\"derive\":\"sequence\"} (an orchestrator: one column, the chips of who runs each step) or {\"derive\":\"depends_on\"} (an orchestrator: rows, the dependencies drawn)"
     }
   }
 }

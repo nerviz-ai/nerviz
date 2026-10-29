@@ -1,179 +1,175 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1116" height="840" viewBox="0 0 1116 840" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1116" height="952" viewBox="0 0 1116 952" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
 <title>Nerviz — /init-project</title>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
-<rect width="1116" height="840" fill="#FBFAF7"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
+<rect width="1116" height="952" fill="#FBFAF7"/>
 <text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — /init-project</text>
 <text x="32" y="78" font-size="12" fill="#52606D">Every question is asked before delegating; the agent asks nothing.</text>
-<g id="edge-step_init-project_1_chip_step_init-project_1_0_0">
-<line x1="352" y1="128" x2="500" y2="128" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_root_init-project_step_init-project_1">
+<line x1="192" y1="160" x2="192" y2="184" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_2_chip_step_init-project_2_0_0">
-<line x1="352" y1="216" x2="500" y2="216" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_init-project_1_0">
+<line x1="352" y1="240" x2="416" y2="240" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_3_chip_step_init-project_3_0_0">
-<line x1="352" y1="300" x2="500" y2="300" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_1_step_init-project_2">
+<line x1="192" y1="296" x2="192" y2="320" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-chip_step_init-project_3_0_0_chip_step_init-project_3_0_1">
-<line x1="748" y1="300" x2="836" y2="300" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-seg_chip_step_init-project_3_0_0_0_chip_step_init-project_3_0_0_1">
+<line x1="748" y1="428" x2="836" y2="428" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_4_chip_step_init-project_4_0_0">
-<line x1="352" y1="384" x2="500" y2="384" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_init-project_3_0_0_0">
+<line x1="352" y1="428" x2="500" y2="428" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_5_chip_step_init-project_5_0_0">
-<line x1="352" y1="468" x2="500" y2="468" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_2_step_init-project_3">
+<line x1="192" y1="376" x2="192" y2="400" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_6_chip_step_init-project_6_0_0">
-<line x1="352" y1="548" x2="500" y2="548" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_3_step_init-project_4">
+<line x1="192" y1="456" x2="192" y2="480" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_7_chip_step_init-project_7_0_0">
-<line x1="352" y1="632" x2="500" y2="632" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_init-project_5_0_0_0">
+<line x1="352" y1="588" x2="500" y2="588" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_7_handoff_init-project">
-<line x1="192" y1="660" x2="192" y2="688" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_4_step_init-project_5">
+<line x1="192" y1="536" x2="192" y2="560" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_1_step_init-project_2">
-<line x1="192" y1="156" x2="192" y2="188" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_init-project_6_0_0_0">
+<line x1="352" y1="668" x2="500" y2="668" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_2_step_init-project_3">
-<line x1="192" y1="244" x2="192" y2="272" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_5_step_init-project_6">
+<line x1="192" y1="616" x2="192" y2="640" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_3_step_init-project_4">
-<line x1="192" y1="328" x2="192" y2="356" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_6_step_init-project_7">
+<line x1="192" y1="696" x2="192" y2="720" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_4_step_init-project_5">
-<line x1="192" y1="412" x2="192" y2="440" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_init-project_7_handoff_init-project">
+<line x1="192" y1="776" x2="192" y2="800" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_init-project_5_step_init-project_6">
-<line x1="192" y1="496" x2="192" y2="520" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
-</g>
-<g id="edge-step_init-project_6_step_init-project_7">
-<line x1="192" y1="576" x2="192" y2="604" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="root_init-project">
+<rect x="32" y="96" width="320" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="119" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">init-project</text>
+<text x="192" y="134" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
+<text x="192" y="147" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
 </g>
 <g id="step_init-project_1">
-<rect x="32" y="100" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="133" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Refuse an existing project</text>
+<polygon points="192,184 352,240 192,296 32,240" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="229" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Refuse an existing</text>
+<text x="192" y="245" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">project</text>
+<text x="192" y="260" font-size="11" text-anchor="middle" fill="#52606D">pom.xml / build.gradle present?</text>
 </g>
-<g id="chip_step_init-project_1_0_0">
-<rect x="500" y="96" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="624" y="119" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">init-project</text>
-<text x="624" y="134" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="624" y="147" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+<g id="term_step_init-project_1_0">
+<rect x="416" y="208" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="540" y="231" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="540" y="246" font-size="11" text-anchor="middle" fill="#52606D">reports what it found</text>
+<text x="540" y="259" font-size="11" text-anchor="middle" fill="#52606D">suggests /new-feature there</text>
 </g>
-<g id="badge_step_init-project_1_0">
-<rect x="356" y="116" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="368" y="133" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<g id="tbadge_step_init-project_1_0">
+<rect x="668" y="228" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="680" y="245" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_init-project_2">
-<rect x="32" y="188" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="221" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Interview</text>
-</g>
-<g id="chip_step_init-project_2_0_0">
-<rect x="500" y="184" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="624" y="207" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">init-project</text>
-<text x="624" y="222" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="624" y="235" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+<rect x="32" y="320" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="353" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Interview</text>
 </g>
 <g id="badge_step_init-project_2_0">
-<rect x="356" y="204" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="368" y="221" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="356" y="336" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="353" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="step_init-project_3">
-<rect x="32" y="272" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="305" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Delegate to project-initializer</text>
+<rect x="32" y="400" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="433" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Delegate to project-initializer</text>
 </g>
-<g id="chip_step_init-project_3_0_0">
-<rect x="500" y="276" width="248" height="48" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
-<text x="624" y="297" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">project-initializer</text>
-<text x="624" y="312" font-size="11" text-anchor="middle" fill="#52606D">**</text>
+<g id="chip_step_init-project_3_0_0_0">
+<rect x="500" y="404" width="248" height="48" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="624" y="425" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">project-initializer</text>
+<text x="624" y="440" font-size="11" text-anchor="middle" fill="#52606D">writes anywhere in the repository</text>
 </g>
-<g id="chip_step_init-project_3_0_1">
-<rect x="836" y="276" width="248" height="48" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="960" y="297" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">project-bootstrap</text>
-<text x="960" y="312" font-size="11" text-anchor="middle" fill="#52606D">**</text>
+<g id="chip_step_init-project_3_0_0_1">
+<rect x="836" y="404" width="248" height="48" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="960" y="425" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">project-bootstrap</text>
+<text x="960" y="440" font-size="11" text-anchor="middle" fill="#52606D">writes anywhere in the repository</text>
 </g>
 <g id="step_init-project_4">
-<rect x="32" y="356" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="389" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Relay the report</text>
-</g>
-<g id="chip_step_init-project_4_0_0">
-<rect x="500" y="352" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="624" y="375" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">init-project</text>
-<text x="624" y="390" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="624" y="403" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+<rect x="32" y="480" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="513" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Relay the report</text>
 </g>
 <g id="step_init-project_5">
-<rect x="32" y="440" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="473" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Fill the genesis record</text>
+<rect x="32" y="560" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="593" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Fill the genesis record</text>
 </g>
-<g id="chip_step_init-project_5_0_0">
-<rect x="500" y="448" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="624" y="473" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook audit</text>
+<g id="chip_step_init-project_5_0_0_0">
+<rect x="500" y="568" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="624" y="593" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook audit</text>
 </g>
 <g id="step_init-project_6">
-<rect x="32" y="520" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="553" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">6 · Chain git-publish</text>
+<rect x="32" y="640" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="673" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">6 · Chain git-publish</text>
 </g>
-<g id="chip_step_init-project_6_0_0">
-<rect x="500" y="524" width="248" height="48" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="624" y="545" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">git-publish</text>
-<text x="624" y="560" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+<g id="chip_step_init-project_6_0_0_0">
+<rect x="500" y="644" width="248" height="48" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="624" y="665" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">git-publish</text>
+<text x="624" y="680" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
 </g>
 <g id="badge_step_init-project_6_0">
-<rect x="356" y="536" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
-<text x="368" y="553" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
+<rect x="356" y="656" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="368" y="673" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
 </g>
 <g id="badge_step_init-project_6_1">
-<rect x="384" y="536" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
-<text x="396" y="553" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
+<rect x="384" y="656" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="396" y="673" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
 </g>
 <g id="step_init-project_7">
-<rect x="32" y="604" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="637" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">7 · Hand over to the new project</text>
-</g>
-<g id="chip_step_init-project_7_0_0">
-<rect x="500" y="600" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="624" y="623" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">init-project</text>
-<text x="624" y="638" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="624" y="651" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+<rect x="32" y="720" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="753" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">7 · Hand over to the new project</text>
 </g>
 <g id="handoff_init-project">
-<rect x="32" y="688" width="320" height="64" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="192" y="711" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
-<text x="192" y="726" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">cd ../&lt;artifactId&gt; &amp;&amp; claude</text>
-<text x="192" y="739" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
+<rect x="32" y="800" width="320" height="64" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="192" y="823" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
+<text x="192" y="838" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">cd ../&lt;artifactId&gt; &amp;&amp; claude</text>
+<text x="192" y="851" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
 </g>
 <g id="legend_ask">
-<rect x="32" y="784" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="44" y="801" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="32" y="896" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="44" y="913" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="legend_confirm">
-<rect x="106" y="784" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
-<text x="118" y="801" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
+<rect x="106" y="896" width="24" height="24" rx="12" fill="#F7EBC4" stroke="#A6841A" stroke-width="1.5"/>
+<text x="118" y="913" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">✓</text>
 </g>
 <g id="legend_stop">
-<rect x="206" y="784" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="218" y="801" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<rect x="206" y="896" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="218" y="913" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
-<g id="tool_chip_step_init-project_3_0_0">
-<text x="456" y="294" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+<g id="legend_decision">
+<polygon points="298,896 310,908 298,920 286,908" fill="#F8DCE8" stroke="#B0366E" stroke-width="1.5" stroke-linejoin="round"/>
 </g>
-<g id="tool_chip_step_init-project_3_0_1">
-<text x="792" y="294" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+<g id="yes-label_step_init-project_1_0">
+<text x="384" y="232" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
 </g>
-<g id="tool_chip_step_init-project_5_0_0">
-<text x="456" y="462" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="no-label_step_init-project_1_step_init-project_2">
+<text x="202" y="313" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
-<g id="tool_chip_step_init-project_6_0_0">
-<text x="456" y="542" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+<g id="tool_chip_step_init-project_3_0_0_1">
+<text x="792" y="422" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+</g>
+<g id="tool_chip_step_init-project_3_0_0_0">
+<text x="456" y="422" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_init-project_5_0_0_0">
+<text x="456" y="582" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="tool_chip_step_init-project_6_0_0_0">
+<text x="456" y="662" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
 </g>
 <g id="legend-text_ask">
-<text x="62" y="800" font-size="11" text-anchor="start" fill="#52606D">ask</text>
+<text x="62" y="912" font-size="11" text-anchor="start" fill="#52606D">ask</text>
 </g>
 <g id="legend-text_confirm">
-<text x="136" y="800" font-size="11" text-anchor="start" fill="#52606D">confirm</text>
+<text x="136" y="912" font-size="11" text-anchor="start" fill="#52606D">confirm</text>
 </g>
 <g id="legend-text_stop">
-<text x="236" y="800" font-size="11" text-anchor="start" fill="#52606D">stop</text>
+<text x="236" y="912" font-size="11" text-anchor="start" fill="#52606D">stop</text>
+</g>
+<g id="legend-text_decision">
+<text x="316" y="912" font-size="11" text-anchor="start" fill="#52606D">decision</text>
 </g>
 </svg>
