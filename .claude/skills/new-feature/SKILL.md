@@ -357,7 +357,9 @@ Usage: …
   version; no web search for a version the project already declares.
 - A step's "Output" below is a check the run makes, not a message it prints.
 
-### Step 1: Use case (new case only)
+### 1 · Use case (new case only)
+
+**Runs:** skill:use-case-design
 
 **Invoke** `use-case-design` via the Skill tool, with the user's description as is.
 
@@ -391,14 +393,18 @@ All nine met → skip steps 2–6 and write `UC-NNN-spec.md` from
 a rule. A row that needs judgment to fill means the case isn't trivial — discard the
 short spec and take steps 2–6. One criterion unmet → steps 2–6.
 
-### Step 2: Domain (depends on 1)
+### 2 · Domain
+
+**Runs:** skill:domain-modeling · **Depends on:** 1
 
 If `10-domain.md` is missing: **invoke** `/domain-modeling UC-NNN`.
 If it exists: read, validate (four blocks: aggregate, VOs, invariants, ports).
 
 **Output:** "✅ Domain ready" or a list of gaps.
 
-### Step 3: REST (depends on 1,2)
+### 3 · REST
+
+**Runs:** skill:rest-api-architect · **Depends on:** 1, 2
 
 Read the closing phrase of `00-use-case.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
 skip this step. Any other phrase, or none (a case written before the phrase existed) → if
@@ -408,7 +414,9 @@ personal data, versioning, admission — `none` unless `00-use-case.md` has an `
 
 **Output:** "✅ REST ready", "— skipped (GraphQL only)", or gaps.
 
-### Step 3g: GraphQL (depends on 1, 2, conditional)
+### 3g · GraphQL
+
+**Runs:** skill:graphql-api-architect · **Depends on:** 1, 2 · **Conditional:** yes
 
 If the `Trigger` names `inbound GraphQL adapter` or `inbound REST and GraphQL adapters` and
 `31-graphql.md` is missing: **invoke** `/graphql-api-architect UC-NNN`. No GraphQL adapter in the
@@ -424,7 +432,9 @@ executor to add the GraphQL starter to `pom.xml`; § 10 is what step 6 turns int
 
 **Output:** "✅ GraphQL ready", "— skipped (no GraphQL trigger)", or gaps.
 
-### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)
+### 3b · Security
+
+**Runs:** skill:security-architect · **Depends on:** 1, 2, 3, 3g · **Conditional:** yes
 
 Read `00-use-case.md`'s `Access` row, and whether the project already has a filter chain
 (`grep -rl "SecurityFilterChain" --include='*.java' src/main`). If `32-security.md` is missing,
@@ -450,7 +460,9 @@ starter to `pom.xml`; § 10 is what step 6 turns into tests.
 
 **Output:** "✅ Security ready", "— skipped (<which row>)", or gaps.
 
-### Step 3c: Outbound HTTP (depends on 1, 2, conditional)
+### 3c · Outbound HTTP
+
+**Runs:** skill:http-client-architect · **Depends on:** 1, 2 · **Conditional:** yes
 
 Read `10-domain.md` § Ports. If it declares a port of kind `external HTTP` and
 `28-http-client.md` is missing: **invoke** `/http-client-architect UC-NNN`. No such port → skip
@@ -468,7 +480,9 @@ add a client, engine or resilience dependency to `pom.xml`; § 9 is what step 6 
 
 **Output:** "✅ Outbound HTTP ready", "— skipped (no external HTTP port)", or gaps.
 
-### Step 3d: AI (depends on 1, 2, conditional)
+### 3d · AI
+
+**Runs:** skill:ai-architect · **Depends on:** 1, 2 · **Conditional:** yes
 
 Read `10-domain.md` § Ports. If it declares a port of kind `LLM` or `vector store` and
 `29-ai.md` is missing: **invoke** `/ai-architect UC-NNN`. No such port → skip this step. A port
@@ -485,7 +499,9 @@ ingestion job; § 10 is the only list that entitles the executor to add a Spring
 
 **Output:** "✅ AI ready", "— skipped (no AI port)", or gaps.
 
-### Step 3e: Search (depends on 1, 2, conditional)
+### 3e · Search
+
+**Runs:** skill:search-architect · **Depends on:** 1, 2 · **Conditional:** yes
 
 Read `00-use-case.md`'s `Search index` row. If it names a projection and its engine and
 `23-search.md` is missing: **invoke** `/search-architect UC-NNN`. `none`, or a spec older than the
@@ -502,7 +518,9 @@ and change event; § 9 is the only list that entitles the executor to add a sear
 
 **Output:** "✅ Search ready", "— skipped (no search index)", or gaps.
 
-### Step 4: Messaging (depends on 2, conditional)
+### 4 · Messaging
+
+**Runs:** skill:messaging-architect · **Depends on:** 2 · **Conditional:** yes
 
 Read `10-domain.md`'s Events block. If it names external (Kafka) delivery for the
 event and `25-messaging.md` is missing: **invoke** `/messaging-architect UC-NNN`. If
@@ -521,7 +539,9 @@ approved anyway, so consolidation gates the same thing for every path.
 
 **Output:** "✅ Messaging ready", "— skipped (no external delivery)", or gaps.
 
-### Step 4b: Jobs (depends on 1, 3d, 3e, 4, conditional)
+### 4b · Jobs
+
+**Runs:** skill:jobs-architect · **Depends on:** 1, 3d, 3e, 4 · **Conditional:** yes
 
 Invoke `/jobs-architect UC-NNN` if `35-jobs.md` is missing and at least one holds:
 `25-messaging.md` § 2 chose **Form B**, `00-use-case.md`'s trigger is a schedule, a
@@ -537,7 +557,9 @@ add a scheduling dependency to `pom.xml`.
 
 **Output:** "✅ Jobs ready", "— skipped (no scheduled work)", or gaps.
 
-### Step 5: Persistence (depends on 1,2,3,3g,3b,3c,3d,3e,4,4b)
+### 5 · Persistence
+
+**Runs:** skill:persistence-architect · **Depends on:** 1, 2, 3, 3g, 3b, 3c, 3d, 3e, 4, 4b
 
 If `20-persistence.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
 every schema requirement list in the same pass — `30-rest.md` block 4 (the idempotency
@@ -556,7 +578,9 @@ and consolidation checks it again, for the paths that never take this step.
 
 **Output:** "✅ Persistence ready" or gaps.
 
-### Step 5b: Cache (depends on 1, 2, 5, conditional)
+### 5b · Cache
+
+**Runs:** skill:cache-architect · **Depends on:** 1, 2, 5 · **Conditional:** yes
 
 Invoke `/cache-architect UC-NNN` if `22-cache.md` is missing and `00-use-case.md`'s
 `Freshness` row states a tolerance — a duration an answer may be old. The row reads `none`, or
@@ -573,7 +597,9 @@ has a § 4 row — a writer named in another approved case's Components table an
 
 **Output:** "✅ Cache ready", "— skipped (no freshness tolerance)", or gaps.
 
-### Step 6: Tests (depends on 1,2,3,3g,3b,3c,3d,3e,4,5,5b)
+### 6 · Tests
+
+**Runs:** skill:test-architect · **Depends on:** 1, 2, 3, 3g, 3b, 3c, 3d, 3e, 4, 5, 5b
 
 If `40-tests.md` is missing: **invoke** `/test-architect UC-NNN` (design mode).
 If it exists: read, validate (five blocks: pyramid, cases, fixtures, coverage, test dependencies).
@@ -591,7 +617,11 @@ two callers never sharing an entry when the key names the caller (`@.claude/rule
 
 **Output:** "✅ Tests ready" or gaps.
 
-### Consolidation (after 1,2,5,6 ✅, and 3 or 3g — steps 3, 3g, 3b, 3c, 3d, 3e, 4, 4b and 5b conditional)
+### consolidation · Consolidation
+
+**Runs:** self · **Depends on:** 1, 2, 5, 6, 3, 3g
+
+Runs after 1, 2, 5 and 6 ✅, and 3 or 3g; steps 3, 3g, 3b, 3c, 3d, 3e, 4, 4b and 5b are conditional.
 
 If all specs that apply exist and validate (REST only when step 3 wasn't skipped, GraphQL only when
 step 3g wasn't, security only when step 3b wasn't skipped,

@@ -89,6 +89,8 @@ this flow is left without an explicit git instruction.
 
 ### 1 · Entry guardrail
 
+**Runs:** self · **Gate:** stop
+
 Runs before any skill invocation, any delegation, and any question. **Read
 `@.claude/skills/new-feature/references/entry-guardrail.md`** and run its § 1 (survey and
 classify), then evaluate this table in order and **stop at the first row that matches**:
@@ -124,6 +126,8 @@ pre-existing changes travel into the `/git-publish` line § 4 prints. This run's
 approved spec nobody committed yet is the run's input and goes in its `feat` commit.
 
 ### 2 · Implement
+
+**Runs:** skill:test-architect>agent:archunit-installer, agent:commons-logging-installer, agent:mapstruct-installer, agent:java-spring-boot-developer, agent:compose-service-installer>skill:docker-architect · **Gate:** ask, stop
 
 1. **One-time setup pre-flight, before delegating.** The executor is about to write the
    first `.java` under `src/` for this project run — the only point in the pipeline
@@ -220,6 +224,8 @@ audit trail of this run.
 
 ### 3 · Long-running background work
 
+**Runs:** self · **Gate:** ask
+
 Implementing a complete feature takes dozens of minutes. An executor launched in the
 background **doesn't survive the machine sleeping**: the watchdog cuts the stream and
 execution dies where it was. This happened three times in a row on the first real
@@ -234,6 +240,10 @@ first `Write`. A chain cut between groups resumes at the first group with open s
 (§ Procedure, step 2).
 
 ### 4 · Final report
+
+**Runs:** self
+
+**Hands over:** `/clear`, `/git-publish`, `/new-feature`
 
 Last message of the run, and the only report: the spec path and its `status:`, the groups that
 ran and how each ended, **every `## Infrastructure` row of the spec, with what this run did to it** —

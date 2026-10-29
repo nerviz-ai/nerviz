@@ -18,6 +18,14 @@ a fact that matches neither is `neutral`.
 | `norms` | rules, blueprints, `.mcp.json` — the leaf |
 | `neutral` | history and anything unclassified |
 
+An `orchestrator` view (`@.claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md`) draws
+one row per step: the step, a badge per gate word (`orchestrator.gates`), and to its right the chain of
+who runs it — `agent` chips in the `isolation` palette, `skill` chips in `procedure`, `cmd` chips in
+`enforcement` and in `orchestrator.mono`, each with the territory it really has under it; the arrow
+into a chip is labelled by `orchestrator.tools`, and a skill that declares `context: fork` carries
+`orchestrator.fork_marker`. The handoff is a dashed box captioned `orchestrator.handoff_caption`.
+What each gate word means is owned by `step-contract.md`, not here.
+
 A dashed outline marks a conditional step. A heavier stroke marks what the view's `emphasis`
 lists. Every length is a multiple of `grid`.
 
@@ -48,6 +56,8 @@ lists. Every length is a multiple of `grid`.
     "skill": "procedure",
     "skillclass": "procedure",
     "step": "procedure",
+    "cmd": "enforcement",
+    "handoff": "neutral",
     "agent": "isolation",
     "agentclass": "isolation"
   },
@@ -69,6 +79,24 @@ lists. Every length is a multiple of `grid`.
   "gap": 24,
   "row_gap": 64,
   "lane": { "header_w": 240, "pad": 16, "cols": 4, "gap": 40 },
-  "animation": { "step_seconds": 0.7, "reveal_seconds": 0.5 }
+  "animation": { "step_seconds": 0.7, "reveal_seconds": 0.5 },
+  "orchestrator": {
+    "step": { "w": 320 },
+    "chip": { "w": 248, "min_h": 40, "gap": 8 },
+    "arrow": 88,
+    "row_gap": 24,
+    "badge": { "size": 24, "gap": 4 },
+    "gates": {
+      "ask":     { "glyph": "?", "fill": "#DCEFF7", "stroke": "#2B7A9B" },
+      "confirm": { "glyph": "✓", "fill": "#F7EBC4", "stroke": "#A6841A" },
+      "stop":    { "glyph": "■", "fill": "#FBE3D6", "stroke": "#C4572A" },
+      "gate":    { "glyph": "!", "fill": "#EBE1F5", "stroke": "#7A4FA8" }
+    },
+    "fork_marker": "[fork]",
+    "self_detail": "this orchestrator, on its own thread",
+    "tools": { "agent": "Agent", "skill": "Skill", "skill_fork": "Skill · fork", "cmd": "Bash", "self": "" },
+    "mono": "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+    "handoff_caption": "printed — never called"
+  }
 }
 ```

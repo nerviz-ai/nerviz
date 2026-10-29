@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1116" height="1112" viewBox="0 0 1116 1112" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Nerviz — /new-feature-implement</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
+<rect width="1116" height="1112" fill="#FBFAF7"/>
+<text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — /new-feature-implement</text>
+<text x="32" y="78" font-size="12" fill="#52606D">Three executor groups, chained; git-publish is printed, never called.</text>
+<g id="edge-step_new-feature-implement_1_chip_step_new-feature-implement_1_0_0">
+<line x1="352" y1="128" x2="500" y2="128" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_chip_step_new-feature-implement_2_0_0">
+<line x1="352" y1="460" x2="500" y2="236" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-chip_step_new-feature-implement_2_0_0_chip_step_new-feature-implement_2_0_1">
+<line x1="748" y1="236" x2="836" y2="236" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_chip_step_new-feature-implement_2_1_0">
+<line x1="352" y1="460" x2="500" y2="360" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_chip_step_new-feature-implement_2_2_0">
+<line x1="352" y1="460" x2="500" y2="496" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_chip_step_new-feature-implement_2_3_0">
+<line x1="352" y1="460" x2="500" y2="608" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_chip_step_new-feature-implement_2_4_0">
+<line x1="352" y1="460" x2="500" y2="696" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-chip_step_new-feature-implement_2_4_0_chip_step_new-feature-implement_2_4_1">
+<line x1="748" y1="696" x2="836" y2="696" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_3_chip_step_new-feature-implement_3_0_0">
+<line x1="352" y1="792" x2="500" y2="792" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_4_chip_step_new-feature-implement_4_0_0">
+<line x1="352" y1="880" x2="500" y2="880" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_4_handoff_new-feature-implement">
+<line x1="192" y1="908" x2="192" y2="936" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_1_step_new-feature-implement_2">
+<line x1="192" y1="156" x2="192" y2="432" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_2_step_new-feature-implement_3">
+<line x1="192" y1="488" x2="192" y2="764" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="edge-step_new-feature-implement_3_step_new-feature-implement_4">
+<line x1="192" y1="820" x2="192" y2="852" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+</g>
+<g id="step_new-feature-implement_1">
+<rect x="32" y="100" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
+<text x="192" y="133" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Entry guardrail</text>
+</g>
+<g id="chip_step_new-feature-implement_1_0_0">
+<rect x="500" y="96" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="624" y="119" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">new-feature-implement</text>
+<text x="624" y="134" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
+<text x="624" y="147" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+</g>
+<g id="badge_step_new-feature-implement_1_0">
+<rect x="356" y="116" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="368" y="133" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+</g>
+<g id="step_new-feature-implement_2">
+<rect x="32" y="432" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
+<text x="192" y="465" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Implement</text>
+</g>
+<g id="chip_step_new-feature-implement_2_0_0">
+<rect x="500" y="204" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="624" y="227" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">test-architect</text>
+<text x="624" y="242" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/**</text>
+<text x="624" y="255" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/BACKLOG.md</text>
+</g>
+<g id="chip_step_new-feature-implement_2_0_1">
+<rect x="836" y="184" width="248" height="104" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="960" y="207" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">archunit-installer</text>
+<text x="960" y="222" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
+<text x="960" y="235" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/ArchitectureTest.java</text>
+<text x="960" y="248" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/ArchitectureTest.java</text>
+<text x="960" y="261" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/TestcontainersConfiguration.java</text>
+<text x="960" y="274" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/TestcontainersConfiguration.java</text>
+</g>
+<g id="chip_step_new-feature-implement_2_1_0">
+<rect x="500" y="296" width="248" height="128" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="624" y="318" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">commons-logging-installer</text>
+<text x="624" y="333" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
+<text x="624" y="346" font-size="11" text-anchor="middle" fill="#52606D">src/main/java/**/logging/**</text>
+<text x="624" y="359" font-size="11" text-anchor="middle" fill="#52606D">**/src/main/java/**/logging/**</text>
+<text x="624" y="372" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/logging/**</text>
+<text x="624" y="385" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/logging/**</text>
+<text x="624" y="398" font-size="11" text-anchor="middle" fill="#52606D">src/main/resources/META-INF/spring/*.imports</text>
+<text x="624" y="411" font-size="11" text-anchor="middle" fill="#52606D">**/src/main/resources/META-INF/spring/*.imports</text>
+</g>
+<g id="chip_step_new-feature-implement_2_2_0">
+<rect x="500" y="432" width="248" height="128" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="624" y="454" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">mapstruct-installer</text>
+<text x="624" y="469" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
+<text x="624" y="482" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle build.gradle.kts</text>
+<text x="624" y="495" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts CLAUDE.md</text>
+<text x="624" y="508" font-size="11" text-anchor="middle" fill="#52606D">src/main/java/**</text>
+<text x="624" y="521" font-size="11" text-anchor="middle" fill="#52606D">**/src/main/java/**</text>
+<text x="624" y="534" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**</text>
+<text x="624" y="547" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**</text>
+</g>
+<g id="chip_step_new-feature-implement_2_3_0">
+<rect x="500" y="568" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="624" y="592" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">java-spring-boot-developer</text>
+<text x="624" y="607" font-size="11" text-anchor="middle" fill="#52606D">src/** **/src/**</text>
+<text x="624" y="620" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/UC-*-spec.md</text>
+<text x="624" y="633" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
+</g>
+<g id="chip_step_new-feature-implement_2_4_0">
+<rect x="500" y="656" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="624" y="680" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">compose-service-installer</text>
+<text x="624" y="695" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
+<text x="624" y="708" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
+<text x="624" y="721" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
+</g>
+<g id="chip_step_new-feature-implement_2_4_1">
+<rect x="836" y="656" width="248" height="80" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="960" y="680" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">docker-architect</text>
+<text x="960" y="695" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
+<text x="960" y="708" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
+<text x="960" y="721" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
+</g>
+<g id="badge_step_new-feature-implement_2_0">
+<rect x="356" y="448" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="465" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+</g>
+<g id="badge_step_new-feature-implement_2_1">
+<rect x="384" y="448" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="396" y="465" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+</g>
+<g id="step_new-feature-implement_3">
+<rect x="32" y="764" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
+<text x="192" y="797" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Long-running background work</text>
+</g>
+<g id="chip_step_new-feature-implement_3_0_0">
+<rect x="500" y="760" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="624" y="783" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">new-feature-implement</text>
+<text x="624" y="798" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
+<text x="624" y="811" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+</g>
+<g id="badge_step_new-feature-implement_3_0">
+<rect x="356" y="780" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="797" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+</g>
+<g id="step_new-feature-implement_4">
+<rect x="32" y="852" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="885" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Final report</text>
+</g>
+<g id="chip_step_new-feature-implement_4_0_0">
+<rect x="500" y="848" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="624" y="871" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">new-feature-implement</text>
+<text x="624" y="886" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
+<text x="624" y="899" font-size="11" text-anchor="middle" fill="#52606D">writes nothing in the repository</text>
+</g>
+<g id="handoff_new-feature-implement">
+<rect x="32" y="936" width="320" height="88" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="192" y="958" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
+<text x="192" y="973" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/clear</text>
+<text x="192" y="986" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/git-publish</text>
+<text x="192" y="999" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/new-feature</text>
+<text x="192" y="1012" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
+</g>
+<g id="legend_ask">
+<rect x="32" y="1056" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="44" y="1073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+</g>
+<g id="legend_stop">
+<rect x="106" y="1056" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="118" y="1073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_0_0">
+<text x="456" y="297" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_0_1">
+<text x="792" y="230" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_1_0">
+<text x="456" y="384" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_2_0">
+<text x="456" y="479" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_3_0">
+<text x="456" y="558" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_4_0">
+<text x="456" y="620" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+</g>
+<g id="tool_chip_step_new-feature-implement_2_4_1">
+<text x="792" y="690" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+</g>
+<g id="legend-text_ask">
+<text x="62" y="1072" font-size="11" text-anchor="start" fill="#52606D">ask</text>
+</g>
+<g id="legend-text_stop">
+<text x="136" y="1072" font-size="11" text-anchor="start" fill="#52606D">stop</text>
+</g>
+</svg>

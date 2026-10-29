@@ -9,121 +9,121 @@
 <rect width="1432" height="1024" fill="#FBFAF7"/>
 <text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — the /new-feature pipeline</text>
 <text x="32" y="78" font-size="12" fill="#52606D">Each step depends on the ones above it; a dashed step runs only when the use case needs it.</text>
-<g id="edge-step_1_step_2">
+<g id="edge-step_new-feature_1_step_new-feature_2">
 <line x1="716" y1="152" x2="716" y2="216" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_3">
+<g id="edge-step_new-feature_2_step_new-feature_3">
 <line x1="716" y1="272" x2="136" y2="336" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_3g">
+<g id="edge-step_new-feature_2_step_new-feature_3g">
 <line x1="716" y1="272" x2="368" y2="336" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3_step_3b">
+<g id="edge-step_new-feature_3_step_new-feature_3b">
 <line x1="136" y1="392" x2="600" y2="456" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3g_step_3b">
+<g id="edge-step_new-feature_3g_step_new-feature_3b">
 <line x1="368" y1="392" x2="600" y2="456" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_3c">
+<g id="edge-step_new-feature_2_step_new-feature_3c">
 <line x1="716" y1="272" x2="600" y2="336" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_3d">
+<g id="edge-step_new-feature_2_step_new-feature_3d">
 <line x1="716" y1="272" x2="832" y2="336" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_3e">
+<g id="edge-step_new-feature_2_step_new-feature_3e">
 <line x1="716" y1="272" x2="1064" y2="336" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_2_step_4">
+<g id="edge-step_new-feature_2_step_new-feature_4">
 <line x1="716" y1="272" x2="1296" y2="336" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3d_step_4b">
+<g id="edge-step_new-feature_3d_step_new-feature_4b">
 <line x1="832" y1="392" x2="832" y2="456" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3e_step_4b">
+<g id="edge-step_new-feature_3e_step_new-feature_4b">
 <line x1="1064" y1="392" x2="832" y2="456" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_4_step_4b">
+<g id="edge-step_new-feature_4_step_new-feature_4b">
 <line x1="1296" y1="392" x2="832" y2="456" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3b_step_5">
+<g id="edge-step_new-feature_3b_step_new-feature_5">
 <line x1="600" y1="512" x2="716" y2="576" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_3c_step_5">
+<g id="edge-step_new-feature_3c_step_new-feature_5">
 <line x1="600" y1="392" x2="716" y2="576" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_4b_step_5">
+<g id="edge-step_new-feature_4b_step_new-feature_5">
 <line x1="832" y1="512" x2="716" y2="576" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_5_step_5b">
+<g id="edge-step_new-feature_5_step_new-feature_5b">
 <line x1="716" y1="632" x2="716" y2="696" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_5b_step_6">
+<g id="edge-step_new-feature_5b_step_new-feature_6">
 <line x1="716" y1="752" x2="716" y2="816" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_6_step_consolidation">
+<g id="edge-step_new-feature_6_step_new-feature_consolidation">
 <line x1="716" y1="872" x2="716" y2="936" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="step_1" class="r" style="animation-delay:0.00s">
+<g id="step_new-feature_1" class="r" style="animation-delay:0.00s">
 <rect x="612" y="96" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="716" y="129" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Use case</text>
+<text x="716" y="129" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Use case (new case only)</text>
 </g>
-<g id="step_2" class="r" style="animation-delay:0.70s">
+<g id="step_new-feature_2" class="r" style="animation-delay:0.70s">
 <rect x="612" y="216" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
 <text x="716" y="249" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Domain</text>
 </g>
-<g id="step_3" class="r" style="animation-delay:1.40s">
+<g id="step_new-feature_3" class="r" style="animation-delay:1.40s">
 <rect x="32" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
 <text x="136" y="369" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · REST</text>
 </g>
-<g id="step_3g" class="r" style="animation-delay:2.10s">
+<g id="step_new-feature_3g" class="r" style="animation-delay:2.10s">
 <rect x="264" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="368" y="362" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3g · GraphQL</text>
 <text x="368" y="378" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_3c" class="r" style="animation-delay:2.80s">
+<g id="step_new-feature_3c" class="r" style="animation-delay:2.80s">
 <rect x="496" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="600" y="362" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3c · Outbound HTTP</text>
 <text x="600" y="378" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_3d" class="r" style="animation-delay:3.50s">
+<g id="step_new-feature_3d" class="r" style="animation-delay:3.50s">
 <rect x="728" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="832" y="362" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3d · AI</text>
 <text x="832" y="378" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_3e" class="r" style="animation-delay:4.20s">
+<g id="step_new-feature_3e" class="r" style="animation-delay:4.20s">
 <rect x="960" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="1064" y="362" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3e · Search</text>
 <text x="1064" y="378" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_4" class="r" style="animation-delay:4.90s">
+<g id="step_new-feature_4" class="r" style="animation-delay:4.90s">
 <rect x="1192" y="336" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="1296" y="362" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Messaging</text>
 <text x="1296" y="378" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_3b" class="r" style="animation-delay:5.60s">
+<g id="step_new-feature_3b" class="r" style="animation-delay:5.60s">
 <rect x="496" y="456" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="600" y="482" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3b · Security</text>
 <text x="600" y="498" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_4b" class="r" style="animation-delay:6.30s">
+<g id="step_new-feature_4b" class="r" style="animation-delay:6.30s">
 <rect x="728" y="456" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="832" y="482" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4b · Jobs</text>
 <text x="832" y="498" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_5" class="r" style="animation-delay:7.00s">
+<g id="step_new-feature_5" class="r" style="animation-delay:7.00s">
 <rect x="612" y="576" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
 <text x="716" y="609" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Persistence</text>
 </g>
-<g id="step_5b" class="r" style="animation-delay:7.70s">
+<g id="step_new-feature_5b" class="r" style="animation-delay:7.70s">
 <rect x="612" y="696" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="716" y="722" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5b · Cache</text>
 <text x="716" y="738" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
-<g id="step_6" class="r" style="animation-delay:8.40s">
+<g id="step_new-feature_6" class="r" style="animation-delay:8.40s">
 <rect x="612" y="816" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
 <text x="716" y="849" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">6 · Tests</text>
 </g>
-<g id="step_consolidation" class="r" style="animation-delay:9.10s">
+<g id="step_new-feature_consolidation" class="r" style="animation-delay:9.10s">
 <rect x="612" y="936" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
 <text x="716" y="969" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Consolidation</text>
 </g>
