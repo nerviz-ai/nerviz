@@ -1,5 +1,7 @@
 # 0192 · nerviz-diagrams draws the three orchestrators from a step contract their SKILL.md carries
 
+> Superseded in part by `0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md` — the emphasis rule, `steps` in stepped views, the view kind `pipeline` and the view name `pipeline`.
+
 - **Date:** 2026-10-29
 - **Scenario:** Estender a skill `nerviz-diagrams` para desenhar os três orquestradores —
   `/init-project`, `/new-feature-implement` e `/platform-upgrade` — uma view por orquestrador sob

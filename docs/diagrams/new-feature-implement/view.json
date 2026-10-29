@@ -6,10 +6,5 @@
   "groups": [
     { "id": "steps", "label": { "fact": "skill:new-feature-implement" }, "nodes": [{ "from": "step:new-feature-implement:*" }] }
   ],
-  "edges": [{ "derive": "sequence" }],
-  "steps": [
-    "step:new-feature-implement:1", "step:new-feature-implement:2", "step:new-feature-implement:3", "step:new-feature-implement:4",
-    "handoff:new-feature-implement"
-  ],
-  "emphasis": ["step:new-feature-implement:1", "step:new-feature-implement:2", "step:new-feature-implement:3"]
+  "edges": [{ "derive": "sequence" }]
 }

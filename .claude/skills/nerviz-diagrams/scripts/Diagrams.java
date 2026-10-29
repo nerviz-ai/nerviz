@@ -560,9 +560,11 @@ public class Diagrams {
         return wa.stream().map(String::valueOf).collect(Collectors.joining("  "));
     }
 
-    // The step contract (references/step-contract.md): every skill a view names carries
-    // `### <id> · <Name>` headings under `## Procedure`, each followed by a `**Runs:**` line.
-    static final Pattern STEP_H = Pattern.compile("^### ([0-9]+[a-z]?|[a-z][a-z-]*) · (.+?)\\s*$");
+    // The step contract (references/step-contract.md): every skill a view names carries steps —
+    // `### <id> · <Name>` headings under `## Procedure`, and `## `/`### ` headings elsewhere that
+    // a `**Runs:**` line follows — each with a field block (Runs, Then runs, Stops when, Skips when, Hands over).
+    static final Pattern STEP_H = Pattern.compile("^(#{2,3}) ([0-9]+[a-z]?|[a-z][a-z-]*) · (.+?)\\s*$");
+    static final List<String> FIELDS = List.of("**Runs:**", "**Then runs:**", "**Stops when:**", "**Skips when:**", "**Hands over:**");
     static final Pattern CASE = Pattern.compile("^(\\s*)case ((?:\"[^\"]+\"\\s*,?\\s*)+)->.*$");
     static final String STEP_ID = "(?:[0-9]+[a-z]?|[a-z][a-z-]*)";
     static final String CONTRACT = "(references/step-contract.md)";
@@ -589,6 +591,15 @@ public class Diagrams {
         List<Object> en = list(get(readJson(SCHEMA), "$defs", "gate", "enum"));
         if (en == null || en.isEmpty()) throw new Fail(SCHEMA + " has no $defs.gate.enum — the gate vocabulary of the step contract lives there");
         return en.stream().map(String::valueOf).collect(Collectors.toList());
+    }
+
+    /** The gate words that branch — view.schema.json `$defs.branchGate.enum`: each takes one **Stops when:** line. */
+    static List<String> branchGateWords() {
+        try {
+            List<Object> en = list(get(readJson(SCHEMA), "$defs", "branchGate", "enum"));
+            if (en == null || en.isEmpty()) throw new Fail(SCHEMA + " has no $defs.branchGate.enum — the gate words that branch live there");
+            return en.stream().map(String::valueOf).collect(Collectors.toList());
+        } catch (IOException e) { throw new Fail("cannot read " + SCHEMA + ": " + e.getMessage()); }
     }
 
     /** `cmd:<mode>` — every mode of ArchHook.java's dispatch, read from its layout: the `switch (mode) {` right after `try {`. */
@@ -634,11 +645,18 @@ public class Diagrams {
     /** `step:<skill>:<id>` and `handoff:<skill>` for every skill a view names, per the step contract. */
     static void extractSteps(Map<String, Object> f, Map<String, Object> ext) throws IOException {
         List<String> gates = gateWords();
+        List<String> branchWords = branchGateWords();
+        Map<String, Object> schema = readJson(SCHEMA);
         String alt = "(?:" + String.join("|", gates) + ")";
         String tail = "(?:skill|agent|cmd):[A-Za-z0-9._-]+";
-        String ref = "(?:self|" + tail + ")(?:>" + tail + ")*";
-        Pattern runs = Pattern.compile("^\\*\\*Runs:\\*\\* (" + ref + "(?:, " + ref + ")*)(?: · \\*\\*Depends on:\\*\\* (" + STEP_ID + "(?:, " + STEP_ID + ")*))?( · \\*\\*Conditional:\\*\\* yes)?"
-                + "(?: · \\*\\*Gate:\\*\\* (" + alt + "(?:, " + alt + ")*))?\\s*$");
+        String ref = "(?:self|" + tail + ")(?:>" + tail + ")*\\??";
+        String phase = ref + "(?:, " + ref + ")*";
+        String ids = STEP_ID + "(?:, " + STEP_ID + ")*";
+        Pattern runs = Pattern.compile("^\\*\\*Runs:\\*\\* (" + phase + ")(?: · \\*\\*Depends on:\\*\\* (" + ids + "))?(?: · \\*\\*Reads:\\*\\* (" + ids + "))?( · \\*\\*Conditional:\\*\\* yes)?"
+                + "(?: · \\*\\*Gate:\\*\\* (" + alt + "(?:, " + alt + ")*))?(?: · \\*\\*Note:\\*\\* (.+?))?\\s*$");
+        Pattern then = Pattern.compile("^\\*\\*Then runs:\\*\\* (" + phase + ")(?: · \\*\\*Note:\\*\\* (.+?))?\\s*$");
+        Pattern stops = Pattern.compile("^\\*\\*Stops when:\\*\\* (.+?) · \\*\\*Says:\\*\\* (.+?)\\s*$");
+        Pattern skips = Pattern.compile("^\\*\\*Skips when:\\*\\* (.+?) · \\*\\*To:\\*\\* (" + STEP_ID + ") · \\*\\*Says:\\*\\* (.+?)\\s*$");
         Pattern hands = Pattern.compile("^\\*\\*Hands over:\\*\\* (`[^`]+`(?:, `[^`]+`)*)\\s*$");
         List<Object> nat = list(get(ext, "types", "skill", "native_commands"));
         for (String sk : viewSkills()) {
@@ -646,98 +664,211 @@ public class Diagrams {
             Path p = root.resolve(rel);
             if (!Files.isRegularFile(p)) throw new Fail(rel + " is missing — a view under " + OUT + "/ names this skill, and its steps are parsed from it");
             List<String> ls = Files.readAllLines(p, StandardCharsets.UTF_8);
-            int start = -1, end = ls.size();
+            boolean[] fenced = new boolean[ls.size()];
             boolean fence = false;
             for (int n = 0; n < ls.size(); n++) {
+                if (ls.get(n).trim().startsWith("```")) { fence = !fence; fenced[n] = true; continue; }
+                fenced[n] = fence;
+            }
+            int start = -1, end = ls.size();
+            for (int n = 0; n < ls.size(); n++) {
+                if (fenced[n]) continue;
                 String l = ls.get(n);
-                if (l.trim().startsWith("```")) { fence = !fence; continue; }
-                if (fence) continue;
                 if (start < 0) { if (l.startsWith("## Procedure")) start = n + 1; }
                 else if (l.startsWith("## ")) { end = n; break; }
             }
             if (start < 0) throw new Fail(rel + " — no `## Procedure` heading; the steps of " + sk + " are read from it " + CONTRACT);
             List<Map<String, Object>> steps = new ArrayList<>();
-            List<Integer> at = new ArrayList<>();
+            List<List<Integer>> blocks = new ArrayList<>();
+            List<Integer> headAt = new ArrayList<>();
+            Set<Integer> consumed = new HashSet<>();
             Map<String, Object> hand = null;
-            fence = false;
-            for (int n = start; n < end; n++) {
+            for (int n = 0; n < ls.size(); n++) {
+                if (fenced[n]) continue;
                 String l = ls.get(n);
-                if (l.trim().startsWith("```")) { fence = !fence; continue; }
-                if (fence) continue;
-                if (l.startsWith("### Step "))
+                boolean inScope = n >= start && n < end;
+                if (inScope && l.startsWith("### Step "))
                     throw new Fail(rel + ":" + (n + 1) + " — '### Step <id>: …' is the retired grammar; write '### <id> · <Name>' and move 'depends on' into the **Runs:** line " + CONTRACT);
-                if (l.startsWith("**Hands over:**"))
-                    throw new Fail(rel + ":" + (n + 1) + " — **Hands over:** must be the next line after a step's **Runs:** line " + CONTRACT);
-                if (!l.startsWith("### ") || !l.contains(" · ")) continue;
+                if (!(l.startsWith("## ") || l.startsWith("### ")) || !l.contains(" · ")) continue;
+                int r = nextLine(ls, n + 1, ls.size());
+                boolean hasRuns = r >= 0 && ls.get(r).startsWith("**Runs:**");
+                if (!(inScope && l.startsWith("### ")) && !hasRuns) continue; // outside the Procedure a heading is a step only when a Runs line follows it
                 Matcher h = STEP_H.matcher(l);
                 if (!h.matches())
                     throw new Fail(rel + ":" + (n + 1) + " — step heading does not match '### <id> · <Name>' (id: digits and one optional letter, or lowercase words joined by hyphens): " + l + "\n   " + CONTRACT);
-                String id = h.group(1), name = h.group(2).trim();
-                int r = nextLine(ls, n + 1, end);
-                if (r < 0 || !ls.get(r).startsWith("**Runs:**"))
-                    throw new Fail(rel + ":" + (n + 1) + " — step " + id + " has no **Runs:** line under '" + l.trim() + "' " + CONTRACT);
+                String id = h.group(2), name = h.group(3).trim();
+                if (!hasRuns) throw new Fail(rel + ":" + (n + 1) + " — step " + id + " has no **Runs:** line under '" + l.trim() + "' " + CONTRACT);
+                List<Integer> blk = new ArrayList<>();
+                for (int k = n + 1; ; k++) {
+                    k = nextLine(ls, k, ls.size());
+                    if (k < 0 || fenced[k] || fieldOf(ls.get(k)) == null) break;
+                    blk.add(k);
+                }
+                consumed.addAll(blk);
                 Matcher m = runs.matcher(ls.get(r));
                 if (!m.matches())
-                    throw new Fail(rel + ":" + (r + 1) + " — step " + id + ": **Runs:** does not match '**Runs:** <ref>[, <ref>] [· **Depends on:** <ids>] [· **Conditional:** yes] [· **Gate:** <" + String.join("|", gates) + ">[, …]]': " + ls.get(r) + "\n   " + CONTRACT);
-                List<Object> chains = new ArrayList<>();
-                for (String c : m.group(1).split(", ")) {
-                    List<Object> chain = new ArrayList<>();
-                    for (String seg : c.split(">")) {
-                        String fid = seg.equals("self") ? "skill:" + sk : seg;
-                        if (!f.containsKey(fid))
-                            throw new Fail(rel + ":" + (r + 1) + " — step " + id + " runs '" + seg + "', which is no fact (nearby: " + nearby(fid, f) + ") " + CONTRACT);
-                        chain.add(fid);
-                    }
-                    chains.add(chain);
-                }
-                List<String> deps = new ArrayList<>();
-                if (m.group(2) != null) deps.addAll(Arrays.asList(m.group(2).split(", ")));
-                List<Object> gs = new ArrayList<>();
-                if (m.group(4) != null) gs.addAll(Arrays.asList(m.group(4).split(", ")));
-                Map<String, Object> st = stepFact(sk, id, name, deps, m.group(3) != null, steps.size());
-                st.put("runs", chains);
-                st.put("gates", gs);
-                steps.add(st);
-                at.add(r + 1);
-                int s = nextLine(ls, r + 1, end);
-                if (s >= 0 && ls.get(s).startsWith("**Hands over:**")) {
-                    Matcher hm = hands.matcher(ls.get(s));
-                    if (!hm.matches())
-                        throw new Fail(rel + ":" + (s + 1) + " — **Hands over:** does not match '**Hands over:** `<cmd>`[, `<cmd>`]': " + ls.get(s) + "\n   " + CONTRACT);
-                    if (hand != null) throw new Fail(rel + ":" + (s + 1) + " — a second **Hands over:** line; a Procedure has at most one " + CONTRACT);
-                    List<Object> cmds = new ArrayList<>();
-                    for (String c : hm.group(1).split(", ")) {
-                        String lit = c.substring(1, c.length() - 1);
-                        if (lit.startsWith("/")) {
-                            String nm = lit.substring(1).split("\\s+")[0];
-                            if (!f.containsKey("skill:" + nm) && (nat == null || !nat.contains(nm)))
-                                throw new Fail(rel + ":" + (s + 1) + " — '" + lit + "' is no skill or native command (a directory of .claude/skills/, or an entry of types.skill.native_commands in " + EXT + ") " + CONTRACT);
+                    throw new Fail(rel + ":" + (r + 1) + " — step " + id + ": **Runs:** does not match '**Runs:** <phase> [· **Depends on:** <ids>] [· **Reads:** <ids>] [· **Conditional:** yes] [· **Gate:** <" + String.join("|", gates) + ">[, …]] [· **Note:** <note>]': " + ls.get(r) + "\n   " + CONTRACT);
+                List<Object> phases = new ArrayList<>();
+                List<Object> flat = new ArrayList<>();
+                phases.add(phaseOf(m.group(1), m.group(6), sk, id, f, rel, r + 1, flat));
+                List<Object> brs = new ArrayList<>();
+                List<Integer> brLine = new ArrayList<>();
+                List<Integer> phLine = new ArrayList<>();
+                phLine.add(r + 1);
+                for (int bi = 1; bi < blk.size(); bi++) {
+                    int li = blk.get(bi);
+                    String text = ls.get(li);
+                    String fld = fieldOf(text);
+                    if (fld.equals("**Runs:**")) throw new Fail(rel + ":" + (li + 1) + " — step " + id + " has a second **Runs:** line; the following phases are **Then runs:** lines " + CONTRACT);
+                    if (fld.equals("**Then runs:**")) {
+                        Matcher tm = then.matcher(text);
+                        if (!tm.matches()) throw new Fail(rel + ":" + (li + 1) + " — step " + id + ": **Then runs:** does not match '**Then runs:** <phase> [· **Note:** <note>]': " + text + "\n   " + CONTRACT);
+                        phases.add(phaseOf(tm.group(1), tm.group(2), sk, id, f, rel, li + 1, flat));
+                        phLine.add(li + 1);
+                    } else if (fld.equals("**Stops when:**") || fld.equals("**Skips when:**")) {
+                        boolean skip = fld.equals("**Skips when:**");
+                        Matcher bm = (skip ? skips : stops).matcher(text);
+                        if (!bm.matches()) throw new Fail(rel + ":" + (li + 1) + " — step " + id + ": " + fld + " does not match '" + (skip ? "**Skips when:** <condition> · **To:** <id> · **Says:** <line>[; <line>]" : "**Stops when:** <condition> · **Says:** <line>[; <line>]") + "': " + text + "\n   " + CONTRACT);
+                        String cond = bm.group(1), says = bm.group(skip ? 3 : 2);
+                        limit(schema, "branchCondition", cond, rel, li + 1, id, fld);
+                        List<Object> parts = new ArrayList<>(Arrays.asList(says.split("; ")));
+                        for (Object part : parts) limit(schema, "branchLine", (String) part, rel, li + 1, id, fld);
+                        if (parts.size() > 2) throw new Fail(rel + ":" + (li + 1) + " — step " + id + " " + fld + " **Says:** has " + parts.size() + " parts. Fix: " + get(schema, "$defs", "branchLine", "x-fix") + " " + CONTRACT);
+                        Map<String, Object> br = new TreeMap<>();
+                        br.put("kind", skip ? "skip" : "stop");
+                        br.put("after_phase", (long) (phases.size() - 1));
+                        br.put("condition", cond);
+                        br.put("says", parts);
+                        br.put("to", skip ? bm.group(2) : "");
+                        brs.add(br);
+                        brLine.add(li + 1);
+                    } else { // **Hands over:**
+                        if (bi != blk.size() - 1) throw new Fail(rel + ":" + (li + 1) + " — **Hands over:** must be the last line of the field block " + CONTRACT);
+                        Matcher hm = hands.matcher(text);
+                        if (!hm.matches())
+                            throw new Fail(rel + ":" + (li + 1) + " — **Hands over:** does not match '**Hands over:** `<cmd>`[, `<cmd>`]': " + text + "\n   " + CONTRACT);
+                        if (hand != null) throw new Fail(rel + ":" + (li + 1) + " — a second **Hands over:** line; a skill has at most one " + CONTRACT);
+                        List<Object> cmds = new ArrayList<>();
+                        for (String c : hm.group(1).split(", ")) {
+                            String lit = c.substring(1, c.length() - 1);
+                            if (lit.startsWith("/")) {
+                                String nm = lit.substring(1).split("\\s+")[0];
+                                if (!f.containsKey("skill:" + nm) && (nat == null || !nat.contains(nm)))
+                                    throw new Fail(rel + ":" + (li + 1) + " — '" + lit + "' is no skill or native command (a directory of .claude/skills/, or an entry of types.skill.native_commands in " + EXT + ") " + CONTRACT);
+                            }
+                            cmds.add(lit);
                         }
-                        cmds.add(lit);
+                        hand = new TreeMap<>();
+                        hand.put("kind", "handoff");
+                        hand.put("skill", sk);
+                        hand.put("label", "Hands over");
+                        hand.put("detail", "");
+                        hand.put("commands", cmds);
+                        hand.put("after", "step:" + sk + ":" + id);
                     }
-                    hand = new TreeMap<>();
-                    hand.put("kind", "handoff");
-                    hand.put("skill", sk);
-                    hand.put("label", "Hands over");
-                    hand.put("detail", "");
-                    hand.put("commands", cmds);
-                    hand.put("after", "step:" + sk + ":" + id);
-                    n = s;
-                } else n = r;
-            }
-            if (steps.isEmpty())
-                throw new Fail(rel + " — no '### <id> · <Name>' step heading under '## Procedure'; a view of " + sk + " has nothing to draw " + CONTRACT);
-            Set<String> ids = new HashSet<>();
-            for (var s : steps) ids.add((String) s.get("id"));
-            for (int k = 0; k < steps.size(); k++)
-                for (Object d : list(steps.get(k).get("depends_on"))) {
-                    String did = ((String) d).substring(("step:" + sk + ":").length());
-                    if (!ids.contains(did))
-                        throw new Fail(rel + ":" + at.get(k) + " — step " + steps.get(k).get("id") + " depends on '" + did + "', which is no step heading " + CONTRACT);
                 }
+                List<String> deps = m.group(2) == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(m.group(2).split(", ")));
+                List<String> reads = m.group(3) == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(m.group(3).split(", ")));
+                List<Object> gs = new ArrayList<>();
+                if (m.group(5) != null) gs.addAll(Arrays.asList(m.group(5).split(", ")));
+                Map<String, Object> st = stepFact(sk, id, name, deps, reads, m.group(4) != null, steps.size());
+                st.put("runs", flat);
+                st.put("gates", gs);
+                st.put("phases", phases);
+                st.put("branches", brs);
+                steps.add(st);
+                blocks.add(brLine);
+                headAt.add(r + 1);
+                st.put("_phaseLines", phLine);
+            }
+            for (int n = 0; n < ls.size(); n++)
+                if (!fenced[n] && !consumed.contains(n) && fieldOf(ls.get(n)) != null)
+                    throw new Fail(rel + ":" + (n + 1) + " — " + fieldOf(ls.get(n)) + " must be in the field block right under a step heading " + CONTRACT);
+            if (steps.isEmpty())
+                throw new Fail(rel + " — no '### <id> · <Name>' step heading with a **Runs:** line; a view of " + sk + " has nothing to draw " + CONTRACT);
+            Map<String, Integer> order = new HashMap<>();
+            for (var s : steps) order.put((String) s.get("id"), ((Number) s.get("order")).intValue());
+            for (int k = 0; k < steps.size(); k++) {
+                Map<String, Object> s = steps.get(k);
+                String sid = (String) s.get("id");
+                int at = headAt.get(k);
+                for (String key : new String[] { "depends_on", "reads" })
+                    for (Object d : list(s.get(key))) {
+                        String did = ((String) d).substring(("step:" + sk + ":").length());
+                        String verb = key.equals("reads") ? "reads" : "depends on";
+                        if (!order.containsKey(did))
+                            throw new Fail(rel + ":" + at + " — step " + sid + " " + verb + " '" + did + "', which is no step heading " + CONTRACT);
+                        if (order.get(did) >= k)
+                            throw new Fail(rel + ":" + at + " — step " + sid + " " + verb + " '" + did + "', which is written after it — the written order is the execution order " + CONTRACT);
+                    }
+                // the branch gate words and the Stops when lines pair one to one, in order
+                List<String> words = new ArrayList<>();
+                for (Object g : list(s.get("gates"))) if (branchWords.contains(g)) words.add((String) g);
+                List<Object> brs = list(s.get("branches"));
+                List<Integer> bl = blocks.get(k);
+                long nStops = brs.stream().filter(b -> !"skip".equals(map(b).get("kind"))).count();
+                if (words.size() != nStops)
+                    throw new Fail(rel + ":" + at + " — step " + sid + " has " + words.size() + " branch gate word(s) (" + String.join(", ", words) + ") and " + nStops + " **Stops when:** line(s) " + CONTRACT);
+                int wi = 0;
+                for (int bi = 0; bi < brs.size(); bi++) {
+                    Map<String, Object> b = map(brs.get(bi));
+                    if ("skip".equals(b.get("kind"))) {
+                        String to = (String) b.get("to");
+                        if (!order.containsKey(to) || order.get(to) <= k)
+                            throw new Fail(rel + ":" + bl.get(bi) + " — step " + sid + " skips to '" + to + "', which is no later step " + CONTRACT);
+                        b.put("to", "step:" + sk + ":" + to);
+                    } else b.put("kind", words.get(wi++));
+                }
+                List<Object> phases = list(s.get("phases"));
+                @SuppressWarnings("unchecked") List<Integer> phLine = (List<Integer>) s.remove("_phaseLines");
+                for (int pi = 0; pi < phases.size(); pi++) {
+                    String note = (String) map(phases.get(pi)).get("note");
+                    if (note.isEmpty()) continue;
+                    if (phases.size() == 1) throw new Fail(rel + ":" + phLine.get(pi) + " — a note names a phase; step " + sid + " has one " + CONTRACT);
+                    limit(schema, "phaseNote", note, rel, phLine.get(pi), sid, "**Note:**");
+                }
+            }
             for (var s : steps) f.put("step:" + sk + ":" + s.get("id"), s);
             if (hand != null) f.put("handoff:" + sk, hand);
         }
+    }
+
+    /** The field a line opens, or null. */
+    static String fieldOf(String l) {
+        for (String fld : FIELDS) if (l.startsWith(fld)) return fld;
+        return null;
+    }
+
+    /** One phase: its chains (`ref(>ref)*` with an optional `?`), every segment resolved to a fact. */
+    static Map<String, Object> phaseOf(String text, String note, String sk, String id, Map<String, Object> f, String rel, int line, List<Object> flat) {
+        List<Object> chains = new ArrayList<>();
+        for (String c : text.split(", ")) {
+            boolean cond = c.endsWith("?");
+            if (cond) c = c.substring(0, c.length() - 1);
+            List<Object> chain = new ArrayList<>();
+            for (String seg : c.split(">")) {
+                String fid = seg.equals("self") ? "skill:" + sk : seg;
+                if (!f.containsKey(fid))
+                    throw new Fail(rel + ":" + line + " — step " + id + " runs '" + seg + "', which is no fact (nearby: " + nearby(fid, f) + ") " + CONTRACT);
+                chain.add(fid);
+            }
+            Map<String, Object> ch = new TreeMap<>();
+            ch.put("refs", chain);
+            ch.put("conditional", cond);
+            chains.add(ch);
+            flat.add(chain);
+        }
+        Map<String, Object> ph = new TreeMap<>();
+        ph.put("chains", chains);
+        ph.put("note", note == null ? "" : note);
+        return ph;
+    }
+
+    /** A text a branch or a phase prints, held to the limit its `$defs` entry of view.schema.json states; that entry's x-fix is the message. */
+    static void limit(Map<String, Object> schema, String def, String value, String rel, int line, String id, String field) {
+        List<String> out = new ArrayList<>();
+        sv(schema, map(get(schema, "$defs", def)), value, "$", out);
+        if (!out.isEmpty()) throw new Fail(rel + ":" + line + " — step " + id + " " + field + " " + out.get(0) + "\n   " + CONTRACT);
     }
 
     static int nextLine(List<String> ls, int from, int end) {
@@ -750,19 +881,22 @@ public class Diagrams {
         return f.keySet().stream().filter(k -> k.startsWith(kind)).limit(6).collect(Collectors.joining(", "));
     }
 
-    static Map<String, Object> stepFact(String skill, String id, String name, List<String> deps, boolean cond, int order) {
+    static Map<String, Object> stepFact(String skill, String id, String name, List<String> deps, List<String> reads, boolean cond, int order) {
         Map<String, Object> m = new TreeMap<>();
         m.put("kind", "step");
         m.put("skill", skill);
         m.put("id", id);
         m.put("name", name);
-        m.put("label", id.equals("consolidation") ? "Consolidation" : id + " · " + name);
+        m.put("label", id.matches("[0-9]+[a-z]?") ? id + " · " + name : name);
         m.put("detail", cond ? "conditional" : "");
         m.put("conditional", cond);
         m.put("order", (long) order);
         List<Object> d = new ArrayList<>();
         for (String x : deps) d.add("step:" + skill + ":" + x);
         m.put("depends_on", d);
+        List<Object> rd = new ArrayList<>();
+        for (String x : reads) rd.add("step:" + skill + ":" + x);
+        m.put("reads", rd);
         return m;
     }
 
@@ -893,7 +1027,7 @@ public class Diagrams {
     }
 
     static final class Resolved {
-        String name, kind, title, caption, skill;
+        String name, kind, title, caption, skill, derive;
         List<RGroup> groups = new ArrayList<>();
         List<REdge> edges = new ArrayList<>();
         List<String> steps = new ArrayList<>(), emphasis = new ArrayList<>();
@@ -919,7 +1053,7 @@ public class Diagrams {
         r.title = (String) v.get("title");
         r.caption = v.get("caption") instanceof String c ? c : "";
         r.skill = v.get("skill") instanceof String sk ? sk : null;
-        boolean stepped = r.kind.equals("pipeline") || r.kind.equals("orchestrator");
+        boolean stepped = r.kind.equals("orchestrator");
         if (stepped) {
             if (r.skill == null) {
                 errs.add(rel + ": a " + r.kind + " view requires skill. Fix: add \"skill\": \"<name>\", the skill whose steps it draws (it carries the step contract, references/step-contract.md).");
@@ -964,11 +1098,11 @@ public class Diagrams {
             Map<String, Object> e = map(es.get(ei));
             String ep = rel + " $.edges[" + ei + "]";
             if (e.containsKey("derive")) {
-                String how = (String) e.get("derive"), want = r.kind.equals("orchestrator") ? "sequence" : "depends_on";
-                if (!how.equals(want)) errs.add(ep + ": a " + r.kind + " view derives its edges by '" + want + "', not '" + how + "'. Fix: {\"derive\":\"" + want + "\"}.");
-                else r.edges.addAll(deriveEdges(r, facts, how));
+                if (!stepped) errs.add(ep + ": a " + r.kind + " view has no steps to derive edges from. Fix: list edges as {\"from\",\"to\",\"evidence\"}.");
+                else r.derive = (String) e.get("derive");
                 continue;
             }
+            if (stepped) { errs.add(ep + ": an orchestrator view takes {\"derive\":\"sequence\"} or {\"derive\":\"depends_on\"} only; the steps' own field lines say the rest."); continue; }
             REdge re = new REdge();
             re.from = (String) e.get("from");
             re.to = (String) e.get("to");
@@ -979,17 +1113,24 @@ public class Diagrams {
             if (re.evidence != null && !facts.containsKey(re.evidence)) errs.add(ep + ".evidence: " + missing(re.evidence, facts));
             r.edges.add(re);
         }
-        Set<String> edgeIds = new LinkedHashSet<>();
-        for (REdge e : r.edges) edgeIds.add(e.id());
-        for (String key : new String[] { "steps", "emphasis" }) {
-            List<Object> l = list(v.get(key));
-            if (l == null) continue;
-            for (int k = 0; k < l.size(); k++) {
-                String id = (String) l.get(k);
-                boolean ok = nodeIds.contains(id) || groupIds.contains(id) || (key.equals("steps") && edgeIds.contains(id))
-                        || (key.equals("steps") && r.kind.equals("orchestrator") && id.equals("handoff:" + r.skill) && facts.containsKey(id));
-                if (!ok) errs.add(rel + " $." + key + "[" + k + "]: '" + id + "' is not a node, group" + (key.equals("steps") ? " or edge" : "") + " of the view. Fix: remove it or cite an id the view has.");
-                (key.equals("steps") ? r.steps : r.emphasis).add(id);
+        if (stepped && r.derive == null)
+            errs.add(rel + " $.edges: an orchestrator view needs {\"derive\":\"sequence\"} (one column, the chips of who runs each step beside it) or {\"derive\":\"depends_on\"} (rows, the dependencies drawn).");
+        if (stepped && v.containsKey("steps"))
+            errs.add(rel + " $.steps: the animation follows the written order of " + r.skill + "; remove steps.");
+        if (stepped && v.containsKey("emphasis"))
+            errs.add(rel + " $.emphasis: an orchestrator view takes no emphasis — the badges and the diamonds say it; remove emphasis.");
+        if (!stepped) {
+            Set<String> edgeIds = new LinkedHashSet<>();
+            for (REdge e : r.edges) edgeIds.add(e.id());
+            for (String key : new String[] { "steps", "emphasis" }) {
+                List<Object> l = list(v.get(key));
+                if (l == null) continue;
+                for (int k = 0; k < l.size(); k++) {
+                    String id = (String) l.get(k);
+                    boolean ok = nodeIds.contains(id) || groupIds.contains(id) || (key.equals("steps") && edgeIds.contains(id));
+                    if (!ok) errs.add(rel + " $." + key + "[" + k + "]: '" + id + "' is not a node, group" + (key.equals("steps") ? " or edge" : "") + " of the view. Fix: remove it or cite an id the view has.");
+                    (key.equals("steps") ? r.steps : r.emphasis).add(id);
+                }
             }
         }
         if (stepped)
@@ -1032,49 +1173,6 @@ public class Diagrams {
         return out;
     }
 
-    /** `sequence`: each node to the next, in order. `depends_on`: edges among the view's nodes, with the edges a longer path already implies removed. */
-    static List<REdge> deriveEdges(Resolved r, Map<String, Object> facts, String how) {
-        List<String> nodes = r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList());
-        if (how.equals("sequence")) {
-            List<REdge> seq = new ArrayList<>();
-            for (int k = 1; k < nodes.size(); k++) {
-                REdge e = new REdge();
-                e.from = nodes.get(k - 1); e.to = nodes.get(k); e.evidence = nodes.get(k);
-                seq.add(e);
-            }
-            return seq;
-        }
-        Set<String> in = new HashSet<>(nodes);
-        Map<String, List<String>> deps = new LinkedHashMap<>();
-        for (String n : nodes) {
-            List<String> d = new ArrayList<>();
-            List<Object> l = list(map(facts.get(n)).get("depends_on"));
-            if (l != null) for (Object o : l) if (in.contains(o)) d.add((String) o);
-            deps.put(n, d);
-        }
-        List<REdge> out = new ArrayList<>();
-        for (String n : nodes) for (String d : deps.get(n)) {
-            boolean implied = false;
-            for (String o : deps.get(n)) if (!o.equals(d) && reaches(o, d, deps)) { implied = true; break; }
-            if (implied) continue;
-            REdge e = new REdge();
-            e.from = d; e.to = n; e.evidence = n;
-            out.add(e);
-        }
-        return out;
-    }
-
-    static boolean reaches(String from, String target, Map<String, List<String>> deps) {
-        Deque<String> q = new ArrayDeque<>(List.of(from));
-        Set<String> seen = new HashSet<>();
-        while (!q.isEmpty()) {
-            String c = q.poll();
-            if (!seen.add(c)) continue;
-            for (String d : deps.getOrDefault(c, List.of())) { if (d.equals(target)) return true; q.add(d); }
-        }
-        return false;
-    }
-
     // ───────────────────────────── scene ─────────────────────────────
 
     static final class Box {
@@ -1085,17 +1183,23 @@ public class Diagrams {
         List<String> head = new ArrayList<>();
         int x, y, w, h, step = -1, rx = -1, monoN;
         boolean lane, dashed, emph, mono;
+        String shape = "rect", dash = ""; // rect | diamond | frame (dotted, no fill) | swatch (a legend sample, no text)
+        double sw;                        // stroke width; 0 = the identity's
+        double t = -1;                    // reveal time in seconds; negative = visible from the start
     }
 
-    /** A line of free-standing text: x is its centre (anchor "middle") or its left edge ("start"), y its baseline. */
+    /** A line of free-standing text: x is its centre ("middle"), its left edge ("start") or its right edge ("end"), y its baseline. */
     static final class Txt {
         String id, text, anchor;
         int x, y, size, step = -1;
+        double t = -1;
     }
 
     static final class Ln {
-        String id, from, to;
-        int x1, y1, x2, y2, step = -1;
+        String id, from, to; // from/to: ids of boxes the line is tied to, null when it is not
+        List<int[]> pts = new ArrayList<>();
+        int step = -1;
+        double t = -1;
         boolean dashed;
     }
 
@@ -1131,33 +1235,8 @@ public class Diagrams {
         Map<String, Integer> stepOf = new HashMap<>();
         for (int k = 0; k < r.steps.size(); k++) stepOf.putIfAbsent(r.steps.get(k), k);
 
-        if (r.kind.equals("pipeline")) {
-            List<String> ns = r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList());
-            Map<String, Integer> depth = new HashMap<>();
-            for (String n : ns) depthOf(n, ns, facts, depth);
-            int rows = depth.values().stream().max(Integer::compare).orElse(0) + 1;
-            List<List<String>> byRow = new ArrayList<>();
-            for (int k = 0; k < rows; k++) byRow.add(new ArrayList<>());
-            for (String n : ns) byRow.get(depth.get(n)).add(n);
-            int maxN = byRow.stream().mapToInt(List::size).max().orElse(1);
-            int maxW = maxN * NW + (maxN - 1) * G;
-            sc.w = maxW + 2 * M;
-            for (int k = 0; k < rows; k++) {
-                int rw = byRow.get(k).size() * NW + (byRow.get(k).size() - 1) * G;
-                int x0 = M + (maxW - rw) / 2;
-                for (int c = 0; c < byRow.get(k).size(); c++) {
-                    String n = byRow.get(k).get(c);
-                    Box b = nodeBox(n, facts, id);
-                    b.x = x0 + c * (NW + G);
-                    b.y = TOP + k * (NH + id.i("row_gap"));
-                    b.w = NW; b.h = NH;
-                    sc.nodes.add(b);
-                    byId.put(n, b);
-                }
-            }
-            sc.h = TOP + rows * NH + (rows - 1) * id.i("row_gap") + M;
-        } else if (r.kind.equals("orchestrator")) {
-            orchLayout(sc, r, facts, id, byId, stepOf);
+        if (r.kind.equals("orchestrator")) {
+            new Orch(sc, r, facts, id, byId).layout();
         } else {
             int PAD = id.i("lane", "pad"), HW = id.i("lane", "header_w"), COLS = id.i("lane", "cols"), LG = id.i("lane", "gap");
             int most = r.groups.stream().mapToInt(g -> g.nodes.size()).max().orElse(1);
@@ -1198,30 +1277,37 @@ public class Diagrams {
                 y += laneH + LG;
             }
             sc.h = y - LG + M;
-        }
-        for (Box b : sc.nodes) {
-            if (r.emphasis.contains(b.id)) b.emph = true;
-            Integer s = stepOf.get(b.id);
-            Integer gs = b.groupId == null ? null : stepOf.get(b.groupId);
-            if (s != null && gs != null) b.step = Math.min(s, gs); else if (s != null) b.step = s; else if (gs != null) b.step = gs;
-        }
-        for (Box b : sc.lanes) b.step = stepOf.getOrDefault(b.id, -1);
-        for (REdge e : r.edges) {
-            Box a = byId.get(e.from), b = byId.get(e.to);
-            Ln l = new Ln();
-            l.id = e.id(); l.from = e.from; l.to = e.to;
-            if (a.y + a.h <= b.y) { l.x1 = a.x + a.w / 2; l.y1 = a.y + a.h; l.x2 = b.x + b.w / 2; l.y2 = b.y; }
-            else if (b.y + b.h <= a.y) { l.x1 = a.x + a.w / 2; l.y1 = a.y; l.x2 = b.x + b.w / 2; l.y2 = b.y + b.h; }
-            else if (a.x < b.x) { l.x1 = a.x + a.w; l.y1 = a.y + a.h / 2; l.x2 = b.x; l.y2 = b.y + b.h / 2; }
-            else { l.x1 = a.x; l.y1 = a.y + a.h / 2; l.x2 = b.x + b.w; l.y2 = b.y + b.h / 2; }
-            l.dashed = b.dashed;
-            l.step = stepOf.getOrDefault(l.id, -1);
-            sc.lines.add(l);
+            for (Box b : sc.nodes) {
+                if (r.emphasis.contains(b.id)) b.emph = true;
+                Integer s = stepOf.get(b.id);
+                Integer gs = b.groupId == null ? null : stepOf.get(b.groupId);
+                if (s != null && gs != null) b.step = Math.min(s, gs); else if (s != null) b.step = s; else if (gs != null) b.step = gs;
+            }
+            for (Box b : sc.lanes) b.step = stepOf.getOrDefault(b.id, -1);
+            for (REdge e : r.edges) {
+                Box a = byId.get(e.from), b = byId.get(e.to);
+                Ln l = new Ln();
+                l.id = e.id(); l.from = e.from; l.to = e.to;
+                int[] p, q;
+                if (a.y + a.h <= b.y) { p = new int[] { a.x + a.w / 2, a.y + a.h }; q = new int[] { b.x + b.w / 2, b.y }; }
+                else if (b.y + b.h <= a.y) { p = new int[] { a.x + a.w / 2, a.y }; q = new int[] { b.x + b.w / 2, b.y + b.h }; }
+                else if (a.x < b.x) { p = new int[] { a.x + a.w, a.y + a.h / 2 }; q = new int[] { b.x, b.y + b.h / 2 }; }
+                else { p = new int[] { a.x, a.y + a.h / 2 }; q = new int[] { b.x + b.w, b.y + b.h / 2 }; }
+                l.pts.add(p); l.pts.add(q);
+                l.dashed = b.dashed;
+                l.step = stepOf.getOrDefault(l.id, -1);
+                sc.lines.add(l);
+            }
+            // the stepped reveal of the other kinds: the n-th entry of `steps` appears at n × step_seconds
+            double stepS = id.d("animation", "step_seconds");
+            for (Box b : sc.lanes) if (b.step >= 0) b.t = b.step * stepS;
+            for (Box b : sc.nodes) if (b.step >= 0) b.t = b.step * stepS;
+            for (Ln l : sc.lines) if (l.step >= 0) l.t = l.step * stepS;
         }
         return sc;
     }
 
-    // ── orchestrator: one row per step, top to bottom; to its right the chain of who runs it ──
+    // ── orchestrator: the skill's steps from the root, in the written order ──
 
     static final int HP = 16, DP = 13; // line pitch of a multi-line box's head and detail
 
@@ -1237,137 +1323,716 @@ public class Diagrams {
     /** Smallest box height that holds the text block, on the grid, at least `min`. */
     static int fit(Box b, int lbl, int min, int grid) { return Math.max(min, up(blockH(b, lbl) + 16, grid)); }
 
-    static Txt txt(String tid, String text, int x, int y, int size, String anchor, int step) {
-        Txt t = new Txt();
-        t.id = tid; t.text = text; t.x = x; t.y = y; t.size = size; t.anchor = anchor; t.step = step;
-        return t;
+    static Txt txt(String tid, String text, int x, int y, int size, String anchor, double t) {
+        Txt e = new Txt();
+        e.id = tid; e.text = text; e.x = x; e.y = y; e.size = size; e.anchor = anchor; e.t = t;
+        return e;
     }
 
-    static Ln ln(String from, String to, int x1, int y1, int x2, int y2, boolean dashed, int step) {
+    static Ln ln(String lid, String from, String to, double t, boolean dashed, int... xy) {
         Ln l = new Ln();
-        l.id = from + ">" + to; l.from = from; l.to = to;
-        l.x1 = x1; l.y1 = y1; l.x2 = x2; l.y2 = y2; l.dashed = dashed; l.step = step;
+        l.id = lid; l.from = from; l.to = to; l.t = t; l.dashed = dashed;
+        for (int k = 0; k < xy.length; k += 2) l.pts.add(new int[] { xy[k], xy[k + 1] });
         return l;
     }
 
-    static void orchLayout(Scene sc, Resolved r, Map<String, Object> facts, Identity id, Map<String, Box> byId, Map<String, Integer> stepOf) {
-        int NH = id.i("node", "h"), M = id.i("margin"), TOP = id.i("top"), GRID = id.i("grid");
-        int LBL = id.i("font", "label"), DET = id.i("font", "detail");
-        double cw = id.d("font", "char_width");
-        int SW = id.i("orchestrator", "step", "w"), CW = id.i("orchestrator", "chip", "w"), CMIN = id.i("orchestrator", "chip", "min_h"), CG = id.i("orchestrator", "chip", "gap");
-        int AL = id.i("orchestrator", "arrow"), BS = id.i("orchestrator", "badge", "size"), BG = id.i("orchestrator", "badge", "gap"), RG = id.i("orchestrator", "row_gap");
-        String mono = id.s("orchestrator", "mono");
-        List<String> ns = r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList());
-        int maxGates = 0, maxChain = 1;
-        for (String n : ns) {
-            maxGates = Math.max(maxGates, list(map(facts.get(n)).get("gates")).size());
-            for (Object c : list(map(facts.get(n)).get("runs"))) maxChain = Math.max(maxChain, list(c).size());
+    /** What a step draws, read from its facts. */
+    static final class Chain {
+        List<String> segs = new ArrayList<>();
+        boolean cond;
+    }
+
+    static final class Br {
+        String kind, cond, to;
+        int after;
+        List<String> says = new ArrayList<>();
+    }
+
+    static final class Info {
+        String fid;
+        Map<String, Object> f;
+        List<List<Chain>> phases = new ArrayList<>(); // the chains that delegate; `self` alone is no chain
+        List<String> notes = new ArrayList<>();
+        List<Br> brs = new ArrayList<>();
+        List<String> badges = new ArrayList<>();      // the gate words that stay on the step: the branch words go to their terminal
+        boolean diamond;
+        double t;
+        Box box;
+    }
+
+    /** Boxes, lines and texts laid out relative to a row, moved into place once the row's height is known. */
+    static final class Frag {
+        List<Box> boxes = new ArrayList<>();
+        List<Ln> lines = new ArrayList<>();
+        List<Txt> texts = new ArrayList<>();
+
+        void shift(int dy) {
+            for (Box b : boxes) b.y += dy;
+            for (Ln l : lines) for (int[] p : l.pts) p[1] += dy;
+            for (Txt t : texts) t.y += dy;
         }
-        int strip = maxGates == 0 ? 0 : maxGates * (BS + BG) + BG;
-        int x0 = M + SW + strip + AL;
-        int y = TOP;
-        Box last = null;
-        Set<String> used = new TreeSet<>();
-        for (String n : ns) {
-            Map<String, Object> sf = map(facts.get(n));
-            int st = stepOf.getOrDefault(n, -1);
-            Box sb = nodeBox(n, facts, id);
-            sb.head = wrap(sb.label, (int) ((SW - 16) / (LBL * cw)));
-            sb.w = SW;
-            sb.h = fit(sb, LBL, NH, GRID);
-            // chips: one chain per row of the step, one chip per segment
-            List<List<Box>> chains = new ArrayList<>();
-            int total = 0;
-            for (int ci = 0; ci < list(sf.get("runs")).size(); ci++) {
-                List<Box> chain = new ArrayList<>();
-                List<Object> segs = list(list(sf.get("runs")).get(ci));
-                for (int si = 0; si < segs.size(); si++) {
-                    Box c = chip((String) segs.get(si), r.skill, facts, id, cw);
-                    c.id = "chip:" + n + ":" + ci + "." + si;
-                    c.w = CW;
-                    c.h = fit(c, LBL, CMIN, GRID);
-                    c.step = st;
-                    chain.add(c);
-                }
-                chains.add(chain);
-                total += chain.stream().mapToInt(c -> c.h).max().orElse(0) + (ci > 0 ? CG : 0);
-            }
-            int rowH = Math.max(sb.h, total);
-            sb.x = M;
-            sb.y = y + (rowH - sb.h) / 2;
-            sc.nodes.add(sb);
-            byId.put(n, sb);
-            int sy = sb.y + sb.h / 2, cy = y + (rowH - total) / 2;
-            for (int ci = 0; ci < chains.size(); ci++) {
-                List<Box> chain = chains.get(ci);
-                int chainH = chain.stream().mapToInt(c -> c.h).max().orElse(0);
-                Box prev = null;
-                for (int si = 0; si < chain.size(); si++) {
-                    Box c = chain.get(si);
-                    c.x = x0 + si * (CW + AL);
-                    c.y = cy + (chainH - c.h) / 2;
-                    sc.nodes.add(c);
-                    byId.put(c.id, c);
-                    int x1 = prev == null ? sb.x + sb.w : prev.x + prev.w, y1 = prev == null ? sy : prev.y + prev.h / 2, y2 = c.y + c.h / 2;
-                    sc.lines.add(ln(prev == null ? n : prev.id, c.id, x1, y1, c.x, y2, false, st));
-                    String tool = c.tool;
-                    if (!tool.isEmpty()) {
-                        int lx = c.x - AL / 2;
-                        int ly = y1 + (int) Math.round((double) (y2 - y1) * (lx - x1) / (c.x - x1)) - 6;
-                        sc.texts.add(txt("tool:" + c.id, tool, lx, ly, DET, "middle", st));
+    }
+
+    static final class Skip {
+        Box term;
+        String target;
+        Skip(Box term, String target) { this.term = term; this.target = target; }
+    }
+
+    static final class Orch {
+        final Scene sc;
+        final Resolved r;
+        final Map<String, Object> facts;
+        final Identity id;
+        final Map<String, Box> byId;
+        final int NH, M, TOP, GRID, LBL, DET, SW, CW, CMIN, CG, AL, BS, BG, RG, RGV, LANE, TW, TH, TG, PG, CAPH, PAD, NW, G, DH, DHT, VH;
+        final double cw, STEP_S, PHASE_S, BRANCH_S, DELEG_S;
+        final List<String> branchWords;
+        int maxRight;
+        final Set<String> used = new TreeSet<>();
+        boolean anyDiamond, anyCond;
+        final List<Skip> skips = new ArrayList<>();
+        final Map<String, Double> stepT = new HashMap<>();
+
+        Orch(Scene sc, Resolved r, Map<String, Object> facts, Identity id, Map<String, Box> byId) {
+            this.sc = sc; this.r = r; this.facts = facts; this.id = id; this.byId = byId;
+            NH = id.i("node", "h"); NW = id.i("node", "w"); G = id.i("gap"); M = id.i("margin"); TOP = id.i("top"); GRID = id.i("grid");
+            LBL = id.i("font", "label"); DET = id.i("font", "detail"); cw = id.d("font", "char_width");
+            SW = id.i("orchestrator", "step", "w"); CW = id.i("orchestrator", "chip", "w"); CMIN = id.i("orchestrator", "chip", "min_h"); CG = id.i("orchestrator", "chip", "gap");
+            AL = id.i("orchestrator", "arrow"); BS = id.i("orchestrator", "badge", "size"); BG = id.i("orchestrator", "badge", "gap");
+            RG = id.i("orchestrator", "row_gap"); RGV = id.i("row_gap"); LANE = id.i("orchestrator", "routing", "lane_gap");
+            TW = id.i("orchestrator", "terminal", "w"); TH = id.i("orchestrator", "terminal", "h"); TG = id.i("orchestrator", "terminal", "gap");
+            PG = id.i("orchestrator", "phase", "gap"); CAPH = id.i("orchestrator", "phase", "caption_h"); PAD = id.i("orchestrator", "phase", "parallel", "pad");
+            DH = id.i("orchestrator", "decision", "h"); DHT = id.i("orchestrator", "decision", "h_tall"); VH = id.i("orchestrator", "decision", "verdict_h");
+            STEP_S = id.d("animation", "step_seconds"); PHASE_S = id.d("animation", "phase_seconds");
+            BRANCH_S = id.d("animation", "branch_seconds"); DELEG_S = id.d("animation", "delegate_seconds");
+            branchWords = branchGateWords();
+        }
+
+        // ── facts → what to draw ──
+
+        List<Info> infos() {
+            List<Info> out = new ArrayList<>();
+            for (String n : r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList())) {
+                Info s = new Info();
+                s.fid = n;
+                s.f = map(facts.get(n));
+                boolean anyDelegate = false;
+                for (Object po : list(s.f.get("phases"))) {
+                    Map<String, Object> p = map(po);
+                    List<Chain> cs = new ArrayList<>();
+                    for (Object co : list(p.get("chains"))) {
+                        Map<String, Object> c = map(co);
+                        Chain ch = new Chain();
+                        for (Object seg : delegates(list(c.get("refs")), r.skill)) ch.segs.add((String) seg);
+                        ch.cond = Boolean.TRUE.equals(c.get("conditional"));
+                        if (!ch.segs.isEmpty()) { cs.add(ch); anyDelegate = true; }
                     }
-                    prev = c;
+                    s.phases.add(cs);
+                    s.notes.add(String.valueOf(p.get("note")));
                 }
-                cy += chainH + CG;
+                for (Object bo : list(s.f.get("branches"))) {
+                    Map<String, Object> b = map(bo);
+                    Br br = new Br();
+                    br.kind = (String) b.get("kind");
+                    br.cond = (String) b.get("condition");
+                    br.to = (String) b.get("to");
+                    br.after = ((Number) b.get("after_phase")).intValue();
+                    for (Object o : list(b.get("says"))) br.says.add((String) o);
+                    s.brs.add(br);
+                }
+                for (Object g : list(s.f.get("gates"))) if (!branchWords.contains(g)) s.badges.add((String) g);
+                s.diamond = !anyDelegate && s.brs.size() == 1;
+                out.add(s);
             }
-            // gate badges, one per gate word, on the step's right edge
-            List<Object> gs = list(sf.get("gates"));
-            for (int k = 0; k < gs.size(); k++) {
-                String w = (String) gs.get(k);
-                used.add(w);
+            return out;
+        }
+
+        // ── boxes ──
+
+        void add(Box b) {
+            sc.nodes.add(b);
+            byId.put(b.id, b);
+            maxRight = Math.max(maxRight, b.x + b.w);
+        }
+
+        void commit(Frag fr) {
+            for (Box b : fr.boxes) add(b);
+            sc.lines.addAll(fr.lines);
+            sc.texts.addAll(fr.texts);
+        }
+
+        Box rootBox(int x, int y, int w) {
+            Map<String, Object> f = map(facts.get("skill:" + r.skill));
+            Box b = new Box();
+            b.id = "root:" + r.skill;
+            b.label = r.skill;
+            b.head.add(r.skill);
+            b.detail.add(id.s("orchestrator", "self_detail"));
+            b.detail.addAll(rootTerritory(list(f.get("write_allow")), (int) ((w - 16) / (DET * cw))));
+            b.role = id.role("skill:" + r.skill, f);
+            b.fill = id.fill(b.role);
+            b.stroke = id.stroke(b.role);
+            b.x = x; b.y = y; b.w = w;
+            b.h = fit(b, LBL, NH, GRID);
+            return b;
+        }
+
+        /** The territory of the orchestrator, collapsed to the directories and files it writes: `src/**` is `src/`. */
+        List<String> rootTerritory(List<Object> wa, int width) {
+            if (wa == null || wa.isEmpty()) return wrap(territory(wa), width);
+            String any = id.s("orchestrator", "territory_any");
+            LinkedHashSet<String> dirs = new LinkedHashSet<>(), files = new LinkedHashSet<>();
+            for (Object g : wa) {
+                String s = String.valueOf(g);
+                while (s.startsWith("**/")) s = s.substring(3);
+                String[] seg = s.split("/", -1);
+                StringBuilder b = new StringBuilder();
+                for (int k = 0; k < seg.length; k++) {
+                    if (seg[k].contains("*")) break;
+                    b.append(seg[k]);
+                    if (k < seg.length - 1) b.append('/');
+                }
+                String e = b.toString();
+                if (e.isEmpty()) dirs.add(any);
+                else if (e.endsWith("/")) dirs.add(e);
+                else files.add(e);
+            }
+            List<String> all = new ArrayList<>(dirs);
+            all.addAll(files);
+            int maxLines = id.i("orchestrator", "root", "max_lines");
+            String more = id.s("orchestrator", "root", "more");
+            List<List<String>> lines = new ArrayList<>();
+            List<String> cur = new ArrayList<>();
+            int placed = 0;
+            for (String e : all) {
+                if (!cur.isEmpty() && String.join(" ", cur).length() + 1 + e.length() > width) {
+                    lines.add(cur);
+                    cur = new ArrayList<>();
+                    if (lines.size() == maxLines) break;
+                }
+                cur.add(e);
+                placed++;
+            }
+            if (lines.size() < maxLines && !cur.isEmpty()) lines.add(cur);
+            int hidden = all.size() - placed;
+            if (hidden > 0) {
+                List<String> last = lines.get(lines.size() - 1);
+                while (last.size() > 1 && String.join(" ", last).length() + 1 + more.replace("{n}", String.valueOf(hidden)).length() > width) {
+                    last.remove(last.size() - 1);
+                    hidden++;
+                }
+                last.add(more.replace("{n}", String.valueOf(hidden)));
+            }
+            return lines.stream().map(l -> String.join(" ", l)).collect(Collectors.toList());
+        }
+
+        Box stepBox(Info s, int w) {
+            Box b = nodeBox(s.fid, facts, id);
+            b.head = wrap(b.label, (int) ((w - 16) / (LBL * cw)));
+            b.w = w;
+            b.h = fit(b, LBL, NH, GRID);
+            if (b.dashed) anyCond = true;
+            return b;
+        }
+
+        /** The step that is its own check: its name over the condition, in a diamond. */
+        Box stepDiamond(Info s, int x, int y) {
+            Box d = nodeBox(s.fid, facts, id);
+            decide(d);
+            d.head = wrap(d.label, (int) (SW * 0.6 / (LBL * cw)));
+            d.detail = List.of(s.brs.get(0).cond);
+            d.w = SW;
+            d.h = d.head.size() + 1 > 2 ? DHT : DH;
+            d.x = x; d.y = y;
+            return d;
+        }
+
+        Box verdict(String vid, Br b, int w, int h) {
+            Box d = new Box();
+            d.id = vid;
+            decide(d);
+            d.head = wrap(b.cond, (int) (w * 0.6 / (LBL * cw)));
+            d.w = w; d.h = h;
+            return d;
+        }
+
+        void decide(Box d) {
+            d.shape = "diamond";
+            d.dashed = false;
+            d.fill = id.s("orchestrator", "decision", "fill");
+            d.stroke = id.s("orchestrator", "decision", "stroke");
+            d.sw = id.d("orchestrator", "decision", "stroke_width");
+            anyDiamond = true;
+        }
+
+        /** The yes exit of a diamond: edge, terminal, its badge; a skip registers its rejoin path, drawn once every step has a place. */
+        void exit(Frag fr, Box d, Br b, double td, String owner, int bi) {
+            double tt = td + BRANCH_S;
+            int cy = d.y + d.h / 2, tx = d.x + d.w + TG;
+            Box tm = new Box();
+            tm.id = "term:" + owner + ":" + bi;
+            boolean skip = b.kind.equals("skip");
+            tm.head.add(skip ? id.s("orchestrator", "terminal", "skip", "title").replace("{target}", String.valueOf(map(facts.get(b.to)).get("name")))
+                    : id.s("orchestrator", "terminal", b.kind, "title"));
+            tm.detail.addAll(b.says);
+            tm.fill = skip ? id.s("orchestrator", "terminal", "skip", "fill") : id.s("orchestrator", "gates", b.kind, "fill");
+            tm.stroke = skip ? id.s("orchestrator", "terminal", "skip", "stroke") : id.s("orchestrator", "gates", b.kind, "stroke");
+            tm.x = tx; tm.y = cy - TH / 2; tm.w = TW; tm.h = TH; tm.t = tt;
+            fr.boxes.add(tm);
+            fr.lines.add(ln("yes:" + owner + ":" + bi, d.id, tm.id, tt, false, d.x + d.w, cy, tx, cy));
+            fr.texts.add(txt("yes-label:" + owner + ":" + bi, id.s("orchestrator", "branch_labels", "yes"), (d.x + d.w + tx) / 2, cy - 8, DET, "middle", tt));
+            if (skip) skips.add(new Skip(tm, b.to));
+            else {
+                Box g = badge(b.kind, id);
+                g.id = "tbadge:" + owner + ":" + bi;
+                g.x = tx + TW + BG; g.y = cy - BS / 2; g.t = tt;
+                used.add(b.kind);
+                fr.boxes.add(g);
+            }
+        }
+
+        // ── flow ──
+
+        /** Where the flow leaves a box: `no` marks the bottom of a diamond. */
+        static final class Out {
+            String id;
+            int x, y;
+            boolean no;
+            Out(String id, int x, int y, boolean no) { this.id = id; this.x = x; this.y = y; this.no = no; }
+        }
+
+        void flow(Out from, Box to, int tx, int ty, double t) {
+            String lid = from.id + ">" + to.id;
+            sc.lines.add(ln("flow:" + lid, from.id, to.id, t, false, from.x, from.y, tx, ty));
+            if (from.no) sc.texts.add(txt("no-label:" + lid, id.s("orchestrator", "branch_labels", "no"), from.x + 10, from.y + 17, DET, "start", t));
+        }
+
+        // ── the two layouts ──
+
+        void layout() {
+            if (r.derive.equals("depends_on")) rows(); else column();
+        }
+
+        List<int[]> items(Info s) {
+            List<int[]> it = new ArrayList<>();
+            for (int p = 0; p < s.phases.size(); p++) {
+                it.add(new int[] { 0, p });
+                for (int bi = 0; bi < s.brs.size(); bi++) if (s.brs.get(bi).after == p) it.add(new int[] { 1, bi });
+            }
+            return it;
+        }
+
+        /** One row per step, in the written order; the chips of who runs it to its right, phase under phase. */
+        void column() {
+            List<Info> st = infos();
+            int strip = 0, lstrip = 0;
+            for (Info s : st) {
+                int n = s.badges.size();
+                int w = n == 0 ? 0 : n * (BS + BG) + BG;
+                if (s.diamond) lstrip = Math.max(lstrip, w); else strip = Math.max(strip, w);
+            }
+            int stepX = M + lstrip, cx = stepX + SW / 2, x0 = stepX + SW + strip + AL;
+            Box root = rootBox(stepX, TOP, SW);
+            add(root);
+            int y = TOP + root.h + RG;
+            Out prev = new Out(root.id, cx, root.y + root.h, false);
+            double t = 0;
+            int xc = x0 + CW / 2;
+            for (Info s : st) {
+                double ts = t;
+                stepT.put(s.fid, ts);
+                if (s.diamond) {
+                    Box d = stepDiamond(s, stepX, y);
+                    d.t = ts;
+                    add(d);
+                    s.box = d;
+                    flow(prev, d, cx, y, ts);
+                    diamondBadges(s, d, ts);
+                    Frag fx = new Frag();
+                    exit(fx, d, s.brs.get(0), ts, s.fid, 0);
+                    commit(fx);
+                    prev = new Out(d.id, cx, y + d.h, true);
+                    y += d.h + RG;
+                    t += STEP_S;
+                    continue;
+                }
+                List<int[]> items = items(s);
+                int P = s.phases.size();
+                double[] tp = new double[P], tv = new double[s.brs.size()];
+                for (int k = 0; k < items.size(); k++) {
+                    int[] it = items.get(k);
+                    if (it[0] == 0) tp[it[1]] = ts + k * PHASE_S; else tv[it[1]] = ts + k * PHASE_S;
+                }
+                Box sb = stepBox(s, SW);
+                s.box = sb;
+                // the chip column: phases, and the verdicts that fall between them
+                Frag fr = new Frag();
+                List<Box> firstChips = new ArrayList<>();
+                int prevBottom = -1;
+                boolean prevVerdict = false, multi = P >= 2;
+                for (int p = 0; p < P; p++) {
+                    List<Chain> chains = s.phases.get(p);
+                    if (!chains.isEmpty()) {
+                        boolean par = multi && chains.size() >= 2;
+                        int pt = prevBottom < 0 ? 0 : prevBottom + PG;
+                        int chipsTop = pt + (multi ? CAPH : 0);
+                        int cy = chipsTop + (par ? PAD : 0), widest = 0;
+                        List<Box> chips = new ArrayList<>();
+                        List<Ln> arrows = new ArrayList<>();
+                        List<Txt> tools = new ArrayList<>();
+                        for (int ci = 0; ci < chains.size(); ci++) {
+                            Chain ch = chains.get(ci);
+                            List<Box> row = new ArrayList<>();
+                            int chainH = 0;
+                            for (int si = 0; si < ch.segs.size(); si++) {
+                                Box c = chip(ch.segs.get(si), r.skill, facts, id, cw);
+                                c.id = "chip:" + s.fid + ":" + p + "." + ci + "." + si;
+                                c.w = CW;
+                                c.h = fit(c, LBL, CMIN, GRID);
+                                c.dashed = ch.cond;
+                                c.t = tp[p] + si * DELEG_S;
+                                chainH = Math.max(chainH, c.h);
+                                row.add(c);
+                            }
+                            if (ch.cond) anyCond = true;
+                            for (int si = 0; si < row.size(); si++) {
+                                Box c = row.get(si);
+                                c.x = x0 + si * (CW + AL);
+                                c.y = cy + (chainH - c.h) / 2;
+                                if (si > 0) {
+                                    Box pc = row.get(si - 1);
+                                    int y1 = pc.y + pc.h / 2, y2 = c.y + c.h / 2, x1 = pc.x + pc.w;
+                                    arrows.add(ln("seg:" + pc.id + ">" + c.id, pc.id, c.id, c.t, false, x1, y1, c.x, y2));
+                                    if (!c.tool.isEmpty()) {
+                                        int lx = c.x - AL / 2;
+                                        tools.add(txt("tool:" + c.id, c.tool, lx, y1 + (int) Math.round((double) (y2 - y1) * (lx - x1) / (c.x - x1)) - 6, DET, "middle", c.t));
+                                    }
+                                }
+                            }
+                            Box f0 = row.get(0);
+                            if (multi && !f0.tool.isEmpty()) tools.add(txt("tool:" + f0.id, f0.tool, x0 - 6 - (par ? PAD : 0), f0.y + 13, DET, "end", tp[p]));
+                            firstChips.add(f0);
+                            chips.addAll(row);
+                            widest = Math.max(widest, row.size() * CW + (row.size() - 1) * AL);
+                            cy += chainH + CG;
+                        }
+                        int blockBottom = cy - CG + (par ? PAD : 0);
+                        if (par) {
+                            Box fb = new Box();
+                            fb.id = "frame:" + s.fid + ":" + p;
+                            fb.shape = "frame";
+                            fb.stroke = id.s("orchestrator", "phase", "parallel", "stroke");
+                            fb.dash = id.s("orchestrator", "phase", "parallel", "dash");
+                            fb.rx = id.i("orchestrator", "phase", "parallel", "radius");
+                            fb.sw = id.d("stroke");
+                            fb.x = x0 - PAD; fb.y = chipsTop; fb.w = widest + 2 * PAD; fb.h = blockBottom - chipsTop; fb.t = tp[p];
+                            fr.boxes.add(fb);
+                        }
+                        fr.boxes.addAll(chips);
+                        fr.lines.addAll(arrows);
+                        fr.texts.addAll(tools);
+                        if (multi) {
+                            String note = s.notes.get(p);
+                            String cap = (p + 1) + (note.isEmpty() ? "" : " · " + note) + (chains.size() >= 2 ? " · " + id.s("orchestrator", "phase", "parallel_caption") : "");
+                            fr.texts.add(txt("cap:" + s.fid + ":" + p, cap, xc + 16, pt + 11, DET, "start", tp[p]));
+                        }
+                        if (prevBottom >= 0) {
+                            fr.lines.add(ln("phase:" + s.fid + ":" + p, null, null, tp[p], false, xc, prevBottom, xc, chipsTop));
+                            if (prevVerdict) fr.texts.add(txt("no-label:" + s.fid + ":" + p, id.s("orchestrator", "branch_labels", "no"), xc - 8, prevBottom + 16, DET, "end", tp[p]));
+                        }
+                        prevBottom = blockBottom;
+                        prevVerdict = false;
+                    }
+                    for (int bi = 0; bi < s.brs.size(); bi++) {
+                        Br b = s.brs.get(bi);
+                        if (b.after != p || p == P - 1) continue;
+                        int top = prevBottom < 0 ? 0 : prevBottom + PG;
+                        Box d = verdict("verdict:" + s.fid + ":" + bi, b, CW, VH);
+                        d.x = x0; d.y = top; d.t = tv[bi];
+                        fr.boxes.add(d);
+                        if (prevBottom >= 0) {
+                            fr.lines.add(ln("phase:" + s.fid + ":v" + bi, null, d.id, tv[bi], false, xc, prevBottom, xc, top));
+                            if (prevVerdict) fr.texts.add(txt("no-label:" + s.fid + ":v" + bi, id.s("orchestrator", "branch_labels", "no"), xc - 8, prevBottom + 16, DET, "end", tv[bi]));
+                        }
+                        exit(fr, d, b, tv[bi], s.fid, bi);
+                        prevBottom = top + VH;
+                        prevVerdict = true;
+                    }
+                }
+                int H = Math.max(prevBottom, 0);
+                int rowH = Math.max(sb.h, H);
+                sb.x = stepX; sb.y = y + (rowH - sb.h) / 2; sb.t = ts;
+                fr.shift(y + (rowH - H) / 2);
+                int sy = sb.y + sb.h / 2, sx = sb.x + sb.w;
+                add(sb);
+                commit(fr);
+                // the arrows from the step to its first chips
+                if (multi) {
+                    if (!firstChips.isEmpty()) {
+                        Box c = firstChips.get(0);
+                        double te = Double.MAX_VALUE;
+                        for (int p = 0; p < P; p++) if (!s.phases.get(p).isEmpty()) { te = tp[p]; break; }
+                        sc.lines.add(ln("entry:" + s.fid, s.fid, c.id, te, false, sx, sy, c.x, c.y + c.h / 2));
+                    }
+                } else for (Box c : firstChips) {
+                    int y2 = c.y + c.h / 2;
+                    sc.lines.add(ln("entry:" + c.id, s.fid, c.id, tp[0], false, sx, sy, c.x, y2));
+                    if (!c.tool.isEmpty()) {
+                        int lx = c.x - AL / 2;
+                        sc.texts.add(txt("tool:" + c.id, c.tool, lx, sy + (int) Math.round((double) (y2 - sy) * (lx - sx) / (c.x - sx)) - 6, DET, "middle", tp[0]));
+                    }
+                }
+                for (int k = 0; k < s.badges.size(); k++) {
+                    used.add(s.badges.get(k));
+                    Box g = badge(s.badges.get(k), id);
+                    g.id = "badge:" + s.fid + ":" + k;
+                    g.x = sx + BG + k * (BS + BG);
+                    g.y = sy - BS / 2;
+                    g.t = ts;
+                    add(g);
+                }
+                flow(prev, sb, cx, sb.y, ts);
+                prev = new Out(sb.id, cx, sb.y + sb.h, false);
+                int bottom = y + rowH;
+                // a verdict after the last phase sits under the step, in the step column
+                for (int bi = 0; bi < s.brs.size(); bi++) {
+                    Br b = s.brs.get(bi);
+                    if (b.after != P - 1) continue;
+                    int vy = bottom + RG;
+                    Box d = verdict("verdict:" + s.fid + ":" + bi, b, SW, DH);
+                    d.x = stepX; d.y = vy; d.t = tv[bi];
+                    add(d);
+                    flow(prev, d, cx, vy, tv[bi]);
+                    Frag fx = new Frag();
+                    exit(fx, d, b, tv[bi], s.fid, bi);
+                    commit(fx);
+                    prev = new Out(d.id, cx, vy + d.h, true);
+                    bottom = vy + d.h;
+                }
+                y = bottom + RG;
+                t += STEP_S + (Math.max(1, items.size()) - 1) * PHASE_S;
+            }
+            finish(y, t, stepX, SW);
+        }
+
+        void diamondBadges(Info s, Box d, double ts) {
+            for (int k = 0; k < s.badges.size(); k++) {
+                used.add(s.badges.get(k));
+                Box g = badge(s.badges.get(k), id);
+                g.id = "badge:" + s.fid + ":" + k;
+                g.x = d.x - BG - BS - k * (BS + BG);
+                g.y = d.y + d.h / 2 - BS / 2;
+                g.t = ts;
+                add(g);
+            }
+        }
+
+        /** Rows in the written order, centred on one axis: a step shares a row until it needs something the row holds. */
+        void rows() {
+            List<Info> st = infos();
+            Map<String, Integer> pos = new HashMap<>();
+            for (int k = 0; k < st.size(); k++) pos.put(st.get(k).fid, k);
+            // what each step waits for: its Depends on, else the step written before it
+            Map<String, List<String>> deps = new LinkedHashMap<>();
+            for (int k = 0; k < st.size(); k++) {
+                List<String> d = new ArrayList<>();
+                for (Object o : list(st.get(k).f.get("depends_on"))) d.add((String) o);
+                if (d.isEmpty() && k > 0) d.add(st.get(k - 1).fid);
+                deps.put(st.get(k).fid, d);
+            }
+            for (Info s : st)
+                if (!s.diamond && !s.brs.isEmpty())
+                    throw new Fail("view " + r.name + ": step " + s.f.get("id") + " of " + r.skill + " carries a branch and runs more than `self`; a depends_on view draws a branch only as the diamond of a step that runs `self` alone, with exactly one branch (references/step-contract.md)");
+            List<List<Info>> rows = new ArrayList<>();
+            List<Info> cur = null;
+            Set<String> inCur = new HashSet<>();
+            boolean curBranch = false;
+            for (Info s : st) {
+                boolean need = cur == null || !s.brs.isEmpty() || curBranch;
+                if (!need) {
+                    for (String d : deps.get(s.fid)) if (inCur.contains(d)) need = true;
+                    for (Object o : list(s.f.get("reads"))) if (inCur.contains(o)) need = true;
+                }
+                if (need) { cur = new ArrayList<>(); rows.add(cur); inCur.clear(); curBranch = false; }
+                cur.add(s);
+                inCur.add(s.fid);
+                if (!s.brs.isEmpty()) curBranch = true;
+            }
+            Map<String, Integer> rowOf = new HashMap<>();
+            for (int k = 0; k < rows.size(); k++) for (Info s : rows.get(k)) rowOf.put(s.fid, k);
+            // edges: depends_on minus what a longer path implies; the first step hangs from the root
+            List<String[]> edges = new ArrayList<>();
+            for (Info s : st) for (String d : deps.get(s.fid)) {
+                boolean implied = false;
+                for (String o : deps.get(s.fid)) if (!o.equals(d) && reaches(o, d, deps)) { implied = true; break; }
+                if (!implied) edges.add(new String[] { d, s.fid });
+            }
+            List<String[]> lanes = new ArrayList<>();
+            for (String[] e : edges) if (rowOf.get(e[1]) - rowOf.get(e[0]) > 1) lanes.add(e);
+            lanes.sort(Comparator.<String[]>comparingInt(e -> rowOf.get(e[0])).thenComparingInt(e -> rowOf.get(e[1])));
+            int lstrip = 0;
+            for (Info s : st) if (s.diamond && !s.badges.isEmpty()) lstrip = Math.max(lstrip, s.badges.size() * (BS + BG) + BG);
+            // sizes
+            int[] rowW = new int[rows.size()], rowH = new int[rows.size()];
+            for (int k = 0; k < rows.size(); k++) {
+                for (Info s : rows.get(k)) {
+                    Box b;
+                    if (s.diamond) b = stepDiamond(s, 0, 0); else b = stepBox(s, NW);
+                    s.box = b;
+                    rowW[k] += b.w + (rowW[k] == 0 ? 0 : G);
+                    rowH[k] = Math.max(rowH[k], b.h);
+                }
+            }
+            int left = SW / 2 + lstrip, half = 0;
+            for (int w : rowW) half = Math.max(half, (w + 1) / 2);
+            left = Math.max(left, half);
+            int gutter = lanes.isEmpty() ? 0 : (lanes.size() + 1) * LANE;
+            int cx = M + gutter + left;
+            Box root = rootBox(cx - SW / 2, TOP, SW);
+            add(root);
+            int[] rowY = new int[rows.size()];
+            int y = TOP + root.h + RG;
+            for (int k = 0; k < rows.size(); k++) { rowY[k] = y; y += rowH[k] + (k < rows.size() - 1 ? RGV : 0); }
+            // place, in the written order, the times following it
+            double t = 0;
+            for (int k = 0; k < rows.size(); k++) {
+                int x = cx - rowW[k] / 2;
+                for (Info s : rows.get(k)) {
+                    Box b = s.box;
+                    b.x = x; b.y = rowY[k] + (rowH[k] - b.h) / 2; b.t = t;
+                    x += b.w + G;
+                    stepT.put(s.fid, t);
+                    add(b);
+                    if (s.diamond) {
+                        diamondBadges(s, b, t);
+                        Frag fx = new Frag();
+                        exit(fx, b, s.brs.get(0), t, s.fid, 0);
+                        commit(fx);
+                    } else {
+                        int sy = b.y + b.h / 2;
+                        for (int g = 0; g < s.badges.size(); g++) {
+                            used.add(s.badges.get(g));
+                            Box bg = badge(s.badges.get(g), id);
+                            bg.id = "badge:" + s.fid + ":" + g;
+                            bg.x = b.x + b.w + BG + g * (BS + BG);
+                            bg.y = sy - BS / 2;
+                            bg.t = t;
+                            add(bg);
+                        }
+                    }
+                    t += STEP_S;
+                }
+            }
+            // the edges, now that every step has a place
+            Box first = st.get(0).box;
+            sc.lines.add(ln("flow:" + root.id + ">" + first.id, root.id, first.id, 0, false, cx, root.y + root.h, first.x + first.w / 2, first.y));
+            for (String[] e : edges) {
+                Info a = st.get(pos.get(e[0])), b = st.get(pos.get(e[1]));
+                double te = stepT.get(e[1]);
+                int ra = rowOf.get(e[0]), rb = rowOf.get(e[1]);
+                int sx = a.box.x + a.box.w / 2, sy = a.box.y + a.box.h, tx = b.box.x + b.box.w / 2, ty = b.box.y;
+                String lid = a.box.id + ">" + b.box.id;
+                if (rb - ra == 1) sc.lines.add(ln("flow:" + lid, a.box.id, b.box.id, te, false, sx, sy, tx, ty));
+                else {
+                    int lane = lanes.indexOf(e);
+                    int lx = M + lane * LANE, c1 = rowY[ra] + rowH[ra] + RGV / 4, c2 = rowY[rb] - RGV / 2;
+                    sc.lines.add(ln("flow:" + lid, a.box.id, b.box.id, te, false, sx, sy, sx, c1, lx, c1, lx, c2, tx, c2, tx, ty));
+                }
+                if (a.diamond) sc.texts.add(txt("no-label:" + lid, id.s("orchestrator", "branch_labels", "no"), sx + 10, sy + 17, DET, "start", te));
+            }
+            finish(y + RG, t, cx - SW / 2, SW);
+        }
+
+        static boolean reaches(String from, String target, Map<String, List<String>> deps) {
+            Deque<String> q = new ArrayDeque<>(List.of(from));
+            Set<String> seen = new HashSet<>();
+            while (!q.isEmpty()) {
+                String c = q.poll();
+                if (!seen.add(c)) continue;
+                for (String d : deps.getOrDefault(c, List.of())) { if (d.equals(target)) return true; q.add(d); }
+            }
+            return false;
+        }
+
+        // ── the end of every layout: the printed handoff, the skip paths, the legend, the size ──
+
+        void finish(int y, double t, int hx, int hw) {
+            Box lastBox = null;
+            Map<String, Object> hf = map(facts.get("handoff:" + r.skill));
+            if (hf != null) {
+                Box after = byId.get((String) hf.get("after"));
+                Box hb = nodeBox("handoff:" + r.skill, facts, id);
+                hb.dashed = true;
+                hb.head = List.of(hb.label);
+                hb.detail = new ArrayList<>();
+                for (Object c : list(hf.get("commands"))) hb.detail.add((String) c);
+                hb.monoN = hb.detail.size();
+                hb.detail.add(id.s("orchestrator", "handoff_caption"));
+                hb.x = hx; hb.w = hw; hb.y = y;
+                hb.h = fit(hb, LBL, NH, GRID);
+                hb.t = t;
+                add(hb);
+                if (after != null)
+                    sc.lines.add(ln("flow:" + after.id + ">" + hb.id, after.id, hb.id, t, true, after.x + after.w / 2, after.y + after.h, hb.x + hb.w / 2, hb.y));
+                y += hb.h + RG;
+                lastBox = hb;
+            }
+            // each skip: from its terminal, down the right gutter, above its target, to the target's centre
+            int k = 0;
+            int gutterBase = maxRight;
+            for (Skip s : skips) {
+                Box tg = byId.get(s.target);
+                Box tm = s.term;
+                int gx = gutterBase + (k + 1) * LANE, cy = tm.y + tm.h / 2, ay = tg.y - (r.derive.equals("depends_on") ? RGV : RG) / 2, tx = tg.x + tg.w / 2;
+                sc.lines.add(ln("skip:" + tm.id, tm.id, tg.id, stepT.get(s.target), false, tm.x + tm.w, cy, gx, cy, gx, ay, tx, ay, tx, tg.y));
+                k++;
+            }
+            // the legend: the badges in use, then the diamond, then the dashed box
+            int lx = M, ly = y + 8;
+            boolean any = false;
+            for (String w : gateWords(id)) {
+                if (!used.contains(w)) continue;
                 Box g = badge(w, id);
-                g.id = "badge:" + n + ":" + k;
-                g.x = sb.x + sb.w + BG + k * (BS + BG);
-                g.y = sy - BS / 2;
-                g.step = st;
+                g.id = "legend:" + w;
+                g.x = lx; g.y = ly;
                 sc.nodes.add(g);
+                sc.texts.add(txt("legend-text:" + w, w, lx + BS + 6, ly + BS / 2 + DET / 2 - 1, DET, "start", -1));
+                lx += BS + 6 + (int) Math.round(w.length() * DET * cw) + 24;
+                any = true;
             }
-            y += rowH + RG;
-            last = sb;
+            if (anyDiamond) {
+                Box g = new Box();
+                g.id = "legend:decision"; g.shape = "diamond";
+                g.fill = id.s("orchestrator", "decision", "fill"); g.stroke = id.s("orchestrator", "decision", "stroke"); g.sw = id.d("stroke");
+                g.x = lx; g.y = ly; g.w = BS; g.h = BS;
+                sc.nodes.add(g);
+                String w = id.s("orchestrator", "legend", "decision");
+                sc.texts.add(txt("legend-text:decision", w, lx + BS + 6, ly + BS / 2 + DET / 2 - 1, DET, "start", -1));
+                lx += BS + 6 + (int) Math.round(w.length() * DET * cw) + 24;
+                any = true;
+            }
+            if (anyCond) {
+                Box g = new Box();
+                g.id = "legend:conditional"; g.shape = "swatch"; g.dashed = true; g.dash = "6 4";
+                g.fill = id.fill("procedure"); g.stroke = id.stroke("procedure"); g.sw = id.d("stroke"); g.rx = BS / 4;
+                g.x = lx; g.y = ly; g.w = BS; g.h = BS;
+                sc.nodes.add(g);
+                String w = id.s("orchestrator", "legend", "conditional");
+                sc.texts.add(txt("legend-text:conditional", w, lx + BS + 6, ly + BS / 2 + DET / 2 - 1, DET, "start", -1));
+                lx += BS + 6 + (int) Math.round(w.length() * DET * cw) + 24;
+                any = true;
+            }
+            int right = Math.max(maxRight + skips.size() * LANE, lx);
+            right = Math.max(right, (int) Math.ceil(sc.caption.length() * id.i("font", "caption") * cw));
+            sc.w = right + M;
+            sc.h = ly + (any ? BS : -8) + M;
         }
-        // the printed handoff, dashed, last
-        Map<String, Object> hf = map(facts.get("handoff:" + r.skill));
-        if (hf != null && last != null) {
-            Box hb = nodeBox("handoff:" + r.skill, facts, id);
-            hb.dashed = true;
-            hb.head = List.of(hb.label);
-            hb.detail = new ArrayList<>();
-            for (Object c : list(hf.get("commands"))) hb.detail.add((String) c);
-            hb.monoN = hb.detail.size();
-            hb.detail.add(id.s("orchestrator", "handoff_caption"));
-            hb.x = M; hb.w = SW; hb.y = y;
-            hb.h = fit(hb, LBL, NH, GRID);
-            sc.nodes.add(hb);
-            byId.put(hb.id, hb);
-            Box after = byId.get((String) hf.get("after"));
-            if (after != null)
-                sc.lines.add(ln(after.id, hb.id, after.x + after.w / 2, after.y + after.h, hb.x + hb.w / 2, hb.y, true, stepOf.getOrDefault(hb.id, -1)));
-            y += hb.h + RG;
-        }
-        // a legend of the gate words this view uses, in the vocabulary's order
-        int lx = M;
-        int ly = y + 8;
-        for (String w : gateWords(id)) {
-            if (!used.contains(w)) continue;
-            Box g = badge(w, id);
-            g.id = "legend:" + w;
-            g.x = lx; g.y = ly;
-            sc.nodes.add(g);
-            sc.texts.add(txt("legend-text:" + w, w, lx + BS + 6, ly + BS / 2 + DET / 2 - 1, DET, "start", -1));
-            lx += BS + 6 + (int) Math.round(w.length() * DET * cw) + 24;
-        }
-        sc.w = Math.max(x0 + maxChain * CW + (maxChain - 1) * AL, lx) + M;
-        sc.h = ly + (used.isEmpty() ? -8 : BS) + M;
+    }
+
+    /** The segments of a chain the orchestrator delegates to: its own leading `self` is the root, not a chip. */
+    static List<Object> delegates(List<Object> chain, String skill) {
+        return !chain.isEmpty() && chain.get(0).equals("skill:" + skill) ? chain.subList(1, chain.size()) : chain;
     }
 
     /** The gate words the identity styles, in the order of view.schema.json's vocabulary. */
@@ -1391,31 +2056,21 @@ public class Diagrams {
     static Box chip(String fid, String orchestrator, Map<String, Object> facts, Identity id, double cw) {
         Map<String, Object> f = map(facts.get(fid));
         String kind = String.valueOf(f.get("kind"));
-        boolean self = fid.equals("skill:" + orchestrator);
         Box c = new Box();
         c.label = (String) f.get("label");
         c.head.add(c.label);
         if ("skill".equals(kind) && "fork".equals(f.get("context"))) c.head.add(id.s("orchestrator", "fork_marker"));
         c.mono = "cmd".equals(kind);
-        c.tool = self ? id.s("orchestrator", "tools", "self")
-                : id.s("orchestrator", "tools", "skill".equals(kind) && "fork".equals(f.get("context")) ? "skill_fork" : kind);
+        c.tool = id.s("orchestrator", "tools", "skill".equals(kind) && "fork".equals(f.get("context")) ? "skill_fork" : kind);
         c.role = id.role(fid, f);
         c.fill = id.fill(c.role);
         c.stroke = id.stroke(c.role);
-        if (self) c.detail.add(id.s("orchestrator", "self_detail"));
-        if (f.get("write_allow") instanceof List<?>)
-            c.detail.addAll(wrap(territory(list(f.get("write_allow"))), (int) ((id.i("orchestrator", "chip", "w") - 16) / (id.i("font", "detail") * cw))));
+        if (f.get("write_allow") instanceof List<?>) {
+            List<Object> wa = list(f.get("write_allow"));
+            String text = wa.size() == 1 && "**".equals(wa.get(0)) ? id.s("orchestrator", "territory_any") : territory(wa);
+            c.detail.addAll(wrap(text, (int) ((id.i("orchestrator", "chip", "w") - 16) / (id.i("font", "detail") * cw))));
+        }
         return c;
-    }
-
-
-    static int depthOf(String n, List<String> in, Map<String, Object> facts, Map<String, Integer> memo) {
-        if (memo.containsKey(n)) return memo.get(n);
-        int d = 0;
-        List<Object> l = list(map(facts.get(n)).get("depends_on"));
-        if (l != null) for (Object o : l) if (in.contains(o)) d = Math.max(d, depthOf((String) o, in, facts, memo) + 1);
-        memo.put(n, d);
-        return d;
     }
 
     static Box nodeBox(String fid, Map<String, Object> facts, Identity id) {
@@ -1453,15 +2108,21 @@ public class Diagrams {
 
     // ── SVG (static and animated: one builder, the animation is a class and a delay) ──
 
+    static double sw(Box b, Identity id) { return b.sw > 0 ? b.sw : b.emph ? id.d("emphasis_stroke") : id.d("stroke"); }
+
+    static String pts(List<int[]> p) {
+        return p.stream().map(q -> q[0] + "," + q[1]).collect(Collectors.joining(" "));
+    }
+
     static String svg(Scene sc, Identity id, boolean animated) {
         int LBL = id.i("font", "label"), DET = id.i("font", "detail");
-        double rev = id.d("animation", "reveal_seconds"), stepS = id.d("animation", "step_seconds");
+        double rev = id.d("animation", "reveal_seconds");
         StringBuilder o = new StringBuilder();
         o.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         o.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(sc.w).append("\" height=\"").append(sc.h)
                 .append("\" viewBox=\"0 0 ").append(sc.w).append(' ').append(sc.h).append("\" font-family=\"").append(esc(id.s("font", "family"))).append("\">\n");
         o.append("<title>").append(esc(sc.title)).append("</title>\n");
-        o.append("<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto-start-reverse\">")
+        o.append("<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\">")
                 .append("<path d=\"M0,0 L10,5 L0,10 z\" fill=\"").append(id.s("line")).append("\"/></marker></defs>\n");
         if (animated) {
             o.append("<style>\n@keyframes show{from{opacity:0}to{opacity:1}}\n.r{animation:show ")
@@ -1474,10 +2135,10 @@ public class Diagrams {
             o.append("<text x=\"").append(id.i("margin")).append("\" y=\"").append(id.i("margin") + id.i("font", "title") + 24).append("\" font-size=\"")
                     .append(id.i("font", "caption")).append("\" fill=\"").append(id.s("muted")).append("\">").append(esc(sc.caption)).append("</text>\n");
         for (Box b : sc.lanes) {
-            o.append(open("g", b.id, b.step, animated, stepS));
+            o.append(open("g", b.id, b.t, animated));
             o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
                     .append("\" rx=\"").append(id.i("radius")).append("\" fill=\"").append(b.fill).append("\" fill-opacity=\"0.45\" stroke=\"").append(b.stroke)
-                    .append("\" stroke-width=\"").append(num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))).append("\"/>\n");
+                    .append("\" stroke-width=\"").append(num(sw(b, id))).append("\"/>\n");
             int pad = id.i("lane", "pad");
             o.append("<text x=\"").append(b.x + pad).append("\" y=\"").append(b.y + pad + LBL).append("\" font-size=\"").append(LBL)
                     .append("\" font-weight=\"700\" fill=\"").append(id.s("ink")).append("\">").append(esc(b.label)).append("</text>\n");
@@ -1487,20 +2148,34 @@ public class Diagrams {
             o.append("</g>\n");
         }
         for (Ln l : sc.lines) {
-            o.append(open("g", "edge-" + l.id, l.step, animated, stepS));
-            o.append("<line x1=\"").append(l.x1).append("\" y1=\"").append(l.y1).append("\" x2=\"").append(l.x2).append("\" y2=\"").append(l.y2)
-                    .append("\" stroke=\"").append(id.s("line")).append("\" stroke-width=\"").append(num(id.d("stroke"))).append('"')
-                    .append(l.dashed ? " stroke-dasharray=\"6 4\"" : "").append(" marker-end=\"url(#arrow)\"/>\n");
+            o.append(open("g", "edge-" + l.id, l.t, animated));
+            String tail = "\" stroke=\"" + id.s("line") + "\" stroke-width=\"" + num(id.d("stroke")) + "\"" + (l.dashed ? " stroke-dasharray=\"6 4\"" : "") + " marker-end=\"url(#arrow)\"/>\n";
+            if (l.pts.size() == 2) {
+                int[] a = l.pts.get(0), z = l.pts.get(1);
+                o.append("<line x1=\"").append(a[0]).append("\" y1=\"").append(a[1]).append("\" x2=\"").append(z[0]).append("\" y2=\"").append(z[1]).append(tail);
+            } else o.append("<polyline fill=\"none\" points=\"").append(pts(l.pts)).append(tail);
             o.append("</g>\n");
         }
         String mono = get(id.m, "orchestrator", "mono") instanceof String t ? t : "";
         for (Box b : sc.nodes) {
-            o.append(open("g", b.id, b.step, animated, stepS));
-            if (!b.head.isEmpty()) {
+            o.append(open("g", b.id, b.t, animated));
+            if (b.shape.equals("frame") || b.shape.equals("swatch")) {
                 o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
-                        .append("\" rx=\"").append(b.rx >= 0 ? b.rx : id.i("radius")).append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke)
-                        .append("\" stroke-width=\"").append(num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))).append('"')
-                        .append(b.dashed ? " stroke-dasharray=\"6 4\"" : "").append("/>\n");
+                        .append("\" rx=\"").append(b.rx).append("\" fill=\"").append(b.shape.equals("frame") ? "none" : b.fill).append("\" stroke=\"").append(b.stroke).append("\" stroke-width=\"").append(num(sw(b, id)))
+                        .append("\" stroke-dasharray=\"").append(b.dash).append("\"/>\n</g>\n");
+                continue;
+            }
+            if (!b.head.isEmpty() || b.shape.equals("diamond")) {
+                if (b.shape.equals("diamond"))
+                    o.append("<polygon points=\"").append(b.x + b.w / 2).append(',').append(b.y).append(' ').append(b.x + b.w).append(',').append(b.y + b.h / 2).append(' ')
+                            .append(b.x + b.w / 2).append(',').append(b.y + b.h).append(' ').append(b.x).append(',').append(b.y + b.h / 2)
+                            .append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke).append("\" stroke-width=\"").append(num(sw(b, id)))
+                            .append("\" stroke-linejoin=\"round\"/>\n");
+                else
+                    o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
+                            .append("\" rx=\"").append(b.rx >= 0 ? b.rx : id.i("radius")).append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke)
+                            .append("\" stroke-width=\"").append(num(sw(b, id))).append('"')
+                            .append(b.dashed ? " stroke-dasharray=\"6 4\"" : "").append("/>\n");
                 int mx = b.x + b.w / 2;
                 for (int k = 0; k < b.head.size(); k++)
                     o.append("<text x=\"").append(mx).append("\" y=\"").append(headBase(b, k, LBL)).append("\" font-size=\"").append(LBL)
@@ -1515,7 +2190,7 @@ public class Diagrams {
             }
             o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
                     .append("\" rx=\"").append(id.i("radius")).append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke)
-                    .append("\" stroke-width=\"").append(num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))).append('"')
+                    .append("\" stroke-width=\"").append(num(sw(b, id))).append('"')
                     .append(b.dashed ? " stroke-dasharray=\"6 4\"" : "").append("/>\n");
             boolean two = !b.detail.isEmpty();
             int cx = b.x + b.w / 2;
@@ -1527,7 +2202,7 @@ public class Diagrams {
             o.append("</g>\n");
         }
         for (Txt t : sc.texts) {
-            o.append(open("g", t.id, t.step, animated, stepS));
+            o.append(open("g", t.id, t.t, animated));
             o.append("<text x=\"").append(t.x).append("\" y=\"").append(t.y).append("\" font-size=\"").append(t.size).append("\" text-anchor=\"").append(t.anchor)
                     .append("\" fill=\"").append(id.s("muted")).append("\">").append(esc(t.text)).append("</text>\n");
             o.append("</g>\n");
@@ -1535,9 +2210,10 @@ public class Diagrams {
         return o.append("</svg>\n").toString();
     }
 
-    static String open(String tag, String id, int step, boolean animated, double stepS) {
+    /** A group tag; with `animated` and a reveal time `t` (seconds, negative = always visible) it carries the animation class and delay. */
+    static String open(String tag, String id, double t, boolean animated) {
         String a = "<" + tag + " id=\"" + sid(id) + "\"";
-        if (animated && step >= 0) a += " class=\"r\" style=\"animation-delay:" + String.format(Locale.ROOT, "%.2f", step * stepS) + "s\"";
+        if (animated && t >= 0) a += " class=\"r\" style=\"animation-delay:" + String.format(Locale.ROOT, "%.2f", t) + "s\"";
         return a + ">\n";
     }
 
@@ -1558,10 +2234,25 @@ public class Diagrams {
             String v = "<b>" + esc(b.label) + "</b>" + b.detail.stream().map(d -> "<br/><font style=\"font-size:" + id.i("font", "detail") + "px\" color=\"" + id.s("muted") + "\">" + esc(d) + "</font>").collect(Collectors.joining());
             o.append(cell("g_" + sid(b.id), v, "rounded=1;arcSize=4;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=" + id.i("lane", "pad") + ";spacingTop=" + (id.i("lane", "pad") - 4)
                     + ";fontSize=" + id.i("font", "label") + ";fontFamily=" + font + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";opacity=70;strokeColor=" + b.stroke
-                    + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke")) + ";", b.x, b.y, b.w, b.h));
+                    + ";strokeWidth=" + num(sw(b, id)) + ";", b.x, b.y, b.w, b.h));
         }
         String monoFace = get(id.m, "orchestrator", "mono") instanceof String t ? t.split(",")[0].trim().replace("'", "") : "";
+        Set<String> cells = new HashSet<>();
+        for (Box b : sc.lanes) cells.add("g_" + sid(b.id));
+        for (Box b : sc.nodes) cells.add("n_" + sid(b.id));
         for (Box b : sc.nodes) {
+            if (b.shape.equals("frame") || b.shape.equals("swatch")) {
+                o.append(cell("n_" + sid(b.id), "", "rounded=1;arcSize=" + (int) Math.round(100.0 * b.rx / Math.min(b.w, b.h)) + ";html=1;fillColor=" + (b.shape.equals("frame") ? "none" : b.fill) + ";strokeColor=" + b.stroke
+                        + ";strokeWidth=" + num(sw(b, id)) + ";dashed=1;dashPattern=" + b.dash + ";", b.x, b.y, b.w, b.h));
+                continue;
+            }
+            if (b.shape.equals("diamond")) {
+                String hv = b.head.stream().map(h -> esc(h)).collect(Collectors.joining("<br/>"));
+                String dv = b.detail.stream().map(d -> "<br/><font style=\"font-size:" + id.i("font", "detail") + "px\" color=\"" + id.s("muted") + "\">" + esc(d) + "</font>").collect(Collectors.joining());
+                o.append(cell("n_" + sid(b.id), hv.isEmpty() ? "" : "<b>" + hv + "</b>" + dv, "rhombus;html=1;whiteSpace=wrap;fontSize=" + id.i("font", "label") + ";fontFamily=" + font
+                        + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(sw(b, id)) + ";", b.x, b.y, b.w, b.h));
+                continue;
+            }
             if (!b.head.isEmpty()) {
                 String face = "<font face=\"" + monoFace + "\">";
                 String hv = b.head.stream().map(h -> b.mono ? face + esc(h) + "</font>" : esc(h)).collect(Collectors.joining("<br/>"));
@@ -1570,26 +2261,44 @@ public class Diagrams {
                     dv.append("<br/><font style=\"font-size:").append(id.i("font", "detail")).append("px\" color=\"").append(id.s("muted")).append('"')
                             .append(k < b.monoN ? " face=\"" + monoFace + "\"" : "").append('>').append(esc(b.detail.get(k))).append("</font>");
                 o.append(cell("n_" + sid(b.id), "<b>" + hv + "</b>" + dv, "rounded=1;arcSize=" + (int) Math.round(100.0 * (b.rx >= 0 ? b.rx : id.i("radius")) / b.h) + ";html=1;whiteSpace=wrap;fontSize=" + id.i("font", "label") + ";fontFamily=" + font
-                        + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))
+                        + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(sw(b, id))
                         + (b.dashed ? ";dashed=1;dashPattern=6 4" : "") + ";", b.x, b.y, b.w, b.h));
                 continue;
             }
             String v = "<b>" + esc(b.label) + "</b>" + b.detail.stream().map(d -> "<br/><font style=\"font-size:" + id.i("font", "detail") + "px\" color=\"" + id.s("muted") + "\">" + esc(d) + "</font>").collect(Collectors.joining());
             o.append(cell("n_" + sid(b.id), v, "rounded=1;arcSize=" + (int) Math.round(100.0 * id.i("radius") / b.h) + ";html=1;whiteSpace=wrap;fontSize=" + id.i("font", "label") + ";fontFamily=" + font
-                    + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))
+                    + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(sw(b, id))
                     + (b.dashed ? ";dashed=1;dashPattern=6 4" : "") + ";", b.x, b.y, b.w, b.h));
         }
         for (Ln l : sc.lines) {
-            String src = (sc.lanes.stream().anyMatch(b -> b.id.equals(l.from)) ? "g_" : "n_") + sid(l.from);
-            String dst = (sc.lanes.stream().anyMatch(b -> b.id.equals(l.to)) ? "g_" : "n_") + sid(l.to);
+            String src = l.from == null ? null : (sc.lanes.stream().anyMatch(b -> b.id.equals(l.from)) ? "g_" : "n_") + sid(l.from);
+            String dst = l.to == null ? null : (sc.lanes.stream().anyMatch(b -> b.id.equals(l.to)) ? "g_" : "n_") + sid(l.to);
+            boolean tied = src != null && dst != null && cells.contains(src) && cells.contains(dst);
             o.append("        <mxCell id=\"e_").append(sid(l.id)).append("\" value=\"\" style=\"edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=").append(id.s("line"))
-                    .append(";strokeWidth=").append(num(id.d("stroke"))).append(l.dashed ? ";dashed=1" : "").append(";\" edge=\"1\" parent=\"1\" source=\"").append(src).append("\" target=\"").append(dst)
-                    .append("\">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n");
+                    .append(";strokeWidth=").append(num(id.d("stroke"))).append(l.dashed ? ";dashed=1" : "").append(";\" edge=\"1\" parent=\"1\"");
+            if (tied) o.append(" source=\"").append(src).append("\" target=\"").append(dst).append('"');
+            if (tied && l.pts.size() == 2) o.append(">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n");
+            else {
+                o.append(">\n          <mxGeometry relative=\"1\" as=\"geometry\">\n");
+                if (!tied) {
+                    int[] a = l.pts.get(0), z = l.pts.get(l.pts.size() - 1);
+                    o.append("            <mxPoint x=\"").append(a[0]).append("\" y=\"").append(a[1]).append("\" as=\"sourcePoint\"/>\n");
+                    o.append("            <mxPoint x=\"").append(z[0]).append("\" y=\"").append(z[1]).append("\" as=\"targetPoint\"/>\n");
+                }
+                if (l.pts.size() > 2) {
+                    o.append("            <Array as=\"points\">\n");
+                    for (int k = 1; k < l.pts.size() - 1; k++)
+                        o.append("              <mxPoint x=\"").append(l.pts.get(k)[0]).append("\" y=\"").append(l.pts.get(k)[1]).append("\"/>\n");
+                    o.append("            </Array>\n");
+                }
+                o.append("          </mxGeometry>\n        </mxCell>\n");
+            }
         }
         for (Txt t : sc.texts) {
             int tw = (int) Math.round(t.text.length() * t.size * id.d("font", "char_width"));
-            o.append(cell("t_" + sid(t.id), t.text, "text;html=1;align=" + (t.anchor.equals("start") ? "left" : "center") + ";verticalAlign=middle;whiteSpace=nowrap;fontSize=" + t.size + ";fontFamily=" + font
-                    + ";fontColor=" + id.s("muted") + ";", t.anchor.equals("start") ? t.x : t.x - tw / 2, t.y - t.size, tw, t.size + 4));
+            int tx = t.anchor.equals("start") ? t.x : t.anchor.equals("end") ? t.x - tw : t.x - tw / 2;
+            o.append(cell("t_" + sid(t.id), t.text, "text;html=1;align=" + (t.anchor.equals("start") ? "left" : t.anchor.equals("end") ? "right" : "center") + ";verticalAlign=middle;whiteSpace=nowrap;fontSize=" + t.size + ";fontFamily=" + font
+                    + ";fontColor=" + id.s("muted") + ";", tx, t.y - t.size, tw, t.size + 4));
         }
         o.append("      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n");
         return o.toString();
@@ -1616,6 +2325,7 @@ public class Diagrams {
         }
         for (Box b : sc.nodes) {
             els.add(rect(b.id, b, id, b.emph, b.dashed));
+            if (b.shape.equals("frame") || b.shape.equals("swatch")) continue;
             if (!b.head.isEmpty()) {
                 int top = b.y + (b.h - blockH(b, LBL)) / 2;
                 Map<String, Object> hd = text(b.id + "#label", b.x, top, String.join("\n", b.head), LBL, id.s("ink"), "center", cw);
@@ -1630,6 +2340,7 @@ public class Diagrams {
                 }
                 continue;
             }
+            if (b.shape.equals("diamond")) continue;
             boolean two = !b.detail.isEmpty();
             Map<String, Object> t = text(b.id + "#label", b.x, b.y + (two ? 10 : (b.h - (int) Math.round(LBL * 1.25)) / 2), b.label, LBL, id.s("ink"), "center", cw);
             center(t, b.x + b.w / 2);
@@ -1641,8 +2352,14 @@ public class Diagrams {
             }
         }
         for (Ln l : sc.lines) {
-            Map<String, Object> e = base("edge-" + l.id, "arrow", l.x1, l.y1, Math.abs(l.x2 - l.x1), Math.abs(l.y2 - l.y1), id.s("line"), "transparent", id.d("stroke"), l.dashed);
-            e.put("points", List.of(List.of(0L, 0L), List.of((long) (l.x2 - l.x1), (long) (l.y2 - l.y1))));
+            int x0 = l.pts.get(0)[0], y0 = l.pts.get(0)[1], minX = x0, maxX = x0, minY = y0, maxY = y0;
+            List<Object> rel = new ArrayList<>();
+            for (int[] p : l.pts) {
+                minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+                rel.add(List.of((long) (p[0] - x0), (long) (p[1] - y0)));
+            }
+            Map<String, Object> e = base("edge-" + l.id, "arrow", x0, y0, maxX - minX, maxY - minY, id.s("line"), "transparent", id.d("stroke"), l.dashed);
+            e.put("points", rel);
             e.put("lastCommittedPoint", null);
             e.put("startBinding", null);
             e.put("endBinding", null);
@@ -1652,8 +2369,9 @@ public class Diagrams {
             els.add(e);
         }
         for (Txt t : sc.texts) {
-            Map<String, Object> e = text(t.id, t.x, t.y - t.size, t.text, t.size, id.s("muted"), t.anchor.equals("start") ? "left" : "center", cw);
-            if (!t.anchor.equals("start")) center(e, t.x);
+            Map<String, Object> e = text(t.id, t.x, t.y - t.size, t.text, t.size, id.s("muted"), t.anchor.equals("start") ? "left" : t.anchor.equals("end") ? "right" : "center", cw);
+            if (t.anchor.equals("middle")) center(e, t.x);
+            else if (t.anchor.equals("end")) e.put("x", (long) (t.x - (Long) e.get("width")));
             els.add(e);
         }
         Map<String, Object> app = new TreeMap<>();
@@ -1697,10 +2415,14 @@ public class Diagrams {
     }
 
     static Map<String, Object> rect(String eid, Box b, Identity id, boolean emph, boolean dashed) {
-        Map<String, Object> e = base(eid, "rectangle", b.x, b.y, b.w, b.h, b.stroke, b.fill, emph ? id.d("emphasis_stroke") : id.d("stroke"), dashed);
-        Map<String, Object> r = new TreeMap<>();
-        r.put("type", 3L);
-        e.put("roundness", r);
+        boolean dia = b.shape.equals("diamond"), frame = b.shape.equals("frame");
+        Map<String, Object> e = base(eid, dia ? "diamond" : "rectangle", b.x, b.y, b.w, b.h, b.stroke, frame ? "transparent" : b.fill, sw(b, id), dashed);
+        if (frame) e.put("strokeStyle", "dotted");
+        if (!dia) {
+            Map<String, Object> r = new TreeMap<>();
+            r.put("type", 3L);
+            e.put("roundness", r);
+        }
         return e;
     }
 

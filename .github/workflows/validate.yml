@@ -306,7 +306,10 @@ jobs:
       # The diagrams under docs/diagrams/ are renders of view.json and of the data it cites.
       # `Diagrams.java check` is Java only; the test proves each way a committed one drifts —
       # a renamed cited skill, a skill added to a class, a hand-edited byte, a node with no
-      # evidence, a step that breaks the step contract (0192), a dist/ hash — goes red by name (0190).
+      # evidence, a step that breaks the step contract (0192, 0193: a branch gate word with no
+      # Stops when line, a condition past its limit, Reads or To naming a wrong step, a field line
+      # outside its block, a note on a one-phase step, emphasis/steps/kind pipeline in an orchestrator
+      # view), a dist/ hash — goes red by name (0190).
       - name: committed diagrams match the data they cite
         run: |
           java .claude/skills/nerviz-diagrams/scripts/Diagrams.java check

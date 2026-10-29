@@ -6,10 +6,5 @@
   "groups": [
     { "id": "steps", "label": { "fact": "skill:platform-upgrade" }, "nodes": [{ "from": "step:platform-upgrade:*" }] }
   ],
-  "edges": [{ "derive": "sequence" }],
-  "steps": [
-    "step:platform-upgrade:1", "step:platform-upgrade:2", "step:platform-upgrade:3", "step:platform-upgrade:4", "step:platform-upgrade:4b", "step:platform-upgrade:5", "step:platform-upgrade:5b", "step:platform-upgrade:6", "step:platform-upgrade:7", "step:platform-upgrade:8", "step:platform-upgrade:8b", "step:platform-upgrade:9", "step:platform-upgrade:10",
-    "handoff:platform-upgrade"
-  ],
-  "emphasis": ["step:platform-upgrade:1", "step:platform-upgrade:2", "step:platform-upgrade:3", "step:platform-upgrade:4", "step:platform-upgrade:5", "step:platform-upgrade:5b", "step:platform-upgrade:9"]
+  "edges": [{ "derive": "sequence" }]
 }

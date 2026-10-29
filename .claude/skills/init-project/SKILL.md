@@ -35,6 +35,8 @@ $ARGUMENTS
 
 **Runs:** self · **Gate:** stop
 
+**Stops when:** pom.xml / build.gradle present? · **Says:** reports what it found; suggests /new-feature there
+
 The project is generated next to this repository, at `../<artifactId>`
 (`project-bootstrap` § Where the project is born). If `--name` is given, check it with
 `ls -a` on that directory whatever the listing above shows — it is cut at 30 lines, so a

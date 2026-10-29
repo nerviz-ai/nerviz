@@ -1,5 +1,7 @@
 # 0190 · Diagrams of this `.claude/` derived from its data, by a meta-repo skill
 
+> Superseded in part by `0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md` — the view name `docs/diagrams/pipeline/` is now `docs/diagrams/new-feature/`.
+
 - **Date:** 2026-10-28
 - **Scenario:** Criar uma skill própria de diagramas do Nerviz, manual e só para este
   repositório (fora do export): lê `.claude/schemas/extensions.json` (skill_classes,

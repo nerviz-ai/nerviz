@@ -43,9 +43,13 @@ only download, and nothing is ever `npx`-ed from an unpinned package.
    `references/view.schema.json` and `references/visual-identity.md`. Every entity node is
    `{"fact":"<id>"}` or a selector `{"from":"<path into facts>"}` (`step:*`, or
    `class:design.members`, `step:<skill>:*`). Free text lives only in `title`, `caption` and a
-   group's caption label. `steps` gives the animation order. Kinds: `layers`, `classes`,
-   `territory`, `pipeline`, `orchestrator`; the last two carry `skill`, name only that skill's
-   steps, and read the step contract of `references/step-contract.md`.
+   group's caption label. `steps` gives the animation order of `layers`, `classes` and `territory`
+   views; an `orchestrator` view takes neither `steps` nor `emphasis` — its animation follows the
+   written order of the skill's steps. Kinds: `layers`, `classes`, `territory`, `orchestrator`; the
+   last carries `skill`, names only that skill's steps (`{"from":"step:<skill>:*"}`), picks its
+   layout with `derive` (`sequence`: one column with the chips of who runs each step;
+   `depends_on`: rows with the dependencies) and reads the step contract of
+   `references/step-contract.md`.
 3. **Validate.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java validate`.
    Every fact id and selector must resolve against facts extracted now.
 4. **Render.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java render` writes
@@ -70,7 +74,10 @@ command (`playwright install chromium`); tell the person, never run it unasked.
 
 **A step of a skill a view names breaks the step contract.** A `### <id> · <Name>` heading with
 no `**Runs:**` line, a `**Runs:**` ref that is no fact, a gate word outside the vocabulary, a
-`**Hands over:**` command that is no skill or native command, the retired `### Step` grammar:
+`**Hands over:**` command that is no skill or native command, the retired `### Step` grammar, a
+branch gate word with no `**Stops when:**` line, a condition or line past its limit, `**Reads:**`,
+`**Depends on:**` or `**To:**` naming a step written after the reader, a field line outside the block
+under its heading, a `**Note:**` on a one-phase step:
 `facts`, `validate` and `check` exit 2 naming file and line, so CI goes red by name. Fix the
 skill's step, or `references/step-contract.md` and the extractor in the same change.
 

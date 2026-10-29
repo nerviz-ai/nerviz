@@ -1,344 +1,323 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="752" height="2112" viewBox="0 0 752 2112" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="752" height="1824" viewBox="0 0 752 1824" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
 <title>Nerviz — /platform-upgrade</title>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
-<rect width="752" height="2112" fill="#FBFAF7"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
+<rect width="752" height="1824" fill="#FBFAF7"/>
 <text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — /platform-upgrade</text>
 <text x="32" y="78" font-size="12" fill="#52606D">Nothing is committed; the tests recorded before the bump judge the result.</text>
-<g id="edge-step_platform-upgrade_1_chip_step_platform-upgrade_1_0_0">
-<line x1="352" y1="168" x2="472" y2="168" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_root_platform-upgrade_step_platform-upgrade_1">
+<line x1="192" y1="176" x2="192" y2="200" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_2_chip_step_platform-upgrade_2_0_0">
-<line x1="352" y1="336" x2="472" y2="336" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_platform-upgrade_1_0">
+<line x1="352" y1="256" x2="416" y2="256" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_3_chip_step_platform-upgrade_3_0_0">
-<line x1="352" y1="504" x2="472" y2="504" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_1_step_platform-upgrade_2">
+<line x1="192" y1="312" x2="192" y2="336" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_4_chip_step_platform-upgrade_4_0_0">
-<line x1="352" y1="672" x2="472" y2="672" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_platform-upgrade_2_0">
+<line x1="352" y1="384" x2="416" y2="384" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_4b_chip_step_platform-upgrade_4b_0_0">
-<line x1="352" y1="796" x2="472" y2="796" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_2_step_platform-upgrade_3">
+<line x1="192" y1="432" x2="192" y2="456" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_5_chip_step_platform-upgrade_5_0_0">
-<line x1="352" y1="876" x2="472" y2="876" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_3_step_platform-upgrade_4">
+<line x1="192" y1="512" x2="192" y2="536" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_5b_chip_step_platform-upgrade_5b_0_0">
-<line x1="352" y1="1000" x2="472" y2="1000" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_platform-upgrade_4_0">
+<line x1="352" y1="592" x2="416" y2="592" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_6_chip_step_platform-upgrade_6_0_0">
-<line x1="352" y1="1168" x2="472" y2="1168" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_platform-upgrade_4b_0_0_0">
+<line x1="352" y1="700" x2="472" y2="700" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_7_chip_step_platform-upgrade_7_0_0">
-<line x1="352" y1="1292" x2="472" y2="1292" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_4_step_platform-upgrade_4b">
+<line x1="192" y1="648" x2="192" y2="672" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_8_chip_step_platform-upgrade_8_0_0">
-<line x1="352" y1="1416" x2="472" y2="1416" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_platform-upgrade_5_0_0_0">
+<line x1="352" y1="780" x2="472" y2="780" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_8b_chip_step_platform-upgrade_8b_0_0">
-<line x1="352" y1="1584" x2="472" y2="1584" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_4b_step_platform-upgrade_5">
+<line x1="192" y1="728" x2="192" y2="752" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_9_chip_step_platform-upgrade_9_0_0">
-<line x1="352" y1="1724" x2="472" y2="1700" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_5_verdict_step_platform-upgrade_5_0">
+<line x1="192" y1="808" x2="192" y2="832" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_9_chip_step_platform-upgrade_9_1_0">
-<line x1="352" y1="1724" x2="472" y2="1748" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_platform-upgrade_5_0">
+<line x1="352" y1="880" x2="416" y2="880" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_10_chip_step_platform-upgrade_10_0_0">
-<line x1="352" y1="1864" x2="472" y2="1864" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_verdict_step_platform-upgrade_5_0_step_platform-upgrade_5b">
+<line x1="192" y1="928" x2="192" y2="952" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_10_handoff_platform-upgrade">
-<line x1="192" y1="1892" x2="192" y2="1960" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_5b_step_platform-upgrade_6">
+<line x1="192" y1="1016" x2="192" y2="1040" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_1_step_platform-upgrade_2">
-<line x1="192" y1="196" x2="192" y2="308" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_platform-upgrade_7_0_0_0">
+<line x1="352" y1="1148" x2="472" y2="1148" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_2_step_platform-upgrade_3">
-<line x1="192" y1="364" x2="192" y2="476" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_6_step_platform-upgrade_7">
+<line x1="192" y1="1096" x2="192" y2="1120" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_3_step_platform-upgrade_4">
-<line x1="192" y1="532" x2="192" y2="644" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_7_step_platform-upgrade_8">
+<line x1="192" y1="1176" x2="192" y2="1200" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_4_step_platform-upgrade_4b">
-<line x1="192" y1="700" x2="192" y2="768" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_8_step_platform-upgrade_8b">
+<line x1="192" y1="1256" x2="192" y2="1280" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_4b_step_platform-upgrade_5">
-<line x1="192" y1="824" x2="192" y2="848" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_platform-upgrade_9_0_0_0">
+<line x1="352" y1="1404" x2="472" y2="1380" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_5_step_platform-upgrade_5b">
-<line x1="192" y1="904" x2="192" y2="968" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<g id="edge-entry_chip_step_platform-upgrade_9_0_1_0">
+<line x1="352" y1="1404" x2="472" y2="1428" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_5b_step_platform-upgrade_6">
-<line x1="192" y1="1032" x2="192" y2="1140" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_8b_step_platform-upgrade_9">
+<line x1="192" y1="1336" x2="192" y2="1376" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_6_step_platform-upgrade_7">
-<line x1="192" y1="1196" x2="192" y2="1264" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_9_verdict_step_platform-upgrade_9_0">
+<line x1="192" y1="1432" x2="192" y2="1472" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_7_step_platform-upgrade_8">
-<line x1="192" y1="1320" x2="192" y2="1388" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-yes_step_platform-upgrade_9_0">
+<line x1="352" y1="1520" x2="416" y2="1520" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_8_step_platform-upgrade_8b">
-<line x1="192" y1="1444" x2="192" y2="1556" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_verdict_step_platform-upgrade_9_0_step_platform-upgrade_10">
+<line x1="192" y1="1568" x2="192" y2="1592" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_8b_step_platform-upgrade_9">
-<line x1="192" y1="1612" x2="192" y2="1696" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="edge-flow_step_platform-upgrade_10_handoff_platform-upgrade">
+<line x1="192" y1="1648" x2="192" y2="1672" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
-<g id="edge-step_platform-upgrade_9_step_platform-upgrade_10">
-<line x1="192" y1="1752" x2="192" y2="1836" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<g id="root_platform-upgrade">
+<rect x="32" y="96" width="320" height="80" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="120" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
+<text x="192" y="135" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
+<text x="192" y="148" font-size="11" text-anchor="middle" fill="#52606D">.mvn/wrapper/ gradle/wrapper/ src/ pom.xml</text>
+<text x="192" y="161" font-size="11" text-anchor="middle" fill="#52606D">build.gradle build.gradle.kts +4 more</text>
 </g>
 <g id="step_platform-upgrade_1">
-<rect x="32" y="140" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="165" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Refuse to write over uncommitted</text>
-<text x="192" y="181" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">work</text>
+<polygon points="192,200 352,256 192,312 32,256" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="245" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">1 · Refuse to write over</text>
+<text x="192" y="261" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">uncommitted work</text>
+<text x="192" y="276" font-size="11" text-anchor="middle" fill="#52606D">dirty tree, no git or no wrapper?</text>
 </g>
-<g id="chip_step_platform-upgrade_1_0_0">
-<rect x="472" y="96" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="120" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="135" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="148" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="161" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="174" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="187" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="200" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="213" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="226" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<g id="term_step_platform-upgrade_1_0">
+<rect x="416" y="224" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="540" y="247" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="540" y="262" font-size="11" text-anchor="middle" fill="#52606D">says what to run</text>
+<text x="540" y="275" font-size="11" text-anchor="middle" fill="#52606D">never offers to commit</text>
 </g>
-<g id="badge_step_platform-upgrade_1_0">
-<rect x="356" y="156" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="368" y="173" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<g id="tbadge_step_platform-upgrade_1_0">
+<rect x="668" y="244" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="680" y="261" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_platform-upgrade_2">
-<rect x="32" y="308" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="341" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Fetch the source</text>
+<polygon points="192,336 352,384 192,432 32,384" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="381" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Fetch the source</text>
+<text x="192" y="396" font-size="11" text-anchor="middle" fill="#52606D">ref predates this skill?</text>
 </g>
-<g id="chip_step_platform-upgrade_2_0_0">
-<rect x="472" y="264" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="288" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="303" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="316" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="329" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="342" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="355" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="368" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="381" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="394" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<g id="term_step_platform-upgrade_2_0">
+<rect x="416" y="352" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="540" y="381" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="540" y="396" font-size="11" text-anchor="middle" fill="#52606D">says --ref must name a newer one</text>
 </g>
-<g id="badge_step_platform-upgrade_2_0">
-<rect x="356" y="324" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="368" y="341" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<g id="tbadge_step_platform-upgrade_2_0">
+<rect x="668" y="372" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="680" y="389" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_platform-upgrade_3">
-<rect x="32" y="476" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="509" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Resolve the target version</text>
-</g>
-<g id="chip_step_platform-upgrade_3_0_0">
-<rect x="472" y="432" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="456" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="471" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="484" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="497" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="510" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="523" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="536" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="549" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="562" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="456" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="489" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Resolve the target version</text>
 </g>
 <g id="badge_step_platform-upgrade_3_0">
-<rect x="356" y="492" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="368" y="509" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="356" y="472" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="489" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="step_platform-upgrade_4">
-<rect x="32" y="644" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="677" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Resolve the engine's version</text>
+<polygon points="192,536 352,592 192,648 32,592" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="581" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Resolve the engine's</text>
+<text x="192" y="597" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">version</text>
+<text x="192" y="612" font-size="11" text-anchor="middle" fill="#52606D">no engine version resolves?</text>
 </g>
-<g id="chip_step_platform-upgrade_4_0_0">
-<rect x="472" y="600" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="624" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="639" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="652" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="665" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="678" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="691" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="704" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="717" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="730" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<g id="term_step_platform-upgrade_4_0">
+<rect x="416" y="560" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="540" y="583" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="540" y="598" font-size="11" text-anchor="middle" fill="#52606D">the engine's public line moved</text>
+<text x="540" y="611" font-size="11" text-anchor="middle" fill="#52606D">engine is the block to edit</text>
 </g>
-<g id="badge_step_platform-upgrade_4_0">
-<rect x="356" y="660" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="368" y="677" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<g id="tbadge_step_platform-upgrade_4_0">
+<rect x="668" y="580" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="680" y="597" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_platform-upgrade_4b">
-<rect x="32" y="768" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="793" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4b · The baseline — what was red</text>
-<text x="192" y="809" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">before the upgrade</text>
+<rect x="32" y="672" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="697" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4b · The baseline — what was red</text>
+<text x="192" y="713" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">before the upgrade</text>
 </g>
-<g id="chip_step_platform-upgrade_4b_0_0">
-<rect x="472" y="776" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="596" y="801" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook test-diff</text>
+<g id="chip_step_platform-upgrade_4b_0_0_0">
+<rect x="472" y="680" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="596" y="705" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook test-diff</text>
 </g>
 <g id="step_platform-upgrade_5">
-<rect x="32" y="848" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="873" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Pass 1 — the bump, the</text>
-<text x="192" y="889" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">coordinates, the types</text>
+<rect x="32" y="752" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="777" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Pass 1 — the bump, the</text>
+<text x="192" y="793" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">coordinates, the types</text>
 </g>
-<g id="chip_step_platform-upgrade_5_0_0">
-<rect x="472" y="856" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="596" y="881" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook upgrade-recipe</text>
+<g id="chip_step_platform-upgrade_5_0_0_0">
+<rect x="472" y="760" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="596" y="785" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook upgrade-recipe</text>
 </g>
-<g id="badge_step_platform-upgrade_5_0">
-<rect x="356" y="864" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="368" y="881" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<g id="verdict_step_platform-upgrade_5_0">
+<polygon points="192,832 352,880 192,928 32,880" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="885" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">recipe refused (exit 2)?</text>
+</g>
+<g id="term_step_platform-upgrade_5_0">
+<rect x="416" y="848" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="540" y="871" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="540" y="886" font-size="11" text-anchor="middle" fill="#52606D">shows the exit as it is</text>
+<text x="540" y="899" font-size="11" text-anchor="middle" fill="#52606D">or: nothing to upgrade</text>
+</g>
+<g id="tbadge_step_platform-upgrade_5_0">
+<rect x="668" y="868" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="680" y="885" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_platform-upgrade_5b">
-<rect x="32" y="968" width="320" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3" stroke-dasharray="6 4"/>
-<text x="192" y="989" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5b · The Gradle wrapper — before the</text>
-<text x="192" y="1005" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">new plugin configures anything</text>
-<text x="192" y="1020" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
-</g>
-<g id="chip_step_platform-upgrade_5b_0_0">
-<rect x="472" y="928" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="952" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="967" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="980" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="993" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="1006" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="1019" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="1032" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="1045" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="1058" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="952" width="320" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="192" y="973" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5b · The Gradle wrapper — before the</text>
+<text x="192" y="989" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">new plugin configures anything</text>
+<text x="192" y="1004" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
 <g id="badge_step_platform-upgrade_5b_0">
-<rect x="356" y="988" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="368" y="1005" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="356" y="972" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="989" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="step_platform-upgrade_6">
-<rect x="32" y="1140" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1173" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">6 · The new classpath</text>
-</g>
-<g id="chip_step_platform-upgrade_6_0_0">
-<rect x="472" y="1096" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="1120" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="1135" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="1148" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="1161" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="1174" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="1187" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="1200" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="1213" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="1226" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="1040" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">6 · The new classpath</text>
 </g>
 <g id="step_platform-upgrade_7">
-<rect x="32" y="1264" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1297" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">7 · Pass 2 — the property renames</text>
+<rect x="32" y="1120" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1153" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">7 · Pass 2 — the property renames</text>
 </g>
-<g id="chip_step_platform-upgrade_7_0_0">
-<rect x="472" y="1272" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="596" y="1297" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook upgrade-recipe</text>
+<g id="chip_step_platform-upgrade_7_0_0_0">
+<rect x="472" y="1128" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="596" y="1153" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook upgrade-recipe</text>
 </g>
 <g id="step_platform-upgrade_8">
-<rect x="32" y="1388" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1421" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">8 · The guided residue</text>
-</g>
-<g id="chip_step_platform-upgrade_8_0_0">
-<rect x="472" y="1344" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="1368" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="1383" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="1396" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="1409" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="1422" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="1435" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="1448" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="1461" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="1474" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="1200" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1233" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">8 · The guided residue</text>
 </g>
 <g id="step_platform-upgrade_8b">
-<rect x="32" y="1556" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1589" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">8b · The context loads</text>
-</g>
-<g id="chip_step_platform-upgrade_8b_0_0">
-<rect x="472" y="1512" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="1536" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="1551" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="1564" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="1577" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="1590" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="1603" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="1616" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="1629" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="1642" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="1280" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1313" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">8b · The context loads</text>
 </g>
 <g id="step_platform-upgrade_9">
-<rect x="32" y="1696" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="3"/>
-<text x="192" y="1729" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">9 · Verify</text>
+<rect x="32" y="1376" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1409" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">9 · Verify</text>
 </g>
-<g id="chip_step_platform-upgrade_9_0_0">
-<rect x="472" y="1680" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="596" y="1705" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook test-diff</text>
+<g id="chip_step_platform-upgrade_9_0_0_0">
+<rect x="472" y="1360" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="596" y="1385" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook test-diff</text>
 </g>
-<g id="chip_step_platform-upgrade_9_1_0">
-<rect x="472" y="1728" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="596" y="1753" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook doctor</text>
+<g id="chip_step_platform-upgrade_9_0_1_0">
+<rect x="472" y="1408" width="248" height="40" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="596" y="1433" font-size="13" font-weight="600" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#1F2933">ArchHook doctor</text>
 </g>
-<g id="badge_step_platform-upgrade_9_0">
-<rect x="356" y="1712" width="24" height="24" rx="12" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
-<text x="368" y="1729" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">!</text>
+<g id="verdict_step_platform-upgrade_9_0">
+<polygon points="192,1472 352,1520 192,1568 32,1520" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="192" y="1525" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">test-diff exits 2?</text>
+</g>
+<g id="term_step_platform-upgrade_9_0">
+<rect x="416" y="1488" width="248" height="64" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="540" y="1511" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Blocks the run</text>
+<text x="540" y="1526" font-size="11" text-anchor="middle" fill="#52606D">regressions are the report</text>
+<text x="540" y="1539" font-size="11" text-anchor="middle" fill="#52606D">nothing is committed</text>
+</g>
+<g id="tbadge_step_platform-upgrade_9_0">
+<rect x="668" y="1508" width="24" height="24" rx="12" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="680" y="1525" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">!</text>
 </g>
 <g id="step_platform-upgrade_10">
-<rect x="32" y="1836" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1869" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">10 · Hand the diff over</text>
-</g>
-<g id="chip_step_platform-upgrade_10_0_0">
-<rect x="472" y="1792" width="248" height="144" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="596" y="1816" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">platform-upgrade</text>
-<text x="596" y="1831" font-size="11" text-anchor="middle" fill="#52606D">this orchestrator, on its own thread</text>
-<text x="596" y="1844" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="1857" font-size="11" text-anchor="middle" fill="#52606D">build.gradle.kts settings.gradle</text>
-<text x="596" y="1870" font-size="11" text-anchor="middle" fill="#52606D">settings.gradle.kts **/build.gradle</text>
-<text x="596" y="1883" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
-<text x="596" y="1896" font-size="11" text-anchor="middle" fill="#52606D">gradle/libs.versions.toml</text>
-<text x="596" y="1909" font-size="11" text-anchor="middle" fill="#52606D">gradle.properties .mvn/wrapper/**</text>
-<text x="596" y="1922" font-size="11" text-anchor="middle" fill="#52606D">gradle/wrapper/** src/** **/src/**</text>
+<rect x="32" y="1592" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1625" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">10 · Hand the diff over</text>
 </g>
 <g id="handoff_platform-upgrade">
-<rect x="32" y="1960" width="320" height="64" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="192" y="1983" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
-<text x="192" y="1998" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/arch-adopt</text>
-<text x="192" y="2011" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
+<rect x="32" y="1672" width="320" height="64" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="192" y="1695" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
+<text x="192" y="1710" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/arch-adopt</text>
+<text x="192" y="1723" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
 </g>
 <g id="legend_ask">
-<rect x="32" y="2056" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="44" y="2073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="32" y="1768" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="44" y="1785" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="legend_stop">
-<rect x="106" y="2056" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="118" y="2073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<rect x="106" y="1768" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="118" y="1785" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="legend_gate">
-<rect x="186" y="2056" width="24" height="24" rx="12" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
-<text x="198" y="2073" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">!</text>
+<rect x="186" y="1768" width="24" height="24" rx="12" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="198" y="1785" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">!</text>
 </g>
-<g id="tool_chip_step_platform-upgrade_4b_0_0">
-<text x="428" y="790" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="legend_decision">
+<polygon points="278,1768 290,1780 278,1792 266,1780" fill="#F8DCE8" stroke="#B0366E" stroke-width="1.5" stroke-linejoin="round"/>
 </g>
-<g id="tool_chip_step_platform-upgrade_5_0_0">
-<text x="428" y="870" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="legend_conditional">
+<rect x="373" y="1768" width="24" height="24" rx="6" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 </g>
-<g id="tool_chip_step_platform-upgrade_7_0_0">
-<text x="428" y="1286" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="yes-label_step_platform-upgrade_1_0">
+<text x="384" y="248" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
 </g>
-<g id="tool_chip_step_platform-upgrade_9_0_0">
-<text x="428" y="1703" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="no-label_step_platform-upgrade_1_step_platform-upgrade_2">
+<text x="202" y="329" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
-<g id="tool_chip_step_platform-upgrade_9_1_0">
-<text x="428" y="1733" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<g id="yes-label_step_platform-upgrade_2_0">
+<text x="384" y="376" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
+</g>
+<g id="no-label_step_platform-upgrade_2_step_platform-upgrade_3">
+<text x="202" y="449" font-size="11" text-anchor="start" fill="#52606D">no</text>
+</g>
+<g id="yes-label_step_platform-upgrade_4_0">
+<text x="384" y="584" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
+</g>
+<g id="tool_chip_step_platform-upgrade_4b_0_0_0">
+<text x="428" y="694" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="no-label_step_platform-upgrade_4_step_platform-upgrade_4b">
+<text x="202" y="665" font-size="11" text-anchor="start" fill="#52606D">no</text>
+</g>
+<g id="tool_chip_step_platform-upgrade_5_0_0_0">
+<text x="428" y="774" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="yes-label_step_platform-upgrade_5_0">
+<text x="384" y="872" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
+</g>
+<g id="no-label_verdict_step_platform-upgrade_5_0_step_platform-upgrade_5b">
+<text x="202" y="945" font-size="11" text-anchor="start" fill="#52606D">no</text>
+</g>
+<g id="tool_chip_step_platform-upgrade_7_0_0_0">
+<text x="428" y="1142" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="tool_chip_step_platform-upgrade_9_0_0_0">
+<text x="428" y="1383" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="tool_chip_step_platform-upgrade_9_0_1_0">
+<text x="428" y="1413" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+</g>
+<g id="yes-label_step_platform-upgrade_9_0">
+<text x="384" y="1512" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
+</g>
+<g id="no-label_verdict_step_platform-upgrade_9_0_step_platform-upgrade_10">
+<text x="202" y="1585" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
 <g id="legend-text_ask">
-<text x="62" y="2072" font-size="11" text-anchor="start" fill="#52606D">ask</text>
+<text x="62" y="1784" font-size="11" text-anchor="start" fill="#52606D">ask</text>
 </g>
 <g id="legend-text_stop">
-<text x="136" y="2072" font-size="11" text-anchor="start" fill="#52606D">stop</text>
+<text x="136" y="1784" font-size="11" text-anchor="start" fill="#52606D">stop</text>
 </g>
 <g id="legend-text_gate">
-<text x="216" y="2072" font-size="11" text-anchor="start" fill="#52606D">gate</text>
+<text x="216" y="1784" font-size="11" text-anchor="start" fill="#52606D">gate</text>
+</g>
+<g id="legend-text_decision">
+<text x="296" y="1784" font-size="11" text-anchor="start" fill="#52606D">decision</text>
+</g>
+<g id="legend-text_conditional">
+<text x="403" y="1784" font-size="11" text-anchor="start" fill="#52606D">conditional</text>
 </g>
 </svg>

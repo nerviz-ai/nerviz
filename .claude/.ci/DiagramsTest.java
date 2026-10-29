@@ -9,8 +9,7 @@
 // carries neither `fact` nor `from`, (e) a step heading goes back to the retired `### Step`
 // grammar, (f) a dist/ .source-sha256 is not its SVG's hash, and the step contract (0192): a step
 // with no **Runs:** line, a Runs ref that is no fact, a gate word outside the vocabulary, a
-// **Hands over:** command that is no skill, a view drawing another skill's step, a pipeline or
-// orchestrator view with no `skill`, an ArchHook mode that vanished from the dispatch.
+// **Hands over:** command that is no skill, a view drawing another skill's step, an orchestrator view with no `skill`, an ArchHook mode that vanished from the dispatch.
 //
 // Why this test exists: the diagrams are derived, and "derived" only holds while a stale or
 // hand-edited one fails CI. Decision 0190. Needs only `java`; no git, no network, no Node.
@@ -140,6 +139,45 @@ public class DiagramsTest {
         write(hk, hgood.replace("case \"test-diff\" ->", "case \"test-dif\" ->"));
         expect("(l) a cmd mode renamed in the dispatch", t, "check", 2, "runs 'cmd:test-diff', which is no fact");
         write(hk, hgood);
+        // (m) a branch gate word with no **Stops when:** line
+        write(ip, pgood.replaceFirst("\\n\\*\\*Stops when:\\*\\*[^\\n]*\\n", "\n"));
+        expect("(m) a branch gate word with no Stops when line", t, "check", 2, "has 1 branch gate word(s) (stop) and 0 **Stops when:** line(s)");
+        write(ip, pgood);
+
+        // (n) a condition past the limit the schema states
+        write(np, ugood.replace("ref predates this skill?", "does the ref predate this very skill now?"));
+        expect("(n) a condition over 34 characters", t, "check", 2, "is a question of at most 34 characters");
+        write(np, ugood);
+
+        // (o) Reads names a step written after the reader
+        write(nf, ngood.replace("**Reads:** 3, 3b ·", "**Reads:** 3, 3d ·"));
+        expect("(o) Reads names a later step", t, "check", 2, "reads '3d', which is written after it");
+        write(nf, ngood);
+
+        // (p) Skips when names no later step
+        write(nf, ngood.replace("**To:** approval", "**To:** nowhere"));
+        expect("(p) To names no later step", t, "check", 2, "skips to 'nowhere', which is no later step");
+        write(nf, ngood);
+
+        // (q) (r) (s) an orchestrator view with emphasis, with steps, of a kind that no longer exists
+        write(iv, ivgood.replace("\"edges\"", "\"emphasis\": [\"step:init-project:1\"],\n  \"edges\""));
+        expect("(q) an orchestrator view with emphasis", t, "validate", 2, "takes no emphasis");
+        write(iv, ivgood.replace("\"edges\"", "\"steps\": [\"step:init-project:1\"],\n  \"edges\""));
+        expect("(r) an orchestrator view with steps", t, "validate", 2, "follows the written order");
+        write(iv, ivgood.replace("\"orchestrator\"", "\"pipeline\""));
+        expect("(s) the retired kind pipeline", t, "validate", 2, "'pipeline' is not one of");
+        write(iv, ivgood);
+
+        // (t) a field line below the body's first paragraph
+        write(ni, igood.replaceFirst("(\\*\\*Stops when:\\*\\* a group fails\\?[^\\n]*\\n\\n)((?:\\*\\*Then runs:[^\\n]*\\n\\n))", "$2\nA paragraph of the body.\n\n$1"));
+        expect("(t) a Stops when line outside the field block", t, "check", 2, "must be in the field block");
+        write(ni, igood);
+
+        // (u) a note on a step with one phase
+        write(ip, pgood.replace("### 4 · Relay the report\n\n**Runs:** self\n", "### 4 · Relay the report\n\n**Runs:** self · **Note:** relay\n"));
+        expect("(u) a note on a one-phase step", t, "check", 2, "a note names a phase");
+        write(ip, pgood);
+
         expect("everything restored is green once more", t, "check", 0, "equal a fresh render");
 
         deleteTree(t);
