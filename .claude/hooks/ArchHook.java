@@ -520,6 +520,11 @@ public class ArchHook {
                         String.join("; ", lim));
             }
 
+            // Never `report(…, false, …)`: the snapshot is the person's own status line, optional and
+            // absent on an API key — a ❌ here would read as a broken project (0194), like Platform.
+            String[] pu = auditSch == null ? null : planUsageDoctor(auditSch);
+            if (pu != null) err("  Plan usage ........ " + pu[0] + pu[1]);
+
             // A synthetic touched file that matches a real rule's `paths` — the exact
             // shape that once threw `ArrayIndexOutOfBoundsException` inside rule
             // inference and froze every report from that point on, silently (the
@@ -6341,6 +6346,9 @@ public class ArchHook {
         kv.add("head");        kv.add(gitShort());
         kv.add("perm_before"); kv.add(String.join(" ", localPermissions()));
         append(log, ev("run_start", kv.toArray(new String[0])));
+        // Root runs only: a nested node overlaps its parent's window (0194).
+        String before = planUsageEvent("before");
+        if (before != null) append(log, before);
     }
 
     /**
@@ -6711,6 +6719,10 @@ public class ArchHook {
      */
     static void auditRender(Path dir, Path log, Object in, boolean closing) throws Exception {
         if (!Files.isRegularFile(log)) return;
+        // The status line refreshes 300 ms after the last response, after `Stop`: the reading
+        // taken at `flush` is provisional, the one at `close` is the run's final (0194).
+        String reading = planUsageEvent(closing ? "after" : "provisional");
+        if (reading != null) append(log, reading);
         List<Map<String, Object>> events = new ArrayList<>();
         for (String line : Files.readAllLines(log, StandardCharsets.UTF_8)) {
             Map<String, Object> e = asMap(Json.parse(line));
@@ -7029,6 +7041,8 @@ public class ArchHook {
         md.append("Cache hit ").append(pct(all.cacheRead(), Math.max(1, ctx))).append(" ")
           .append(bar(hit)).append("\n\n");
 
+        List<Object[]> planUsage = planUsageReadings(events);
+        md.append(planUsageSection(planUsage));
         md.append(planWindowsSection(dir, all.billable(), total));
 
         md.append("## 🔎 Where the run spent\n\n");
@@ -7234,8 +7248,7 @@ public class ArchHook {
 
         if (closing) {
             String failures = String.valueOf(fails.values().stream().mapToInt(Integer::intValue).sum());
-            Files.writeString(dir.resolve("history.jsonl"),
-                    ev("run", "skill", skill, "kind", kind, "origin", origin, "start", startIso,
+            String row = ev("run", "skill", skill, "kind", kind, "origin", origin, "start", startIso,
                        // The model is what the report's header showed and the ledger did
                        // not: a token weighs differently on Sonnet and on Opus, and the
                        // comparison had to be rebuilt by hand from the reports
@@ -7261,7 +7274,10 @@ public class ArchHook {
                        "peak_context_self", rootSpend.peak == 0 ? null : String.valueOf(rootSpend.peak),
                        "files", String.valueOf(touched.size()),
                        "failures", failures,
-                       "report", relative(report)) + "\n",
+                       "report", relative(report));
+            // The deltas are numbers (null = not a valid delta), which `ev` does not write.
+            Files.writeString(dir.resolve("history.jsonl"),
+                    row.substring(0, row.length() - 1) + planUsageField(planUsage) + "}\n",
                     StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
             // One line per nested piece of this project, in a ledger of its own: the run
@@ -7635,7 +7651,7 @@ public class ArchHook {
     // billable tokens like every other number of the trail; every other number is
     // `audit.plans` / `audit.windows` — nothing here is a constant (0133, unit by 0134).
 
-    /** `audit.windows` as {key, label, hours, budget field}, in file order. */
+    /** `audit.windows` as {key, label, hours, budget field, rate_limits_key}, in file order. */
     static List<String[]> planWindows(Map<String, Object> sch) {
         List<String[]> out = new ArrayList<>();
         Map<String, Object> w = asMap(get(sch, "audit", "windows"));
@@ -7644,7 +7660,8 @@ public class ArchHook {
             Map<String, Object> m = asMap(e.getValue());
             if (m == null || lnum(m.get("hours")) <= 0) continue;
             out.add(new String[] {e.getKey(), orDash(asStr(m.get("label"))),
-                    String.valueOf(lnum(m.get("hours"))), asStr(m.get("budget"))});
+                    String.valueOf(lnum(m.get("hours"))), asStr(m.get("budget")),
+                    asStr(m.get("rate_limits_key"))});
         }
         return out;
     }
@@ -7673,6 +7690,242 @@ public class ArchHook {
         long byBudget = (long) Math.floor(budget * m.doubleValue() / tokens);
         long byTime = durationMs <= 0 ? Long.MAX_VALUE : Long.parseLong(window[2]) * 3_600_000L / durationMs;
         return byTime < byBudget ? n(byTime) + " · time" : n(byBudget) + " · budget";
+    }
+
+    // ── plan usage: the account's real windows, measured around a run (0194) ────────
+    // Every name, path and number is `audit.plan_usage` / `audit.windows` — nothing here is a
+    // constant (invariant 10). Only numbers leave the snapshot, never any of its text.
+
+    /** `audit.plan_usage` with `audit.windows`, or null when either is not declared. */
+    static Map<String, Object> planUsageConfig(Map<String, Object> sch) {
+        Map<String, Object> pu = sch == null ? null : asMap(get(sch, "audit", "plan_usage"));
+        return pu == null || asStr(pu.get("snapshot")) == null || planWindows(sch).isEmpty() ? null : pu;
+    }
+
+    /** The snapshot's file: `~` is `user.home`, read at call time so a test can point it elsewhere. */
+    static Path planUsageFile(String snapshot) {
+        return Paths.get(snapshot.startsWith("~") ? System.getProperty("user.home") + snapshot.substring(1) : snapshot);
+    }
+
+    /** Decimals of `audit.plan_usage.resolution_pp` — the precision a delta is worth printing at. */
+    static int planUsageDigits(Map<String, Object> pu) {
+        String r = fmtNum(Objects.requireNonNullElse(dbl(pu.get("resolution_pp")), 0.1));
+        int dot = r.indexOf('.');
+        return dot < 0 ? 0 : r.length() - dot - 1;
+    }
+
+    /**
+     * Reads the account's plan-usage windows from the snapshot a personal status line writes, at a
+     * run's open (`prompt`/`call`), `flush` and `close`. It lives in the `audit` mode because the
+     * run's boundaries are already its events and only the status line's stdin carries the numbers
+     * (0194; no hook input does). The rejected alternative — a `statusLine` in the project's
+     * settings — would override the status line of everyone who clones the project (0133 fact 5).
+     *
+     * <p>Returns the `plan_usage` event for {@code at} (`before`, `provisional`, `after`), or null
+     * when the data declares no snapshot. A reading that cannot be used carries its cell in
+     * `reason` instead of numbers: no snapshot, one older than `max_age_minutes`, unreadable, or —
+     * with no usable snapshot and a `not_available_env` variable set — an account with no plan
+     * window to read.
+     */
+    static String planUsageEvent(String at) {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> pu = planUsageConfig(sch);
+        if (pu == null) return null;
+        String snapshot = asStr(pu.get("snapshot"));
+        Path file = planUsageFile(snapshot);
+        List<String> kv = new ArrayList<>(List.of("at", at));
+        String reason = null;
+        Map<String, Object> snap = null;
+        if (!Files.isRegularFile(file)) {
+            reason = "not captured — no snapshot at " + snapshot;
+        } else {
+            try {
+                long mtime = Files.getLastModifiedTime(file).toMillis();
+                long age = Math.max(0, System.currentTimeMillis() - mtime) / 60_000;
+                kv.add("mtime"); kv.add(String.valueOf(mtime));
+                if (age > lnum(pu.get("max_age_minutes"))) {
+                    reason = "not captured — snapshot " + age + " min old (max " + lnum(pu.get("max_age_minutes")) + ")";
+                } else {
+                    snap = asMap(Json.parse(readOrNull(file)));
+                    if (snap == null) reason = "not captured — unreadable snapshot";
+                }
+            } catch (IOException e) {
+                reason = "not captured — unreadable snapshot";
+            }
+        }
+        if (reason != null) {
+            for (String var : asStrList(pu.get("not_available_env"))) {
+                String v = System.getenv(var);
+                if (v != null && !v.isEmpty()) { reason = "not available — " + var + " is set"; break; }
+            }
+        } else {
+            for (String[] w : planWindows(sch)) {
+                Double used = dbl(get(snap, asStr(pu.get("root")), w[4], asStr(pu.get("used"))));
+                Double resets = dbl(get(snap, asStr(pu.get("root")), w[4], asStr(pu.get("resets_at"))));
+                kv.add(w[0] + "_used");      kv.add(used == null ? null : String.valueOf(used));
+                kv.add(w[0] + "_resets_at"); kv.add(resets == null ? null : String.valueOf(resets.longValue()));
+            }
+        }
+        kv.add("reason"); kv.add(reason);
+        return ev("plan_usage", kv.toArray(new String[0]));
+    }
+
+    /**
+     * Per window, in `audit.windows` order: {id, label, before text, after text, Δ cell, Δ in pp or
+     * null}. The before is the run's first reading; the after is the last — `after` once the run
+     * closed, `provisional` before. The Δ is a number only when both readings are valid, in the same
+     * window, and final.
+     */
+    static List<Object[]> planUsageReadings(List<Map<String, Object>> events) {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> pu = planUsageConfig(sch);
+        List<Object[]> out = new ArrayList<>();
+        if (pu == null) return out;
+        Map<String, Object> before = null, last = null;
+        for (Map<String, Object> e : events) {
+            if (!"plan_usage".equals(asStr(e.get("e")))) continue;
+            String at = asStr(e.get("at"));
+            if ("before".equals(at) && before == null) before = e;
+            else if ("after".equals(at) || "provisional".equals(at)) last = e;
+        }
+        if (before == null && last == null) return out;
+        int digits = planUsageDigits(pu);
+        double resolution = Objects.requireNonNullElse(dbl(pu.get("resolution_pp")), 0.1);
+        for (String[] w : planWindows(sch)) {
+            String why = null;                                   // first reading that is no number
+            Double b = null, a = null;
+            long bReset = 0, aReset = 0;
+            for (int i = 0; i < 2; i++) {
+                Map<String, Object> e = i == 0 ? before : last;
+                Double used = null;
+                String reason = null;
+                if (e == null) {
+                    reason = "not captured — no reading";
+                } else if (asStr(e.get("reason")) != null) {
+                    reason = asStr(e.get("reason"));
+                } else if (e.get(w[0] + "_used") == null || e.get(w[0] + "_resets_at") == null) {
+                    reason = "not captured — window absent in the snapshot";
+                } else {
+                    used = Double.valueOf(asStr(e.get(w[0] + "_used")));
+                }
+                if (reason != null && why == null) why = reason;
+                if (i == 0) { b = used; bReset = e == null ? 0 : lnum(e.get(w[0] + "_resets_at")); }
+                else { a = used; aReset = e == null ? 0 : lnum(e.get(w[0] + "_resets_at")); }
+            }
+            String fmt = "%." + digits + "f %%";
+            String bText = b == null ? "—" : String.format(Locale.ROOT, fmt, b);
+            String aText = a == null ? "—" : String.format(Locale.ROOT, fmt, a);
+            String cell;
+            Double delta = null;
+            if (b == null || a == null) cell = why;
+            else if (bReset != aReset) cell = "not valid — the window reset mid-run";
+            else if (last != null && !"after".equals(asStr(last.get("at")))) cell = "provisional";
+            else {
+                double d = a - b;
+                // Compared after rounding: 23.4 − 23.3 is 0.0999… in binary, one step of the
+                // resolution, never "below" it.
+                delta = Math.round(d * Math.pow(10, digits)) / Math.pow(10, digits);
+                cell = Math.abs(delta) < resolution ? "< " + fmtNum(resolution) + " pp"
+                        : String.format(Locale.ROOT, "%+." + digits + "f pp", delta);
+            }
+            out.add(new Object[] {w[0], w[1], bText, aText, cell, delta});
+        }
+        return out;
+    }
+
+    /** The run report's `Plan usage` section — the account's windows before and after, measured. */
+    static String planUsageSection(List<Object[]> readings) {
+        if (readings.isEmpty()) return "";
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        StringBuilder md = new StringBuilder("## 📉 Plan usage (account, measured)\n\n| Window | Before | After | Δ |\n|---|---|---|---|\n");
+        for (Object[] r : readings) {
+            md.append("| ").append(r[1]).append(" | ").append(r[2]).append(" | ").append(r[3])
+              .append(" | ").append(r[4]).append(" |\n");
+        }
+        return md.append("\nThe delta is the account's: chat, other sessions and other machines in the same window count")
+          .append(" too — it is this run's only if nothing else ran. Source: `")
+          .append(asStr(get(sch, "audit", "plan_usage", "snapshot"))).append("` (0194).\n\n").toString();
+    }
+
+    /** The `plan_usage` field of a `history.jsonl` row: `{window id: Δ in pp or null}`, prefixed with a comma. */
+    static String planUsageField(List<Object[]> readings) {
+        if (readings.isEmpty()) return "";
+        StringBuilder b = new StringBuilder(",\"plan_usage\":{");
+        for (int i = 0; i < readings.size(); i++) {
+            Object[] r = readings.get(i);
+            b.append(i == 0 ? "" : ",").append('"').append(r[0]).append("\":")
+             .append(r[5] == null ? "null" : fmtNum((Double) r[5]));
+        }
+        return b.append('}').toString();
+    }
+
+    /**
+     * `audit summary`'s measured-usage table: per piece, the mean Δ of its root runs that have a
+     * valid one, per window, and how many runs hold at least one. `—` and `n = 0` otherwise.
+     */
+    static String planUsageSummary(List<Map<String, Object>> runs) {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> pu = planUsageConfig(sch);
+        if (pu == null) return "";
+        List<String[]> windows = planWindows(sch);
+        int digits = planUsageDigits(pu);
+        Map<String, double[]> by = new LinkedHashMap<>();       // per window: sum, count; last: runs with any
+        for (Map<String, Object> r : runs) {
+            double[] a = by.computeIfAbsent(keyLabel(pieceKey(r)), k -> new double[windows.size() * 2 + 1]);
+            boolean any = false;
+            for (int i = 0; i < windows.size(); i++) {
+                Double d = dbl(get(r, "plan_usage", windows.get(i)[0]));
+                if (d == null) continue;
+                a[i * 2] += d; a[i * 2 + 1]++; any = true;
+            }
+            if (any) a[a.length - 1]++;
+        }
+        StringBuilder o = new StringBuilder("\n### Plan usage (measured)\n\n| Piece |");
+        for (String[] w : windows) o.append(' ').append(w[1]).append(" mean Δ |");
+        o.append(" n |\n|---|").append("---|".repeat(windows.size() + 1)).append('\n');
+        for (Map.Entry<String, double[]> e : by.entrySet()) {
+            double[] a = e.getValue();
+            o.append("| ").append(e.getKey()).append(" |");
+            for (int i = 0; i < windows.size(); i++) {
+                o.append(' ').append(a[i * 2 + 1] == 0 ? "—"
+                        : String.format(Locale.ROOT, "%." + digits + "f pp", a[i * 2] / a[i * 2 + 1])).append(" |");
+            }
+            o.append(' ').append("n = ").append((long) a[a.length - 1]).append(" |\n");
+        }
+        return o.append("\nthe account's delta around each root run (`## 📉 Plan usage` of its report), from the snapshot at `")
+          .append(asStr(pu.get("snapshot"))).append("`; a run whose window reset, or with no snapshot, counts in no mean\n").toString();
+    }
+
+    /**
+     * `doctor`'s `Plan usage` line: {icon, text} — ⚪ no snapshot (optional), ⚠️ stale or
+     * unreadable, ✅ fresh — or null where the data declares no snapshot. Never gated.
+     */
+    static String[] planUsageDoctor(Map<String, Object> sch) {
+        Map<String, Object> pu = planUsageConfig(sch);
+        if (pu == null) return null;
+        String snapshot = asStr(pu.get("snapshot"));
+        Path file = planUsageFile(snapshot);
+        long max = lnum(pu.get("max_age_minutes"));
+        if (!Files.isRegularFile(file)) {
+            return new String[] {"⚪ ", "no snapshot at " + snapshot + " — no measured plan usage (optional): paste "
+                    + "`.claude/skills/audit-usage/templates/statusline-rate-limits.json.example` into ~/.claude/settings.json"};
+        }
+        try {
+            long age = Math.max(0, System.currentTimeMillis() - Files.getLastModifiedTime(file).toMillis()) / 60_000;
+            if (age > max) {
+                return new String[] {"⚠️  ", "snapshot " + snapshot + " is " + age + " min old (max " + max
+                        + ") — is the status line installed?"};
+            }
+            Object snap = Json.parse(readOrNull(file));
+            List<String> present = new ArrayList<>();
+            for (String[] w : planWindows(sch)) {
+                if (dbl(get(snap, asStr(pu.get("root")), w[4], asStr(pu.get("used")))) != null) present.add(w[4]);
+            }
+            return new String[] {"✅ ", "snapshot " + snapshot + ", " + age + " min old, windows: "
+                    + (present.isEmpty() ? "none" : String.join(", ", present))};
+        } catch (IOException e) {
+            return new String[] {"⚠️  ", "snapshot " + snapshot + " is unreadable"};
+        }
     }
 
     /** The run report's `Plan windows` section: one row per plan, one column per window. */
@@ -8138,6 +8391,7 @@ public class ArchHook {
             }
 
             o.append(planWindowsSummary(dir, runs, nested));
+            o.append(planUsageSummary(runs));
 
             o.append("\n### Health\n\n").append("failure rate: ").append(failed).append('/')
              .append(runs.size()).append(" (").append(pct(failed, runs.size())).append(")");

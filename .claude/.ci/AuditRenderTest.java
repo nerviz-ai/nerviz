@@ -14,7 +14,10 @@
 // ranks the tool calls whose results later requests re-read the most (decision 0132),
 // and that runs per plan window are the project's Pro budget × each plan's multiplier ÷ the run's
 // billable tokens, capped by the window's hours, in the report and in `summary` (decisions 0133,
-// 0134).
+// 0134), and that the account's measured plan usage is the delta of a personal status line's
+// snapshot read at the run's open and close — each window from its own key, nothing but numbers
+// copied, the reasons it is not captured, not valid or not available, and the mean over valid
+// deltas only (decision 0194).
 //
 // Why this test exists: every number here is parsed out of a transcript layout that is
 // observed, not documented, and a render that throws exits 0 through `main`'s catch — the
@@ -47,6 +50,14 @@ public class AuditRenderTest {
                 "---\nname: demo-agent\ndescription: fixture\n---\n\nbody\n");
         Path trail = repo.resolve(".claude/audit-usage");
         Files.createDirectories(trail);
+        home = repo.resolve("home");
+        Files.createDirectories(home);
+        // The variables that mark an account with no plan window are data (0194); read before the first spawn.
+        java.util.regex.Matcher vars = java.util.regex.Pattern.compile("\"not_available_env\"\\s*:\\s*\\[([^\\]]*)\\]")
+                .matcher(Files.readString(repo.resolve(".claude/schemas/extensions.json")));
+        if (!vars.find()) { System.out.println("❌ extensions.json lists no audit.plan_usage.not_available_env"); System.exit(1); }
+        vars = java.util.regex.Pattern.compile("\"([^\"]+)\"").matcher(vars.group(1));
+        while (vars.find()) notAvailableEnv.add(vars.group(1));
 
         // A row written before 0085: Portuguese status, formatted pt-BR cost — read for its
         // tokens and status, its cost never shown (0134).
@@ -248,12 +259,13 @@ public class AuditRenderTest {
 
         growth(hook, repo, trail, transcripts);
         plans(hook, repo, trail, transcripts);
+        planUsage(hook, repo, trail);
 
         if (failures > 0) {
             System.err.println("❌ " + failures + " check(s) failed — `audit` is NOT rendering where the run"
                     + " spent, is leaking an unredacted error into the versioned trail, or is recording"
                     + " a piece its class, its fixed override or the project's audited.json takes out of the trail,"
-                    + " or is closing a run on a prompt the harness injected, or is misplacing what grew the context, or is projecting a plan window wrong, or is showing a cost the trail no longer computes.");
+                    + " or is closing a run on a prompt the harness injected, or is misplacing what grew the context, or is projecting a plan window wrong, or is showing a cost the trail no longer computes, or is reading the account's plan usage wrong.");
             System.exit(1);
         }
         System.out.println("✅ audit: tool calls, top turns, peak context and redacted errors rendered;"
@@ -371,6 +383,152 @@ public class AuditRenderTest {
                 "summary: mean per piece, and the window's hours cap a run that budget alone would allow more of");
     }
 
+    // Where `~` resolves for every spawned jar: a throwaway home, never the host's.
+    static Path home;
+    // Extra environment of the next spawn only; the `not_available_env` variables are removed from every one.
+    static java.util.Map<String, String> env = new java.util.HashMap<>();
+    static java.util.List<String> notAvailableEnv = new java.util.ArrayList<>();
+
+    /**
+     * The account's plan usage (0194). Each case opens a run, replaces the snapshot, and closes —
+     * the jar reads it at both. Windows: five_hour reads `five_hour`, weekly reads `seven_day`.
+     */
+    static void planUsage(Path hook, Path repo, Path trail) throws Exception {
+        Path snap = home.resolve(".claude/rate-limits.json");
+        Files.createDirectories(snap.getParent());
+
+        // 1 — each window from its own key; the history row holds both deltas
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        String id = puOpen(hook, repo, "pu1");
+        Files.writeString(snap, snapshot(23.5, 1000, 41.2, 5000));
+        String md = puClose(hook, repo, id, "pu1");
+        must(md, "## 📉 Plan usage (account, measured)", "plan usage: the section is in the report");
+        must(md, "| 5 h | 20.0 % | 23.5 % | +3.5 pp |", "plan usage: 5 h delta from five_hour");
+        must(md, "| week | 40.0 % | 41.2 % | +1.2 pp |", "plan usage: week delta from seven_day");
+        must(md, "it is this run's only if nothing else ran", "plan usage: the report says the delta is the account's");
+        must(lastHistory(trail), "\"plan_usage\":{\"five_hour\":3.5,\"weekly\":1.2}", "plan usage: history row holds both deltas");
+        mustNot(md, "/canary/path", "plan usage: no text of the snapshot reaches the report");
+        mustNot(lastHistory(trail), "/canary/path", "plan usage: no text of the snapshot reaches history.jsonl");
+
+        // 2 — a reset of one window invalidates that window only
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu2");
+        Files.writeString(snap, snapshot(23.5, 2000, 41.2, 5000));
+        md = puClose(hook, repo, id, "pu2");
+        must(md, "| 5 h | 20.0 % | 23.5 % | not valid — the window reset mid-run |", "plan usage: a changed resets_at is not valid");
+        must(md, "| week | 40.0 % | 41.2 % | +1.2 pp |", "plan usage: the other window still has its delta");
+        must(lastHistory(trail), "\"five_hour\":null,\"weekly\":1.2", "plan usage: history holds null for the invalid window");
+
+        // 3 — no snapshot at all
+        Files.delete(snap);
+        id = puOpen(hook, repo, "pu3");
+        md = puClose(hook, repo, id, "pu3");
+        must(md, "not captured — no snapshot at ~/.claude/rate-limits.json", "plan usage: no file is not captured");
+        must(md, "| 5 h | — | — |", "plan usage: missing readings show a dash");
+
+        // 4 — a snapshot older than max_age_minutes
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu4");
+        Files.writeString(snap, snapshot(23.5, 1000, 41.2, 5000));
+        Files.setLastModifiedTime(snap, java.nio.file.attribute.FileTime.from(Instant.now().minusSeconds(20 * 60)));
+        md = puClose(hook, repo, id, "pu4");
+        must(md, "not captured — snapshot 20 min old (max 15)", "plan usage: a stale snapshot is not captured, with its age");
+        mustNot(md, "+3.5 pp", "plan usage: a stale snapshot gives no delta");
+
+        // 5 — no snapshot on an account that has no plan window
+        Files.delete(snap);
+        env.put("CLAUDE_CODE_USE_BEDROCK", "1");
+        id = puOpen(hook, repo, "pu5");
+        md = puClose(hook, repo, id, "pu5");
+        env.clear();
+        must(md, "not available — CLAUDE_CODE_USE_BEDROCK is set", "plan usage: a provider variable makes it not available");
+
+        // 6 — equal readings are below the resolution, never +0.0
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu6");
+        md = puClose(hook, repo, id, "pu6");
+        must(md, "| 5 h | 20.0 % | 20.0 % | < 0.1 pp |", "plan usage: equal readings read < 0.1 pp");
+        mustNot(md, "+0.0 pp", "plan usage: equality is not printed as +0.0 pp");
+
+        // 6b — one step of the resolution is a delta, though 23.4 − 23.3 is 0.0999… in binary
+        Files.writeString(snap, snapshot(23.3, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu6b");
+        Files.writeString(snap, snapshot(23.4, 1000, 40.0, 5000));
+        md = puClose(hook, repo, id, "pu6b");
+        must(md, "| 5 h | 23.3 % | 23.4 % | +0.1 pp |", "plan usage: one resolution step reads +0.1 pp, not < 0.1");
+
+        // 6c — doctor: a missing snapshot is optional (⚪), a fresh one lists its windows; never ❌
+        Files.delete(snap);
+        String doc = runMode(hook, repo, "doctor");
+        must(doc, "Plan usage ........ ⚪ no snapshot at ~/.claude/rate-limits.json", "plan usage: doctor marks a missing snapshot optional");
+        mustNot(doc, "Plan usage ........ ❌", "plan usage: doctor never fails on the personal snapshot");
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        must(runMode(hook, repo, "doctor"), "windows: five_hour, seven_day", "plan usage: doctor lists the windows of a fresh snapshot");
+
+        // 7 — provisional at flush, the delta from the reading taken at close
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu7");
+        Files.writeString(snap, snapshot(22.0, 1000, 40.5, 5000));
+        run(hook, repo, "flush", "{\"session_id\":\"" + id + "\"}");
+        md = puReport(trail, "pu7");
+        must(md, "| 5 h | 20.0 % | 22.0 % | provisional |", "plan usage: the reading at flush is provisional");
+        mustNot(md, "+2.0 pp", "plan usage: no delta before close");
+        Files.writeString(snap, snapshot(23.5, 1000, 41.2, 5000));
+        md = puClose(hook, repo, id, "pu7");
+        must(md, "| 5 h | 20.0 % | 23.5 % | +3.5 pp |", "plan usage: close reads the snapshot again, not flush's reading");
+
+        // 9 — the summary's mean counts valid deltas only
+        Files.createDirectories(repo.resolve(".claude/skills/pu-skill"));
+        Files.writeString(repo.resolve(".claude/skills/pu-skill/SKILL.md"),
+                "---\nname: pu-skill\ndescription: fixture\n---\n\nbody\n");
+        double[][] runs = {{2.0, 0}, {4.0, 0}, {9.0, 1}};         // the third resets both windows
+        for (int i = 0; i < runs.length; i++) {
+            Files.writeString(snap, snapshot(10.0, 1000, 10.0, 5000));
+            String sid = "pus" + i;
+            run(hook, repo, "prompt", "{\"session_id\":\"" + sid + "\",\"prompt\":\"/pu-skill r" + i + "\"}");
+            boolean reset = runs[i][1] != 0;
+            Files.writeString(snap, snapshot(10.0 + runs[i][0], reset ? 7000 : 1000, 10.0 + runs[i][0], reset ? 9000 : 5000));
+            run(hook, repo, "close", "{\"session_id\":\"" + sid + "\"}");
+        }
+        String summary = run(hook, repo, "summary", "");
+        must(summary, "### Plan usage (measured)", "plan usage: summary has the measured table");
+        must(summary, "| 📘 pu-skill | 3.0 pp | 3.0 pp | n = 2 |",
+                "plan usage: summary mean is over the valid deltas (2.0 and 4.0), the reset run counts in none");
+    }
+
+    static String snapshot(double five, long fiveReset, double week, long weekReset) {
+        return "{\"cwd\":\"/canary/path\",\"rate_limits\":{\"five_hour\":{\"used_percentage\":" + five
+                + ",\"resets_at\":" + fiveReset + "},\"seven_day\":{\"used_percentage\":" + week
+                + ",\"resets_at\":" + weekReset + "}}}";
+    }
+
+    static String puOpen(Path hook, Path repo, String marker) throws Exception {
+        run(hook, repo, "prompt", "{\"session_id\":\"" + marker + "\",\"prompt\":\"/demo-skill " + marker + "\"}");
+        return marker;
+    }
+
+    static String puClose(Path hook, Path repo, String id, String marker) throws Exception {
+        run(hook, repo, "close", "{\"session_id\":\"" + id + "\"}");
+        return puReport(repo.resolve(".claude/audit-usage"), marker);
+    }
+
+    /** The report whose title carries the marker (reports of one second share a file name, so read at once). */
+    static String puReport(Path trail, String marker) throws Exception {
+        try (var s = Files.list(trail)) {
+            for (Path f : s.filter(f -> f.getFileName().toString().endsWith("--demo-skill.md")).toList()) {
+                String c = Files.readString(f);
+                if (c.contains("/demo-skill " + marker)) return c;
+            }
+        }
+        check(false, "plan usage: a report for " + marker);
+        return "";
+    }
+
+    static String lastHistory(Path trail) throws Exception {
+        var l = Files.readAllLines(trail.resolve("history.jsonl")).stream().filter(x -> !x.isBlank()).toList();
+        return l.get(l.size() - 1);
+    }
+
     static String planRow(long tokens) {
         return "{\"e\":\"run\",\"skill\":\"plan-skill\",\"kind\":\"skill\",\"origin\":\"user\","
                 + "\"start\":\"2026-02-01T00:00:00Z\",\"duration_ms\":\"60000\",\"status\":\"✅ success\","
@@ -428,10 +586,14 @@ public class AuditRenderTest {
 
     static String exec(Path hook, Path repo, String stdin, String... argv) throws Exception {
         java.util.List<String> cmd = new java.util.ArrayList<>(java.util.List.of(
-                ProcessHandle.current().info().command().orElse("java"), "-jar", hook.toString()));
+                ProcessHandle.current().info().command().orElse("java"),
+                "-Duser.home=" + home, "-jar", hook.toString()));
         cmd.addAll(java.util.List.of(argv));
         ProcessBuilder pb = new ProcessBuilder(cmd).directory(repo.toFile());
         pb.environment().put("CLAUDE_PROJECT_DIR", repo.toString());
+        // The host's own account never leaks into a case (0194): its variables are removed, a case adds its own.
+        notAvailableEnv.forEach(pb.environment()::remove);
+        pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process p = pb.start();
         p.getOutputStream().write(stdin.getBytes(StandardCharsets.UTF_8));
