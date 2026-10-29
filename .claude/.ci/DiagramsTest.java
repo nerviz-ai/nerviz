@@ -6,8 +6,11 @@
 //
 // Green on the tree, then red BY NAME when: (a) a skill a view cites is renamed, (b) a skill
 // joins a class and nobody re-rendered, (c) one byte of a committed .svg changes, (d) a node
-// carries neither `fact` nor `from`, (e) a `### Step` heading of new-feature/SKILL.md loses its
-// `(depends on …)`, (f) a dist/ .source-sha256 is not its SVG's hash.
+// carries neither `fact` nor `from`, (e) a step heading goes back to the retired `### Step`
+// grammar, (f) a dist/ .source-sha256 is not its SVG's hash, and the step contract (0192): a step
+// with no **Runs:** line, a Runs ref that is no fact, a gate word outside the vocabulary, a
+// **Hands over:** command that is no skill, a view drawing another skill's step, a pipeline or
+// orchestrator view with no `skill`, an ArchHook mode that vanished from the dispatch.
 //
 // Why this test exists: the diagrams are derived, and "derived" only holds while a stale or
 // hand-edited one fails CI. Decision 0190. Needs only `java`; no git, no network, no Node.
@@ -39,7 +42,7 @@ public class DiagramsTest {
                   "title": "Classes",
                   "groups": [
                     { "id": "design", "label": { "fact": "class:design" }, "nodes": [{ "from": "class:design.members" }] },
-                    { "id": "cited", "label": { "caption": "Cited" }, "nodes": [{ "fact": "skill:git-publish" }] }
+                    { "id": "cited", "label": { "caption": "Cited" }, "nodes": [{ "fact": "skill:sonar-lessons" }] }
                   ]
                 }
                 """);
@@ -79,19 +82,65 @@ public class DiagramsTest {
         write(ext, egood);
 
         // (a) a skill the view cites is renamed (directory and every entry of extensions.json)
-        Files.move(t.resolve(".claude/skills/git-publish"), t.resolve(".claude/skills/git-publish-v2"));
-        write(ext, egood.replace("\"git-publish\"", "\"git-publish-v2\""));
-        expect("(a) a cited skill renamed", t, "validate", 2, "fact 'skill:git-publish' not found");
-        Files.move(t.resolve(".claude/skills/git-publish-v2"), t.resolve(".claude/skills/git-publish"));
+        Files.move(t.resolve(".claude/skills/sonar-lessons"), t.resolve(".claude/skills/sonar-lessons-v2"));
+        write(ext, egood.replace("\"sonar-lessons\"", "\"sonar-lessons-v2\""));
+        expect("(a) a cited skill renamed", t, "validate", 2, "fact 'skill:sonar-lessons' not found");
+        Files.move(t.resolve(".claude/skills/sonar-lessons-v2"), t.resolve(".claude/skills/sonar-lessons"));
         write(ext, egood);
         expect("everything restored is green again", t, "check", 0, "equal a fresh render");
 
-        // (e) a step heading loses its dependency clause
+        // (e) a step heading goes back to the retired grammar
         Path nf = t.resolve(".claude/skills/new-feature/SKILL.md");
         String ngood = Files.readString(nf);
-        write(nf, ngood.replace("### Step 2: Domain (depends on 1)", "### Step 2: Domain"));
-        expect("(e) a step heading without (depends on …)", t, "check", 2, "step heading does not match");
+        write(nf, ngood.replace("### 3b · Security", "### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)"));
+        expect("(e) a step heading in the retired grammar", t, "check", 2, "is the retired grammar");
         write(nf, ngood);
+
+        // (f) a step without its Runs line
+        Path ni = t.resolve(".claude/skills/new-feature-implement/SKILL.md");
+        String igood = Files.readString(ni);
+        write(ni, igood.replaceFirst("(### 2 · Implement\\n\\n)\\*\\*Runs:\\*\\*[^\\n]*\\n\\n", "$1"));
+        expect("(f) a step with no **Runs:** line", t, "check", 2, "step 2 has no **Runs:** line");
+        write(ni, igood);
+
+        // (g) a Runs ref that is no fact
+        Path ip = t.resolve(".claude/skills/init-project/SKILL.md");
+        String pgood = Files.readString(ip);
+        write(ip, pgood.replace("agent:project-initializer>", "agent:project-initialiser>"));
+        expect("(g) a Runs ref that resolves to no fact", t, "check", 2, "runs 'agent:project-initialiser', which is no fact");
+        write(ip, pgood);
+
+        // (h) a gate word outside the vocabulary
+        Path np = t.resolve(".claude/skills/platform-upgrade/SKILL.md");
+        String ugood = Files.readString(np);
+        write(np, ugood.replaceFirst("\\*\\*Gate:\\*\\* stop", "**Gate:** halt"));
+        expect("(h) a gate word outside the vocabulary", t, "check", 2, "**Runs:** does not match");
+        write(np, ugood);
+
+        // (i) a Hands over command that is no skill or native command
+        write(ni, igood.replace("`/git-publish`", "`/git-publsh`"));
+        expect("(i) a Hands over command that is no skill", t, "check", 2, "'/git-publsh'");
+        expect("(i) … and says why", t, "check", 2, "no skill or native command");
+        write(ni, igood);
+
+        // (j) a view that draws another skill's step
+        Path iv = t.resolve("docs/diagrams/init-project/view.json");
+        String ivgood = Files.readString(iv);
+        write(iv, ivgood.replace("{ \"from\": \"step:init-project:*\" }", "{ \"fact\": \"step:platform-upgrade:1\" }"));
+        expect("(j) an orchestrator view drawing a foreign step", t, "validate", 2, "draws the steps of init-project only");
+
+        // (k) an orchestrator view without skill
+        write(iv, ivgood.replace("  \"skill\": \"init-project\",\n", ""));
+        expect("(k) an orchestrator view without skill", t, "validate", 2, "requires skill");
+        write(iv, ivgood);
+
+        // (l) an ArchHook mode vanishes from the dispatch
+        Path hk = t.resolve(".claude/hooks/ArchHook.java");
+        String hgood = Files.readString(hk);
+        write(hk, hgood.replace("case \"test-diff\" ->", "case \"test-dif\" ->"));
+        expect("(l) a cmd mode renamed in the dispatch", t, "check", 2, "runs 'cmd:test-diff', which is no fact");
+        write(hk, hgood);
+        expect("everything restored is green once more", t, "check", 0, "equal a fresh render");
 
         deleteTree(t);
         if (failures > 0) {
@@ -99,8 +148,8 @@ public class DiagramsTest {
             System.exit(1);
         }
         System.out.println("✅ Committed diagrams match the data they cite: green on the tree, red by name on a renamed cited skill,"
-                + " a skill added to a class, a changed .svg byte, a node with no evidence, a step heading without its"
-                + " dependencies and a .source-sha256 mismatch.");
+                + " a skill added to a class, a changed .svg byte, a node with no evidence, a step heading in the retired"
+                + " grammar, a .source-sha256 mismatch and every break of the step contract.");
     }
 
     /** Copies what Diagrams.java reads: skill dirs as their SKILL.md, the rest of .claude/ as empty entries. */
@@ -113,6 +162,7 @@ public class DiagramsTest {
                 Path dst = t.resolve(".claude").resolve(n);
                 if (n.equals(".ci") || n.equals("settings.local.json")) continue;
                 if (n.equals("schemas") || n.equals("settings.json")) { copyTree(p, dst); continue; }
+
                 if (!Files.isDirectory(p)) continue;
                 Files.createDirectories(dst);
                 try (Stream<Path> kids = Files.list(p)) {
@@ -122,7 +172,7 @@ public class DiagramsTest {
                             Files.createDirectories(kd);
                             if (Files.isRegularFile(k.resolve("SKILL.md"))) Files.copy(k.resolve("SKILL.md"), kd.resolve("SKILL.md"));
                             if (k.getFileName().toString().equals("nerviz-diagrams")) copyTree(k.resolve("references"), kd.resolve("references"));
-                        } else if (n.equals("agents")) Files.copy(k, kd);
+                        } else if (n.equals("agents") || (n.equals("hooks") && k.getFileName().toString().equals("ArchHook.java"))) Files.copy(k, kd);
                         else if (Files.isDirectory(k)) Files.createDirectories(kd);
                         else Files.createFile(kd);
                     }

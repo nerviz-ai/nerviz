@@ -2,8 +2,9 @@
 //
 // nerviz-diagrams: diagrams of this repository's own `.claude/`, derived from its data.
 //
-//   facts     extract stable facts from extensions.json, new-feature/SKILL.md and the tree
-//             on disk, write docs/diagrams/facts.json (gitignored)
+//   facts     extract stable facts from extensions.json, the SKILL.md of every skill a view
+//             names (its steps), ArchHook.java's dispatch and the tree on disk, write
+//             docs/diagrams/facts.json (gitignored)
 //   validate  every docs/diagrams/<view>/view.json against references/view.schema.json, every
 //             fact id and selector against facts extracted NOW
 //   render    write <view>.drawio, <view>.excalidraw, <view>.svg and <view>.animated.svg
@@ -12,7 +13,8 @@
 //
 // JDK 21+, no dependency, no network. Project dir: --root <dir>, else $CLAUDE_PROJECT_DIR,
 // else the working directory. Exit 0 ok, 2 a finding, 1 a usage error.
-// Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md
+// Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md and
+//         .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md
 
 import java.io.*;
 import java.math.BigDecimal;
@@ -30,7 +32,8 @@ public class Diagrams {
     static final String SKILL = ".claude/skills/nerviz-diagrams";
     static final String OUT = "docs/diagrams";
     static final String EXT = ".claude/schemas/extensions.json";
-    static final String FEATURE = ".claude/skills/new-feature/SKILL.md";
+    static final String SCHEMA = SKILL + "/references/view.schema.json";
+    static final String HOOK = ".claude/hooks/ArchHook.java";
 
     static Path root;
 
@@ -409,10 +412,6 @@ public class Diagrams {
 
     // ───────────────────────────── facts ─────────────────────────────
 
-    static final Pattern STEP = Pattern.compile("^### Step ([0-9]+[a-z]?): (.+?) \\(depends on ([0-9a-z, ]+?)(, conditional)?\\)\\s*$");
-    static final Pattern STEP_FIRST = Pattern.compile("^### Step ([0-9]+[a-z]?): (.+?)(?: \\([^)]*\\))?\\s*$");
-    static final Pattern CONS = Pattern.compile("^### Consolidation \\((?:after )?(.*)\\)\\s*$");
-
     static Map<String, Object> extractFacts() throws IOException {
         Map<String, Object> ext = readJson(EXT);
         Map<String, Object> f = new TreeMap<>();
@@ -469,6 +468,9 @@ public class Diagrams {
                     if (!Files.isRegularFile(p.resolve("SKILL.md"))) continue;
                     Map<String, Object> fs = fact("skill", n, skillClass.getOrDefault(n, "unclassified"), "class", skillClass.getOrDefault(n, "unclassified"));
                     fs.put("exported", included.contains(n));
+                    fs.put("context", orElse(frontmatter(p.resolve("SKILL.md"), "context"), "inline"));
+                    fs.put("model", frontmatter(p.resolve("SKILL.md"), "model"));
+                    fs.put("write_allow", effective(sc, skillClass.get(n), n));
                     f.put("skill:" + n, fs);
                 }
             }
@@ -498,13 +500,41 @@ public class Diagrams {
                     String n = p.getFileName().toString();
                     if (!n.endsWith(".md")) continue;
                     n = n.substring(0, n.length() - 3);
-                    f.put("agent:" + n, fact("agent", n, agentClass.getOrDefault(n, "unclassified"), "class", agentClass.getOrDefault(n, "unclassified")));
+                    Map<String, Object> fa = fact("agent", n, agentClass.getOrDefault(n, "unclassified"), "class", agentClass.getOrDefault(n, "unclassified"));
+                    fa.put("model", frontmatter(p, "model"));
+                    fa.put("executor", ac != null && agentClass.get(n) != null && Boolean.TRUE.equals(get(ac, agentClass.get(n), "executor")));
+                    fa.put("write_allow", effective(ac, agentClass.get(n), n));
+                    f.put("agent:" + n, fa);
                 }
             }
         }
 
-        extractSteps(f);
+        extractCmds(f);
+        extractSteps(f, ext);
         return f;
+    }
+
+    static String orElse(String v, String d) { return v.isEmpty() ? d : v; }
+
+    /** One scalar of a file's frontmatter, empty when the file declares none. */
+    static String frontmatter(Path file, String key) throws IOException {
+        List<String> ls = Files.readAllLines(file, StandardCharsets.UTF_8);
+        if (ls.isEmpty() || !ls.get(0).trim().equals("---")) return "";
+        for (int k = 1; k < ls.size(); k++) {
+            String l = ls.get(k);
+            if (l.trim().equals("---")) break;
+            if (l.startsWith(key + ":")) return l.substring(key.length() + 1).trim().replaceAll("^[\"']|[\"']$", "");
+        }
+        return "";
+    }
+
+    /** The territory a piece really has: its override in the class when there is one, else the class's. */
+    static List<Object> effective(Map<String, Object> classes, String cls, String name) {
+        Map<String, Object> c = classes == null || cls == null ? null : map(classes.get(cls));
+        if (c == null) return new ArrayList<>();
+        List<Object> ov = list(get(c, "overrides", name, "write_allow"));
+        List<Object> wa = ov != null ? ov : list(c.get("write_allow"));
+        return wa == null ? new ArrayList<>() : wa;
     }
 
     static int children(Path dir) throws IOException {
@@ -530,62 +560,200 @@ public class Diagrams {
         return wa.stream().map(String::valueOf).collect(Collectors.joining("  "));
     }
 
-    static void extractSteps(Map<String, Object> f) throws IOException {
-        Path p = root.resolve(FEATURE);
-        if (!Files.isRegularFile(p)) throw new Fail(FEATURE + " is missing — the pipeline is parsed from its step headings");
-        List<String> lines = Files.readAllLines(p, StandardCharsets.UTF_8);
-        boolean fence = false;
-        List<Map<String, Object>> steps = new ArrayList<>();
-        List<Integer> at = new ArrayList<>();
-        for (int n = 0; n < lines.size(); n++) {
-            String l = lines.get(n);
-            if (l.startsWith("```")) { fence = !fence; continue; }
-            if (fence) continue;
-            if (l.startsWith("### Step")) {
-                Matcher m = STEP.matcher(l);
-                boolean first = steps.isEmpty();
-                String id, name; List<String> deps = new ArrayList<>(); boolean cond = false;
-                if (m.matches()) {
-                    id = m.group(1); name = m.group(2).trim();
-                    for (String d : m.group(3).split(",")) if (!d.isBlank()) deps.add(d.trim());
-                    cond = m.group(4) != null;
-                } else if (first && (m = STEP_FIRST.matcher(l)).matches() && !l.contains("(depends on")) {
-                    id = m.group(1); name = m.group(2).trim();
-                } else {
-                    throw new Fail(FEATURE + ":" + (n + 1) + " — step heading does not match `### Step <id>: <Name> (depends on <list>[, conditional])`: " + l
-                            + "\n   Fix the heading, or the extractor regex STEP in " + SKILL + "/scripts/Diagrams.java in the same change.");
-                }
-                steps.add(stepFact(id, name, deps, cond, steps.size()));
-                at.add(n + 1);
-            } else if (l.startsWith("### Consolidation")) {
-                Matcher m = CONS.matcher(l);
-                if (!m.matches())
-                    throw new Fail(FEATURE + ":" + (n + 1) + " — Consolidation heading does not match `### Consolidation (after <ids> …)`: " + l
-                            + "\n   Fix the heading, or the extractor regex CONS in " + SKILL + "/scripts/Diagrams.java in the same change.");
-                String body = m.group(1);
-                int dash = body.indexOf(" — ");
-                if (dash >= 0) body = body.substring(0, dash);
-                List<String> deps = new ArrayList<>();
-                Matcher t = Pattern.compile("\\b[0-9]+[a-z]?\\b").matcher(body);
-                while (t.find()) if (!deps.contains(t.group())) deps.add(t.group());
-                steps.add(stepFact("consolidation", "Consolidation", deps, false, steps.size()));
-                at.add(n + 1);
+    // The step contract (references/step-contract.md): every skill a view names carries
+    // `### <id> · <Name>` headings under `## Procedure`, each followed by a `**Runs:**` line.
+    static final Pattern STEP_H = Pattern.compile("^### ([0-9]+[a-z]?|[a-z][a-z-]*) · (.+?)\\s*$");
+    static final Pattern CASE = Pattern.compile("^(\\s*)case ((?:\"[^\"]+\"\\s*,?\\s*)+)->.*$");
+    static final String STEP_ID = "(?:[0-9]+[a-z]?|[a-z][a-z-]*)";
+    static final String CONTRACT = "(references/step-contract.md)";
+
+    /** Skills whose steps are parsed: the union of every view's `skill` field. */
+    static Set<String> viewSkills() throws IOException {
+        Set<String> out = new TreeSet<>();
+        Path d = root.resolve(OUT);
+        if (!Files.isDirectory(d)) return out;
+        try (Stream<Path> s = Files.list(d)) {
+            for (Path p : s.sorted().collect(Collectors.toList())) {
+                Path vj = p.resolve("view.json");
+                if (!Files.isRegularFile(vj)) continue;
+                try {
+                    if (get(Json.parse(Files.readString(vj, StandardCharsets.UTF_8)), "skill") instanceof String sk) out.add(sk);
+                } catch (IllegalArgumentException e) { /* `validate` reports the view; the facts do not need it */ }
             }
         }
-        if (steps.isEmpty())
-            throw new Fail(FEATURE + " — no `### Step` heading parsed; the pipeline diagram has nothing to draw. Fix the extractor regex STEP in " + SKILL + "/scripts/Diagrams.java.");
-        Set<String> ids = new HashSet<>();
-        for (var s : steps) ids.add((String) s.get("id"));
-        for (int k = 0; k < steps.size(); k++)
-            for (Object d : list(steps.get(k).get("depends_on")))
-                if (!ids.contains(((String) d).substring(5)))
-                    throw new Fail(FEATURE + ":" + at.get(k) + " — step " + steps.get(k).get("id") + " depends on '" + ((String) d).substring(5) + "', which is no step heading");
-        for (var s : steps) f.put("step:" + s.get("id"), s);
+        return out;
     }
 
-    static Map<String, Object> stepFact(String id, String name, List<String> deps, boolean cond, int order) {
+    /** The gate vocabulary — view.schema.json `$defs.gate.enum`, never a constant here. */
+    static List<String> gateWords() throws IOException {
+        List<Object> en = list(get(readJson(SCHEMA), "$defs", "gate", "enum"));
+        if (en == null || en.isEmpty()) throw new Fail(SCHEMA + " has no $defs.gate.enum — the gate vocabulary of the step contract lives there");
+        return en.stream().map(String::valueOf).collect(Collectors.toList());
+    }
+
+    /** `cmd:<mode>` — every mode of ArchHook.java's dispatch, read from its layout: the `switch (mode) {` right after `try {`. */
+    static void extractCmds(Map<String, Object> f) throws IOException {
+        Path p = root.resolve(HOOK);
+        if (!Files.isRegularFile(p)) throw new Fail(HOOK + " is missing — the `cmd:*` facts are the modes of its dispatch");
+        List<String> ls = Files.readAllLines(p, StandardCharsets.UTF_8);
+        int sw = -1;
+        String prev = "";
+        for (int n = 0; n < ls.size() && sw < 0; n++) {
+            String t = ls.get(n).trim();
+            if (t.equals("switch (mode) {") && prev.equals("try {")) sw = n;
+            if (!t.isEmpty()) prev = t;
+        }
+        int swIndent = sw < 0 ? 0 : indent(ls.get(sw));
+        int caseIndent = -1;
+        int found = 0;
+        for (int n = sw + 1; sw >= 0 && n < ls.size(); n++) {
+            String l = ls.get(n);
+            if (l.isBlank()) continue;
+            if (indent(l) == swIndent && l.trim().startsWith("}")) break;
+            Matcher m = CASE.matcher(l);
+            if (!m.matches()) continue;
+            if (caseIndent < 0) caseIndent = indent(l);
+            if (indent(l) != caseIndent) continue;
+            Matcher q = Pattern.compile("\"([^\"]+)\"").matcher(m.group(2));
+            while (q.find()) {
+                f.put("cmd:" + q.group(1), fact("cmd", "ArchHook " + q.group(1), "", "mode", q.group(1)));
+                found++;
+            }
+        }
+        if (found == 0)
+            throw new Fail(HOOK + " — no `case \"<mode>\"` found in the first line `switch (mode) {` that follows a line `try {`; the `cmd:*` facts are read from that layout."
+                    + "\n   Fix the dispatch, or the rule in " + SKILL + "/scripts/Diagrams.java (extractCmds) and " + SKILL + "/references/step-contract.md in the same change.");
+    }
+
+    static int indent(String l) {
+        int k = 0;
+        while (k < l.length() && l.charAt(k) == ' ') k++;
+        return k;
+    }
+
+    /** `step:<skill>:<id>` and `handoff:<skill>` for every skill a view names, per the step contract. */
+    static void extractSteps(Map<String, Object> f, Map<String, Object> ext) throws IOException {
+        List<String> gates = gateWords();
+        String alt = "(?:" + String.join("|", gates) + ")";
+        String tail = "(?:skill|agent|cmd):[A-Za-z0-9._-]+";
+        String ref = "(?:self|" + tail + ")(?:>" + tail + ")*";
+        Pattern runs = Pattern.compile("^\\*\\*Runs:\\*\\* (" + ref + "(?:, " + ref + ")*)(?: · \\*\\*Depends on:\\*\\* (" + STEP_ID + "(?:, " + STEP_ID + ")*))?( · \\*\\*Conditional:\\*\\* yes)?"
+                + "(?: · \\*\\*Gate:\\*\\* (" + alt + "(?:, " + alt + ")*))?\\s*$");
+        Pattern hands = Pattern.compile("^\\*\\*Hands over:\\*\\* (`[^`]+`(?:, `[^`]+`)*)\\s*$");
+        List<Object> nat = list(get(ext, "types", "skill", "native_commands"));
+        for (String sk : viewSkills()) {
+            String rel = ".claude/skills/" + sk + "/SKILL.md";
+            Path p = root.resolve(rel);
+            if (!Files.isRegularFile(p)) throw new Fail(rel + " is missing — a view under " + OUT + "/ names this skill, and its steps are parsed from it");
+            List<String> ls = Files.readAllLines(p, StandardCharsets.UTF_8);
+            int start = -1, end = ls.size();
+            boolean fence = false;
+            for (int n = 0; n < ls.size(); n++) {
+                String l = ls.get(n);
+                if (l.trim().startsWith("```")) { fence = !fence; continue; }
+                if (fence) continue;
+                if (start < 0) { if (l.startsWith("## Procedure")) start = n + 1; }
+                else if (l.startsWith("## ")) { end = n; break; }
+            }
+            if (start < 0) throw new Fail(rel + " — no `## Procedure` heading; the steps of " + sk + " are read from it " + CONTRACT);
+            List<Map<String, Object>> steps = new ArrayList<>();
+            List<Integer> at = new ArrayList<>();
+            Map<String, Object> hand = null;
+            fence = false;
+            for (int n = start; n < end; n++) {
+                String l = ls.get(n);
+                if (l.trim().startsWith("```")) { fence = !fence; continue; }
+                if (fence) continue;
+                if (l.startsWith("### Step "))
+                    throw new Fail(rel + ":" + (n + 1) + " — '### Step <id>: …' is the retired grammar; write '### <id> · <Name>' and move 'depends on' into the **Runs:** line " + CONTRACT);
+                if (l.startsWith("**Hands over:**"))
+                    throw new Fail(rel + ":" + (n + 1) + " — **Hands over:** must be the next line after a step's **Runs:** line " + CONTRACT);
+                if (!l.startsWith("### ") || !l.contains(" · ")) continue;
+                Matcher h = STEP_H.matcher(l);
+                if (!h.matches())
+                    throw new Fail(rel + ":" + (n + 1) + " — step heading does not match '### <id> · <Name>' (id: digits and one optional letter, or lowercase words joined by hyphens): " + l + "\n   " + CONTRACT);
+                String id = h.group(1), name = h.group(2).trim();
+                int r = nextLine(ls, n + 1, end);
+                if (r < 0 || !ls.get(r).startsWith("**Runs:**"))
+                    throw new Fail(rel + ":" + (n + 1) + " — step " + id + " has no **Runs:** line under '" + l.trim() + "' " + CONTRACT);
+                Matcher m = runs.matcher(ls.get(r));
+                if (!m.matches())
+                    throw new Fail(rel + ":" + (r + 1) + " — step " + id + ": **Runs:** does not match '**Runs:** <ref>[, <ref>] [· **Depends on:** <ids>] [· **Conditional:** yes] [· **Gate:** <" + String.join("|", gates) + ">[, …]]': " + ls.get(r) + "\n   " + CONTRACT);
+                List<Object> chains = new ArrayList<>();
+                for (String c : m.group(1).split(", ")) {
+                    List<Object> chain = new ArrayList<>();
+                    for (String seg : c.split(">")) {
+                        String fid = seg.equals("self") ? "skill:" + sk : seg;
+                        if (!f.containsKey(fid))
+                            throw new Fail(rel + ":" + (r + 1) + " — step " + id + " runs '" + seg + "', which is no fact (nearby: " + nearby(fid, f) + ") " + CONTRACT);
+                        chain.add(fid);
+                    }
+                    chains.add(chain);
+                }
+                List<String> deps = new ArrayList<>();
+                if (m.group(2) != null) deps.addAll(Arrays.asList(m.group(2).split(", ")));
+                List<Object> gs = new ArrayList<>();
+                if (m.group(4) != null) gs.addAll(Arrays.asList(m.group(4).split(", ")));
+                Map<String, Object> st = stepFact(sk, id, name, deps, m.group(3) != null, steps.size());
+                st.put("runs", chains);
+                st.put("gates", gs);
+                steps.add(st);
+                at.add(r + 1);
+                int s = nextLine(ls, r + 1, end);
+                if (s >= 0 && ls.get(s).startsWith("**Hands over:**")) {
+                    Matcher hm = hands.matcher(ls.get(s));
+                    if (!hm.matches())
+                        throw new Fail(rel + ":" + (s + 1) + " — **Hands over:** does not match '**Hands over:** `<cmd>`[, `<cmd>`]': " + ls.get(s) + "\n   " + CONTRACT);
+                    if (hand != null) throw new Fail(rel + ":" + (s + 1) + " — a second **Hands over:** line; a Procedure has at most one " + CONTRACT);
+                    List<Object> cmds = new ArrayList<>();
+                    for (String c : hm.group(1).split(", ")) {
+                        String lit = c.substring(1, c.length() - 1);
+                        if (lit.startsWith("/")) {
+                            String nm = lit.substring(1).split("\\s+")[0];
+                            if (!f.containsKey("skill:" + nm) && (nat == null || !nat.contains(nm)))
+                                throw new Fail(rel + ":" + (s + 1) + " — '" + lit + "' is no skill or native command (a directory of .claude/skills/, or an entry of types.skill.native_commands in " + EXT + ") " + CONTRACT);
+                        }
+                        cmds.add(lit);
+                    }
+                    hand = new TreeMap<>();
+                    hand.put("kind", "handoff");
+                    hand.put("skill", sk);
+                    hand.put("label", "Hands over");
+                    hand.put("detail", "");
+                    hand.put("commands", cmds);
+                    hand.put("after", "step:" + sk + ":" + id);
+                    n = s;
+                } else n = r;
+            }
+            if (steps.isEmpty())
+                throw new Fail(rel + " — no '### <id> · <Name>' step heading under '## Procedure'; a view of " + sk + " has nothing to draw " + CONTRACT);
+            Set<String> ids = new HashSet<>();
+            for (var s : steps) ids.add((String) s.get("id"));
+            for (int k = 0; k < steps.size(); k++)
+                for (Object d : list(steps.get(k).get("depends_on"))) {
+                    String did = ((String) d).substring(("step:" + sk + ":").length());
+                    if (!ids.contains(did))
+                        throw new Fail(rel + ":" + at.get(k) + " — step " + steps.get(k).get("id") + " depends on '" + did + "', which is no step heading " + CONTRACT);
+                }
+            for (var s : steps) f.put("step:" + sk + ":" + s.get("id"), s);
+            if (hand != null) f.put("handoff:" + sk, hand);
+        }
+    }
+
+    static int nextLine(List<String> ls, int from, int end) {
+        for (int k = from; k < end; k++) if (!ls.get(k).isBlank()) return k;
+        return -1;
+    }
+
+    static String nearby(String fid, Map<String, Object> f) {
+        String kind = fid.substring(0, fid.indexOf(':') + 1);
+        return f.keySet().stream().filter(k -> k.startsWith(kind)).limit(6).collect(Collectors.joining(", "));
+    }
+
+    static Map<String, Object> stepFact(String skill, String id, String name, List<String> deps, boolean cond, int order) {
         Map<String, Object> m = new TreeMap<>();
         m.put("kind", "step");
+        m.put("skill", skill);
         m.put("id", id);
         m.put("name", name);
         m.put("label", id.equals("consolidation") ? "Consolidation" : id + " · " + name);
@@ -593,7 +761,7 @@ public class Diagrams {
         m.put("conditional", cond);
         m.put("order", (long) order);
         List<Object> d = new ArrayList<>();
-        for (String x : deps) d.add("step:" + x);
+        for (String x : deps) d.add("step:" + skill + ":" + x);
         m.put("depends_on", d);
         return m;
     }
@@ -725,7 +893,7 @@ public class Diagrams {
     }
 
     static final class Resolved {
-        String name, kind, title, caption;
+        String name, kind, title, caption, skill;
         List<RGroup> groups = new ArrayList<>();
         List<REdge> edges = new ArrayList<>();
         List<String> steps = new ArrayList<>(), emphasis = new ArrayList<>();
@@ -739,7 +907,7 @@ public class Diagrams {
         try { v = map(Json.parse(Files.readString(p, StandardCharsets.UTF_8))); }
         catch (IllegalArgumentException e) { errs.add(rel + ": invalid JSON — " + e.getMessage() + "."); return null; }
         if (v == null) { errs.add(rel + ": must be a JSON object."); return null; }
-        Map<String, Object> schema = readJson(SKILL + "/references/view.schema.json");
+        Map<String, Object> schema = readJson(SCHEMA);
         List<String> se = new ArrayList<>();
         sv(schema, schema, v, "$", se);
         if (!se.isEmpty()) { for (String e : se) errs.add(rel + " " + e); return null; }
@@ -750,6 +918,19 @@ public class Diagrams {
         r.kind = (String) v.get("kind");
         r.title = (String) v.get("title");
         r.caption = v.get("caption") instanceof String c ? c : "";
+        r.skill = v.get("skill") instanceof String sk ? sk : null;
+        boolean stepped = r.kind.equals("pipeline") || r.kind.equals("orchestrator");
+        if (stepped) {
+            if (r.skill == null) {
+                errs.add(rel + ": a " + r.kind + " view requires skill. Fix: add \"skill\": \"<name>\", the skill whose steps it draws (it carries the step contract, references/step-contract.md).");
+                return null;
+            }
+            if (!facts.containsKey("skill:" + r.skill)) { errs.add(rel + " $.skill: " + missing("skill:" + r.skill, facts)); return null; }
+            if (facts.keySet().stream().noneMatch(k -> k.startsWith("step:" + r.skill + ":"))) {
+                errs.add(rel + " $.skill: '" + r.skill + "' has no step facts. Fix: its SKILL.md must carry the step contract (references/step-contract.md).");
+                return null;
+            }
+        }
         Set<String> nodeIds = new LinkedHashSet<>(), groupIds = new LinkedHashSet<>();
         List<Object> gs = list(v.get("groups"));
         for (int gi = 0; gi < gs.size(); gi++) {
@@ -782,7 +963,12 @@ public class Diagrams {
         if (es != null) for (int ei = 0; ei < es.size(); ei++) {
             Map<String, Object> e = map(es.get(ei));
             String ep = rel + " $.edges[" + ei + "]";
-            if (e.containsKey("derive")) { r.edges.addAll(deriveEdges(r, facts)); continue; }
+            if (e.containsKey("derive")) {
+                String how = (String) e.get("derive"), want = r.kind.equals("orchestrator") ? "sequence" : "depends_on";
+                if (!how.equals(want)) errs.add(ep + ": a " + r.kind + " view derives its edges by '" + want + "', not '" + how + "'. Fix: {\"derive\":\"" + want + "\"}.");
+                else r.edges.addAll(deriveEdges(r, facts, how));
+                continue;
+            }
             REdge re = new REdge();
             re.from = (String) e.get("from");
             re.to = (String) e.get("to");
@@ -800,17 +986,17 @@ public class Diagrams {
             if (l == null) continue;
             for (int k = 0; k < l.size(); k++) {
                 String id = (String) l.get(k);
-                boolean ok = nodeIds.contains(id) || groupIds.contains(id) || (key.equals("steps") && edgeIds.contains(id));
+                boolean ok = nodeIds.contains(id) || groupIds.contains(id) || (key.equals("steps") && edgeIds.contains(id))
+                        || (key.equals("steps") && r.kind.equals("orchestrator") && id.equals("handoff:" + r.skill) && facts.containsKey(id));
                 if (!ok) errs.add(rel + " $." + key + "[" + k + "]: '" + id + "' is not a node, group" + (key.equals("steps") ? " or edge" : "") + " of the view. Fix: remove it or cite an id the view has.");
                 (key.equals("steps") ? r.steps : r.emphasis).add(id);
             }
         }
-        if (r.kind.equals("pipeline"))
-            for (String id : nodeIds) {
-                Map<String, Object> f = map(facts.get(id));
-                if (f != null && !"step".equals(f.get("kind")))
-                    errs.add(rel + ": a pipeline view draws step facts only; '" + id + "' is a " + f.get("kind") + ". Fix: select {\"from\":\"step:*\"}.");
-            }
+        if (stepped)
+            for (String id : nodeIds)
+                if (!id.startsWith("step:" + r.skill + ":"))
+                    errs.add(rel + ": a " + r.kind + " view draws the steps of " + r.skill + " only; '" + id + "' is a " + map(facts.get(id)).get("kind")
+                            + " fact. Fix: select {\"from\":\"step:" + r.skill + ":*\"}.");
         return errs.size() > before ? null : r;
     }
 
@@ -846,9 +1032,18 @@ public class Diagrams {
         return out;
     }
 
-    /** depends_on edges among the view's nodes, with the edges a longer path already implies removed. */
-    static List<REdge> deriveEdges(Resolved r, Map<String, Object> facts) {
+    /** `sequence`: each node to the next, in order. `depends_on`: edges among the view's nodes, with the edges a longer path already implies removed. */
+    static List<REdge> deriveEdges(Resolved r, Map<String, Object> facts, String how) {
         List<String> nodes = r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList());
+        if (how.equals("sequence")) {
+            List<REdge> seq = new ArrayList<>();
+            for (int k = 1; k < nodes.size(); k++) {
+                REdge e = new REdge();
+                e.from = nodes.get(k - 1); e.to = nodes.get(k); e.evidence = nodes.get(k);
+                seq.add(e);
+            }
+            return seq;
+        }
         Set<String> in = new HashSet<>(nodes);
         Map<String, List<String>> deps = new LinkedHashMap<>();
         for (String n : nodes) {
@@ -883,10 +1078,19 @@ public class Diagrams {
     // ───────────────────────────── scene ─────────────────────────────
 
     static final class Box {
-        String id, label, role, fill, stroke, groupId;
+        String id, label, role, fill, stroke, groupId, tool = ""; // tool: the label of the arrow that reaches a chip
         List<String> detail = new ArrayList<>();
-        int x, y, w, h, step = -1;
-        boolean lane, dashed, emph;
+        // A multi-line box (orchestrator view): bold `head` lines, then muted `detail` lines,
+        // the first `monoN` of them in the monospace family; `mono` sets the head's.
+        List<String> head = new ArrayList<>();
+        int x, y, w, h, step = -1, rx = -1, monoN;
+        boolean lane, dashed, emph, mono;
+    }
+
+    /** A line of free-standing text: x is its centre (anchor "middle") or its left edge ("start"), y its baseline. */
+    static final class Txt {
+        String id, text, anchor;
+        int x, y, size, step = -1;
     }
 
     static final class Ln {
@@ -900,6 +1104,7 @@ public class Diagrams {
         String title, caption;
         List<Box> lanes = new ArrayList<>(), nodes = new ArrayList<>();
         List<Ln> lines = new ArrayList<>();
+        List<Txt> texts = new ArrayList<>();
     }
 
     static List<String> wrap(String t, int max) {
@@ -951,6 +1156,8 @@ public class Diagrams {
                 }
             }
             sc.h = TOP + rows * NH + (rows - 1) * id.i("row_gap") + M;
+        } else if (r.kind.equals("orchestrator")) {
+            orchLayout(sc, r, facts, id, byId, stepOf);
         } else {
             int PAD = id.i("lane", "pad"), HW = id.i("lane", "header_w"), COLS = id.i("lane", "cols"), LG = id.i("lane", "gap");
             int most = r.groups.stream().mapToInt(g -> g.nodes.size()).max().orElse(1);
@@ -1013,6 +1220,194 @@ public class Diagrams {
         }
         return sc;
     }
+
+    // ── orchestrator: one row per step, top to bottom; to its right the chain of who runs it ──
+
+    static final int HP = 16, DP = 13; // line pitch of a multi-line box's head and detail
+
+    /** Height of the text block of a multi-line box. */
+    static int blockH(Box b, int lbl) {
+        return lbl + HP * (Math.max(1, b.head.size()) - 1) + (b.detail.isEmpty() ? 0 : 15 + DP * (b.detail.size() - 1)) + 3;
+    }
+
+    static int headBase(Box b, int k, int lbl) { return b.y + (b.h - blockH(b, lbl)) / 2 + lbl + HP * k; }
+
+    static int detBase(Box b, int k, int lbl) { return b.y + (b.h - blockH(b, lbl)) / 2 + lbl + HP * (b.head.size() - 1) + 15 + DP * k; }
+
+    /** Smallest box height that holds the text block, on the grid, at least `min`. */
+    static int fit(Box b, int lbl, int min, int grid) { return Math.max(min, up(blockH(b, lbl) + 16, grid)); }
+
+    static Txt txt(String tid, String text, int x, int y, int size, String anchor, int step) {
+        Txt t = new Txt();
+        t.id = tid; t.text = text; t.x = x; t.y = y; t.size = size; t.anchor = anchor; t.step = step;
+        return t;
+    }
+
+    static Ln ln(String from, String to, int x1, int y1, int x2, int y2, boolean dashed, int step) {
+        Ln l = new Ln();
+        l.id = from + ">" + to; l.from = from; l.to = to;
+        l.x1 = x1; l.y1 = y1; l.x2 = x2; l.y2 = y2; l.dashed = dashed; l.step = step;
+        return l;
+    }
+
+    static void orchLayout(Scene sc, Resolved r, Map<String, Object> facts, Identity id, Map<String, Box> byId, Map<String, Integer> stepOf) {
+        int NH = id.i("node", "h"), M = id.i("margin"), TOP = id.i("top"), GRID = id.i("grid");
+        int LBL = id.i("font", "label"), DET = id.i("font", "detail");
+        double cw = id.d("font", "char_width");
+        int SW = id.i("orchestrator", "step", "w"), CW = id.i("orchestrator", "chip", "w"), CMIN = id.i("orchestrator", "chip", "min_h"), CG = id.i("orchestrator", "chip", "gap");
+        int AL = id.i("orchestrator", "arrow"), BS = id.i("orchestrator", "badge", "size"), BG = id.i("orchestrator", "badge", "gap"), RG = id.i("orchestrator", "row_gap");
+        String mono = id.s("orchestrator", "mono");
+        List<String> ns = r.groups.stream().flatMap(g -> g.nodes.stream()).collect(Collectors.toList());
+        int maxGates = 0, maxChain = 1;
+        for (String n : ns) {
+            maxGates = Math.max(maxGates, list(map(facts.get(n)).get("gates")).size());
+            for (Object c : list(map(facts.get(n)).get("runs"))) maxChain = Math.max(maxChain, list(c).size());
+        }
+        int strip = maxGates == 0 ? 0 : maxGates * (BS + BG) + BG;
+        int x0 = M + SW + strip + AL;
+        int y = TOP;
+        Box last = null;
+        Set<String> used = new TreeSet<>();
+        for (String n : ns) {
+            Map<String, Object> sf = map(facts.get(n));
+            int st = stepOf.getOrDefault(n, -1);
+            Box sb = nodeBox(n, facts, id);
+            sb.head = wrap(sb.label, (int) ((SW - 16) / (LBL * cw)));
+            sb.w = SW;
+            sb.h = fit(sb, LBL, NH, GRID);
+            // chips: one chain per row of the step, one chip per segment
+            List<List<Box>> chains = new ArrayList<>();
+            int total = 0;
+            for (int ci = 0; ci < list(sf.get("runs")).size(); ci++) {
+                List<Box> chain = new ArrayList<>();
+                List<Object> segs = list(list(sf.get("runs")).get(ci));
+                for (int si = 0; si < segs.size(); si++) {
+                    Box c = chip((String) segs.get(si), r.skill, facts, id, cw);
+                    c.id = "chip:" + n + ":" + ci + "." + si;
+                    c.w = CW;
+                    c.h = fit(c, LBL, CMIN, GRID);
+                    c.step = st;
+                    chain.add(c);
+                }
+                chains.add(chain);
+                total += chain.stream().mapToInt(c -> c.h).max().orElse(0) + (ci > 0 ? CG : 0);
+            }
+            int rowH = Math.max(sb.h, total);
+            sb.x = M;
+            sb.y = y + (rowH - sb.h) / 2;
+            sc.nodes.add(sb);
+            byId.put(n, sb);
+            int sy = sb.y + sb.h / 2, cy = y + (rowH - total) / 2;
+            for (int ci = 0; ci < chains.size(); ci++) {
+                List<Box> chain = chains.get(ci);
+                int chainH = chain.stream().mapToInt(c -> c.h).max().orElse(0);
+                Box prev = null;
+                for (int si = 0; si < chain.size(); si++) {
+                    Box c = chain.get(si);
+                    c.x = x0 + si * (CW + AL);
+                    c.y = cy + (chainH - c.h) / 2;
+                    sc.nodes.add(c);
+                    byId.put(c.id, c);
+                    int x1 = prev == null ? sb.x + sb.w : prev.x + prev.w, y1 = prev == null ? sy : prev.y + prev.h / 2, y2 = c.y + c.h / 2;
+                    sc.lines.add(ln(prev == null ? n : prev.id, c.id, x1, y1, c.x, y2, false, st));
+                    String tool = c.tool;
+                    if (!tool.isEmpty()) {
+                        int lx = c.x - AL / 2;
+                        int ly = y1 + (int) Math.round((double) (y2 - y1) * (lx - x1) / (c.x - x1)) - 6;
+                        sc.texts.add(txt("tool:" + c.id, tool, lx, ly, DET, "middle", st));
+                    }
+                    prev = c;
+                }
+                cy += chainH + CG;
+            }
+            // gate badges, one per gate word, on the step's right edge
+            List<Object> gs = list(sf.get("gates"));
+            for (int k = 0; k < gs.size(); k++) {
+                String w = (String) gs.get(k);
+                used.add(w);
+                Box g = badge(w, id);
+                g.id = "badge:" + n + ":" + k;
+                g.x = sb.x + sb.w + BG + k * (BS + BG);
+                g.y = sy - BS / 2;
+                g.step = st;
+                sc.nodes.add(g);
+            }
+            y += rowH + RG;
+            last = sb;
+        }
+        // the printed handoff, dashed, last
+        Map<String, Object> hf = map(facts.get("handoff:" + r.skill));
+        if (hf != null && last != null) {
+            Box hb = nodeBox("handoff:" + r.skill, facts, id);
+            hb.dashed = true;
+            hb.head = List.of(hb.label);
+            hb.detail = new ArrayList<>();
+            for (Object c : list(hf.get("commands"))) hb.detail.add((String) c);
+            hb.monoN = hb.detail.size();
+            hb.detail.add(id.s("orchestrator", "handoff_caption"));
+            hb.x = M; hb.w = SW; hb.y = y;
+            hb.h = fit(hb, LBL, NH, GRID);
+            sc.nodes.add(hb);
+            byId.put(hb.id, hb);
+            Box after = byId.get((String) hf.get("after"));
+            if (after != null)
+                sc.lines.add(ln(after.id, hb.id, after.x + after.w / 2, after.y + after.h, hb.x + hb.w / 2, hb.y, true, stepOf.getOrDefault(hb.id, -1)));
+            y += hb.h + RG;
+        }
+        // a legend of the gate words this view uses, in the vocabulary's order
+        int lx = M;
+        int ly = y + 8;
+        for (String w : gateWords(id)) {
+            if (!used.contains(w)) continue;
+            Box g = badge(w, id);
+            g.id = "legend:" + w;
+            g.x = lx; g.y = ly;
+            sc.nodes.add(g);
+            sc.texts.add(txt("legend-text:" + w, w, lx + BS + 6, ly + BS / 2 + DET / 2 - 1, DET, "start", -1));
+            lx += BS + 6 + (int) Math.round(w.length() * DET * cw) + 24;
+        }
+        sc.w = Math.max(x0 + maxChain * CW + (maxChain - 1) * AL, lx) + M;
+        sc.h = ly + (used.isEmpty() ? -8 : BS) + M;
+    }
+
+    /** The gate words the identity styles, in the order of view.schema.json's vocabulary. */
+    static List<String> gateWords(Identity id) {
+        try { return gateWords(); } catch (IOException e) { throw new Fail("cannot read " + SCHEMA + ": " + e.getMessage()); }
+    }
+
+    static Box badge(String word, Identity id) {
+        int BS = id.i("orchestrator", "badge", "size");
+        Box g = new Box();
+        g.label = word;
+        g.head = List.of(id.s("orchestrator", "gates", word, "glyph"));
+        g.fill = id.s("orchestrator", "gates", word, "fill");
+        g.stroke = id.s("orchestrator", "gates", word, "stroke");
+        g.role = "gate";
+        g.w = BS; g.h = BS; g.rx = BS / 2;
+        return g;
+    }
+
+    /** A chip of one chain segment: its name, and under it the territory its executor really has. */
+    static Box chip(String fid, String orchestrator, Map<String, Object> facts, Identity id, double cw) {
+        Map<String, Object> f = map(facts.get(fid));
+        String kind = String.valueOf(f.get("kind"));
+        boolean self = fid.equals("skill:" + orchestrator);
+        Box c = new Box();
+        c.label = (String) f.get("label");
+        c.head.add(c.label);
+        if ("skill".equals(kind) && "fork".equals(f.get("context"))) c.head.add(id.s("orchestrator", "fork_marker"));
+        c.mono = "cmd".equals(kind);
+        c.tool = self ? id.s("orchestrator", "tools", "self")
+                : id.s("orchestrator", "tools", "skill".equals(kind) && "fork".equals(f.get("context")) ? "skill_fork" : kind);
+        c.role = id.role(fid, f);
+        c.fill = id.fill(c.role);
+        c.stroke = id.stroke(c.role);
+        if (self) c.detail.add(id.s("orchestrator", "self_detail"));
+        if (f.get("write_allow") instanceof List<?>)
+            c.detail.addAll(wrap(territory(list(f.get("write_allow"))), (int) ((id.i("orchestrator", "chip", "w") - 16) / (id.i("font", "detail") * cw))));
+        return c;
+    }
+
 
     static int depthOf(String n, List<String> in, Map<String, Object> facts, Map<String, Integer> memo) {
         if (memo.containsKey(n)) return memo.get(n);
@@ -1098,8 +1493,26 @@ public class Diagrams {
                     .append(l.dashed ? " stroke-dasharray=\"6 4\"" : "").append(" marker-end=\"url(#arrow)\"/>\n");
             o.append("</g>\n");
         }
+        String mono = get(id.m, "orchestrator", "mono") instanceof String t ? t : "";
         for (Box b : sc.nodes) {
             o.append(open("g", b.id, b.step, animated, stepS));
+            if (!b.head.isEmpty()) {
+                o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
+                        .append("\" rx=\"").append(b.rx >= 0 ? b.rx : id.i("radius")).append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke)
+                        .append("\" stroke-width=\"").append(num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))).append('"')
+                        .append(b.dashed ? " stroke-dasharray=\"6 4\"" : "").append("/>\n");
+                int mx = b.x + b.w / 2;
+                for (int k = 0; k < b.head.size(); k++)
+                    o.append("<text x=\"").append(mx).append("\" y=\"").append(headBase(b, k, LBL)).append("\" font-size=\"").append(LBL)
+                            .append("\" font-weight=\"600\" text-anchor=\"middle\"").append(b.mono ? " font-family=\"" + esc(mono) + "\"" : "")
+                            .append(" fill=\"").append(id.s("ink")).append("\">").append(esc(b.head.get(k))).append("</text>\n");
+                for (int k = 0; k < b.detail.size(); k++)
+                    o.append("<text x=\"").append(mx).append("\" y=\"").append(detBase(b, k, LBL)).append("\" font-size=\"").append(DET)
+                            .append("\" text-anchor=\"middle\"").append(k < b.monoN ? " font-family=\"" + esc(mono) + "\"" : "")
+                            .append(" fill=\"").append(id.s("muted")).append("\">").append(esc(b.detail.get(k))).append("</text>\n");
+                o.append("</g>\n");
+                continue;
+            }
             o.append("<rect x=\"").append(b.x).append("\" y=\"").append(b.y).append("\" width=\"").append(b.w).append("\" height=\"").append(b.h)
                     .append("\" rx=\"").append(id.i("radius")).append("\" fill=\"").append(b.fill).append("\" stroke=\"").append(b.stroke)
                     .append("\" stroke-width=\"").append(num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))).append('"')
@@ -1111,6 +1524,12 @@ public class Diagrams {
             if (two)
                 o.append("<text x=\"").append(cx).append("\" y=\"").append(b.y + b.h / 2 + 14).append("\" font-size=\"").append(DET)
                         .append("\" text-anchor=\"middle\" fill=\"").append(id.s("muted")).append("\">").append(esc(b.detail.get(0))).append("</text>\n");
+            o.append("</g>\n");
+        }
+        for (Txt t : sc.texts) {
+            o.append(open("g", t.id, t.step, animated, stepS));
+            o.append("<text x=\"").append(t.x).append("\" y=\"").append(t.y).append("\" font-size=\"").append(t.size).append("\" text-anchor=\"").append(t.anchor)
+                    .append("\" fill=\"").append(id.s("muted")).append("\">").append(esc(t.text)).append("</text>\n");
             o.append("</g>\n");
         }
         return o.append("</svg>\n").toString();
@@ -1141,7 +1560,20 @@ public class Diagrams {
                     + ";fontSize=" + id.i("font", "label") + ";fontFamily=" + font + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";opacity=70;strokeColor=" + b.stroke
                     + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke")) + ";", b.x, b.y, b.w, b.h));
         }
+        String monoFace = get(id.m, "orchestrator", "mono") instanceof String t ? t.split(",")[0].trim().replace("'", "") : "";
         for (Box b : sc.nodes) {
+            if (!b.head.isEmpty()) {
+                String face = "<font face=\"" + monoFace + "\">";
+                String hv = b.head.stream().map(h -> b.mono ? face + esc(h) + "</font>" : esc(h)).collect(Collectors.joining("<br/>"));
+                StringBuilder dv = new StringBuilder();
+                for (int k = 0; k < b.detail.size(); k++)
+                    dv.append("<br/><font style=\"font-size:").append(id.i("font", "detail")).append("px\" color=\"").append(id.s("muted")).append('"')
+                            .append(k < b.monoN ? " face=\"" + monoFace + "\"" : "").append('>').append(esc(b.detail.get(k))).append("</font>");
+                o.append(cell("n_" + sid(b.id), "<b>" + hv + "</b>" + dv, "rounded=1;arcSize=" + (int) Math.round(100.0 * (b.rx >= 0 ? b.rx : id.i("radius")) / b.h) + ";html=1;whiteSpace=wrap;fontSize=" + id.i("font", "label") + ";fontFamily=" + font
+                        + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))
+                        + (b.dashed ? ";dashed=1;dashPattern=6 4" : "") + ";", b.x, b.y, b.w, b.h));
+                continue;
+            }
             String v = "<b>" + esc(b.label) + "</b>" + b.detail.stream().map(d -> "<br/><font style=\"font-size:" + id.i("font", "detail") + "px\" color=\"" + id.s("muted") + "\">" + esc(d) + "</font>").collect(Collectors.joining());
             o.append(cell("n_" + sid(b.id), v, "rounded=1;arcSize=" + (int) Math.round(100.0 * id.i("radius") / b.h) + ";html=1;whiteSpace=wrap;fontSize=" + id.i("font", "label") + ";fontFamily=" + font
                     + ";fontColor=" + id.s("ink") + ";fillColor=" + b.fill + ";strokeColor=" + b.stroke + ";strokeWidth=" + num(b.emph ? id.d("emphasis_stroke") : id.d("stroke"))
@@ -1153,6 +1585,11 @@ public class Diagrams {
             o.append("        <mxCell id=\"e_").append(sid(l.id)).append("\" value=\"\" style=\"edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=").append(id.s("line"))
                     .append(";strokeWidth=").append(num(id.d("stroke"))).append(l.dashed ? ";dashed=1" : "").append(";\" edge=\"1\" parent=\"1\" source=\"").append(src).append("\" target=\"").append(dst)
                     .append("\">\n          <mxGeometry relative=\"1\" as=\"geometry\"/>\n        </mxCell>\n");
+        }
+        for (Txt t : sc.texts) {
+            int tw = (int) Math.round(t.text.length() * t.size * id.d("font", "char_width"));
+            o.append(cell("t_" + sid(t.id), t.text, "text;html=1;align=" + (t.anchor.equals("start") ? "left" : "center") + ";verticalAlign=middle;whiteSpace=nowrap;fontSize=" + t.size + ";fontFamily=" + font
+                    + ";fontColor=" + id.s("muted") + ";", t.anchor.equals("start") ? t.x : t.x - tw / 2, t.y - t.size, tw, t.size + 4));
         }
         o.append("      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n");
         return o.toString();
@@ -1179,6 +1616,20 @@ public class Diagrams {
         }
         for (Box b : sc.nodes) {
             els.add(rect(b.id, b, id, b.emph, b.dashed));
+            if (!b.head.isEmpty()) {
+                int top = b.y + (b.h - blockH(b, LBL)) / 2;
+                Map<String, Object> hd = text(b.id + "#label", b.x, top, String.join("\n", b.head), LBL, id.s("ink"), "center", cw);
+                if (b.mono) hd.put("fontFamily", 3L);
+                center(hd, b.x + b.w / 2);
+                els.add(hd);
+                if (!b.detail.isEmpty()) {
+                    Map<String, Object> dt = text(b.id + "#detail", b.x, top + HP * b.head.size() - 1, String.join("\n", b.detail), DET, id.s("muted"), "center", cw);
+                    if (b.monoN > 0) dt.put("fontFamily", 3L);
+                    center(dt, b.x + b.w / 2);
+                    els.add(dt);
+                }
+                continue;
+            }
             boolean two = !b.detail.isEmpty();
             Map<String, Object> t = text(b.id + "#label", b.x, b.y + (two ? 10 : (b.h - (int) Math.round(LBL * 1.25)) / 2), b.label, LBL, id.s("ink"), "center", cw);
             center(t, b.x + b.w / 2);
@@ -1198,6 +1649,11 @@ public class Diagrams {
             e.put("startArrowhead", null);
             e.put("endArrowhead", "arrow");
             e.put("roundness", null);
+            els.add(e);
+        }
+        for (Txt t : sc.texts) {
+            Map<String, Object> e = text(t.id, t.x, t.y - t.size, t.text, t.size, id.s("muted"), t.anchor.equals("start") ? "left" : "center", cw);
+            if (!t.anchor.equals("start")) center(e, t.x);
             els.add(e);
         }
         Map<String, Object> app = new TreeMap<>();

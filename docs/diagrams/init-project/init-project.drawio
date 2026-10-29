@@ -1,0 +1,148 @@
+<mxfile host="nerviz-diagrams" version="1">
+  <diagram id="init-project" name="Nerviz — /init-project">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="8" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1116" pageHeight="840" background="#FBFAF7" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;Nerviz — /init-project&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:12px&quot; color=&quot;#52606D&quot;&gt;Every question is asked before delegating; the agent asks nothing.&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=22;fontFamily=Inter;fontColor=#1F2933;" vertex="1" parent="1">
+          <mxGeometry x="32" y="24" width="1052" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_1" value="&lt;b&gt;1 · Refuse an existing project&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="32" y="100" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_1_0_0" value="&lt;b&gt;init-project&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;this orchestrator, on its own thread&lt;/font&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;writes nothing in the repository&lt;/font&gt;" style="rounded=1;arcSize=13;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="96" width="248" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_badge_step_init-project_1_0" value="&lt;b&gt;■&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#FBE3D6;strokeColor=#C4572A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="356" y="116" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_2" value="&lt;b&gt;2 · Interview&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="32" y="188" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_2_0_0" value="&lt;b&gt;init-project&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;this orchestrator, on its own thread&lt;/font&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;writes nothing in the repository&lt;/font&gt;" style="rounded=1;arcSize=13;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="184" width="248" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_badge_step_init-project_2_0" value="&lt;b&gt;?&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#DCEFF7;strokeColor=#2B7A9B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="356" y="204" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_3" value="&lt;b&gt;3 · Delegate to project-initializer&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="32" y="272" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_3_0_0" value="&lt;b&gt;project-initializer&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;**&lt;/font&gt;" style="rounded=1;arcSize=17;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#EBE1F5;strokeColor=#7A4FA8;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="276" width="248" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_3_0_1" value="&lt;b&gt;project-bootstrap&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;**&lt;/font&gt;" style="rounded=1;arcSize=17;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="836" y="276" width="248" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_4" value="&lt;b&gt;4 · Relay the report&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="32" y="356" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_4_0_0" value="&lt;b&gt;init-project&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;this orchestrator, on its own thread&lt;/font&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;writes nothing in the repository&lt;/font&gt;" style="rounded=1;arcSize=13;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="352" width="248" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_5" value="&lt;b&gt;5 · Fill the genesis record&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="32" y="440" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_5_0_0" value="&lt;b&gt;&lt;font face=&quot;ui-monospace&quot;&gt;ArchHook audit&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=20;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#FBE3D6;strokeColor=#C4572A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="448" width="248" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_6" value="&lt;b&gt;6 · Chain git-publish&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="32" y="520" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_6_0_0" value="&lt;b&gt;git-publish&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;writes nothing in the repository&lt;/font&gt;" style="rounded=1;arcSize=17;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="524" width="248" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_badge_step_init-project_6_0" value="&lt;b&gt;✓&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#F7EBC4;strokeColor=#A6841A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="356" y="536" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_badge_step_init-project_6_1" value="&lt;b&gt;✓&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#F7EBC4;strokeColor=#A6841A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="384" y="536" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_step_init-project_7" value="&lt;b&gt;7 · Hand over to the new project&lt;/b&gt;" style="rounded=1;arcSize=14;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="32" y="604" width="320" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_chip_step_init-project_7_0_0" value="&lt;b&gt;init-project&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;this orchestrator, on its own thread&lt;/font&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;writes nothing in the repository&lt;/font&gt;" style="rounded=1;arcSize=13;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#E4F1DE;strokeColor=#4C8C3A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="500" y="600" width="248" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_handoff_init-project" value="&lt;b&gt;Hands over&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot; face=&quot;ui-monospace&quot;&gt;cd ../&amp;lt;artifactId&amp;gt; &amp;amp;&amp;amp; claude&lt;/font&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px&quot; color=&quot;#52606D&quot;&gt;printed — never called&lt;/font&gt;" style="rounded=1;arcSize=13;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#ECECEC;strokeColor=#7A7A7A;strokeWidth=1.5;dashed=1;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="32" y="688" width="320" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_legend_ask" value="&lt;b&gt;?&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#DCEFF7;strokeColor=#2B7A9B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="32" y="784" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_legend_confirm" value="&lt;b&gt;✓&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#F7EBC4;strokeColor=#A6841A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="106" y="784" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_legend_stop" value="&lt;b&gt;■&lt;/b&gt;" style="rounded=1;arcSize=50;html=1;whiteSpace=wrap;fontSize=13;fontFamily=Inter;fontColor=#1F2933;fillColor=#FBE3D6;strokeColor=#C4572A;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="206" y="784" width="24" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_1_chip_step_init-project_1_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_1" target="n_chip_step_init-project_1_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_2_chip_step_init-project_2_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_2" target="n_chip_step_init-project_2_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_3_chip_step_init-project_3_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_3" target="n_chip_step_init-project_3_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_chip_step_init-project_3_0_0_chip_step_init-project_3_0_1" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_chip_step_init-project_3_0_0" target="n_chip_step_init-project_3_0_1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_4_chip_step_init-project_4_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_4" target="n_chip_step_init-project_4_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_5_chip_step_init-project_5_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_5" target="n_chip_step_init-project_5_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_6_chip_step_init-project_6_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_6" target="n_chip_step_init-project_6_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_7_chip_step_init-project_7_0_0" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_7" target="n_chip_step_init-project_7_0_0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_7_handoff_init-project" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="n_step_init-project_7" target="n_handoff_init-project">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_1_step_init-project_2" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_1" target="n_step_init-project_2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_2_step_init-project_3" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_2" target="n_step_init-project_3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_3_step_init-project_4" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_3" target="n_step_init-project_4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_4_step_init-project_5" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_4" target="n_step_init-project_5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_5_step_init-project_6" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_5" target="n_step_init-project_6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_step_init-project_6_step_init-project_7" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#52606D;strokeWidth=1.5;" edge="1" parent="1" source="n_step_init-project_6" target="n_step_init-project_7">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_tool_chip_step_init-project_3_0_0" value="Agent" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="440" y="283" width="33" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_tool_chip_step_init-project_3_0_1" value="Skill" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="776" y="283" width="33" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_tool_chip_step_init-project_5_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="443" y="451" width="26" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_tool_chip_step_init-project_6_0_0" value="Skill" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="440" y="531" width="33" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_legend-text_ask" value="ask" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="62" y="789" width="20" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_legend-text_confirm" value="confirm" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="136" y="789" width="46" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="t_legend-text_stop" value="stop" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
+          <mxGeometry x="236" y="789" width="26" height="15" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

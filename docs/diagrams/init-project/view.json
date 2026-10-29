@@ -1,0 +1,15 @@
+{
+  "kind": "orchestrator",
+  "skill": "init-project",
+  "title": "Nerviz — /init-project",
+  "caption": "Every question is asked before delegating; the agent asks nothing.",
+  "groups": [
+    { "id": "steps", "label": { "fact": "skill:init-project" }, "nodes": [{ "from": "step:init-project:*" }] }
+  ],
+  "edges": [{ "derive": "sequence" }],
+  "steps": [
+    "step:init-project:1", "step:init-project:2", "step:init-project:3", "step:init-project:4", "step:init-project:5", "step:init-project:6", "step:init-project:7",
+    "handoff:init-project"
+  ],
+  "emphasis": ["step:init-project:1", "step:init-project:2", "step:init-project:6"]
+}

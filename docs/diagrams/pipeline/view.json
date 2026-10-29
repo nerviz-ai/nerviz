@@ -1,14 +1,15 @@
 {
   "kind": "pipeline",
+  "skill": "new-feature",
   "title": "Nerviz — the /new-feature pipeline",
   "caption": "Each step depends on the ones above it; a dashed step runs only when the use case needs it.",
   "groups": [
-    { "id": "pipeline", "label": { "caption": "/new-feature" }, "nodes": [{ "from": "step:*" }] }
+    { "id": "pipeline", "label": { "caption": "/new-feature" }, "nodes": [{ "from": "step:new-feature:*" }] }
   ],
   "edges": [{ "derive": "depends_on" }],
   "steps": [
-    "step:1", "step:2", "step:3", "step:3g", "step:3c", "step:3d", "step:3e", "step:4",
-    "step:3b", "step:4b", "step:5", "step:5b", "step:6", "step:consolidation"
+    "step:new-feature:1", "step:new-feature:2", "step:new-feature:3", "step:new-feature:3g", "step:new-feature:3c", "step:new-feature:3d", "step:new-feature:3e", "step:new-feature:4",
+    "step:new-feature:3b", "step:new-feature:4b", "step:new-feature:5", "step:new-feature:5b", "step:new-feature:6", "step:new-feature:consolidation"
   ],
-  "emphasis": ["step:consolidation"]
+  "emphasis": ["step:new-feature:consolidation"]
 }

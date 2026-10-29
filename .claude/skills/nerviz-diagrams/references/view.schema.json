@@ -1,15 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "nerviz-diagrams/view.schema.json",
-  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md",
+  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md and .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md. The gate vocabulary of the step contract (references/step-contract.md) is $defs.gate.enum: Diagrams.java reads it from here, never from a constant.",
   "title": "nerviz-diagrams view",
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "title", "groups"],
   "properties": {
     "kind": {
-      "enum": ["layers", "classes", "pipeline", "territory"],
-      "x-fix": "kind is one of layers, classes, pipeline, territory"
+      "enum": ["layers", "classes", "pipeline", "territory", "orchestrator"],
+      "x-fix": "kind is one of layers, classes, pipeline, territory, orchestrator"
+    },
+    "skill": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "x-fix": "skill is the directory name of the skill whose steps a pipeline or orchestrator view draws, as in skill:<name>"
     },
     "title": { "type": "string", "minLength": 1 },
     "caption": { "type": "string" },
@@ -29,8 +34,8 @@
   "$defs": {
     "factId": {
       "type": "string",
-      "pattern": "^[a-z]+:[A-Za-z0-9._-]+$",
-      "x-fix": "a fact id is <kind>:<name>, as listed in docs/diagrams/facts.json after `Diagrams.java facts`"
+      "pattern": "^[a-z]+:[A-Za-z0-9._-]+(:[A-Za-z0-9._-]+)?$",
+      "x-fix": "a fact id is <kind>:<name> (a step is step:<skill>:<id>), as listed in docs/diagrams/facts.json after `Diagrams.java facts`"
     },
     "group": {
       "type": "object",
@@ -45,6 +50,10 @@
         "label": { "$ref": "#/$defs/groupLabel" },
         "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } }
       }
+    },
+    "gate": {
+      "enum": ["ask", "confirm", "stop", "gate"],
+      "x-fix": "a gate word is one of ask, confirm, stop, gate (references/step-contract.md)"
     },
     "groupLabel": {
       "type": "object",
@@ -73,10 +82,10 @@
         "from": { "type": "string", "minLength": 1 },
         "to": { "type": "string", "minLength": 1 },
         "evidence": { "$ref": "#/$defs/factId" },
-        "derive": { "enum": ["depends_on"] }
+        "derive": { "enum": ["depends_on", "sequence"] }
       },
       "oneOf": [{ "required": ["from", "to"] }, { "required": ["derive"] }],
-      "x-fix": "an edge is {\"from\":\"<entity or group id>\",\"to\":\"<entity or group id>\",\"evidence\":\"<fact id>\"} or {\"derive\":\"depends_on\"}"
+      "x-fix": "an edge is {\"from\":\"<entity or group id>\",\"to\":\"<entity or group id>\",\"evidence\":\"<fact id>\"} or {\"derive\":\"depends_on\"} (a pipeline) or {\"derive\":\"sequence\"} (an orchestrator)"
     }
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: nerviz-diagrams
-description: Renders diagrams of this repository's own .claude/ harness — the layers, the skill and agent classes with their write territories, the /new-feature pipeline — from .claude/schemas/extensions.json and the files on disk, as .drawio, .excalidraw, static and animated SVG under docs/diagrams/, plus PNG and video for the site. Meta-repository only; never a use case or domain diagram, which are Mermaid inside the spec.
+description: Renders diagrams of this repository's own .claude/ harness — the layers, the skill and agent classes with their write territories, the /new-feature pipeline, the three orchestrators (/init-project, /new-feature-implement, /platform-upgrade) — from .claude/schemas/extensions.json and the files on disk, as .drawio, .excalidraw, static and animated SVG under docs/diagrams/, plus PNG and video for the site. Meta-repository only; never a use case or domain diagram, which are Mermaid inside the spec.
 argument-hint: "[empty for every view | <view name> to compose or refresh one]"
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Glob, Bash(java:*), Bash(node:*), Bash(ls:*)
@@ -37,12 +37,15 @@ only download, and nothing is ever `npx`-ed from an unpinned package.
 
 1. **Facts.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java facts` writes
    `docs/diagrams/facts.json` (gitignored): `layer:*`, `class:*`, `agentclass:*`, `skill:*`,
-   `agent:*`, `step:*`, each with a stable id. Read it to learn what you may cite.
+   `agent:*`, `cmd:*` (the modes of `ArchHook.java`), `handoff:*` and `step:<skill>:<id>`,
+   each with a stable id. Read it to learn what you may cite.
 2. **Compose.** Write or adjust `docs/diagrams/<view>/view.json` per
    `references/view.schema.json` and `references/visual-identity.md`. Every entity node is
    `{"fact":"<id>"}` or a selector `{"from":"<path into facts>"}` (`step:*`, or
-   `class:design.members`). Free text lives only in `title`, `caption` and a group's caption
-   label. `steps` gives the animation order. Kinds: `layers`, `classes`, `territory`, `pipeline`.
+   `class:design.members`, `step:<skill>:*`). Free text lives only in `title`, `caption` and a
+   group's caption label. `steps` gives the animation order. Kinds: `layers`, `classes`,
+   `territory`, `pipeline`, `orchestrator`; the last two carry `skill`, name only that skill's
+   steps, and read the step contract of `references/step-contract.md`.
 3. **Validate.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java validate`.
    Every fact id and selector must resolve against facts extracted now.
 4. **Render.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java render` writes
@@ -65,9 +68,11 @@ Never hand-edit a rendered file: edit `view.json` and render again. Never write 
 **Playwright browser missing.** Video is opt-in. `export.mjs` stops and names the download
 command (`playwright install chromium`); tell the person, never run it unasked.
 
-**A `### Step` heading of `new-feature/SKILL.md` no longer matches the extractor.** `facts`,
-`validate` and `check` exit 2 naming the line, so CI goes red by name. Fix the regex `STEP` or
-`CONS` in `scripts/Diagrams.java` in the same change that reworded the heading.
+**A step of a skill a view names breaks the step contract.** A `### <id> · <Name>` heading with
+no `**Runs:**` line, a `**Runs:**` ref that is no fact, a gate word outside the vocabulary, a
+`**Hands over:**` command that is no skill or native command, the retired `### Step` grammar:
+`facts`, `validate` and `check` exit 2 naming file and line, so CI goes red by name. Fix the
+skill's step, or `references/step-contract.md` and the extractor in the same change.
 
 **Unresolved fact id.** A piece was renamed or removed: `validate` names the view, the JSON
 path and nearby ids. Update the view.
@@ -80,8 +85,10 @@ whose `.source-sha256` is not its SVG's hash. Run `render` (and `export.mjs` for
 **Class:** media — the territory is `skill_classes.media` in `@.claude/schemas/extensions.json`:
 `docs/diagrams/**`, nothing else. `ArchHook.java guard` enforces it.
 
-**Reads** `.claude/schemas/extensions.json`, the `### Step` headings of
-`.claude/skills/new-feature/SKILL.md`, the `.claude/` tree on disk, `.claude/settings.json`,
+**Reads** `.claude/schemas/extensions.json`, the `SKILL.md` of every skill a view names (its
+steps, per `references/step-contract.md`), the `switch (mode)` dispatch of
+`.claude/hooks/ArchHook.java`, the frontmatter of the skills and agents those steps cite, the
+`.claude/` tree on disk, `.claude/settings.json`,
 `.mcp.json` when present, and this skill's `references/`.
 
 **Writes** `docs/diagrams/**` only.
