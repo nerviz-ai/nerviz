@@ -49,6 +49,13 @@ skill has no `disable-model-invocation` (so it's invocable by the model too), bu
 practice it's only triggered through this path and by `/new-feature` when a project
 doesn't yet exist.
 
+## Step diagram
+
+Rendered from the step contract of the skill's `SKILL.md` by `/nerviz-diagrams`; a dashed
+step runs only when it is needed.
+
+![/init-project, step by step](../diagrams/init-project/init-project.animated.svg)
+
 ## Sequence diagram
 
 ```mermaid

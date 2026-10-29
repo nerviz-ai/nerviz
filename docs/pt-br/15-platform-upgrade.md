@@ -96,6 +96,8 @@ projeto abaixo do piso não tem dados próprios.
 
 ## O que a skill faz, passo a passo
 
+![/platform-upgrade, passo a passo](../diagrams/platform-upgrade/platform-upgrade.animated.svg)
+
 | # | Passo | O que garante |
 |---|---|---|
 | 1 | Recusar worktree suja; achar a ferramenta de build e o wrapper | `git diff` é como a pessoa revisa o upgrade e `git checkout -- .` como desfaz. Sem wrapper → para |

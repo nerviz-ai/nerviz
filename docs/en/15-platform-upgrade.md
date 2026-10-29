@@ -97,6 +97,8 @@ data of its own.
 
 ## What the skill does, step by step
 
+![/platform-upgrade, step by step](../diagrams/platform-upgrade/platform-upgrade.animated.svg)
+
 | # | Step | What it guarantees |
 |---|---|---|
 | 1 | Refuse a dirty worktree; find the build tool and its wrapper | `git diff` is how the person reviews the upgrade and `git checkout -- .` how they undo it. No wrapper → stop |
