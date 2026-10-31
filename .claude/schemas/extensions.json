@@ -82,7 +82,7 @@
   "shell_globs": {
     "$comment": "Read by ArchHook.java `schema`. A glob value of a shell flag written without quotes (`--include=*.java`) makes zsh abort with `no matches found` before the command runs: the Bash tool runs the user's shell, and bash, which CI uses, passes the word through, so the defect never shows there. 0037 quoted the five sites of its day by hand and the defect came back in 13 files, 52 lines. `scope` is every file the check reads (globs from the project root, `**` crosses `/`; a path with no `*` is one file) and `exclude` the prefixes left out: a decision record or a lessons-learned quotes the defect. A line matching any of `patterns` (a regex, found per line) is an error; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. The quoting is the fix, so a fenced block is not dropped: a command shown is a command run. Design: .claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md",
     "scope": [".claude/**/*.md", ".claude/**/*.example", "CLAUDE.md"],
-    "exclude": [".claude/decisions/", ".claude/lessons-learned/", ".claude/skills/nerviz-diagrams/node_modules/"],
+    "exclude": [".claude/decisions", ".claude/lessons-learned/", ".claude/skills/nerviz-diagrams/node_modules/"],
     "patterns": ["(^|\\s)--(include|exclude|exclude-dir)=[^\\s'\"]*[*?\\[]"],
     "exempt_patterns": []
   },
