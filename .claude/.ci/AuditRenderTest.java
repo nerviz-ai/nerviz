@@ -260,6 +260,7 @@ public class AuditRenderTest {
         growth(hook, repo, trail, transcripts);
         plans(hook, repo, trail, transcripts);
         planUsage(hook, repo, trail);
+        bashWrites(hook);
 
         if (failures > 0) {
             System.err.println("❌ " + failures + " check(s) failed — `audit` is NOT rendering where the run"
@@ -381,6 +382,94 @@ public class AuditRenderTest {
                 "summary: a column per plan × window with a published multiplier, none for Max weekly");
         must(summary, "| 📘 plan-skill | 2 | 50 | 1m00s | 20 · budget | 100 · budget | 100 · budget | 300 · time |",
                 "summary: mean per piece, and the window's hours cap a run that budget alone would allow more of");
+    }
+
+    /**
+     * Decision 0195, in a throwaway git project of its own: the files a run wrote through `Bash`
+     * (parsed from the transcript, dropped when the call came back an error), through nothing
+     * the parser reads (the working tree against the turn's `guard prompt` baseline), their
+     * origin per file, and the permission diff comparing whole rules. The project holds a real
+     * `settings.local.json`, a rule whose `paths` match `docs/**` and a real `git init`.
+     */
+    static void bashWrites(Path hook) throws Exception {
+        Path repo = Files.createTempDirectory("archhook-audit-0195").toRealPath();
+        Files.createDirectories(repo.resolve(".claude/schemas"));
+        Files.copy(Paths.get(".claude/schemas/extensions.json"), repo.resolve(".claude/schemas/extensions.json"));
+        Files.createDirectories(repo.resolve(".claude/skills/demo-skill"));
+        Files.writeString(repo.resolve(".claude/skills/demo-skill/SKILL.md"),
+                "---\nname: demo-skill\ndescription: fixture\n---\n\nbody\n");
+        Files.createDirectories(repo.resolve(".claude/rules"));
+        Files.writeString(repo.resolve(".claude/rules/demo-docs.md"),
+                "---\ndescription: fixture\npaths:\n  - \"docs/**\"\nstatus: active\n---\n\nbody\n");
+        Path trail = repo.resolve(".claude/audit-usage");
+        Files.createDirectories(trail);
+        Files.createDirectories(repo.resolve("docs"));
+        Path local = repo.resolve(".claude/settings.local.json");
+        Files.writeString(local, "{\"permissions\":{\"allow\":[\"Bash(git add *)\",\"Bash(git status)\"]}}");
+        new ProcessBuilder("git", "init", "-q").directory(repo.toFile()).inheritIO().start().waitFor();
+        Path transcripts = repo.resolve("transcripts");
+        Files.createDirectories(transcripts);
+
+        // 1. A heredoc through Bash is listed with origin Bash, and the rule whose paths match it is loaded.
+        String t1 = bashTranscript(transcripts, "bw1", "cat > docs/x.md <<'EOF'\\n# hello\\nEOF", false);
+        run(hook, repo, "prompt", "{\"session_id\":\"bw1\",\"prompt\":\"/demo-skill bw1\",\"transcript_path\":\"" + t1 + "\"}");
+        run(hook, repo, "close", "{\"session_id\":\"bw1\",\"transcript_path\":\"" + t1 + "\"}");
+        String md = puReport(trail, "bw1");
+        must(md, "docs/x.md  [Bash]", "0195: a Bash heredoc is listed in Files touched with origin Bash");
+        must(md, "1× Bash — 1 distinct file", "0195: the count line counts origins");
+        must(md, "| `demo-docs.md` | `docs/**` | 1 |", "0195: Rules loaded reads the Bash-written file too");
+
+        // 2. The same command whose result came back an error wrote nothing.
+        String t2 = bashTranscript(transcripts, "bw2", "cat > docs/failed.md <<'EOF'\\nx\\nEOF", true);
+        run(hook, repo, "prompt", "{\"session_id\":\"bw2\",\"prompt\":\"/demo-skill bw2\",\"transcript_path\":\"" + t2 + "\"}");
+        run(hook, repo, "close", "{\"session_id\":\"bw2\",\"transcript_path\":\"" + t2 + "\"}");
+        md = puReport(trail, "bw2");
+        mustNot(md, "docs/failed.md", "0195: a Bash call that came back is_error contributes no file");
+
+        // 3. A file the working tree gained after the turn baseline, with no tool call, is listed as disk.
+        run(hook, repo, "prompt", "{\"session_id\":\"bw3\",\"prompt\":\"/demo-skill bw3\"}");
+        exec(hook, repo, "{\"session_id\":\"bw3\",\"prompt\":\"/demo-skill bw3\"}", "guard", "prompt");
+        Files.writeString(repo.resolve("docs/disk.txt"), "written by a script");
+        run(hook, repo, "flush", "{\"session_id\":\"bw3\"}");
+        md = puReport(trail, "bw3");
+        must(md, "docs/disk.txt  [disk]", "0195: a file absent from the turn baseline is listed with origin disk");
+        check(md.split("\\[disk\\]", -1).length == 2, "0195: the audit trail itself is not listed as a disk write, only the one new file");
+
+        // 4. Written by Write and by Bash: listed once, origin Write.
+        String t4 = bashTranscript(transcripts, "bw4", "cat > docs/both.md <<'EOF'\\nx\\nEOF", false);
+        run(hook, repo, "prompt", "{\"session_id\":\"bw4\",\"prompt\":\"/demo-skill bw4\",\"transcript_path\":\"" + t4 + "\"}");
+        run(hook, repo, "file", "{\"session_id\":\"bw4\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\""
+                + repo.resolve("docs/both.md").toString().replace("\\", "\\\\") + "\"}}");
+        run(hook, repo, "close", "{\"session_id\":\"bw4\",\"transcript_path\":\"" + t4 + "\"}");
+        md = puReport(trail, "bw4");
+        must(md, "docs/both.md  [Write]", "0195: Write and Bash on one path keep the origin Write");
+        check(md.split("docs/both\\.md  \\[", -1).length == 2, "0195: that path is listed once, not once per origin");
+
+        // 5. The permission diff compares whole rules.
+        run(hook, repo, "prompt", "{\"session_id\":\"bw5\",\"prompt\":\"/demo-skill bw5\"}");
+        run(hook, repo, "close", "{\"session_id\":\"bw5\"}");
+        md = puReport(trail, "bw5");
+        must(md, "None. `settings.local.json` did not change between start and end.",
+                "0195: permissions unchanged since the run opened -> none reported as added");
+        run(hook, repo, "prompt", "{\"session_id\":\"bw6\",\"prompt\":\"/demo-skill bw6\"}");
+        Files.writeString(local, "{\"permissions\":{\"allow\":[\"Bash(git add *)\",\"Bash(git status)\",\"Bash(git push *)\"]}}");
+        run(hook, repo, "close", "{\"session_id\":\"bw6\"}");
+        md = puReport(trail, "bw6");
+        must(md, "| `allow: Bash(git push *)` |", "0195: the rule added mid-run is reported");
+        mustNot(md, "allow: Bash(git add *)", "0195: the rule that was there at open is not");
+    }
+
+    /** A main transcript with one Bash call running `command` (already JSON-escaped), optionally answered by an error. */
+    static String bashTranscript(Path dir, String id, String command, boolean error) throws Exception {
+        Path f = dir.resolve(id + ".jsonl");
+        StringBuilder b = new StringBuilder(assistant(at(10), id + "m", usage(1, 1, 0, 0),
+                "{\"type\":\"tool_use\",\"id\":\"" + id + "tu\",\"name\":\"Bash\",\"input\":{\"command\":\"" + command + "\"}}"));
+        b.append("\n{\"type\":\"user\",\"timestamp\":\"").append(at(11)).append("\",\"message\":{\"role\":\"user\",\"content\":")
+         .append("[{\"type\":\"tool_result\",\"tool_use_id\":\"").append(id).append("tu\"")
+         .append(error ? ",\"is_error\":true,\"content\":\"Exit code 1\\nboom\"}" : ",\"content\":\"ok\"}")
+         .append("]}}\n");
+        Files.writeString(f, b.toString());
+        return f.toString().replace("\\", "\\\\");
     }
 
     // Where `~` resolves for every spawned jar: a throwaway home, never the host's.

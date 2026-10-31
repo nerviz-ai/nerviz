@@ -6262,7 +6262,7 @@ public class ArchHook {
                                        "name", asStr(get(in, "agent_type")),
                                        "agent_id", asStr(get(in, "agent_id"))));
             case "compact"  -> append(log, ev("compact", "trigger", asStr(get(in, "trigger"))));
-            case "flush"    -> { append(log, ev("stop")); auditRender(dir, log, in, false); }
+            case "flush"    -> { append(log, ev("stop")); auditDisk(log, session); auditRender(dir, log, in, false); }
             case "close"    -> auditRender(dir, log, in, true);
             default         -> { }
         }
@@ -6344,7 +6344,8 @@ public class ArchHook {
         kv.add("tool_use_id"); kv.add(toolUseId);
         kv.add("in_agent");    kv.add(inAgent);
         kv.add("head");        kv.add(gitShort());
-        kv.add("perm_before"); kv.add(String.join(" ", localPermissions()));
+        // One rule per line: an entry is `allow: Bash(git add *)` and holds spaces itself (0195).
+        kv.add("perm_before"); kv.add(String.join("\n", localPermissions()));
         append(log, ev("run_start", kv.toArray(new String[0])));
         // Root runs only: a nested node overlaps its parent's window (0194).
         String before = planUsageEvent("before");
@@ -6542,6 +6543,31 @@ public class ArchHook {
                     "model", asStr(ti.get("model")),
                     "tool_use_id", toolUseId, "in_agent", inAgent));
         }
+    }
+
+    /**
+     * What the working tree shows new against the turn's `guard prompt` baseline becomes a
+     * `file` event of op `disk` — the writes no parsed shell spelling and no write tool saw
+     * (`python -c`, a generated script). Best-effort: no baseline, no git or a failing
+     * `git status` appends nothing and never fails. The audit trail itself is skipped through
+     * `guard.sweep_exempt`. Repeats across `Stop`s are fine, the render dedupes by path (0195).
+     */
+    static void auditDisk(Path log, String session) {
+        try {
+            Path baselineFile = guardBaselineFile(guardState(session));
+            if (!Files.isRegularFile(baselineFile)) return;
+            Proc now = run(gitCmd(), "status", "--porcelain", "--untracked-files=all");
+            if (now.exit != 0) return;
+            Set<String> before = new HashSet<>(Arrays.asList(orEmpty(readOrNull(baselineFile)).split("\n")));
+            Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+            List<String> exempt = asStrList(get(sch, "guard", "sweep_exempt"));
+            for (String entry : now.out) {
+                if (entry.isBlank() || before.contains(entry)) continue;
+                String rel = porcelainPath(entry);
+                if (rel == null || matchesAny(exempt, rel)) continue;
+                append(log, ev("file", "op", "disk", "path", rel));
+            }
+        } catch (Exception ignored) { }
     }
 
     static void auditFile(Path log, Object in) {
@@ -6757,9 +6783,8 @@ public class ArchHook {
         subs.forEach((toolUseId, file) -> toolUseIdOfAgentId.put(agentIdOf(file), toolUseId));
 
         List<Node> nodes = new ArrayList<>();
-        Set<String> touched = new LinkedHashSet<>();
+        Map<String, String> originOf = new LinkedHashMap<>();   // path → most specific origin (0195)
         Map<String, Integer> fails = new LinkedHashMap<>();
-        Map<String, Integer> ops = new LinkedHashMap<>();
         List<String> perms = new ArrayList<>();
         int compacts = 0, manualCompacts = 0;
         List<Long> ticks = new ArrayList<>();
@@ -6795,8 +6820,7 @@ public class ArchHook {
                 }
                 case "file" -> {
                     String path = asStr(e.get("path"));
-                    if (path != null) touched.add(path);
-                    ops.merge(orDash(asStr(e.get("op"))), 1, Integer::sum);
+                    if (path != null) noteOrigin(originOf, path, orDash(asStr(e.get("op"))));
                 }
                 case "ask" -> askAt = t;
                 case "asked" -> asked.add(new String[] {orDash(asStr(e.get("header"))),
@@ -6860,6 +6884,7 @@ public class ArchHook {
                 int self = selfOf.size();
                 grown.addAll(growthOf(sc.turns(), tr -> self));
                 sp.errors.addAll(sc.errors());
+                bashTargets(sc, 0, originOf);
                 all.addAll(u);
                 allSpend.addAll(sp);
                 selfOf.add(u);
@@ -6880,9 +6905,12 @@ public class ArchHook {
                 costly.add(new CostlyTurn(tr.t(), rootLabel, tr.u()[0] + tr.u()[1] + tr.u()[3], tr.tools()));
             }
             rootSpend.errors.addAll(sc.errors());
+            bashTargets(sc, 0, originOf);
             grown.addAll(growthOf(sc.turns(), tr -> -1));
         }
         Scan mainScan = scan(transcript == null ? null : Paths.get(transcript));
+        bashTargets(mainScan, tokensFrom, originOf);
+        Set<String> touched = new LinkedHashSet<>(originOf.keySet());
         grown.addAll(growthOf(mainScan.turns().stream().filter(tr -> tr.t() >= tokensFrom).toList(),
                 tr -> mainOwner(nodes, tr.t())));
         for (Turn tr : mainScan.turns()) {
@@ -6911,7 +6939,10 @@ public class ArchHook {
         List<String> rootPreloaded = "agent".equals(kind) ? preloadedSkills(skill) : List.of();
 
         List<String> added = new ArrayList<>(localPermissions());
-        added.removeAll(Arrays.asList(orEmpty(asStr(s0.get("perm_before"))).split(" ")));
+        // A run opened by an older jar holds the space-joined value: one string that matches
+        // nothing, the old output once, for that run only (0195).
+        added.removeAll(Arrays.stream(orEmpty(asStr(s0.get("perm_before"))).split("\n"))
+                .filter(x -> !x.isEmpty()).toList());
         String headStart = asStr(s0.get("head"));
         String headEnd   = gitShort();
 
@@ -7167,12 +7198,15 @@ public class ArchHook {
         if (touched.isEmpty()) {
             md.append("None.\n\n");
         } else {
-            md.append(ops.entrySet().stream().map(e -> e.getValue() + "× " + e.getKey())
+            Map<String, Integer> byOrigin = new LinkedHashMap<>();
+            originOf.values().forEach(o -> byOrigin.merge(o, 1, Integer::sum));
+            md.append(byOrigin.entrySet().stream().map(e -> e.getValue() + "× " + e.getKey())
                     .collect(Collectors.joining(" · ")))
               .append(" — ").append(touched.size())
               .append(touched.size() == 1 ? " distinct file" : " distinct files")
               .append("\n\n```text\n")
-              .append(String.join("\n", touched)).append("\n```\n\n");
+              .append(touched.stream().map(f -> f + "  [" + originOf.get(f) + "]")
+                      .collect(Collectors.joining("\n"))).append("\n```\n\n");
         }
 
         if (!asked.isEmpty()) {
@@ -7399,7 +7433,10 @@ public class ArchHook {
     record ToolErr(long t, String tool, String text) {}
 
     /** What one transcript says: the model's turns (usage and the tools each called) and the tool errors. */
-    record Scan(List<Turn> turns, List<ToolErr> errors) {}
+    record Scan(List<Turn> turns, List<ToolErr> errors, List<BashCall> bash) {}
+
+    /** A `Bash` call that did not come back as an error: when, and the command it ran (0195). */
+    record BashCall(long t, String command) {}
 
     /**
      * One pass over a transcript — the only place the runtime writes real token counts, the
@@ -7413,13 +7450,14 @@ public class ArchHook {
      * missing file or a changed layout reads as an empty scan, never as an error.
      */
     static Scan scan(Path p) {
-        if (p == null || !Files.isRegularFile(p)) return new Scan(List.of(), List.of());
+        if (p == null || !Files.isRegularFile(p)) return new Scan(List.of(), List.of(), List.of());
         Map<String, Turn> byId = new LinkedHashMap<>();
         Map<String, List<String>> toolsOf = new HashMap<>();   // message id → tool names
         Map<String, List<String>> targetsOf = new HashMap<>(); // message id → tool targets, same order
         Map<String, Long> toolMsgT = new LinkedHashMap<>();      // message id → timestamp
         Map<String, String> toolName = new HashMap<>();         // tool_use id → tool name
         List<String[]> rawErrors = new ArrayList<>();          // {t, tool_use id, text}
+        Map<String, BashCall> bashOf = new LinkedHashMap<>();   // tool_use id → Bash call
         int anon = 0;
         try (BufferedReader r = Files.newBufferedReader(p, StandardCharsets.UTF_8)) {
             String line;
@@ -7443,6 +7481,8 @@ public class ArchHook {
                             toolsOf.computeIfAbsent(id, k -> new ArrayList<>()).add(name);
                             targetsOf.computeIfAbsent(id, k -> new ArrayList<>()).add(toolTarget(get(b, "input")));
                             toolMsgT.putIfAbsent(id, t);
+                            String cmd = "Bash".equals(name) ? asStr(get(b, "input", "command")) : null;
+                            if (cmd != null && tuid != null) bashOf.put(tuid, new BashCall(t, cmd));
                         } else if ("tool_result".equals(type) && Boolean.TRUE.equals(get(b, "is_error"))) {
                             rawErrors.add(new String[] {String.valueOf(t), asStr(get(b, "tool_use_id")),
                                     firstLine(get(b, "content"))});
@@ -7468,8 +7508,40 @@ public class ArchHook {
         List<ToolErr> errors = new ArrayList<>();
         for (String[] x : rawErrors) {
             errors.add(new ToolErr(Long.parseLong(x[0]), orDash(toolName.get(x[1])), x[2]));
+            bashOf.remove(x[1]);                       // a failed or denied call wrote nothing we vouch for
         }
-        return new Scan(new ArrayList<>(byId.values()), errors);
+        return new Scan(new ArrayList<>(byId.values()), errors, new ArrayList<>(bashOf.values()));
+    }
+
+    /**
+     * Keeps, per file, the most specific origin: a write tool (`Write`, `Edit`, ...) over `Bash`
+     * over `disk`. The first of equal rank stays (0195).
+     */
+    static void noteOrigin(Map<String, String> originOf, String path, String origin) {
+        String had = originOf.get(path);
+        if (had == null || originRank(origin) > originRank(had)) originOf.put(path, origin);
+    }
+
+    static int originRank(String origin) {
+        return "disk".equals(origin) ? 1 : "Bash".equals(origin) ? 2 : 3;
+    }
+
+    /**
+     * The files the shell commands of one transcript wrote, as far as `guard.bash_write_shapes`
+     * reads them, from `from` on. Calls that came back as errors are already gone from the scan.
+     * A command with no target, or a parser that throws, contributes nothing (0195).
+     */
+    static void bashTargets(Scan sc, long from, Map<String, String> originOf) {
+        Map<String, Object> shapes;
+        try {
+            shapes = asMap(get(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))), "guard", "bash_write_shapes"));
+        } catch (Exception e) { return; }
+        for (BashCall c : sc.bash()) {
+            if (c.t() < from) continue;
+            try {
+                for (String rel : bashWriteTargets(shapes, c.command())) noteOrigin(originOf, rel, "Bash");
+            } catch (Exception ignored) { }
+        }
     }
 
     /** First non-blank line of a tool result — a string, or a list of `text` blocks — redacted, at most 160 chars. */
