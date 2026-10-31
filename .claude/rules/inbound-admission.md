@@ -117,17 +117,17 @@ its permits, and a rejection without `Retry-After` makes every client retry at o
 
 ```bash
 # No limiter registry holds a per-caller limiter. Zero lines is the expected result.
-grep -rn "RateLimiterRegistry" --include=*.java src/main
+grep -rn "RateLimiterRegistry" --include='*.java' src/main
 
 # Every inbound cap is named in the inbound namespace. Review any hit.
-grep -rn "@Bulkhead(" --include=*.java src/main | grep -E "/(rest|graphql)/" | grep -v 'name = "inbound-'
+grep -rn "@Bulkhead(" --include='*.java' src/main | grep -E "/(rest|graphql)/" | grep -v 'name = "inbound-'
 
 # Inbound caps never wait. Review any hit that is not 0.
 grep -rnA3 "inbound-" src/main/resources/application*.yml | grep -i "max-wait-duration"
 
 # The idempotency aspect claims no precedence over the cap. Review any hit.
-grep -rn "@Order" --include=*.java src/main | grep -i "idempot"
+grep -rn "@Order" --include='*.java' src/main | grep -i "idempot"
 
 # Both rejections carry Retry-After. Expected in each handler that maps one.
-grep -rn "RETRY_AFTER\|retryAfterSeconds" --include=*.java src/main
+grep -rn "RETRY_AFTER\|retryAfterSeconds" --include='*.java' src/main
 ```

@@ -6,6 +6,13 @@ table — what each row does is that skill's procedure — and reads everything 
 One owning file, cited by path from both bodies (`@CLAUDE.md` invariant 2;
 `@.claude/decisions/0135-new-feature-split-spec-and-implement.md`).
 
+## Contents
+
+- 1 · Survey and classify
+- 2 · Worktree — decided here, never later
+- 3 · Project
+- 4 · Disk
+
 ## 1 · Survey and classify
 
 Survey the use cases once:

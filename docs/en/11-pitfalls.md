@@ -611,6 +611,22 @@ every rule declares the narrowest glob that holds it, and Java is `**/src/**/*.j
 each read of the hook. A renamed rule's old name goes in `export.retired`, or the target keeps
 both. Design: `.claude/decisions/0082-rules-without-paths-load-at-launch.md`.
 
+**`schema` blocks a shell glob written without quotes.** `--include=*.java` in a command shown by
+a rule, an agent or a skill works in bash, which is what CI runs, and in zsh — the shell the
+Bash tool runs for most people — aborts with `no matches found` before the command starts,
+whenever the word matches no file of the working directory. Quote it: `--include='*.java'`.
+`shell_globs` in `extensions.json` holds the scope (`.claude/**/*.md`, `.claude/**/*.example`,
+`CLAUDE.md`; decision records and lessons-learned excluded) and the patterns; `schema` fails per
+line, and `doctor gate` carries it into a generated project. Design:
+`.claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md`.
+
+**A step of `/new-feature` can move its prose to `references/`; its heading and field block cannot.**
+`nerviz-diagrams` parses every `### <id> · <Name>` heading under `## Procedure` and the
+`**Runs:**` … `**Hands over:**` lines below it; a step moved whole into a reference drops out of
+the committed diagrams and `Diagrams.java check` fails. `## Contract` and the why section stay in
+the body (`skill_classes.universal_sections`, `why_section`): the contract keeps a summary and
+its full text is `references/contract.md`.
+
 **`.claude/decisions/` is neither a norm nor living documentation.** It records what was
 decided on the date, not what holds today: no `paths`, outside `00-index.md`, and it does not
 travel to the generated project. A new record supersedes the old one; the old one is not

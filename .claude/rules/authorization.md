@@ -146,24 +146,24 @@ correct.
 
 ```bash
 # The security framework stays out of the domain and the application layer. Zero lines expected.
-grep -rln "org.springframework.security" --include=*.java src/main | grep -E "/(domain|application)/"
+grep -rln "org.springframework.security" --include='*.java' src/main | grep -E "/(domain|application)/"
 
 # Nothing public by accident. Zero lines expected.
-grep -rnE "anyRequest\(\)\.permitAll|requestMatchers\(\"/\*\*\"\)\.permitAll" --include=*.java src/main
+grep -rnE "anyRequest\(\)\.permitAll|requestMatchers\(\"/\*\*\"\)\.permitAll" --include='*.java' src/main
 
 # No request rule bound to one API version. Zero lines expected.
-grep -rnE "requestMatchers\(.*\"/api/v[0-9]" --include=*.java src/main
+grep -rnE "requestMatchers\(.*\"/api/v[0-9]" --include='*.java' src/main
 
 # Every permitAll is a recorded decision — review each hit against the design record.
-grep -rn "permitAll" --include=*.java src/main
+grep -rn "permitAll" --include='*.java' src/main
 
 # CSRF is off only where the session is stateless — every file of the first grep is in the second.
-grep -rln "csrf" --include=*.java src/main
-grep -rln "SessionCreationPolicy.STATELESS" --include=*.java src/main
+grep -rln "csrf" --include='*.java' src/main
+grep -rln "SessionCreationPolicy.STATELESS" --include='*.java' src/main
 
 # Never a reversible or plain password encoder, never a wildcard origin. Zero lines expected.
-grep -rnE "NoOpPasswordEncoder|allowedOrigins\(\"\*\"\)|setAllowedOrigins\(List.of\(\"\*\"\)\)" --include=*.java src/main
+grep -rnE "NoOpPasswordEncoder|allowedOrigins\(\"\*\"\)|setAllowedOrigins\(List.of\(\"\*\"\)\)" --include='*.java' src/main
 
 # Web tests keep the filter chain. Zero lines expected.
-grep -rn "addFilters *= *false" --include=*.java src/test
+grep -rn "addFilters *= *false" --include='*.java' src/test
 ```

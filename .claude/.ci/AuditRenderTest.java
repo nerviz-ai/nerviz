@@ -261,6 +261,7 @@ public class AuditRenderTest {
         plans(hook, repo, trail, transcripts);
         planUsage(hook, repo, trail);
         bashWrites(hook);
+        effort(hook, repo, trail, transcripts);
 
         if (failures > 0) {
             System.err.println("❌ " + failures + " check(s) failed — `audit` is NOT rendering where the run"
@@ -585,6 +586,73 @@ public class AuditRenderTest {
                 "plan usage: summary mean is over the valid deltas (2.0 and 4.0), the reset run counts in none");
     }
 
+    /**
+     * The effort the run's turns were made at (0196): the top-level {@code effort} of every
+     * transcript entry, read where {@code message.model} is, aggregated per piece in the order
+     * the report meets the transcripts (a nested agent's before the main thread's), absent
+     * showing {@code —} and never {@code null}.
+     */
+    static void effort(Path hook, Path repo, Path trail, Path transcripts) throws Exception {
+        // 1 — every entry low: header, run row and the nested agent's node row
+        Path main = transcripts.resolve("e1.jsonl");
+        Path subs = transcripts.resolve("e1/subagents");
+        Files.createDirectories(subs);
+        Files.writeString(main, "");
+        String tp = main.toString().replace("\\", "\\\\");
+        run(hook, repo, "prompt", "{\"session_id\":\"e1\",\"prompt\":\"/demo-skill e1\",\"transcript_path\":\"" + tp + "\"}");
+        run(hook, repo, "call", "{\"session_id\":\"e1\",\"tool_name\":\"Agent\",\"tool_use_id\":\"toolu_e1\","
+                + "\"tool_input\":{\"subagent_type\":\"demo-agent\",\"description\":\"effort one\"}}");
+        Files.writeString(main, assistant(at(10), "em1", usage(10, 10, 100, 100), TEXT, "low") + "\n");
+        Files.writeString(subs.resolve("agent-e1.meta.json"), "{\"toolUseId\":\"toolu_e1\"}");
+        Files.writeString(subs.resolve("agent-e1.jsonl"), assistant(at(20), "ea1", usage(5, 5, 50, 50), TEXT, "low") + "\n");
+        run(hook, repo, "agent", "{\"session_id\":\"e1\",\"agent_type\":\"demo-agent\",\"agent_id\":\"e1\"}");
+        run(hook, repo, "close", "{\"session_id\":\"e1\",\"transcript_path\":\"" + tp + "\"}");
+        must(puReport(trail, "e1"), "| 🧠 Effort | low |", "effort: every entry low -> header `low`");
+        must(lastHistory(trail), "\"effort\":\"low\"", "effort: the run row carries `low`");
+        must(lastNodes(trail, "effort one"), "\"effort\":\"low\"", "effort: the nested agent's node row carries `low`");
+
+        // 2 — main low, the subagent high: both named, the subagent's node row high
+        main = transcripts.resolve("e2.jsonl");
+        subs = transcripts.resolve("e2/subagents");
+        Files.createDirectories(subs);
+        Files.writeString(main, "");
+        tp = main.toString().replace("\\", "\\\\");
+        run(hook, repo, "prompt", "{\"session_id\":\"e2\",\"prompt\":\"/demo-skill e2\",\"transcript_path\":\"" + tp + "\"}");
+        run(hook, repo, "call", "{\"session_id\":\"e2\",\"tool_name\":\"Agent\",\"tool_use_id\":\"toolu_e2\","
+                + "\"tool_input\":{\"subagent_type\":\"demo-agent\",\"description\":\"effort two\"}}");
+        Files.writeString(main, assistant(at(10), "em2", usage(10, 10, 100, 100), TEXT, "low") + "\n");
+        Files.writeString(subs.resolve("agent-e2.meta.json"), "{\"toolUseId\":\"toolu_e2\"}");
+        Files.writeString(subs.resolve("agent-e2.jsonl"), assistant(at(20), "ea2", usage(5, 5, 50, 50), TEXT, "high") + "\n");
+        run(hook, repo, "agent", "{\"session_id\":\"e2\",\"agent_type\":\"demo-agent\",\"agent_id\":\"e2\"}");
+        run(hook, repo, "close", "{\"session_id\":\"e2\",\"transcript_path\":\"" + tp + "\"}");
+        must(puReport(trail, "e2"), "| 🧠 Effort | high, low |", "effort: main low and subagent high -> both in the header");
+        must(lastHistory(trail), "\"effort\":\"high, low\"", "effort: the run row carries both");
+        must(lastNodes(trail, "effort two"), "\"effort\":\"high\"", "effort: the subagent's node row carries `high`");
+
+        // 3 — no effort field anywhere: a dash, never the word null
+        main = transcripts.resolve("e3.jsonl");
+        Files.writeString(main, "");
+        tp = main.toString().replace("\\", "\\\\");
+        run(hook, repo, "prompt", "{\"session_id\":\"e3\",\"prompt\":\"/demo-skill e3\",\"transcript_path\":\"" + tp + "\"}");
+        Files.writeString(main, assistant(at(10), "em3", usage(10, 10, 100, 100), TEXT) + "\n");
+        run(hook, repo, "close", "{\"session_id\":\"e3\",\"transcript_path\":\"" + tp + "\"}");
+        String md = puReport(trail, "e3");
+        must(md, "| 🧠 Effort | — |", "effort: no field -> header `—`");
+        mustNot(md, "null", "effort: the absent field never prints null");
+        mustNot(lastHistory(trail), "\"effort\"", "effort: no field -> no key in the run row");
+        must(run(hook, repo, "summary", ""), "| 🤖 Model | 🧠 Effort | Status |", "effort: summary has the Effort column after Model");
+    }
+
+    static final String TEXT = "{\"type\":\"text\",\"text\":\"…\"}";
+
+    static String lastNodes(Path trail, String description) throws Exception {
+        String hit = "";
+        for (String l : Files.readAllLines(trail.resolve("nodes.jsonl"))) {
+            if (l.contains(description)) hit = l;
+        }
+        return hit;
+    }
+
     static String snapshot(double five, long fiveReset, double week, long weekReset) {
         return "{\"cwd\":\"/canary/path\",\"rate_limits\":{\"five_hour\":{\"used_percentage\":" + five
                 + ",\"resets_at\":" + fiveReset + "},\"seven_day\":{\"used_percentage\":" + week
@@ -645,6 +713,10 @@ public class AuditRenderTest {
     static String assistant(String ts, String id, String usage, String block) {
         return "{\"type\":\"assistant\",\"timestamp\":\"" + ts + "\",\"message\":{\"model\":\"fixture-model\","
                 + "\"id\":\"" + id + "\",\"role\":\"assistant\",\"content\":[" + block + "],\"usage\":" + usage + "}}";
+    }
+
+    static String assistant(String ts, String id, String usage, String block, String effort) {
+        return assistant(ts, id, usage, block).replaceFirst("^\\{", "{\"effort\":\"" + effort + "\",");
     }
 
     static void must(String text, String needle, String label) {

@@ -90,13 +90,13 @@ These are the three questions worth automating; the fourth is human.
 #    either masked for logs, reduced, or has a recorded decision. Zero hits is not the goal —
 #    a hit list to check against the design is.
 grep -rniE "cpf|cnpj|document|securityNumber|birth|phone|address" \
-  --include=*.java src/main | grep -iE "record|class|String|private"
+  --include='*.java' src/main | grep -iE "record|class|String|private"
 
 # 2. Serialized payload columns, which schema review cannot see into.
-grep -rniE "jsonb|@JdbcTypeCode\(SqlTypes.JSON\)" --include=*.java --include=*.sql src
+grep -rniE "jsonb|@JdbcTypeCode\(SqlTypes.JSON\)" --include='*.java' --include='*.sql' src
 
 # 3. A retention window that no code reads is not a retention window.
-grep -rn "prune\|retention\|ttl" --include=*.java --include=*.yml src/main
+grep -rn "prune\|retention\|ttl" --include='*.java' --include='*.yml' src/main
 ```
 
 The human question, and it is the one that caught nothing automatically: for each hit of 1

@@ -103,16 +103,16 @@ effects.
 ```bash
 # Triggers live in the scheduling package (`scheduling`, or `scheduler` in a layered
 # architecture). Zero lines is the expected result.
-grep -rn "@Scheduled\|@SchedulerLock\|implements Job\b\|@Recurring" --include=*.java src/main | grep -vE "/(scheduling|scheduler)/"
+grep -rn "@Scheduled\|@SchedulerLock\|implements Job\b\|@Recurring" --include='*.java' src/main | grep -vE "/(scheduling|scheduler)/"
 
 # Exactly one @EnableScheduling in the project.
-grep -rln "@EnableScheduling" --include=*.java src/main | wc -l
+grep -rln "@EnableScheduling" --include='*.java' src/main | wc -l
 
 # Every cron names its zone. Zero lines is the expected result.
-grep -rn "cron *= *\"" --include=*.java src/main | grep -v "zone"
+grep -rn "cron *= *\"" --include='*.java' src/main | grep -v "zone"
 
 # Every fixedRate is a decision someone can point at — review each hit.
-grep -rn "fixedRate" --include=*.java src/main
+grep -rn "fixedRate" --include='*.java' src/main
 
 # Every job's on/off property is off in the test profile — compare against the triggers above.
 grep -rn "enabled: *false" src/test/resources/

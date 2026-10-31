@@ -625,6 +625,22 @@ rule declara o glob mais estreito que a sustenta, e Java é `**/src/**/*.java`, 
 do hook. O nome antigo de uma rule renomeada vai em `export.retired`, ou o destino fica com as
 duas. Design: `.claude/decisions/0082-rules-without-paths-load-at-launch.md`.
 
+**`schema` bloqueia glob de shell escrito sem aspas.** `--include=*.java` num comando mostrado por
+uma rule, um agent ou uma skill funciona no bash, que é o que o CI roda, e no zsh — o shell que o
+Bash tool roda para a maioria das pessoas — aborta com `no matches found` antes de o comando
+começar, sempre que a palavra não casa nenhum arquivo do diretório. Ponha aspas:
+`--include='*.java'`. `shell_globs` no `extensions.json` guarda o escopo (`.claude/**/*.md`,
+`.claude/**/*.example`, `CLAUDE.md`; registros de decisão e lessons-learned ficam de fora) e os
+padrões; o `schema` falha por linha, e o `doctor gate` leva isso a um projeto gerado. Design:
+`.claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md`.
+
+**Um passo do `/new-feature` pode mover a prosa para `references/`; o heading e o bloco de campos não.**
+O `nerviz-diagrams` lê todo heading `### <id> · <Nome>` sob `## Procedure` e as linhas
+`**Runs:**` … `**Hands over:**` logo abaixo; um passo movido inteiro para uma reference some dos
+diagramas versionados e o `Diagrams.java check` falha. `## Contract` e a seção do porquê ficam no
+corpo (`skill_classes.universal_sections`, `why_section`): o contrato guarda um resumo e o texto
+completo é `references/contract.md`.
+
 **`.claude/decisions/` não é norma nem documentação viva.** Registra o que foi decidido na
 data, não o que vale hoje: sem `paths`, fora do `00-index.md`, e não viaja para o projeto
 gerado. Um registro novo substitui o antigo; o antigo não é reescrito.

@@ -189,5 +189,5 @@ below.
 
 # verify exits 0 without running any integration test when the file suffix is wrong.
 # Read the count, not just the exit code.
-grep -rl "class .*IT" --include=*.java src/test/
+grep -rl "class .*IT" --include='*.java' src/test/
 ```

@@ -164,8 +164,11 @@ the decision.
 
    > After creating, does the caller need the created data back, or only a reference to it?
 4. **Read the code before proposing.** `Glob`/`Grep` to know what already exists:
-   aggregate, ports, repository, controller. Every spec component carries a **NEW**,
-   **CHANGE**, or **REUSE** state. Proposing to create what already exists is this
+   aggregate, ports, repository, controller.
+   Never list the source tree whole (`find src -name '*.java'`, `ls -R`, `tree`): one `Glob`
+   per component kind the request names, then `Grep` for its names. Inside `/new-feature`
+   whatever a step prints stays in context for every step after it.
+   Every spec component carries a **NEW**, **CHANGE**, or **REUSE** state. Proposing to create what already exists is this
    skill's most expensive failure mode.
 
    Read the approved specs too — every `UC-NNN-spec.md` whose `status:` is `approved`,

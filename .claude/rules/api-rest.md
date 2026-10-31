@@ -311,8 +311,8 @@ is not structural — the request was well formed and refused for load — and c
 
 ```bash
 # No version spelled in a mapping — the prefix is configuration. Zero lines expected.
-grep -rnE "@(Request|Get|Post|Put|Patch|Delete)Mapping\(.*\"/api/v[0-9]" --include=*.java src/main
+grep -rnE "@(Request|Get|Post|Put|Patch|Delete)Mapping\(.*\"/api/v[0-9]" --include='*.java' src/main
 
 # Every handler method declares its baseline. Review any hit: a mapping with no `version`.
-grep -rnE "@(Get|Post|Put|Patch|Delete)Mapping" --include=*.java src/main | grep -v "version"
+grep -rnE "@(Get|Post|Put|Patch|Delete)Mapping" --include='*.java' src/main | grep -v "version"
 ```

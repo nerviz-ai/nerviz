@@ -79,6 +79,14 @@
     "exempt_patterns": []
   },
 
+  "shell_globs": {
+    "$comment": "Read by ArchHook.java `schema`. A glob value of a shell flag written without quotes (`--include=*.java`) makes zsh abort with `no matches found` before the command runs: the Bash tool runs the user's shell, and bash, which CI uses, passes the word through, so the defect never shows there. 0037 quoted the five sites of its day by hand and the defect came back in 13 files, 52 lines. `scope` is every file the check reads (globs from the project root, `**` crosses `/`; a path with no `*` is one file) and `exclude` the prefixes left out: a decision record or a lessons-learned quotes the defect. A line matching any of `patterns` (a regex, found per line) is an error; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. The quoting is the fix, so a fenced block is not dropped: a command shown is a command run. Design: .claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md",
+    "scope": [".claude/**/*.md", ".claude/**/*.example", "CLAUDE.md"],
+    "exclude": [".claude/decisions/", ".claude/lessons-learned/", ".claude/skills/nerviz-diagrams/node_modules/"],
+    "patterns": ["(^|\\s)--(include|exclude|exclude-dir)=[^\\s'\"]*[*?\\[]"],
+    "exempt_patterns": []
+  },
+
   "arguments": {
     "$comment": "Read by ArchHook.java `schema`, same scope and same two escapes as `injections` above. The runtime interpolates the marker at EVERY occurrence, not only at the interpolation point, so a sentence that talks about the argument arrives with the real value inside it: lessons-learned-012 § 2 caught `/new-feature` telling the model to invoke test-architect `with empty $ARGUMENTS (setup mode)` and the model reading `with empty UC-003-initiate-kyc-verification (setup mode)` — setup mode named by the argument that means design mode. Seven occurrences across six skills, every one of them a sentence about the argument. `requires_field` limits the check to a file that actually receives one; `interpolation_line` is the single allowed shape, a line holding nothing but the marker; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. Why a hook and not a review item: CLAUDE.md invariant 6 — the defect is invisible in the source and only appears in what the model receives. Design: .claude/decisions/0056-lessons-learned-012-remediation.md",
     "marker": "$ARGUMENTS",
@@ -1077,6 +1085,12 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
         "note": "The audit can now report how many percentage points of your plan's 5-hour and weekly windows each skill or agent run consumed, measured from the account (decision 0194). It reads a snapshot that a status line in your own ~/.claude/settings.json writes — never one in the project's settings, which would override everyone else's. Optional and personal: no project code is left behind, nothing breaks without it, and on an API key, Bedrock, Vertex or Foundry there is nothing to measure. Without it, reports say `not captured` and `/arch-doctor` shows `Plan usage ⚪`. POSIX sh only (macOS, Linux, WSL).",
         "prompt": "Add the plan-usage status line to my personal Claude Code settings. Read .claude/skills/audit-usage/templates/statusline-rate-limits.json.example, including its `$comment`. Then read ~/.claude/settings.json (if it does not exist, the result is a new file holding only the `statusLine` key). If it has no `statusLine`, the result adds the template's `statusLine` entry as is. If it already has one, keep my command running: append `; printf '%s' \"$input\" | <my current command>` to the template's command, keep my own `padding` and `refreshInterval` if set, and tell me what you changed. Touch no other key of the file and never write this into the project's .claude/settings.json. Show me the whole resulting `statusLine` block and wait for my confirmation before writing. After writing, tell me to restart claude, since settings are read at startup, and that `java -jar .claude/hooks/ArchHook.jar doctor` should then show the `Plan usage` line with ✅ once a session has had a response."
+      },
+      {
+        "id": "quoted-shell-globs",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "`doctor gate` now fails on a shell glob left unquoted in a flag (`--include=*.java`) in this project's `.claude/` files or root `CLAUDE.md`: zsh aborts on it before the command runs. The files `/arch-adopt` writes are already quoted; a file this project wrote itself is not touched.",
+        "prompt": "Quote every glob value of a `--include=`, `--exclude=` or `--exclude-dir=` flag in this project's own `.claude/` files and root `CLAUDE.md`, as `--include='*.java'`, then run `java .claude/hooks/ArchHook.java schema` until it reports none."
       }
     ]
   },
