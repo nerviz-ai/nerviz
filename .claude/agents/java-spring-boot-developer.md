@@ -1332,7 +1332,7 @@ produce the state that satisfies it. Test it the cheap way, on the state the pre
 ```bash
 # Every assignment of the required state outside tests. A single hit that is only the enum
 # constant, the comparison itself, or a comment means nothing produces it.
-grep -rn "CustomerStatus.ACTIVE" --include=*.java src/main
+grep -rn "CustomerStatus.ACTIVE" --include='*.java' src/main
 ```
 
 ```

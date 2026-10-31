@@ -69,6 +69,10 @@ What the block's vocabulary means:
   model is unknown. It is the first thing to read before comparing two runs of the same
   pipeline: the trail counts tokens only, and a token weighs more on a larger model — on
   the bill and on the plan — so the same token count is not the same spend.
+- **Effort** — the effort the run's turns were made at, or a comma-separated list when a
+  subagent ran at another one: compare two runs of a piece only at the same effort. Read from
+  the transcript, where the runtime writes it (observed, not documented); `—` means the run
+  was recorded before the column existed or the transcript carried none.
 - **root · nested · preloaded** — the piece opened its own run; it was chained
   inside another run; or it was loaded through an agent's `skills:` frontmatter (no
   tokens of its own — they are its agent's).

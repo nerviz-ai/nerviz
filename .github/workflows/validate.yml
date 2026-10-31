@@ -116,6 +116,12 @@ jobs:
       - name: schema blocks a migrations entry no project would see
         run: java .claude/.ci/MigrationsSchemaTest.java
 
+      # Decision 0196: the Bash tool runs the user's shell. zsh aborts `--include=*.java` with
+      # "no matches found" before the command runs; bash, which CI uses, passes it through, so
+      # only this check keeps a prose fix (0037) from coming back.
+      - name: schema blocks a shell glob zsh aborts on
+        run: java .claude/.ci/ShellGlobSchemaTest.java
+
       # Question 3 of the `compose` mode reads two files and needs no Docker, so it runs
       # on all three OSes — including the two runners with no daemon. The test also proves
       # the `src/test/` path match survives Windows' separator.

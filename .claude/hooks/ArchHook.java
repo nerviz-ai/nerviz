@@ -4269,6 +4269,7 @@ public class ArchHook {
                 if (content == null) content = readOrNull(Paths.get(file));
                 if (content == null) return;          // file deleted or unreadable
                 checkOne(sch, rel, content, errors);
+                checkShellGlobs(sch, rel, content, errors);
             }
         }
 
@@ -4280,6 +4281,7 @@ public class ArchHook {
             checkSourceBlock(sch, errors);
             checkMigrations(sch, errors);
             checkMods(sch, errors);
+            sweepShellGlobs(sch, errors);
             String jarProblem = hookJarProblem(asMap(sch.get("hook_build")));
             if (jarProblem != null) errors.add("  " + jarProblem);
         }
@@ -5466,6 +5468,71 @@ public class ArchHook {
             if (t == null || !matches(asStr(t.get("match")), rel)) continue;
             checkFrontmatter(sch, e.getKey(), t, rel, content, errors);
             return;
+        }
+    }
+
+    /**
+     * Rejects a glob value of a shell flag written without quotes. The Bash tool runs the
+     * user's shell: zsh aborts a command with `no matches found: --include=*.java` before it
+     * starts when the word matches no file, and bash, which CI uses, passes it through, so the
+     * defect never shows there. A prose fix (0037) came back in 13 files; the check is the
+     * guarantee. Scope, exclusions, patterns and exemptions are data — `shell_globs` in
+     * .claude/schemas/extensions.json, never here (invariant 10). Design:
+     * .claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md.
+     */
+    static void checkShellGlobs(Map<String, Object> sch, String rel, String content,
+                                List<String> errors) {
+        Map<String, Object> cfg = asMap(sch.get("shell_globs"));
+        if (cfg == null || content == null) return;     // block absent: check is off
+        if (!matchesAny(asStrList(cfg.get("scope")), rel)) return;
+        for (String ex : asStrList(cfg.get("exclude"))) if (rel.startsWith(ex)) return;
+
+        List<Pattern> patterns = new ArrayList<>();
+        for (String p : asStrList(cfg.get("patterns"))) {
+            try { patterns.add(Pattern.compile(p)); }
+            catch (PatternSyntaxException e) {
+                errors.add("  " + SCHEMA_FILE + " — shell_globs.patterns has an invalid regex `"
+                        + p + "`: " + e.getDescription());
+            }
+        }
+        List<Pattern> exempt = new ArrayList<>();
+        for (String p : asStrList(cfg.get("exempt_patterns"))) {
+            try { exempt.add(Pattern.compile(p)); }
+            catch (PatternSyntaxException e) {
+                errors.add("  " + SCHEMA_FILE + " — shell_globs.exempt_patterns has an invalid"
+                        + " regex `" + p + "`: " + e.getDescription());
+            }
+        }
+        String[] lines = content.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (exempt.stream().anyMatch(p -> p.matcher(line).find())) continue;
+            if (patterns.stream().noneMatch(p -> p.matcher(line).find())) continue;
+            errors.add("  " + rel + ":" + (i + 1) + " — unquoted glob in a shell flag: zsh (the"
+                    + " Bash tool runs the user's shell) aborts with \"no matches found\" before"
+                    + " the command runs. Quote it: --include='*.java'");
+        }
+    }
+
+    /** Every file `shell_globs.scope` names, checked by {@link #checkShellGlobs}. */
+    static void sweepShellGlobs(Map<String, Object> sch, List<String> errors) throws IOException {
+        Map<String, Object> cfg = asMap(sch.get("shell_globs"));
+        if (cfg == null) return;
+        Set<String> seen = new LinkedHashSet<>();
+        for (String g : asStrList(cfg.get("scope"))) {
+            Path base = ROOT.resolve(g.substring(0, Math.max(0, g.indexOf('*')))).normalize();
+            List<Path> files = new ArrayList<>();
+            if (Files.isRegularFile(base)) {
+                files.add(base);
+            } else if (Files.isDirectory(base)) {
+                try (Stream<Path> walk = Files.walk(base)) {
+                    walk.filter(Files::isRegularFile).sorted().forEach(files::add);
+                }
+            }
+            for (Path f : files) {
+                String rel = relative(f);
+                if (seen.add(rel)) checkShellGlobs(sch, rel, readOrNull(f), errors);
+            }
         }
     }
 
@@ -6713,8 +6780,13 @@ public class ArchHook {
     /**
      * One assistant message: usage (input, output, cache read, cache write), the tools it
      * called and, index for index, what each call aimed at — see {@link #toolTarget}.
+     *
+     * <p>{@code effort} is the top-level {@code effort} of the transcript entry, next to
+     * {@code message.model}. It is observed in the transcript, not documented: every entry
+     * seen so far carries it, equal to the {@code perTurnEffort} of the run. Absent or not a
+     * string, it is {@code null} and the report shows {@code —} (decision 0196).
      */
-    record Turn(long t, String model, long[] u, List<String> tools, List<String> targets) {
+    record Turn(long t, String model, String effort, long[] u, List<String> tools, List<String> targets) {
         /** What the request carried: input + cache read + cache write. */
         long context() { return u[0] + u[2] + u[3]; }
     }
@@ -6722,12 +6794,19 @@ public class ArchHook {
     /** Token usage summed per model — a subagent may run on another model, and the report names each. */
     static final class Usage {
         final Map<String, long[]> byModel = new LinkedHashMap<>();
+        /** The distinct efforts the turns ran at, first seen first. */
+        final Set<String> efforts = new LinkedHashSet<>();
 
         void add(String model, long[] u) {
             long[] a = byModel.computeIfAbsent(model == null ? "?" : model, k -> new long[4]);
             for (int i = 0; i < 4; i++) a[i] += u[i];
         }
-        void addAll(Usage o) { if (o != null) o.byModel.forEach(this::add); }
+        void addEffort(String effort) { if (effort != null && !effort.isBlank()) efforts.add(effort); }
+        void addAll(Usage o) {
+            if (o == null) return;
+            o.byModel.forEach(this::add);
+            efforts.addAll(o.efforts);
+        }
         long sum(int i) { return byModel.values().stream().mapToLong(a -> a[i]).sum(); }
         long in()         { return sum(0); }
         long out()        { return sum(1); }
@@ -6736,6 +6815,7 @@ public class ArchHook {
         long billable()    { return in() + out() + cacheWrite(); }
         long contextRead() { return in() + cacheRead(); }
         String model() { return byModel.isEmpty() ? null : String.join(", ", byModel.keySet()); }
+        String effort() { return efforts.isEmpty() ? null : String.join(", ", efforts); }
     }
 
     /**
@@ -6918,7 +6998,10 @@ public class ArchHook {
             int owner = mainOwner(nodes, tr.t());
             if (tr.model() != null) {
                 all.add(tr.model(), tr.u());
-                (owner < 0 ? rootSelf : selfOf.get(owner)).add(tr.model(), tr.u());
+                all.addEffort(tr.effort());
+                Usage own = owner < 0 ? rootSelf : selfOf.get(owner);
+                own.add(tr.model(), tr.u());
+                own.addEffort(tr.effort());
             }
             (owner < 0 ? rootSpend : spendOf.get(owner)).turn(tr);
             costly.add(new CostlyTurn(tr.t(), owner < 0 ? rootLabel : pieceLabel(nodes.get(owner)),
@@ -6970,6 +7053,7 @@ public class ArchHook {
           .append("| ").append(status.substring(0, status.indexOf(' ')))
           .append(" Status | ").append(status.substring(status.indexOf(' ') + 1)).append(" |\n")
           .append("| 🤖 Model | ").append(orDash(all.model())).append(" |\n")
+          .append("| 🧠 Effort | ").append(orDash(all.effort())).append(" |\n")
           .append("| 🌿 HEAD | ").append(orDash(headStart)).append(" → ")
           .append(orDash(headEnd)).append(" |\n\n");
 
@@ -7289,6 +7373,7 @@ public class ArchHook {
                        // (lessons-learned-012, header note). A comma-separated list when a
                        // subagent ran on another model.
                        "model", all.model(),
+                       "effort", all.effort(),
                        "duration_ms", String.valueOf(total),
                        "wait_ms", String.valueOf(wait),
                        "status", status,
@@ -7364,6 +7449,7 @@ public class ArchHook {
         return ev("node", "run", run, "parent", parent, "kind", kind, "skill", name, "origin", origin,
                 "detail", detail == null || detail.isBlank() ? null : redact(detail),
                 "model", u == null ? null : u.model(),
+                "effort", u == null ? null : u.effort(),
                 "tokens_self", u == null ? null : String.valueOf(u.billable()),
                 "cache_read", u == null ? null : String.valueOf(u.cacheRead()),
                 "cache_write", u == null ? null : String.valueOf(u.cacheWrite()),
@@ -7495,14 +7581,14 @@ public class ArchHook {
                             num(u.get("cache_read_input_tokens")), num(u.get("cache_creation_input_tokens"))};
                 if (v[0] + v[1] + v[2] + v[3] == 0) continue;
                 String key = id != null ? id : "#" + anon++;
-                byId.put(key, new Turn(t, asStr(get(e, "message", "model")), v,
+                byId.put(key, new Turn(t, asStr(get(e, "message", "model")), asStr(get(e, "effort")), v,
                         id == null ? new ArrayList<>() : toolsOf.computeIfAbsent(id, k -> new ArrayList<>()),
                         id == null ? new ArrayList<>() : targetsOf.computeIfAbsent(id, k -> new ArrayList<>())));
             }
         } catch (IOException ignored) { }
         // A message whose calls were written but whose usage never was still called its tools.
         toolMsgT.forEach((id, t) -> {
-            if (!byId.containsKey(id)) byId.put(id, new Turn(t, null, new long[4], toolsOf.get(id),
+            if (!byId.containsKey(id)) byId.put(id, new Turn(t, null, null, new long[4], toolsOf.get(id),
                     targetsOf.getOrDefault(id, new ArrayList<>())));
         });
         List<ToolErr> errors = new ArrayList<>();
@@ -7570,7 +7656,11 @@ public class ArchHook {
 
     static Usage usageOf(Scan sc) {
         Usage u = new Usage();
-        for (Turn t : sc.turns()) if (t.model() != null) u.add(t.model(), t.u());
+        for (Turn t : sc.turns()) {
+            if (t.model() == null) continue;
+            u.add(t.model(), t.u());
+            u.addEffort(t.effort());
+        }
         return u;
     }
 
@@ -8395,8 +8485,8 @@ public class ArchHook {
              .append(" · distinct pieces: ").append(tok.size()).append("\n\n");
 
             o.append("### Latest runs\n\n")
-             .append("| # | 🕐 When | 🎯 Piece | 🙋 Origin | 🤖 Model | Status | ⏱️ Duration | 🧮 Billable | 🛠️ Calls | 📏 Peak | 📁 Files | 🔁 Failures |\n")
-             .append("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+             .append("| # | 🕐 When | 🎯 Piece | 🙋 Origin | 🤖 Model | 🧠 Effort | Status | ⏱️ Duration | 🧮 Billable | 🛠️ Calls | 📏 Peak | 📁 Files | 🔁 Failures |\n")
+             .append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
             int shown = 0;
             for (int i = runs.size() - 1; i >= 0 && shown < AUDIT_RECENT_RUNS; i--, shown++) {
                 Map<String, Object> r = runs.get(i);
@@ -8408,6 +8498,7 @@ public class ArchHook {
                  // Absent in every row written before this column existed: a run recorded
                  // by an older hook shows `—`, not a model it never knew.
                  .append(orDash(asStr(r.get("model")))).append(" | ")
+                 .append(orDash(asStr(r.get("effort")))).append(" | ")
                  // The emoji alone: rows written before 0085 carry a Portuguese label after it.
                  .append(st.isEmpty() ? "—" : st.substring(0, Math.max(1, st.indexOf(' ')))).append(" | ")
                  .append(hms(lnum(r.get("duration_ms")))).append(" | ")
