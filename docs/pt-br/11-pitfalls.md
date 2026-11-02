@@ -302,6 +302,17 @@ três** (`guard.checklist_toggle_statuses`): ele é monotônico, e exigir `appro
 linha de status é a última escrita que ele faz na pasta. Design:
 `.claude/decisions/0066-spec-state-machine.md`.
 
+**Um `status: approved` recusado numa spec significa que o checklist dela não bate com os blocos
+que ela carrega.** O checklist é o núcleo (passos 1-7 e 16-19) mais as linhas dos blocos que a
+spec tem: 8-12 só quando `## 3` não é `none`, 13-15 só quando `## 4` não é `none`, uma linha
+com letra por bloco condicional presente. O guard imprime `missing:`, `extra:` ou `duplicate:`
+com os ids; corrija enquanto a spec ainda é `draft` — copie as linhas de
+`new-feature/templates/feature-spec.md.example`, tire as de um bloco ausente e rode
+`java -jar .claude/hooks/ArchHook.jar spec check <spec>` até sair com 0. Os dados são
+`spec_checklist` no `extensions.json`. Um `sed -i` na linha de status é o único jeito de
+contornar o guard; o `/new-feature-implement` e o executor rodam a mesma checagem e param.
+Design: `.claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md`.
+
 ### Compose
 
 **`compose gate` roda a checagem de compose sem ninguém pedir, e bloqueia.** O step 7 do

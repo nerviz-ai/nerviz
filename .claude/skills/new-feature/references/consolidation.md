@@ -11,7 +11,7 @@ stays in `SKILL.md`; this is its prose, moved out by
 - 2 · Consolidate into a single file, by reference — blocks, and every stop condition (errorCode, declared dependencies, Compose services, personal data, deferred rows, `CHANGELOG.md`, `permitAll`)
 - 3 · Check whether the architecture tests can now be turned on
 
-Runs after 1, 2, 5 and 6 ✅, and 3 or 3g; steps 3, 3g, 3b, 3c, 3d, 3e, 4, 4b and 5b are conditional.
+Runs after 1, 2 and 6 ✅, 5 when it ran, and 3 or 3g when either ran; steps 3, 3g, 3b, 3c, 3d, 3e, 4, 4b and 5b are conditional.
 
 If all specs that apply exist and validate (REST only when step 3 wasn't skipped, GraphQL only when
 step 3g wasn't, security only when step 3b wasn't skipped,
@@ -118,7 +118,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      path can return has a row in `30-rest.md` § 3 · Error map. A code missing from either is not
      inferred into place — **stop and ask** which partial is wrong
    - **A partial that applies must carry its declared-dependency section, or consolidation
-     stops.** `20-persistence.md` § 6 always; `31-graphql.md` § 11 whenever step 3g ran; `32-security.md` § 8 whenever step 3b ran;
+     stops.** `20-persistence.md` § 6 whenever step 5 ran; `31-graphql.md` § 11 whenever step 3g ran; `32-security.md` § 8 whenever step 3b ran;
      `28-http-client.md` § 8 whenever step 3c ran; `29-ai.md` § 10 whenever step 3d ran; `23-search.md` § 9 whenever step 3e ran;
      `25-messaging.md` § 7 whenever step 4 ran; `35-jobs.md` § 7 whenever step 4b ran; `22-cache.md` § 8 whenever step 5b ran; `40-tests.md` § 5 always. The
      value `none` is legitimate and common — most cases need no new dependency — but **absence
@@ -131,7 +131,7 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      every run passes, which is why the check belongs here as well, exactly like `Satisfied by`
      above
    - **A partial that needs a container must carry `## Compose services`, or consolidation
-     stops.** `20-persistence.md` always; `25-messaging.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran; `29-ai.md` whenever step 3d ran; `23-search.md` whenever step 3e ran. `none` is
+     stops.** `20-persistence.md` whenever step 5 ran; `25-messaging.md` whenever step 4 ran; `22-cache.md` whenever step 5b ran; `29-ai.md` whenever step 3d ran; `23-search.md` whenever step 3e ran. `none` is
      valid (H2, no broker) and absence is not. Every row goes into the spec's
      `## Infrastructure` with the partial that decided it, shaped by
      `@.claude/skills/docker-architect/references/compose-service-decision.md`. Without it the implement run, in a session that never saw
@@ -167,7 +167,17 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      (`@.claude/rules/naming.md` § Use case identifier). Without it, nobody reading the
      altered case ever learns it changed — immutability keeps the text and loses the
      history
-   - Order: implementation order (depends-on)
+   - **Shape: `templates/feature-spec.md.example`, read now** (`feature-spec-short.md.example` on the short
+     path). Its headings and block order are the spec's. Its `## Implementation order (checklist)` is copied
+     for the blocks this spec carries and for no other, never `n/a` for an absent block, never prose, never
+     renumbered. Before moving on, run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` and fix what
+     it names — the same check the guard applies when the spec is approved (issue #191)
+   - **A layer the case does not need is `none` with its reason, not an empty partial.** `## 3` reads
+     `none — <reason>` only when `Storage` is `none` **and** no earlier partial listed a schema
+     requirement (`30-rest.md` block 4, `31-graphql.md` § 9, `32-security.md` § 7,
+     `28-http-client.md` § 10, `29-ai.md` § 9, `23-search.md` § 8, `25-messaging.md` § 6,
+     `35-jobs.md` § 3 and § 6); `## 4` reads `none — <reason>` when the `Trigger` names no HTTP adapter. Order
+     inside a block is depends-on
    - **Every `permitAll` carries its reason, or consolidation stops.** `32-security.md` § 1
      lists the public paths of the project after this case, each with a reason; a public row
      with none, or a first secured case whose `## Impact on approved use cases` does not say
@@ -187,8 +197,8 @@ outbound HTTP only when step 3c wasn't, AI only when step 3d wasn't, search only
      producer/consumer adapters from `25-messaging.md`; a spec with § 7 runs Block J (steps
      J1-J3, right after Block M), which generates the scheduling wiring and triggers from
      `35-jobs.md`; a spec with § 3.4 runs Block C (steps C1-C3, right after Block J), which
-     generates the cache wiring and the port decorators from `22-cache.md`. None touches the fixed
-     19-item checklist
+     generates the cache wiring and the port decorators from `22-cache.md`. Each has its own line in the checklist, and the
+     checklist has no line for a block the spec does not carry
 
 3. **Check whether the architecture tests can now be turned on.** The bootstrap doesn't
    install ArchUnit or the coverage gate by design: a `check` over an empty set proves

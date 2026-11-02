@@ -96,6 +96,7 @@ public class ArchHook {
                 case "test-diff" -> testDiff(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "config" -> config(args);
+                case "spec" -> spec(args);
                 case "footprint" -> footprint();
                 case "build"  -> build(args);
                 default -> { err("Unknown mode: " + mode); System.exit(0); }
@@ -106,8 +107,9 @@ public class ArchHook {
             // `doctor gate` is a CI gate, not a hook: a throw there must fail closed, or the
             // job goes green on a report that never finished.
             // `config` is typed or called to change a file: a throw there must not read as written.
+            // `spec check` is typed or run as a pre-flight: a throw there must not read as a pass.
             System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1])
-                    || "config".equals(mode) ? 1 : 0);
+                    || "config".equals(mode) || "spec".equals(mode) ? 1 : 0);
         }
         System.exit(0);
     }
@@ -1757,6 +1759,222 @@ public class ArchHook {
         if (!ok) REPORT_FAILED.add(label);
         String pad = "                  ".substring(Math.min(label.length(), 17));
         err("  " + label + " " + pad.replace(' ', '.') + " " + (ok ? "✅ " + yes : "❌ " + no));
+    }
+
+    // ── spec ─────────────────────────────────────────────────────────────────
+
+    /**
+     * {@code spec check <path>} — compares a spec's `## Implementation order (checklist)` with
+     * the blocks the spec carries. `<path>` is a `UC-*-spec.md` or the folder holding it. Exit 0
+     * when it matches, 2 listing the missing, extra and duplicate ids, 1 for a missing file or
+     * wrong usage.
+     *
+     * <p>Why this is a mode and not prose: the count of a checklist is arithmetic over which
+     * blocks a case carries, and a model asked to do it approved specs with 19 lines for cases
+     * that had no persistence or no REST, which the executor then aborted on after the context
+     * was spent (issue #191). The closest rejected form was the same formula written in the
+     * skill's steps — the call stays the model's. One function, {@link #specChecklistProblems},
+     * is the rule; this command, `guard write` when a spec is approved (see
+     * {@link #guardViolations}), the implement pre-flight and the executor's precondition 5 all
+     * ask it, so the rule has one owner (invariant 2) and every list it reads is
+     * `spec_checklist` in `.claude/schemas/extensions.json` (invariant 10).
+     *
+     * <p>Design: `.claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md`.
+     */
+    static void spec(String[] args) throws IOException {
+        if (args.length != 3 || !"check".equals(args[1])) {
+            err("usage: ArchHook spec check <UC-NNN-slug-spec.md | use-case folder>");
+            System.exit(1);
+        }
+        Path p = Paths.get(args[2]);
+        if (!p.isAbsolute()) p = ROOT.resolve(p);
+        if (Files.isDirectory(p)) {
+            Path found = null;
+            try (Stream<Path> s = Files.list(p)) {
+                found = s.filter(f -> f.getFileName().toString().matches("UC-.*-spec\\.md"))
+                        .sorted().findFirst().orElse(null);
+            }
+            if (found == null) {
+                err("spec: no UC-*-spec.md in " + args[2]);
+                System.exit(1);
+            }
+            p = found;
+        }
+        String content = readOrNull(p);
+        if (content == null) {
+            err("spec: " + args[2] + " is not a readable file");
+            System.exit(1);
+        }
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        if (sch == null || asMap(sch.get("spec_checklist")) == null) {
+            err("spec: no `spec_checklist` in " + SCHEMA_FILE + " — nothing to check against.");
+            System.exit(1);
+        }
+        List<String> problems = specChecklistProblems(content, sch);
+        String shown = relative(p);
+        if (problems.isEmpty()) {
+            System.out.println("✅ " + shown + ": checklist matches the blocks it carries ("
+                    + specChecklistExpected(content, sch).size() + " lines)");
+            return;
+        }
+        err("❌ " + shown + ": the checklist does not match the blocks it carries");
+        problems.forEach(ArchHook::err);
+        System.exit(2);
+    }
+
+    /**
+     * The checklist ids a spec must carry, each mapped to the block that asks for it ("core"
+     * for the ones every spec has). {@code path: short} in the frontmatter expects
+     * {@code short_items}; otherwise the core plus every block that is present: its heading
+     * matches a line of the spec and the first non-blank line after it does not match
+     * {@code absent_marker}. Absent blocks are returned in {@code absent}, id to block.
+     */
+    static Map<String, String> specChecklistExpected(String content, Map<String, Object> sch) {
+        return specChecklistExpected(content, sch, new LinkedHashMap<>());
+    }
+
+    static Map<String, String> specChecklistExpected(String content, Map<String, Object> sch,
+            Map<String, String> absent) {
+        Map<String, Object> cfg = asMap(sch.get("spec_checklist"));
+        Map<String, String> expected = new LinkedHashMap<>();
+        Map<String, String> fm = frontmatter(content);
+        if (fm != null && "short".equals(fm.get("path"))) {
+            for (String id : asStrList(cfg.get("short_items"))) expected.put(id, "short");
+            return expected;
+        }
+        for (String id : asStrList(cfg.get("core"))) expected.put(id, "core");
+        Pattern marker = Pattern.compile(asStr(cfg.get("absent_marker")));
+        String[] lines = content.split("\n", -1);
+        for (Object o : asList(cfg.get("blocks"))) {
+            Map<String, Object> b = asMap(o);
+            if (b == null) continue;
+            Pattern heading = Pattern.compile(asStr(b.get("heading")));
+            String name = orEmpty(asStr(b.get("id")));
+            boolean present = false;
+            for (int i = 0; i < lines.length && !present; i++) {
+                if (!heading.matcher(lines[i]).find()) continue;
+                int j = i + 1;
+                while (j < lines.length && lines[j].isBlank()) j++;
+                present = j >= lines.length || !marker.matcher(lines[j].strip()).find();
+                break;
+            }
+            for (String id : asStrList(b.get("items"))) {
+                if (present) expected.put(id, name); else absent.put(id, name);
+            }
+        }
+        return expected;
+    }
+
+    /**
+     * The ids of the checklist lines between the {@code checklist_heading} line and the next
+     * `## ` heading, in order, duplicates kept; null when the spec has no such heading.
+     */
+    static List<String> specChecklistFound(String content, Pattern heading, Pattern item) {
+        String[] lines = content.split("\n", -1);
+        int start = -1;
+        for (int i = 0; i < lines.length; i++) {
+            if (heading.matcher(lines[i]).find()) { start = i; break; }
+        }
+        if (start < 0) return null;
+        List<String> ids = new ArrayList<>();
+        for (int i = start + 1; i < lines.length && !lines[i].startsWith("## "); i++) {
+            Matcher m = item.matcher(lines[i]);
+            if (m.find()) ids.add(m.group(1));
+        }
+        return ids;
+    }
+
+    /**
+     * The single owner of the rule "a spec's checklist is the core plus the lines of the blocks
+     * it carries": the problems as printable lines, empty when it holds. Reads everything from
+     * {@code spec_checklist} of extensions.json — no list in the source. Called by
+     * {@link #spec}, by {@link #guardViolations} when a draft is written as approved.
+     */
+    static List<String> specChecklistProblems(String content, Map<String, Object> sch) {
+        List<String> out = new ArrayList<>();
+        Map<String, Object> cfg = asMap(sch.get("spec_checklist"));
+        if (cfg == null || content == null) return out;
+        String wayOut = "Rewrite the checklist from .claude/skills/new-feature/templates/feature-spec.md.example:"
+                + " the lines of the blocks this spec carries, none for an absent block, then run:"
+                + " java -jar .claude/hooks/ArchHook.jar spec check <spec>";
+        List<String> found = specChecklistFound(content,
+                Pattern.compile(asStr(cfg.get("checklist_heading"))),
+                Pattern.compile(asStr(cfg.get("item_pattern"))));
+        if (found == null) {
+            out.add("no checklist section");
+            out.add(wayOut);
+            return out;
+        }
+        Map<String, String> absent = new LinkedHashMap<>();
+        Map<String, String> expected = specChecklistExpected(content, sch, absent);
+        List<String> missing = expected.keySet().stream().filter(id -> !found.contains(id)).toList();
+        List<String> extra = found.stream().distinct().filter(id -> !expected.containsKey(id)).toList();
+        List<String> dup = found.stream().distinct()
+                .filter(id -> Collections.frequency(found, id) > 1).toList();
+        if (!missing.isEmpty()) out.add("missing: " + String.join(", ", missing));
+        if (!extra.isEmpty()) {
+            List<String> names = extra.stream().map(absent::get).filter(Objects::nonNull)
+                    .distinct().toList();
+            boolean unknown = extra.stream().anyMatch(id -> !absent.containsKey(id));
+            String why = names.isEmpty() ? "not a line of this spec"
+                    : String.join(", ", names) + (names.size() == 1 ? " is" : " are") + " absent or none"
+                            + (unknown ? "; others are not lines of this spec" : "");
+            out.add("extra: " + String.join(", ", extra) + " (" + why + ")");
+        }
+        if (!dup.isEmpty()) out.add("duplicate: " + String.join(", ", dup));
+        if (!out.isEmpty()) out.add(wayOut);
+        return out;
+    }
+
+    /**
+     * {@code spec_checklist} against the templates it describes: the ids of {@code core} and of
+     * every block's {@code items} equal the ids of the full template's checklist, and
+     * {@code short_items} those of the short one; each regex compiles. Data and template are two
+     * files, so nothing but this keeps them from drifting (invariant 10). Skipped silently where
+     * the template does not exist.
+     */
+    static void checkSpecChecklist(Map<String, Object> sch, List<String> errors) {
+        Map<String, Object> cfg = asMap(sch.get("spec_checklist"));
+        if (cfg == null) return;
+        String where = "  " + SCHEMA_FILE + " — spec_checklist: ";
+        Pattern heading, item;
+        try {
+            heading = Pattern.compile(orEmpty(asStr(cfg.get("checklist_heading"))));
+            item = Pattern.compile(orEmpty(asStr(cfg.get("item_pattern"))));
+            Pattern.compile(orEmpty(asStr(cfg.get("absent_marker"))));
+            for (Object o : asList(cfg.get("blocks"))) {
+                Pattern.compile(orEmpty(asStr(get(o, "heading"))));
+            }
+        } catch (PatternSyntaxException e) {
+            errors.add(where + "invalid regex: " + e.getDescription());
+            return;
+        }
+        Set<String> full = new LinkedHashSet<>(asStrList(cfg.get("core")));
+        for (Object o : asList(cfg.get("blocks"))) full.addAll(asStrList(get(o, "items")));
+        String dir = ".claude/skills/new-feature/templates/";
+        specChecklistDrift(where, dir + "feature-spec.md.example", full, heading, item, errors);
+        specChecklistDrift(where, dir + "feature-spec-short.md.example",
+                new LinkedHashSet<>(asStrList(cfg.get("short_items"))), heading, item, errors);
+    }
+
+    static void specChecklistDrift(String where, String template, Set<String> data,
+            Pattern heading, Pattern item, List<String> errors) {
+        String content = readOrNull(ROOT.resolve(template));
+        if (content == null) return;
+        List<String> ids = specChecklistFound(content, heading, item);
+        if (ids == null) {
+            errors.add(where + template + " has no checklist section");
+            return;
+        }
+        Set<String> inTemplate = new LinkedHashSet<>(ids);
+        List<String> onlyTemplate = inTemplate.stream().filter(i -> !data.contains(i)).toList();
+        List<String> onlyData = data.stream().filter(i -> !inTemplate.contains(i)).toList();
+        if (!onlyTemplate.isEmpty()) {
+            errors.add(where + String.join(", ", onlyTemplate) + " only in template (" + template + ")");
+        }
+        if (!onlyData.isEmpty()) {
+            errors.add(where + String.join(", ", onlyData) + " only in data (" + template + ")");
+        }
     }
 
     // ── config ───────────────────────────────────────────────────────────────
@@ -4282,6 +4500,7 @@ public class ArchHook {
             checkMigrations(sch, errors);
             checkMods(sch, errors);
             sweepShellGlobs(sch, errors);
+            checkSpecChecklist(sch, errors);
             String jarProblem = hookJarProblem(asMap(sch.get("hook_build")));
             if (jarProblem != null) errors.add("  " + jarProblem);
         }
@@ -9072,6 +9291,24 @@ public class ArchHook {
         if (!m.find()) return out;
         Path folder = ROOT.resolve(asStr(cfg.get("use_cases_dir"))).resolve(m.group(1));
         String status = specStatus(folder);
+
+        // 2a. A draft spec written as `approved` must carry the checklist of the blocks it has
+        //     (decision 0197, rule shared with `spec check`). The content after the write is
+        //     computed from the tool input; the sweep and `guard bash` have none to judge. A spec
+        //     already frozen is judged by the rules below.
+        if (!sweep && rel.matches(".*/UC-[^/]*-spec\\.md")
+                && (status == null || "draft".equals(status))) {
+            String after = contentAfterWrite(in, rel);
+            Map<String, String> fm = after == null ? null : frontmatter(after);
+            if (fm != null && "approved".equals(fm.get("status"))) {
+                List<String> problems = specChecklistProblems(after, sch);
+                if (!problems.isEmpty()) {
+                    out.add("❌ " + rel + " cannot be approved — its checklist does not match the blocks it carries.");
+                    out.addAll(problems);
+                    return out;
+                }
+            }
+        }
         if (status == null || !asStrList(cfg.get("frozen_statuses")).contains(status)) return out;
         if (isStatusClose(cfg, in, rel, status) || isChecklistToggle(cfg, in, rel, status)
                 || isFrozenExempt(cfg, rel.substring(m.end()))
@@ -9091,6 +9328,29 @@ public class ArchHook {
                                 .collect(Collectors.joining(" or ")) + "."));
         out.add("To reopen a spec that was never implemented, set `status: draft` by hand.");
         return out;
+    }
+
+    /**
+     * What the file holds after a {@code Write}, {@code Edit} or {@code MultiEdit} runs — null
+     * for any other tool, or when an {@code old_string} is not found (the tool will refuse that
+     * itself). Lets {@link #guardViolations} judge a spec before it is written.
+     */
+    static String contentAfterWrite(Object in, String rel) {
+        String tool = asStr(get(in, "tool_name"));
+        if ("Write".equals(tool)) return asStr(get(in, "tool_input", "content"));
+        if (!"Edit".equals(tool) && !"MultiEdit".equals(tool)) return null;
+        String text = readOrNull(ROOT.resolve(rel));
+        if (text == null) return null;
+        List<Object> edits = "Edit".equals(tool) ? List.of(get(in, "tool_input"))
+                : asList(get(in, "tool_input", "edits"));
+        for (Object e : edits) {
+            String oldS = asStr(get(e, "old_string"));
+            String newS = asStr(get(e, "new_string"));
+            if (oldS == null || newS == null || oldS.isEmpty() || !text.contains(oldS)) return null;
+            text = Boolean.TRUE.equals(get(e, "replace_all")) ? text.replace(oldS, newS)
+                    : text.replaceFirst(Pattern.quote(oldS), Matcher.quoteReplacement(newS));
+        }
+        return text;
     }
 
     /**

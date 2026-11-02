@@ -294,6 +294,17 @@ unticked boxes forever. The order is still the executor's contract, not the hook
 line is the last write it makes to the folder. Design:
 `.claude/decisions/0066-spec-state-machine.md`.
 
+**A refused `status: approved` on a spec means its checklist does not match the blocks it
+carries.** The checklist is the core (steps 1-7 and 16-19) plus the lines of the blocks the spec
+has: 8-12 only when `## 3` is not `none`, 13-15 only when `## 4` is not `none`, one lettered line
+per conditional block present. The guard prints `missing:`, `extra:` or `duplicate:` with the
+ids; fix them while the spec is still `draft` — copy the lines from
+`new-feature/templates/feature-spec.md.example`, drop the ones of an absent block, and run
+`java -jar .claude/hooks/ArchHook.jar spec check <spec>` until it exits 0. The data is
+`spec_checklist` in `extensions.json`. `sed -i` on the status line is the one way around the
+guard; `/new-feature-implement` and the executor run the same check and stop. Design:
+`.claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md`.
+
 ### Compose
 
 **`compose gate` runs the compose check unprompted, and it blocks.** `docker-architect` step 7

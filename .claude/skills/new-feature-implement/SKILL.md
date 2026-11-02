@@ -190,12 +190,17 @@ approved spec nobody committed yet is the run's input and goes in its `feat` com
    later turn — 427,889 tokens of context and 531,362 billable tokens in the run that reopened this
    (`0130`). Each group starts again from the spec and what is on disk:
 
-   | Group | Blocks | Checklist steps it ticks |
+   | Group | Blocks | Checklist lines it ticks |
    |---|---|---|
-   | `domain` | 1, 2 | 1–12 |
-   | `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | 13–15 |
-   | `tests` | 4 | 16–19, then the `status:` line |
+   | `domain` | 1, 2 | 1-7, and 8-12 when the spec carries them |
+   | `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | 13-15 when present, and each lettered line |
+   | `tests` | 4 | 16-19, then the `status:` line |
 
+   - **No valid checklist, no chain.** Before the first delegation run
+     `java -jar .claude/hooks/ArchHook.jar spec check <spec>`. Exit 2 → stop, nothing delegated:
+     ❌ `<UC-NNN-slug> has no valid implementation checklist` — followed by what the command printed and
+     `reopen it as draft and run /new-feature <UC-NNN-slug>`. The executor's precondition 5 would abort
+     the first group after the context was spent (issue #191)
    - **Where the chain starts.** At the first group with a checklist step neither ticked nor
      `n/a`. A group ticks its steps only when it ends green, so a run that failed in
      `adapters` starts there again, and a fresh spec starts at `domain`.

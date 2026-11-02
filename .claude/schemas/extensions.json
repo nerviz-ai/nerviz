@@ -87,6 +87,27 @@
     "exempt_patterns": []
   },
 
+  "spec_checklist": {
+    "$comment": "Read by ArchHook.java `spec check`, by `guard write` when a spec is approved, and cross-checked against the template by `schema`. The lines a UC-NNN-spec.md must carry in `## Implementation order (checklist)`: the core always, plus the ids of every block the spec carries. A block is present when its heading matches a line of the spec and the first non-blank line after it does not match `absent_marker` (every conditional block reads `none` when absent). Ids are stable names, not a sequence. Design: .claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md",
+    "checklist_heading": "^## Implementation order \\(checklist\\)",
+    "item_pattern": "^- \\[[ x]\\] ([0-9]+|[A-Z])\\. ",
+    "absent_marker": "^none\\b",
+    "core": ["1","2","3","4","5","6","7","16","17","18","19"],
+    "short_items": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19"],
+    "blocks": [
+      { "id": "persistence", "heading": "^## 3\\. ",   "items": ["8","9","10","11","12"] },
+      { "id": "rest",        "heading": "^## 4\\. ",   "items": ["13","14","15"] },
+      { "id": "http",        "heading": "^## 3\\.3 ",  "items": ["H"] },
+      { "id": "cache",       "heading": "^## 3\\.4 ",  "items": ["C"] },
+      { "id": "messaging",   "heading": "^## 3\\.5 ",  "items": ["M"] },
+      { "id": "jobs",        "heading": "^## 3\\.6 ",  "items": ["J"] },
+      { "id": "ai",          "heading": "^## 3\\.7 ",  "items": ["A"] },
+      { "id": "search",      "heading": "^## 3\\.8 ",  "items": ["I"] },
+      { "id": "graphql",     "heading": "^## 4\\.1 ",  "items": ["G"] },
+      { "id": "security",    "heading": "^## 4\\.5 ",  "items": ["S"] }
+    ]
+  },
+
   "arguments": {
     "$comment": "Read by ArchHook.java `schema`, same scope and same two escapes as `injections` above. The runtime interpolates the marker at EVERY occurrence, not only at the interpolation point, so a sentence that talks about the argument arrives with the real value inside it: lessons-learned-012 § 2 caught `/new-feature` telling the model to invoke test-architect `with empty $ARGUMENTS (setup mode)` and the model reading `with empty UC-003-initiate-kyc-verification (setup mode)` — setup mode named by the argument that means design mode. Seven occurrences across six skills, every one of them a sentence about the argument. `requires_field` limits the check to a file that actually receives one; `interpolation_line` is the single allowed shape, a line holding nothing but the marker; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. Why a hook and not a review item: CLAUDE.md invariant 6 — the defect is invisible in the source and only appears in what the model receives. Design: .claude/decisions/0056-lessons-learned-012-remediation.md",
     "marker": "$ARGUMENTS",
@@ -1091,6 +1112,12 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
         "note": "`doctor gate` now fails on a shell glob left unquoted in a flag (`--include=*.java`) in this project's `.claude/` files or root `CLAUDE.md`: zsh aborts on it before the command runs. The files `/arch-adopt` writes are already quoted; a file this project wrote itself is not touched.",
         "prompt": "Quote every glob value of a `--include=`, `--exclude=` or `--exclude-dir=` flag in this project's own `.claude/` files and root `CLAUDE.md`, as `--include='*.java'`, then run `java .claude/hooks/ArchHook.java schema` until it reports none."
+      },
+      {
+        "id": "spec-checklist-per-block",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "A spec's `## Implementation order (checklist)` is no longer fixed at 19 lines: steps 1-7 and 16-19 are in every spec, 8-12 only when `## 3` is not `none`, 13-15 only when `## 4` is not `none`, and one lettered line (H, A, I, G, S, M, J, C) per conditional block the spec carries. `/new-feature-implement` and the executor now run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` first, and the guard refuses `status: approved` on a spec that fails it. A spec approved BEFORE this update that carries a lettered block (`## 3.5 Messaging`, `## 3.6 Jobs`, `## 4.5 Security`, …) has 19 lines and no letter line, so it fails the check and cannot be implemented as it is. Specs already `implemented`, `implemented-blocked` or `draft`, and approved specs with no lettered block, are not affected.",
+        "prompt": "List the use case specs of this project that the new checklist rule refuses. Find every `docs/use-cases/UC-*/UC-*-spec.md` whose `status:` is `approved` (skip `draft`, `implemented` and `implemented-blocked`) and run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` on each. Show me the ones that exit 2, each with what the command printed, and wait for my go-ahead. Do not edit an approved spec: the guard refuses it. For each one, tell me what to do by hand: set `status: draft`, add the lettered lines the command named (`missing: M, J`, copied from `.claude/skills/new-feature/templates/feature-spec.md.example`, left open `[ ]`) under `## Implementation order (checklist)`, run `spec check` until it exits 0, then ask me to approve it again so that the guard re-runs the check on `status: approved`. If the executor already ran a block of that case, its files are on disk and the new line is ticked by the next `/new-feature-implement` run, which resumes from the disk."
       }
     ]
   },

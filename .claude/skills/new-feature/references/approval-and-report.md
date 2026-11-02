@@ -14,8 +14,8 @@ Read whole before asking for approval. The two steps — headings and field bloc
 Asked on every run that consolidated a spec. **Read the consolidated spec once more before asking.** Approval freezes the folder — after it,
 the guard admits only the status moves and checklist toggles `guard.status_transitions` names,
 and reopening is by hand (`@.claude/decisions/0066-spec-state-machine.md`) — so whatever is
-wrong in the spec at this moment ships to the executor. Three defects real runs approved
-(issues #167 and #168), fixed here, never after:
+wrong in the spec at this moment ships to the executor. Four defects real runs approved
+(issues #167, #168 and #191), fixed here, never after:
 
 - a `§` reference to a section, step or row the spec does not have — every one resolves inside
   `UC-NNN-spec.md` or names the partial that holds it
@@ -25,6 +25,10 @@ wrong in the spec at this moment ships to the executor. Three defects real runs 
   period it enforces, a code it answers with — that carries no source, flagged or not
   (`@.claude/rules/spec-external-facts.md`): the source is found now, or the person who owns the
   integration is asked, and a spec that cannot be sourced in this run stays a draft
+- an `## Implementation order (checklist)` that is not the template's, or that does not match the
+  blocks the spec carries: run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` while the spec is
+  still `draft` and fix what it names. The guard runs the same check on the `status: approved` write and
+  refuses it, so the approval cannot be skipped past a wrong checklist
 
 Fix each in the spec while it is still `draft`, then ask.
 

@@ -152,13 +152,14 @@ If it exists: read, validate (four blocks: aggregate, VOs, invariants, ports).
 
 **Runs:** skill:rest-api-architect · **Depends on:** 1, 2 · **Conditional:** yes
 
-Read the closing phrase of `00-use-case.md`'s `Trigger` row. `inbound GraphQL adapter` alone →
-skip this step. Any other phrase, or none (a case written before the phrase existed) → if
-`30-rest.md` is missing: **invoke** `/rest-api-architect UC-NNN`.
+Read the closing phrase of `00-use-case.md`'s `Trigger` row. No HTTP adapter named
+(`inbound GraphQL adapter` alone, a schedule, a listener, a model call with no endpoint) → skip
+this step. An HTTP adapter, or no phrase (a case written before it existed) → if `30-rest.md`
+is missing: **invoke** `/rest-api-architect UC-NNN`.
 If it exists: read, validate (eight blocks: resources, DTOs, errors, pagination, idempotency,
 personal data, versioning, admission — `none` unless `00-use-case.md` has an `Admission` row).
 
-**Output:** "✅ REST ready", "— skipped (GraphQL only)", or gaps.
+**Output:** "✅ REST ready", "— skipped (GraphQL only)", "— skipped (no HTTP adapter)", or gaps.
 
 ### 3g · GraphQL
 
@@ -305,9 +306,9 @@ add a scheduling dependency to `pom.xml`.
 
 ### 5 · Persistence
 
-**Runs:** skill:persistence-architect · **Depends on:** 1, 2, 3, 3g, 3b, 3c, 3d, 3e, 4, 4b
+**Runs:** skill:persistence-architect · **Depends on:** 1, 2, 3, 3g, 3b, 3c, 3d, 3e, 4, 4b · **Conditional:** yes
 
-If `20-persistence.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
+Skip when `Storage` is `none` and none of the partials above lists a schema requirement (the list below). Otherwise, if `20-persistence.md` is missing: **invoke** `/persistence-architect UC-NNN`. It reads
 every schema requirement list in the same pass — `30-rest.md` block 4 (the idempotency
 table among them) when step 3 ran, when step 3g ran `31-graphql.md` § 9 (one statement per batch
 port, bounded by § 6's max batch, and the index each connection's order needs), when step 3b ran `32-security.md` § 7 (a credentials or API-key store),
@@ -319,10 +320,9 @@ dedupe table), and when step 4b ran `35-jobs.md` § 3 and § 6 (the replica coun
 strategy must meet, the scheduling tables, the prune's bounded delete). If it exists: read, validate (seven blocks: schema, mapping, adapter and
 ports, migrations, configuration, declared dependencies, deferred). § 6 is the persistence twin
 of `25-messaging.md` § 7,
-and the same rule holds: it is the only list that entitles the executor to touch `pom.xml` —
-and consolidation checks it again, for the paths that never take this step.
+and the same rule holds: it is the only list that entitles the executor to touch `pom.xml`.
 
-**Output:** "✅ Persistence ready" or gaps.
+**Output:** "✅ Persistence ready", "— skipped (no persistence)", or gaps.
 
 ### 5b · Cache
 
