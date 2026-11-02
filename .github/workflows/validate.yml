@@ -122,6 +122,12 @@ jobs:
       - name: schema blocks a shell glob zsh aborts on
         run: java .claude/.ci/ShellGlobSchemaTest.java
 
+      # Decision 0197 (issue #191): the checklist of a spec is the core plus the lines of the
+      # blocks the spec carries. `spec check` and the `guard write` rule on `status: approved`
+      # share one function; this step drives both, and `schema` against the template.
+      - name: spec check and the approval guard
+        run: java .claude/.ci/SpecChecklistTest.java
+
       # Question 3 of the `compose` mode reads two files and needs no Docker, so it runs
       # on all three OSes — including the two runners with no daemon. The test also proves
       # the `src/test/` path match survives Windows' separator.

@@ -176,8 +176,9 @@
 <text x="864" y="912" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
 <g id="step_new-feature_5" class="r" style="animation-delay:8.40s">
-<rect x="644" y="992" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="748" y="1025" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Persistence</text>
+<rect x="644" y="992" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="748" y="1017" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">5 · Persistence</text>
+<text x="748" y="1032" font-size="11" text-anchor="middle" fill="#52606D">conditional</text>
 </g>
 <g id="step_new-feature_5b" class="r" style="animation-delay:9.10s">
 <rect x="644" y="1112" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>

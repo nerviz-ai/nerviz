@@ -96,6 +96,8 @@ touches none of them.
 
 ## Implementation order (checklist)
 
+Short path: Persistence and REST are present, no lettered block — spec check expects exactly 1-19.
+
 - [ ] 1. Domain exceptions — n/a, reused
 - [ ] 2. Value objects — n/a, reused
 - [ ] 3. Aggregate — n/a, reused
