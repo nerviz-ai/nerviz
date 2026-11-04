@@ -532,12 +532,12 @@
         "skills": ["claude-code-architect-designer"]
       },
       "ops": {
-        "$comment": "Effect outside the working tree. Writes no file, so an empty write_allow is exact rather than restrictive. `audited: false`: a run of its own would render its report at the `Stop` AFTER the commit it made, so every publish left the tree dirty with a report about publishing (lessons-learned-012 § 15). Typed as `/git-publish` it now closes the run in progress first — that run's report and ledger lines land on disk before the commit, and go into it. Chained inside another run it stays part of that run, with its own tokens, like any nested piece. Design: .claude/decisions/0086-audit-exclusion-owned-by-the-class.md. `triage-issue` has the same shape — its effect is a comment on an issue, outside the tree, and it writes no file; the judgment that would otherwise argue for `opus` lives in the `issue-verifier` agent it delegates to. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `project-config` writes no file with a tool either: every change is `ArchHook.jar config set|unset`, the one writer of the `project_config` files, which validates before it writes and which `guard` names whenever a tool tries the write itself. Design: .claude/decisions/0187-project-config-registry-skill-and-mod.md",
+        "$comment": "Effect outside the working tree. Writes no file, so an empty write_allow is exact rather than restrictive. `audited: false`: a run of its own would render its report at the `Stop` AFTER the commit it made, so every publish left the tree dirty with a report about publishing (lessons-learned-012 § 15). Typed as `/git-publish` it now closes the run in progress first — that run's report and ledger lines land on disk before the commit, and go into it. Chained inside another run it stays part of that run, with its own tokens, like any nested piece. Design: .claude/decisions/0086-audit-exclusion-owned-by-the-class.md. `triage-issue` has the same shape — its effect is a comment on an issue, outside the tree, and it writes no file; the judgment that would otherwise argue for `opus` lives in the `issue-verifier` agent it delegates to. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `project-config` writes no file with a tool either: every change is `ArchHook.jar config set|unset`, the one writer of the `project_config` files, which validates before it writes and which `guard` names whenever a tool tries the write itself. Design: .claude/decisions/0187-project-config-registry-skill-and-mod.md. `spike` writes no file with a tool either: its effect is a sibling git worktree, made by `git worktree add` and reduced by `ArchHook.jar spike`. Design: .claude/decisions/0198-spike-worktree-with-hooks-off.md",
         "audited": false,
         "allowed_models": ["sonnet"],
         "write_allow": [],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["git-publish", "triage-issue", "new-project", "project-config"]
+        "skills": ["git-publish", "triage-issue", "new-project", "project-config", "spike"]
       },
       "report": {
         "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `harness-lessons` is the one override: in the Nerviz repository its lessons file is history about this `.claude/`, so it goes beside the run reports in `.claude/lessons-learned/` instead of the public `docs/` tree; in a generated project it stays in `docs/lessons-learned/`, gitignored there and read by `report-issue`. The glob is `harness-*.md` alone, never the run reports beside it. Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md",
@@ -659,6 +659,11 @@
     ],
     "pointer": "Full GoF triage (every pattern, with this repository's verdict on each): `.claude/skills/gof-design-patterns/references/pattern-catalog.md`. Shape exemplars: `.claude/skills/gof-design-patterns/templates/`. Read them only for a force or symptom the table above does not match.",
     "max_chars": 9000
+  },
+
+  "spike": {
+    "$comment": "What `ArchHook.java spike <worktree>` keeps in a spike worktree's `.claude/settings.json`: every hook entry whose ArchHook mode (the argument right after `ArchHook.jar`) is listed in `keep_modes`; every other entry is dropped, an emptied matcher group and an emptied event with it. Everything outside `hooks` is left as is. `audit` stays so a spike's token spend lands in the main checkout's trail. Design: .claude/decisions/0198-spike-worktree-with-hooks-off.md",
+    "keep_modes": ["audit"]
   },
 
   "project_config": {
@@ -1246,6 +1251,7 @@
         "security-architect",
         "sonar-lessons",
         "sonarqube-setup",
+        "spike",
         "test-architect",
         "transport-security-setup",
         "use-case-design"

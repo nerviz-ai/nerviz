@@ -74,6 +74,7 @@ copy step isn't updated alongside it.
 | Reporting a defect or a gap in this `.claude/` upstream, to Nerviz — from a description or a `docs/lessons-learned/` file | skill `report-issue` — manual only (`/report-issue`). Asks for the evidence a maintainer needs to verify it, warns when this project is behind the latest release, opens the issue only after confirmation, carrying no path, package or code of this project |
 | Pulling a newer version of this `.claude/` into the project | skill `arch-adopt` — manual only (`/arch-adopt`), refuses a dirty worktree |
 | Creating a git repo, committing, or pushing this project | skill `git-publish` — typed by you (`/git-publish`), the line `/new-feature` and `/new-feature-implement` print after `/clear`; behind two confirmations |
+| A throwaway spike or POC, with `format`, `check`, `tests`, `compose gate` and `guard` out of the way | skill `spike` — typed by you (`/spike <slug>`): a git worktree beside the project where only the audit hooks run; this checkout stays enforced; `/spike end <slug>` prints the cleanup |
 
 ## Under another agent
 

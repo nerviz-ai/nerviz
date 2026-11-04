@@ -195,6 +195,13 @@ jobs:
       - name: config writes only valid project settings, and guard leaves it the only writer
         run: java .claude/.ci/ProjectConfigTest.java
 
+      # A spike keeps its audit trail and loses every other check (0198). A filter that keeps
+      # every entry, a write under the wrong root, a missing skip-worktree, a missing
+      # linked-worktree check or a hardcoded mode each leave a spike that enforces too much, or
+      # a main checkout that does not.
+      - name: spike keeps only the hooks keep_modes lists, in a linked worktree, uncommittable
+        run: java .claude/.ci/SpikeTest.java
+
       # A plugin enabled at user level loads again, in silence, the moment its project-level
       # `false` is gone; the list sits in two settings files and drifts on the first edit to
       # one of them. `settings.blocked_plugins` is the owner, and both files must follow (0138).

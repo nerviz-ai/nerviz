@@ -59,7 +59,7 @@
 <g id="layer_skills">
 <rect x="288" y="368" width="208" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
 <text x="392" y="394" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">skills</text>
-<text x="392" y="410" font-size="11" text-anchor="middle" fill="#52606D">34 entries</text>
+<text x="392" y="410" font-size="11" text-anchor="middle" fill="#52606D">35 entries</text>
 </g>
 <g id="layer_agents">
 <rect x="288" y="496" width="208" height="56" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
@@ -84,6 +84,6 @@
 <g id="layer_decisions">
 <rect x="288" y="752" width="208" height="56" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5"/>
 <text x="392" y="778" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">decisions</text>
-<text x="392" y="794" font-size="11" text-anchor="middle" fill="#52606D">182 entries</text>
+<text x="392" y="794" font-size="11" text-anchor="middle" fill="#52606D">183 entries</text>
 </g>
 </svg>

@@ -614,6 +614,17 @@ nothing. Rewording a guard message without updating its marker makes `schema` fa
 otherwise the dialog would stop appearing in silence. The refusal stands whichever button is
 pressed; "Stop the turn" only ends the turn.
 
+### Spikes
+
+**In a `/spike` worktree `.claude/settings.json` differs from `HEAD`, yet `git status` is clean,
+and only the audit hooks run there.** `ArchHook.jar spike` reduces the worktree's hook
+registrations to `spike.keep_modes` and marks the file `skip-worktree` in that worktree's index
+alone, so the relaxed registrations can never be committed or merged: `git ls-files -v` shows
+`S` there and `H` in the main checkout. `format`, `check`, `tests`, `compose gate` and `guard`
+are off in the spike by design, and what is promoted back goes through `/new-feature` in the
+main checkout. To see the real diff, run `git update-index --no-skip-worktree
+.claude/settings.json` in the worktree (`.claude/decisions/0198-spike-worktree-with-hooks-off.md`).
+
 ### Rules and decisions
 
 **A rule without `paths` loads at launch, every session — it is not "citation only".** So

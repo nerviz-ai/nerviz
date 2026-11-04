@@ -52,3 +52,6 @@ monetization-roadmap.md
 getting-started-open-source.md
 examples/
 docs/diagrams/facts.json
+
+# nerviz-diagrams' PNG/video export dependencies, installed by `npm ci` from its lockfile
+.claude/skills/nerviz-diagrams/node_modules/
