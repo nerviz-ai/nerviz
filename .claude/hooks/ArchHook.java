@@ -96,6 +96,7 @@ public class ArchHook {
                 case "test-diff" -> testDiff(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "config" -> config(args);
+                case "spike" -> spike(args);
                 case "spec" -> spec(args);
                 case "footprint" -> footprint();
                 case "build"  -> build(args);
@@ -108,6 +109,8 @@ public class ArchHook {
             // job goes green on a report that never finished.
             // `config` is typed or called to change a file: a throw there must not read as written.
             // `spec check` is typed or run as a pre-flight: a throw there must not read as a pass.
+            // `spike` is typed to write a settings file: a throw there must not read as written.
+            if ("spike".equals(mode)) System.exit(2);
             System.exit("doctor".equals(mode) && args.length > 1 && "gate".equals(args[1])
                     || "config".equals(mode) || "spec".equals(mode) ? 1 : 0);
         }
@@ -2016,6 +2019,115 @@ public class ArchHook {
             }
             default -> configUsage();
         }
+    }
+
+    /**
+     * {@code spike <worktree>} — Form 7c, invoked by hand from the `spike` skill, not by any event:
+     * it writes a spike worktree's hook registrations down to `spike.keep_modes`, so a throwaway
+     * tree keeps its audit trail and loses every other check. Motivated by axis 7 of 0198 — only
+     * `audit` must stay on, which `disableAllHooks` cannot express since it turns every layer off.
+     * Option 3 of 0198, a relax flag read by four modes, was rejected: it adds an early exit to
+     * every enforcing mode to protect a tree that is thrown away.
+     *
+     * <p>Refuses, exit 2 and nothing written, on a missing argument, a non-directory, a path that
+     * is not a linked worktree (which is what protects the main checkout), a worktree that is
+     * {@link #ROOT}, and a worktree with no `.claude/settings.json`. Idempotent. Design:
+     * `.claude/decisions/0198-spike-worktree-with-hooks-off.md`.
+     */
+    @SuppressWarnings("unchecked")
+    static void spike(String[] args) throws Exception {
+        if (args.length < 2 || args[1].isBlank()) {
+            err("spike: no worktree given. Usage: `spike <worktree>` — create one with"
+                    + " `git worktree add ../<project>-spike-<slug> -b spike/<slug>` and pass that path.");
+            System.exit(2);
+        }
+        Path wt = Paths.get(args[1]).toAbsolutePath().normalize();
+        if (!Files.isDirectory(wt)) {
+            err("spike: " + wt + " is not a directory. Create it with"
+                    + " `git worktree add ../<project>-spike-<slug> -b spike/<slug>` and run `spike` on that path.");
+            System.exit(2);
+        }
+        Proc gd = run("git", "-C", wt.toString(), "rev-parse", "--git-dir");
+        Proc gc = run("git", "-C", wt.toString(), "rev-parse", "--git-common-dir");
+        boolean linked = false;
+        if (gd.exit() == 0 && gc.exit() == 0 && !gd.out().isEmpty() && !gc.out().isEmpty()) {
+            Path a = wt.resolve(gd.out().get(0).strip()).toRealPath();
+            Path b = wt.resolve(gc.out().get(0).strip()).toRealPath();
+            linked = !a.equals(b);
+        }
+        if (!linked) {
+            err("spike: " + wt + " is the main checkout, not a linked worktree. Create one with"
+                    + " `git worktree add ../<project>-spike-<slug> -b spike/<slug>` and run `spike` on that path.");
+            System.exit(2);
+        }
+        if (wt.toRealPath().equals(ROOT.toRealPath())) {
+            err("spike: " + wt + " is this project's own root (CLAUDE_PROJECT_DIR). Run `spike` from the main"
+                    + " checkout, naming the sibling worktree.");
+            System.exit(2);
+        }
+        Path settings = wt.resolve(".claude/settings.json");
+        if (!Files.isRegularFile(settings)) {
+            err("spike: " + settings + " is missing, so there is no hook registration to reduce."
+                    + " Check the worktree holds a branch of a project with a `.claude/`.");
+            System.exit(2);
+        }
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        List<String> keep = asStrList(get(sch, "spike", "keep_modes"));
+        if (keep.isEmpty()) {
+            err("spike: no `spike.keep_modes` in " + SCHEMA_FILE + " — nothing says which hooks stay on."
+                    + " Restore the block (decision 0198) and run again.");
+            System.exit(2);
+        }
+        Map<String, Object> root = asMap(Json.parse(readOrNull(settings)));
+        if (root == null) {
+            err("spike: " + settings + " is not a JSON object. Fix it in the worktree and run again.");
+            System.exit(2);
+        }
+        int kept = 0, dropped = 0;
+        Set<String> modes = new LinkedHashSet<>();
+        Map<String, Object> hooks = asMap(root.get("hooks"));
+        if (hooks != null) {
+            Map<String, Object> outHooks = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> ev : hooks.entrySet()) {
+                List<Object> groups = new ArrayList<>();
+                for (Object g : asList(ev.getValue())) {
+                    Map<String, Object> group = asMap(g);
+                    if (group == null) continue;
+                    List<Object> entries = new ArrayList<>();
+                    for (Object h : asList(group.get("hooks"))) {
+                        String mode = spikeMode(asMap(h));
+                        if (mode != null && keep.contains(mode)) { entries.add(h); kept++; modes.add(mode); }
+                        else dropped++;
+                    }
+                    if (entries.isEmpty()) continue;
+                    Map<String, Object> ng = new LinkedHashMap<>(group);
+                    ng.put("hooks", entries);
+                    groups.add(ng);
+                }
+                if (!groups.isEmpty()) outHooks.put(ev.getKey(), groups);
+            }
+            root.put("hooks", outHooks);
+        }
+        Files.writeString(settings, jsonPretty(root, "") + "\n", StandardCharsets.UTF_8);
+        Proc sk = run("git", "-C", wt.toString(), "update-index", "--skip-worktree", ".claude/settings.json");
+        if (sk.exit() != 0) {
+            err("spike: git update-index --skip-worktree failed: " + (sk.out().isEmpty() ? "" : sk.out().get(0))
+                    + ". The worktree's settings.json is already reduced; remove the worktree with"
+                    + " `git worktree remove` and retry.");
+            System.exit(2);
+        }
+        System.out.println("spike: " + wt + " \u2014 kept " + kept + " hook entries (" + String.join(", ", modes)
+                + "), dropped " + dropped + "; .claude/settings.json marked skip-worktree.");
+    }
+
+    /** The ArchHook mode of one hook entry: the `args` element right after `ArchHook.jar`/`.java`, or null. */
+    static String spikeMode(Map<String, Object> entry) {
+        if (entry == null) return null;
+        List<String> a = asStrList(entry.get("args"));
+        for (int i = 0; i + 1 < a.size(); i++) {
+            if (a.get(i).endsWith("ArchHook.jar") || a.get(i).endsWith("ArchHook.java")) return a.get(i + 1);
+        }
+        return null;
     }
 
     static void configUsage() {

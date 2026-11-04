@@ -628,6 +628,18 @@ nenhum e não pergunta nada. Reescrever uma mensagem do guard sem atualizar o ma
 `schema` falhar pelo nome — senão o diálogo pararia de aparecer em silêncio. A recusa vale
 seja qual for o botão; "Stop the turn" só encerra o turno.
 
+### Spikes
+
+**Num worktree de `/spike` o `.claude/settings.json` difere do `HEAD`, mas o `git status` está
+limpo, e só os hooks de `audit` rodam ali.** O `ArchHook.jar spike` reduz os registros de hook do
+worktree ao que `spike.keep_modes` lista e marca o arquivo como `skip-worktree` só no índice
+daquele worktree, então os registros relaxados nunca são commitados nem mesclados: o
+`git ls-files -v` mostra `S` ali e `H` no checkout principal. `format`, `check`, `tests`,
+`compose gate` e `guard` ficam desligados no spike por design, e o que volta para o projeto passa
+pelo `/new-feature` no checkout principal. Para ver o diff real, rode
+`git update-index --no-skip-worktree .claude/settings.json` no worktree
+(`.claude/decisions/0198-spike-worktree-with-hooks-off.md`).
+
 ### Rules e decisions
 
 **Uma rule sem `paths` carrega no launch, em toda sessão — não é "só citação".** Por isso toda

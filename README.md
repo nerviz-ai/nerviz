@@ -416,9 +416,9 @@ proposed fix, before anything is commented or designed. Details:
 |---|---|---|
 | Architecture blueprints | 9 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 34 | `.claude/skills/` |
+| Skills (design, orchestration, build, ops, meta…) | 35 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 7 | `.claude/agents/` |
-| Hook modes, in one Java file | 16 | `.claude/hooks/ArchHook.java` |
+| Hook modes, in one Java file | 17 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
 
 **Design skills of the `/new-feature` pipeline:** `use-case-design`, `domain-modeling`,
