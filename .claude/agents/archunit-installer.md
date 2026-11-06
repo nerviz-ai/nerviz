@@ -117,6 +117,15 @@ back to the caller.
    an explicit exception, the one the vocabulary comment names — don't carry the
    exemplar's single-suffix assumption into a blueprint whose own comment says otherwise.
 
+   **How to translate — a table first, then one `Write`.** Before writing the file, list
+   every package string the exemplar names (`grep -n '"\.\.' <exemplar>`) and, next to each,
+   the project's package from the active blueprint's `packages.map`, or `delete` when the
+   blueprint has no such role; add one row per suffix or role rule the naming-convention
+   comment changes. Then `Write` the file once, already translated, from the exemplar and
+   that table. Never rewrite the exemplar with a script (`python3`, `perl`, `sed -i`): a
+   string the map does not hold fails the script, not the translation, and the comment's
+   rules are not in any map. Put the table in the report.
+
 5. One direction rule per boundary the project declares — the same ones in
    `.claude/forbidden-imports.txt` and in the POMs' `depends_on`. Don't invent
    boundaries the project doesn't have.
