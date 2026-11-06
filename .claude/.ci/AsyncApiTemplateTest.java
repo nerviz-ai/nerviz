@@ -56,14 +56,14 @@ public class AsyncApiTemplateTest {
     static final Path CONTRACT_IT = SKILLS.resolve("test-architect/templates/AsyncApiContractIT.java.example");
     static final Path SECURITY = SKILLS.resolve("security-architect/templates/SecurityConfig.java.example");
     static final Path NORM = Paths.get(".claude/rules/messaging.md");
-    static final Path AGENT = Paths.get(".claude/agents/java-spring-boot-developer.md");
+    static final Path EXECUTOR_TESTS_BLOCK = Paths.get(".claude/skills/new-feature-implement/references/blocks/tests.md");
     static final Path EXTENSIONS = Paths.get(".claude/schemas/extensions.json");
 
     static final String SNAPSHOT = "src/test/asyncapi/asyncapi.snapshot.json";
     static final List<String> failures = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
-        for (Path required : List.of(PRODUCER, OUTBOX, CONSUMER, YML, PARTIAL, ZENWAVE, CONTRACT_IT, SECURITY, NORM, AGENT, EXTENSIONS)) {
+        for (Path required : List.of(PRODUCER, OUTBOX, CONSUMER, YML, PARTIAL, ZENWAVE, CONTRACT_IT, SECURITY, NORM, EXECUTOR_TESTS_BLOCK, EXTENSIONS)) {
             if (!Files.isRegularFile(required)) {
                 System.out.println("❌ Missing " + rel(required));
                 System.exit(1);
@@ -233,8 +233,8 @@ public class AsyncApiTemplateTest {
     }
 
     static void agreement() throws Exception {
-        require(rel(AGENT), read(AGENT), "AsyncApiContractIT", "the executor does not write the contract test");
-        require(rel(AGENT), read(AGENT), SNAPSHOT, "the executor does not know the snapshot path");
+        require(rel(EXECUTOR_TESTS_BLOCK), read(EXECUTOR_TESTS_BLOCK), "AsyncApiContractIT", "the executor does not write the contract test");
+        require(rel(EXECUTOR_TESTS_BLOCK), read(EXECUTOR_TESTS_BLOCK), SNAPSHOT, "the executor does not know the snapshot path");
         String json = read(EXTENSIONS);
         int at = json.indexOf("\"id\": \"asyncapi-springwolf\"");
         if (at < 0) {

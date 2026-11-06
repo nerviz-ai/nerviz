@@ -299,6 +299,9 @@ failure, and `/new-feature-implement UC-NNN-<slug>` to resume there — no `/git
   existing mapper.
 - **`@.claude/agents/compose-service-installer.md`** — adds the spec's `materialize` services
   through `docker-architect`, after the `tests` group and before the final report.
+- **`references/blocks/`** — owned by this skill: the executor's per-block procedure, read by
+  `java-spring-boot-developer` one block at a time
+  (`@.claude/decisions/0199-executor-blocks-on-demand-read-discipline-archunit-translation.md`).
 - **`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`** — why the
   report prints `/git-publish` instead of invoking it.
 - **`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`**

@@ -128,6 +128,11 @@ jobs:
       - name: spec check and the approval guard
         run: java .claude/.ci/SpecChecklistTest.java
 
+      # Decision 0199: the executor reads one file per block; the files, the ids of
+      # `spec_checklist` and the agent's § Blocks table must agree.
+      - name: Executor block files
+        run: java .claude/.ci/ExecutorBlocksTest.java
+
       # Question 3 of the `compose` mode reads two files and needs no Docker, so it runs
       # on all three OSes — including the two runners with no daemon. The test also proves
       # the `src/test/` path match survives Windows' separator.
