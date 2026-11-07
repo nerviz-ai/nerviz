@@ -42,6 +42,19 @@ public class AgentTerritoryTest {
         failures += write(hook, session, "archunit-installer", "app/pom.xml",
                 0, "…and a module POM");
 
+        // Gradle builds (decision 0204): the installer wires ArchUnit and the gate there too.
+        failures += write(hook, session, "archunit-installer", "build.gradle",
+                0, "archunit-installer edits the root build.gradle");
+
+        failures += write(hook, session, "archunit-installer", "app/build.gradle",
+                0, "…and a module build.gradle");
+
+        failures += write(hook, session, "archunit-installer", "build.gradle.kts",
+                0, "…and a Kotlin DSL build");
+
+        failures += write(hook, session, "archunit-installer", "settings.gradle",
+                2, "archunit-installer is still refused settings.gradle");
+
         // The prose promise this class turns into enforcement.
         failures += write(hook, session, "archunit-installer", "docker-compose.yml",
                 2, "archunit-installer is refused docker-compose.yml");

@@ -32,7 +32,7 @@ Two things, and the argument decides which:
 | Mode | When | Produces |
 |---|---|---|
 | **design** | the target above is a `UC-NNN-<slug>` folder | `docs/use-cases/UC-NNN-<slug>/40-tests.md` |
-| **setup** | the target above is empty | ArchUnit installed in the project (version in the POM, `ArchitectureTest.java` with the translated packages) and the coverage gate wired up (JaCoCo's `check` execution) — done by delegating to the `archunit-installer` agent |
+| **setup** | the target above is empty | ArchUnit installed in the project (version in the build file, `ArchitectureTest.java` with the translated packages) and the coverage gate wired up (JaCoCo's `check` execution on Maven, `jacocoTestCoverageVerification` on Gradle) — done by delegating to the `archunit-installer` agent |
 
 They're not two disguised pieces: they share the rule, the vocabulary, and the
 exemplars. Setup mode runs **once per project**; design mode runs once per use case.
@@ -47,11 +47,11 @@ tests before the invariants exist produces tests for the form, not the business.
 in `templates/`. Inherits D15 — `@.claude/decisions/0003-skill-domain-modeling.md`.
 
 Setup mode is the declared exception, and the only one: it produces
-`ArchitectureTest.java` and two entries in the POM — the ArchUnit dependency and
-JaCoCo's `check` execution — by delegating to the `archunit-installer` agent. It isn't
+`ArchitectureTest.java` and two entries in the build file — the ArchUnit dependency and
+the coverage gate (JaCoCo's `check` execution on Maven, `jacocoTestCoverageVerification` on Gradle) — by delegating to the `archunit-installer` agent. It isn't
 code for a use case — it's whole-project verification infrastructure, which no partial
 describes, and running it inline would pin the whole session's context to a `curl` call
-and up to three `./mvnw` builds it doesn't need to see. Split recorded in
+and up to three wrapper builds it doesn't need to see. Split recorded in
 `@.claude/decisions/0030-archunit-installer-split.md`.
 
 **Rule rule: rules don't live here.** Pyramid, slices, doubles, names, data, database
@@ -77,7 +77,7 @@ doesn't see the conversation, so design mode stays inline. Recorded in
 `@.claude/decisions/0008-testing-rule-and-design.md`.
 
 Setup mode has the opposite shape — no interview, purely mechanical, and its own Bash
-output (a Maven Central lookup, up to three `./mvnw` builds) is the kind of thing that's
+output (a Maven Central lookup, up to three wrapper builds) is the kind of thing that's
 cheap to isolate and expensive to keep. It delegates to the `archunit-installer` agent.
 Recorded in `@.claude/decisions/0030-archunit-installer-split.md`.
 
@@ -310,7 +310,7 @@ reporting, without the `check` execution — this mode is the one that adds it. 
 
 **This mode delegates its execution.** Invoke the `archunit-installer` agent with the
 project root. It resolves the ArchUnit version, writes `ArchitectureTest.java`,
-translates the packages, wires the JaCoCo `check` execution, runs the builds, and pins
+translates the packages, wires the coverage gate, runs the builds, and pins
 the Testcontainers image tag — all isolated from this conversation, since none of it
 needs an interview. Reasoning and full procedure:
 `@.claude/agents/archunit-installer.md`. Record of the split:
@@ -361,7 +361,7 @@ modes: design mode writes inside the use case folder, and setup mode writes noth
 every file `ArchUnit` needs is written by the `archunit-installer` agent, which the guard
 bypasses as an executor.
 
-**Unfiltered Bash:** setup mode verifies with `./mvnw` goals that depend on the build shape, plus `curl` for the Testcontainers image tag and `java …ArchHook.java` — a fixed list trails the build. Writes stay under `guard`/`guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
+**Unfiltered Bash:** setup mode verifies with `./mvnw` goals or `./gradlew` tasks that depend on the build shape, plus `curl` for the Testcontainers image tag and `java …ArchHook.java` — a fixed list trails the build. Writes stay under `guard`/`guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
 
 **Reads** `docs/use-cases/UC-NNN-<slug>/00-use-case.md` and `10-domain.md`
 (mandatory in design mode — stops without the second), `20-persistence.md`,
@@ -378,7 +378,7 @@ sensitive), and the active blueprint's `packages.map`.
 **Writes** `docs/use-cases/UC-NNN-<slug>/40-tests.md` in design mode, directly. Setup
 mode writes nothing itself — it delegates to `archunit-installer`, which writes
 `<main-module>/src/test/java/**/ArchitectureTest.java`, the ArchUnit entries in the
-POM, the `jacoco-maven-plugin`'s `check` execution, and — the one exception, a single
+build file, the coverage gate, and — the one exception, a single
 line, not a file — the pinned image tag in the Initializr-generated
 `TestcontainersConfiguration.java`. Nothing else in `src/test/**`. Contract of that
 agent's own reads and writes: `@.claude/agents/archunit-installer.md`.

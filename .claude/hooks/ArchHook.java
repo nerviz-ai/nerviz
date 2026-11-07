@@ -5724,7 +5724,100 @@ public class ArchHook {
             }
         }
 
+        checkExportCitations(exp, errors);
     }
+
+    /**
+     * Refuses an exported file that cites a path inside a skill the export leaves out.
+     * Scope and the excluded ids are read from the `export` block: the kept subdirectories
+     * of every included skill, every included agent, every rule not excluded, and the
+     * active-blueprint files {@code export.blueprint_copy} names, minus
+     * {@code export.body_transforms.residue_exempt}. A hit is a path that does not exist
+     * inside a generated project; a skill's name in prose is not a path and passes.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, run by `schema` at sweep time (Stop, or a
+     * manual run) — motivated by axis 7: a citation to a skill `export.skills.exclude` keeps out
+     * reached generated projects three times (0200, issue #194), and the export's residue scan
+     * only warns, in the target, and never looked for these paths. The closest rejected form was
+     * fixing the citations by hand alone, which is what let the second and third through.
+     * Design: .claude/decisions/0204-archunit-installer-on-gradle-and-dead-citations-to-excluded-skills.md
+     */
+    static void checkExportCitations(Map<String, Object> exp, List<String> errors) throws IOException {
+        List<String> excluded = asStrList(get(exp, "skills", "exclude"));
+        if (excluded.isEmpty()) return;
+        Set<String> exempt = new HashSet<>(asStrList(get(exp, "body_transforms", "residue_exempt")));
+        List<Path> files = new ArrayList<>();
+
+        String skillsDir = asStr(get(exp, "skills", "from"));
+        List<String> keep = asStrList(get(exp, "skills", "keep"));
+        if (skillsDir != null) {
+            for (String id : asStrList(get(exp, "skills", "include"))) {
+                Path base = ROOT.resolve(skillsDir).resolve(id);
+                for (String k : keep) collectFiles(base.resolve(k), files);
+            }
+        }
+        String agentsDir = asStr(get(exp, "agents", "from"));
+        if (agentsDir != null) {
+            for (String id : asStrList(get(exp, "agents", "include"))) {
+                collectFiles(ROOT.resolve(agentsDir).resolve(id + ".md"), files);
+            }
+        }
+        String rulesDir = asStr(get(exp, "rules", "from"));
+        if (rulesDir != null) {
+            List<String> skip = asStrList(get(exp, "rules", "exclude"));
+            Path dir = ROOT.resolve(rulesDir);
+            if (Files.isDirectory(dir)) {
+                try (Stream<Path> s = Files.walk(dir)) {
+                    for (Path p : (Iterable<Path>) s.filter(Files::isRegularFile)::iterator) {
+                        if (!skip.contains(dir.relativize(p).toString().replace('\\', '/'))) files.add(p);
+                    }
+                }
+            }
+        }
+        String bp = asStr(exp.get("blueprint_copy"));
+        if (bp != null && bp.contains("{id}")) {
+            Path parent = ROOT.resolve(bp.substring(0, bp.indexOf("{id}")));
+            if (Files.isDirectory(parent)) {
+                try (Stream<Path> dirs = Files.list(parent)) {
+                    for (Path d : (Iterable<Path>) dirs.filter(Files::isDirectory)::iterator) {
+                        collectFiles(ROOT.resolve(bp.replace("{id}", d.getFileName().toString())), files);
+                    }
+                }
+            }
+        }
+
+        for (String id : excluded) {
+            java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
+                    "(?<![A-Za-z0-9_-])" + java.util.regex.Pattern.quote(id)
+                            + "/(SKILL\\.md|references/|templates/)");
+            for (Path f : files) {
+                String rel = ROOT.relativize(f).toString().replace('\\', '/');
+                if (exempt.contains(rel)) continue;
+                byte[] raw = Files.readAllBytes(f);
+                String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+                String[] lines = text.split("\n", -1);
+                for (int i = 0; i < lines.length; i++) {
+                    java.util.regex.Matcher m = pat.matcher(lines[i]);
+                    while (m.find()) {
+                        errors.add("  " + rel + ":" + (i + 1) + " cites `" + m.group() + "` — skill `" + id
+                                + "` is in export.skills.exclude, so the path does not exist inside a"
+                                + " generated project. Cite a file that travels, or say it in prose.");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void collectFiles(Path p, List<Path> out) throws IOException {
+        if (Files.isRegularFile(p)) {
+            out.add(p);
+        } else if (Files.isDirectory(p)) {
+            try (Stream<Path> s = Files.walk(p)) {
+                s.filter(Files::isRegularFile).forEach(out::add);
+            }
+        }
+    }
+
 
     /**
      * The `source` block: where a project pulls this `.claude/` from. Checked apart from

@@ -61,6 +61,9 @@ on:
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/test-architect/templates/archunit-*'
+      - '.claude/agents/archunit-installer.md'
+      - '.claude/.ci/ArchUnitWiringTest.java'
       - '.claude/skills/platform-upgrade/templates/**'
       - '.claude/.ci/PlatformUpgradeTest.java'
       - '.claude/schemas/extensions.json'
@@ -97,6 +100,9 @@ on:
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/test-architect/templates/archunit-*'
+      - '.claude/agents/archunit-installer.md'
+      - '.claude/.ci/ArchUnitWiringTest.java'
       - '.claude/skills/platform-upgrade/templates/**'
       - '.claude/.ci/PlatformUpgradeTest.java'
       - '.claude/schemas/extensions.json'
@@ -158,6 +164,22 @@ jobs:
 
       - name: build fragments + every MapStruct exemplar, green then an unmapped target red
         run: java .claude/.ci/MapStructWiringTest.java
+
+  archunit-wiring:
+    name: ArchUnit fragments wire a coverage gate that fails on Maven and Gradle
+    runs-on: ubuntu-latest
+    # Two fresh Initializr projects (Maven and Gradle wrappers, cold caches), two builds each.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: build fragments wire ArchUnit and a coverage gate that fails, Maven and Gradle
+        run: java .claude/.ci/ArchUnitWiringTest.java
 
   transport-templates:
     name: transport templates pass their IT per topology

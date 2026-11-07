@@ -192,4 +192,4 @@ features:
   actuator: true
   observability: true # tracing bridge; without it the 5xx traceId is degraded (observability.md)
   archunit: true # covers the intra-module domain/application/adapter direction only — see dependency_rules above
-  spring-modulith: true # the actual reason for this blueprint; see project-bootstrap step 4.7 and references/dependency-catalog.md
+  spring-modulith: true # the actual reason for this blueprint; its BOM and starter come from project-bootstrap step 4.7
