@@ -222,13 +222,15 @@ written from memory either fails on a valid project or passes by accident.
 
 ```bash
 find src -type d \( -name domain -o -name application -o -name infrastructure -o -name adapter \) 2>/dev/null
-find . -maxdepth 2 -name pom.xml
+ls gradlew mvnw 2>/dev/null; find . -maxdepth 2 \( -name pom.xml -o -name 'build.gradle*' \) -not -path './.claude/*'
 ```
 
-Record the result as this run's **destination map** and use it in every `Write`.
-Two `pom.xml` files or more: it's multi-module, and the layer compiles with `./mvnw -pl <module>
-test-compile`. Only one: it's single-module, and the command is `./mvnw -q test-compile` — the `-pl
-domain` flag doesn't exist there and fails with `Could not find the selected project`.
+Record the result as this run's **destination map** and use it in every `Write`. The build tool
+is the wrapper present: `gradlew` → Gradle, otherwise Maven. More than one build file: it's
+multi-module, and a layer compiles with `./mvnw -q -pl <module> test-compile` or
+`./gradlew -q :<module>:compileTestJava`. Only one: single-module, `./mvnw -q test-compile` or
+`./gradlew -q compileTestJava` — `-pl domain` doesn't exist there and fails with
+`Could not find the selected project`.
 
 If any validation fails:
 ```
@@ -284,39 +286,37 @@ reaching 477k tokens of context, with 191k characters of `./mvnw … | tail -250
 characters of files read twice
 (`@.claude/decisions/0117-new-feature-cost-per-entry-scenario.md`).
 
-**Tests run into a log, never into the context.** Use this shape for every test run: Block
-4's `./mvnw verify`, and every focused rerun (`-Dtest=…`). The log lives under `$TMPDIR`,
-not `target/`: `target/` is outside this agent's territory, and `clean` deletes it.
+**Tests run into a log, never into the context.** Use this shape for every test run: Block 4's
+full build, and every focused rerun. The log lives under `$TMPDIR`, not `target/` or `build/`:
+both are outside this agent's territory, and `clean` deletes them.
+
+| Build tool | Full build | Focused rerun |
+|---|---|---|
+| Maven (`mvnw`) | `./mvnw -q verify` | `./mvnw -q verify -Dtest='<Class>' -Dsurefire.failIfNoSpecifiedTests=false` |
+| Gradle (`gradlew`) | `./gradlew -q check` | `./gradlew -q test --tests '<Class>'` (an `*IT`: `integrationTest`) |
 
 ```bash
-L="${TMPDIR:-/tmp}/uc-build.log"; ./mvnw -q verify > "$L" 2>&1; echo "EXIT=$?"
+T="${TMPDIR:-/tmp}"; : > "$T/uc-build.start"; <build command> > "$T/uc-build.log" 2>&1; echo "EXIT=$?"
+java -jar .claude/hooks/ArchHook.jar build-report . --log "$T/uc-build.log" --newer "$T/uc-build.start"
 ```
 
-`EXIT=0` → green. Read the totals and coverage the final summary reports from the reports,
-not from the log:
+Run it in the foreground with the Bash tool's `timeout` at `600000`. Never `run_in_background`,
+never `sleep` to wait on a build: this agent has no tool that waits on a background command, and
+the harness refuses the `sleep`. A build that reaches the timeout is a failed run — report it
+with the `build-report` output, never relaunch it in the background.
 
-```bash
-grep -h '^Tests run:' $(find . -path '*/target/*-reports/*.txt') | awk -F'[:,]' '{t+=$2;f+=$4;e+=$6;s+=$8} END{print "tests",t,"failures",f,"errors",e,"skipped",s}'
-awk -F, 'FNR>1{lm+=$8;lc+=$9;bm+=$6;bc+=$7} END{printf "lines %.1f%% · branches %.1f%%\n",100*lc/(lm+lc),100*bc/(bm+bc)}' $(find . -path '*/target/site/jacoco/jacoco.csv')
-```
+`EXIT=0` → green; the totals and coverage the final summary reports are `build-report`'s
+`tests` and `coverage` lines. `EXIT≠0` → its `failed` section names the failing tests with their
+first lines; with no `failed` section, its `log` section holds the build's error lines — a
+compile error, a Spring context that did not start, or the JaCoCo or Checkstyle gate.
 
-`EXIT≠0` → first the failing tests, from the Surefire and Failsafe reports:
+That output is the default, not a ceiling. When it does not explain the failure, read the one
+report file or the region of the log that does, with `sed -n` or `Read` and an offset. Never pipe
+a build through `| tail -N`: it puts the noise into the context together with the answer.
 
-```bash
-grep -h -E -A12 '<<< (FAILURE|ERROR)!' $(find . -path '*/target/*-reports/*.txt' 2>/dev/null) 2>/dev/null | head -80
-```
-
-Nothing printed means the build failed outside a test: a compile error, a Spring context that
-did not start, or the JaCoCo or Checkstyle gate. Read the log's errors:
-
-```bash
-grep -E '^\[ERROR\]|Caused by:' "${TMPDIR:-/tmp}/uc-build.log" | head -60
-```
-
-Those excerpts are the default, not a ceiling. When they do not explain the failure, read
-the one report file or the region of the log that does, with `sed -n` or `Read` and an
-offset. Never pipe a test run through `| tail -N`: it puts the noise into the context
-together with the answer.
+**The shell may be zsh**, which aborts a command with `no matches found` when a glob is left
+unquoted. Quote every glob: `--include='*.java'`, `-name '*.java'`. `guard` refuses an unquoted
+glob flag under zsh.
 
 **Each file enters the context once per group, and only the part the step needs.**
 

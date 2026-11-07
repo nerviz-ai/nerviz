@@ -642,6 +642,8 @@ whenever the word matches no file of the working directory. Quote it: `--include
 line, and `doctor gate` carries it into a generated project. Design:
 `.claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md`.
 
+**`guard bash` refuses an unquoted glob flag when the session's shell is zsh.** `schema` reads files; this one reads the command a tool is about to run. A token such as `grep -rn x src --include=*.java`, written with no quote and no backslash, exits 2 when the basename of `$SHELL` is in `guard.unquoted_glob.shells`: zsh would abort it with `no matches found` and name neither the flag nor the fix, and the root `CLAUDE.md` line that asks for quotes was ignored twice in one run. The message prints the quoted form. Quote the value (`--include='*.java'`) or escape it (`--include=\*.java`). Under bash, or with `SHELL` unset, nothing is refused. Not caught: a glob outside the flag forms `shell_globs.patterns` names (`find -name *.java`). Design: `.claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md`.
+
 **A step of `/new-feature` can move its prose to `references/`; its heading and field block cannot.**
 `nerviz-diagrams` parses every `### <id> · <Name>` heading under `## Procedure` and the
 `**Runs:**` … `**Hands over:**` lines below it; a step moved whole into a reference drops out of
