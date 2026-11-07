@@ -78,6 +78,7 @@ flowchart TD
         D27[AsyncApiTemplateTest.java — AsyncAPI exemplars annotate both sides explicitly and gate the served document against a snapshot]
         D28[BlueprintSkeletonTest.java selftest — the blueprints workflow generates only what a change impacts]
         D29[DiagramsTest.java — committed diagrams equal a fresh render of the data they cite]
+        D30[ExportCitationSchemaTest.java — an exported file citing a path inside a skill that export.skills.exclude keeps out → schema exit 2, by file and line]
         D16[exemplar bodies carry no comment but Javadoc]
         D9[blueprint templates exist]
         D15[compose service templates merge and parse]
