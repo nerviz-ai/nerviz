@@ -122,6 +122,11 @@ jobs:
       - name: schema blocks a shell glob zsh aborts on
         run: java .claude/.ci/ShellGlobSchemaTest.java
 
+      # Decision 0204 (issue #194): an exported file citing a path inside a skill that
+      # `export.skills.exclude` keeps out is a dead citation in every generated project.
+      - name: schema blocks an exported file citing a skill that never travels
+        run: java .claude/.ci/ExportCitationSchemaTest.java
+
       # Decision 0197 (issue #191): the checklist of a spec is the core plus the lines of the
       # blocks the spec carries. `spec check` and the `guard write` rule on `status: approved`
       # share one function; this step drives both, and `schema` against the template.

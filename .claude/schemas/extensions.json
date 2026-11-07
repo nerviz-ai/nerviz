@@ -600,7 +600,7 @@
         "agents": ["java-spring-boot-developer"]
       },
       "installer": {
-        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the POMs, which the two Java installers both edit, and each agent replaces it with its own full list. `pattern_catalog: false`: the Java installers write under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context. compose-service-installer writes no Java at all: it carries docker-architect's procedure into an implement run, so its territory is that skill's, decision 0137.",
+        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the POMs; each Java installer replaces it with its own list, build.gradle and build.gradle.kts included. `pattern_catalog: false`: the Java installers write under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context. compose-service-installer writes no Java at all: it carries docker-architect's procedure into an implement run, so its territory is that skill's, decision 0137.",
         "executor": true,
         "pattern_catalog": false,
         "required_fields": ["effort"],
@@ -612,6 +612,8 @@
             "$comment": "Each path is listed twice, once rooted and once under `**/`, because `**` expands to `.*` and a single-module project writes `src/test/...` with nothing before it — the same pair `executor` carries for `src/**`.",
             "write_allow": [
               "pom.xml", "**/pom.xml",
+              "build.gradle", "**/build.gradle",
+              "build.gradle.kts", "**/build.gradle.kts",
               "src/test/java/**/ArchitectureTest.java",
               "**/src/test/java/**/ArchitectureTest.java",
               "src/test/java/**/TestcontainersConfiguration.java",

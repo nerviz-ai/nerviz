@@ -55,8 +55,7 @@ Two paths, both real: `/docker-architect` by hand — when the user wants a serv
 checked, and that is how a pending service recorded by a use case spec gets materialized; and
 chained by `project-bootstrap` itself, right after it writes the base pair in its own
 step 4.10, once per blueprint feature that's already active and needs a container
-(`persistence-jpa` → Postgres, `observability` → the OTLP collector) — see
-`project-bootstrap/SKILL.md` step 4.10. A third path: chained by `sonarqube-setup` for a
+(`persistence-jpa` → Postgres, `observability` → the OTLP collector). A third path: chained by `sonarqube-setup` for a
 local `sonarqube` service when the project has no server of its own; a fourth, by
 `transport-security-setup` for the local `edge` of topology A or the `Dockerfile` port of
 topology B. A fifth, by `compose-service-installer` inside `/new-feature-implement`, with the

@@ -12,12 +12,12 @@ omitClaudeMd: true
 ## Why this is an agent (Form 3)
 
 **Preserves context.** Setup mode is purely mechanical: resolve a version from Maven
-Central, translate exemplar packages to the project's own, write one file, edit the POM
-twice, run `./mvnw` up to three times, iterate until green. None of it needs the
+Central, translate exemplar packages to the project's own, write one file, edit the build file
+twice, run the wrapper (`./mvnw` or `./gradlew`) up to three times, iterate until green. None of it needs the
 conversation — unlike `test-architect`'s design mode, which stays inline on purpose
 because its interview reads live decisions no subagent can see
 (`@.claude/decisions/0008-testing-rule-and-design.md`). Run inline, every `curl`
-response and every `./mvnw` build log — often the longest single output in a session —
+response and every build log — often the longest single output in a session —
 lands permanently in the caller's context and gets re-paid on every later turn. Isolating
 it costs design mode nothing and stops that bill. Invariant 6 requires only one of the
 three reasons; this is the one that applies.
@@ -33,7 +33,8 @@ in this repo (`java-spring-boot-developer`).
 ## Contract
 
 **Class:** installer — the territory is `agent_classes.installer.overrides.archunit-installer`
-in `@.claude/schemas/extensions.json`: the POMs, `ArchitectureTest.java`, and
+in `@.claude/schemas/extensions.json`: the build files (`pom.xml`, `build.gradle`,
+`build.gradle.kts`, rooted and under `**/`), `ArchitectureTest.java`, and
 `TestcontainersConfiguration.java`. Nothing else. The `**Does not write:**` list below is
 that data restated in prose, not a second promise: `ArchHook.java guard` reads this agent's
 `agent_type` on every write and refuses a path outside the list with exit 2.
@@ -49,17 +50,21 @@ that flag in both directions.
 the caller's (`test-architect`'s) to check before invoking; this agent doesn't re-verify
 it.
 
-**Reads:** root POM, module POMs, `docker-compose.yml` (tag comparison only), the
+**Reads:** the root and module build files, `docker-compose.yml` (tag comparison only), the
 active blueprint's YAML (for `packages.map` and the naming-convention comment),
 `.claude/forbidden-imports.txt`, `.claude/rules/testing.md`, `.claude/rules/naming.md`,
 `.claude/rules/code-quality.md`, `.claude/skills/test-architect/templates/ArchitectureTest.java.example`,
 `.claude/skills/test-architect/templates/PersistenceIT.java.example` (image tag
-reference only).
+reference only), and the two build fragments
+`.claude/skills/test-architect/templates/archunit-pom.xml.example` and
+`.claude/skills/test-architect/templates/archunit-build.gradle.example`.
 
 **Writes:** `<main-module>/src/test/java/<packageBase>/ArchitectureTest.java`; the
-ArchUnit `<archunit.version>` property and `dependencyManagement` entry in the root POM,
-plus the bare dependency declaration in the module with `contains_main: true`; the
-`jacoco-maven-plugin`'s `check` execution in the root POM; the pinned Testcontainers
+ArchUnit version and dependency (Maven: `<archunit.version>` + `dependencyManagement` in the
+root POM, the bare dependency in the `contains_main: true` module; Gradle:
+`ext.archunitVersion` in the root build, `testImplementation` in that module), the coverage
+gate (Maven: `jacoco-maven-plugin`'s `check` execution; Gradle:
+`jacocoTestCoverageVerification` wired into `check`); the pinned Testcontainers
 image tag — one line — in the Initializr-generated `TestcontainersConfiguration.java`.
 
 **Does not write:** `docker-compose.yml` (single owner is `docker-architect`), anything
@@ -71,12 +76,17 @@ caller reports it too, with the `/docker-architect` command that resolves it: no
 that skill from inside a design run, and the guard refuses the call if anybody tries.
 
 **Returns:** one structured summary (shape at the bottom). Not the raw `curl` or
-`./mvnw` output — that output does its job by making this run correct, not by traveling
+build output — that output does its job by making this run correct, not by traveling
 back to the caller.
 
 ---
 
 ## Procedure
+
+0. **Detect the build tool.** `pom.xml` at the project root: Maven. `build.gradle` or
+   `build.gradle.kts` at the root: Gradle (Kotlin DSL: the Gradle fragment's lines in Kotlin
+   syntax). Both or neither: stop with the failure message below. The wrapper is `./mvnw` or
+   `./gradlew`; every fragment edit below comes from the fragment of the detected tool.
 
 1. **Resolve the ArchUnit version on Maven Central, never from memory:**
 
@@ -89,11 +99,12 @@ back to the caller.
    index — it returns stale versions. No network reachable: stop and report that,
    don't guess a version.
 
-   Write it into `<archunit.version>` in the root POM's `properties` and add
-   `com.tngtech.archunit:archunit-junit5` (scope `test`) to `dependencyManagement`.
+   Write it into the version slot of the detected tool's fragment, placed as its header
+   says: `templates/archunit-pom.xml.example` (Maven) or
+   `templates/archunit-build.gradle.example` (Gradle).
 
-2. Declare the dependency **without `<version>`** only in the module with
-   `contains_main: true` — the only one that sees every class.
+2. Declare the dependency only in the module with `contains_main: true` — the only one that
+   sees every class — placement as the fragment's header says (Maven: without `<version>`).
 
 3. Write `<main-module>/src/test/java/<packageBase>/ArchitectureTest.java` with the
    shape of `templates/ArchitectureTest.java.example`.
@@ -133,39 +144,24 @@ back to the caller.
 6. The rules from `naming.md` and `code-quality.md` don't depend on the architecture:
    they all go in, untranslated.
 
-7. Run `./mvnw -q test`. Red here is a translation bug, not a project bug — fix and
+7. Run `./mvnw -q test` / `./gradlew -q --console=plain test`. Red here is a translation bug, not a project bug — fix and
    rerun before moving on.
 
-8. **Wire up the coverage gate.** In the root POM's `jacoco-maven-plugin`, alongside the
-   `prepare-agent` and `report` executions already there, add the `check` execution in
-   the `verify` phase with the limits from `.claude/rules/testing.md`:
-
-   ```xml
-   <execution>
-     <id>check</id>
-     <phase>verify</phase>
-     <goals><goal>check</goal></goals>
-     <configuration>
-       <rules>
-         <rule>
-           <element>BUNDLE</element>
-           <limits>
-             <limit><counter>LINE</counter><value>COVEREDRATIO</value><minimum>0.80</minimum></limit>
-             <limit><counter>BRANCH</counter><value>COVEREDRATIO</value><minimum>0.70</minimum></limit>
-           </limits>
-         </rule>
-       </rules>
-     </configuration>
-   </execution>
-   ```
+8. **Wire up the coverage gate** with the limits from `.claude/rules/testing.md`: merge the
+   gate from the fragment of the detected tool, placed as its header says. Maven: the `check`
+   execution beside the `prepare-agent` and `report` executions of the root POM's
+   `jacoco-maven-plugin`. Gradle: `jacocoTestCoverageVerification` and the `check` wiring
+   beside `jacocoTestReport`.
 
    The numbers come from the rule. Don't lower them to make the build pass — if current
    coverage doesn't reach the threshold, what's missing is tests, and that's
-   `test-architect`'s design mode, not a POM change. Don't touch the `<excludes>`
-   already configured.
+   `test-architect`'s design mode, not a build change. Don't touch the `<excludes>`
+   already configured (Gradle: the `classDirectories` of `jacocoTestReport`).
 
-9. Run `./mvnw -q clean verify`. If the gate fails, **stop and report the real number**
-   — wiring up the gate isn't writing the tests that are missing.
+9. Run `./mvnw -q clean verify` / `./gradlew -q --console=plain clean build`, then read the
+   result with `java -jar .claude/hooks/ArchHook.jar build-report .` (totals and JaCoCo
+   coverage on both layouts) instead of the raw log. If the gate fails, **stop and report the
+   real number** — wiring up the gate isn't writing the tests that are missing.
 
 10. **Pin the Testcontainers image tag, if the project has `testcontainers` active.** The
     Initializr generates
@@ -184,6 +180,12 @@ forcing a pass.
 ---
 
 ## Failure mode
+
+**No single build tool at the root:**
+```
+❌ archunit-installer stopped — no single build tool at the project root
+Found: <pom.xml and build.gradle | neither>. One root build file decides Maven or Gradle.
+```
 
 **No network for step 1:**
 ```
@@ -215,8 +217,8 @@ No rollback. The caller decides whether to retry after a fix.
 ✅ archunit-installer complete
 - ArchUnit: <version> (Maven Central)
 - ArchitectureTest.java: written, <n> rules, packages translated to <packageBase>
-- ./mvnw test: green
-- Coverage gate: wired (80% line / 70% branch) — ./mvnw clean verify → <PASS <n%>/<n%> | FAIL <n%>/<n%>>
+- <./mvnw | ./gradlew> test: green
+- Coverage gate: wired (80% line / 70% branch) — <./mvnw clean verify | ./gradlew clean build> → <PASS <n%>/<n%> | FAIL <n%>/<n%>>
 - Testcontainers image: pinned to postgres:16-alpine
 - docker-compose.yml: <in sync | mismatch — <engine> pinned to <tag>, invoke docker-architect>
 ```
@@ -234,5 +236,7 @@ the failing rule and why) — not the full build log.
 - `@.claude/decisions/0030-archunit-installer-split.md` — why this agent was split out
   of `test-architect`
 - `@.claude/rules/testing.md` — coverage gate numbers, pyramid
+- `@.claude/decisions/0204-archunit-installer-on-gradle-and-dead-citations-to-excluded-skills.md`
+  — the Gradle path and the two build fragments
 - `@.claude/rules/persistence.md` § Boundary — why the Testcontainers tag must match
   `PersistenceIT.java.example`
