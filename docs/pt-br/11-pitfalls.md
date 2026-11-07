@@ -657,6 +657,8 @@ começar, sempre que a palavra não casa nenhum arquivo do diretório. Ponha asp
 padrões; o `schema` falha por linha, e o `doctor gate` leva isso a um projeto gerado. Design:
 `.claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md`.
 
+**O `guard bash` recusa uma flag com glob sem aspas quando o shell da sessão é zsh.** O `schema` lê arquivos; este lê o comando que uma ferramenta está para rodar. Um token como `grep -rn x src --include=*.java`, escrito sem aspas e sem barra invertida, sai com 2 quando o basename de `$SHELL` está em `guard.unquoted_glob.shells`: o zsh abortaria com `no matches found` sem nomear a flag nem a correção, e a linha do `CLAUDE.md` raiz que pede aspas foi ignorada duas vezes numa mesma rodada. A mensagem mostra a forma entre aspas. Ponha aspas no valor (`--include='*.java'`) ou escape-o (`--include=\*.java`). Sob bash, ou com `SHELL` ausente, nada é recusado. Não pega: um glob fora das formas de flag que `shell_globs.patterns` nomeia (`find -name *.java`). Design: `.claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md`.
+
 **Um passo do `/new-feature` pode mover a prosa para `references/`; o heading e o bloco de campos não.**
 O `nerviz-diagrams` lê todo heading `### <id> · <Nome>` sob `## Procedure` e as linhas
 `**Runs:**` … `**Hands over:**` logo abaixo; um passo movido inteiro para uma reference some dos

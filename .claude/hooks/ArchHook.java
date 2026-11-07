@@ -31,6 +31,8 @@
 //                         (exit 2 on a target below the floor or data it cannot read)
 //   test-diff manual    — snapshots the JUnit reports of a build and compares a later run against it:
 //                         a test that was green and is red, or gone, is a regression (exit 2 on one)
+//   build-report manual — reads the JUnit and JaCoCo XML reports a build left (Maven and Gradle) and prints
+//                         totals, coverage, failed tests and the log's error lines; called by the executor
 //   build   PostToolUse (this repo) + CI — compiles this file into ArchHook.jar
 //                         under the pinned JDK; --verify rejects a jar that differs (blocks)
 //
@@ -94,6 +96,7 @@ public class ArchHook {
                 case "boundary-map" -> boundaryMap(args);
                 case "upgrade-recipe" -> upgradeRecipe(args);
                 case "test-diff" -> testDiff(args);
+                case "build-report" -> buildReport(args);
                 case "doctor" -> doctor(args.length > 1 && "gate".equals(args[1]));
                 case "config" -> config(args);
                 case "spike" -> spike(args);
@@ -1496,8 +1499,169 @@ public class ArchHook {
         return tests.values().stream().filter(status::equals).count();
     }
 
-    /** {@code class#name} → {@code pass | fail | skip} for every test case of every report the globs match. */
-    private static Map<String, String> testReports(Path root, List<String> globs) throws Exception {
+    static void buildReportUsage() {
+        err("usage: java -jar .claude/hooks/ArchHook.jar build-report <project> [--log <file>] [--newer <file>]");
+        err("  Prints the totals and coverage of the JUnit XML and JaCoCo XML reports a build left under <project>,");
+        err("  the failed tests with their first lines and, when none failed and --log is given, the log's error lines.");
+        err("  --newer <file>  counts only reports modified at or after that file; the others are listed as stale.");
+        err("  The globs are `doctor.platform.upgrade.test_reports` and `build_report` in the source this jar belongs to.");
+    }
+
+    /**
+     * {@code build-report} — reads the JUnit XML and JaCoCo XML reports a build left under
+     * {@code <project>} and prints the totals, the coverage, the failed tests with their first lines,
+     * and — when no test failed and {@code --log} is given — the log lines matching
+     * {@code build_report.log_patterns}. Invoked by the {@code java-spring-boot-developer} agent after
+     * every test run, by hand, never by a hook. Exit 0 whenever a report was printed (the build's own
+     * exit code is the verdict); exit 2 on a usage error, a project that is no directory or an
+     * unparseable report, through this mode's own catch, since {@code main}'s catch exits 0.
+     *
+     * <p>Why a mode: the reading is the same every run over two build tools' layouts. Written as shell
+     * in the agent body it was Maven-only, and a Gradle run improvised three different filters
+     * (issue #202). The closest rejected form is Gradle prose beside each Maven block: a second owner
+     * of the report paths, a CSV the Gradle template never writes, and nothing in CI to prove it.
+     * Axis 5 of the design interview: a fixed parse of files is a program, not prose.
+     *
+     * <p>Design: .claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md
+     */
+    static void buildReport(String[] args) {
+        try {
+            String project = null, log = null, newer = null;
+            for (int i = 1; i < args.length; i++) {
+                String a = args[i];
+                if (a.equals("--log") && i + 1 < args.length) log = args[++i];
+                else if (a.equals("--newer") && i + 1 < args.length) newer = args[++i];
+                else if (a.startsWith("--")) { err("❌ Unknown option: " + a); buildReportUsage(); System.exit(2); }
+                else if (project == null) project = a;
+                else { err("❌ Only one project is accepted, got also: " + a); buildReportUsage(); System.exit(2); }
+            }
+            if (project == null) { buildReportUsage(); System.exit(2); }
+            Path root = Paths.get(project).toAbsolutePath().normalize();
+            if (!Files.isDirectory(root)) { err("❌ build-report: " + root + " is no directory."); System.exit(2); }
+            Map<String, Object> schema = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+            List<String> testGlobs = asStrList(get(schema, "doctor", "platform", "upgrade", "test_reports"));
+            Map<String, Object> br = asMap(get(schema, "build_report"));
+            List<String> covGlobs = br == null ? List.of() : asStrList(br.get("coverage_reports"));
+            if (testGlobs.isEmpty() || covGlobs.isEmpty()) {
+                err("❌ No `doctor.platform.upgrade.test_reports` or `build_report.coverage_reports` in " + SCHEMA_FILE + ".");
+                System.exit(2);
+            }
+            int maxFailures = br.get("max_failures") instanceof Number n ? n.intValue() : 20;
+            int failureLines = br.get("failure_lines") instanceof Number n ? n.intValue() : 12;
+            int logMax = br.get("log_max_lines") instanceof Number n ? n.intValue() : 60;
+            long floor = Long.MIN_VALUE;
+            if (newer != null) {
+                Path nf = Paths.get(newer).toAbsolutePath().normalize();
+                if (!Files.exists(nf)) { err("❌ build-report: --newer " + nf + " does not exist."); System.exit(2); }
+                floor = Files.getLastModifiedTime(nf).toMillis();
+            }
+            int stale = 0;
+            List<Path> tests = new ArrayList<>(), covs = new ArrayList<>();
+            for (Path f : reportFiles(root, testGlobs)) {
+                if (Files.getLastModifiedTime(f).toMillis() >= floor) tests.add(f); else stale++;
+            }
+            for (Path f : reportFiles(root, covGlobs)) {
+                if (Files.getLastModifiedTime(f).toMillis() >= floor) covs.add(f); else stale++;
+            }
+            int total = 0, failures = 0, errors = 0, skipped = 0;
+            List<String[]> failed = new ArrayList<>();
+            var junit = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            junit.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            for (Path f : tests) {
+                org.w3c.dom.Document doc;
+                try { doc = junit.newDocumentBuilder().parse(f.toFile()); }
+                catch (Exception e) { err("❌ build-report: cannot parse " + f + ": " + e.getMessage()); System.exit(2); return; }
+                var cases = doc.getElementsByTagName("testcase");
+                for (int i = 0; i < cases.getLength(); i++) {
+                    var c = (org.w3c.dom.Element) cases.item(i);
+                    total++;
+                    org.w3c.dom.Element bad = null;
+                    boolean skip = false;
+                    for (var n = c.getFirstChild(); n != null; n = n.getNextSibling()) {
+                        String tag = n.getNodeName();
+                        if (bad == null && (tag.equals("failure") || tag.equals("error"))) bad = (org.w3c.dom.Element) n;
+                        else if (tag.equals("skipped")) skip = true;
+                    }
+                    if (bad != null) {
+                        if (bad.getNodeName().equals("failure")) failures++; else errors++;
+                        List<String> lines = new ArrayList<>();
+                        for (String l : bad.getTextContent().strip().split("\\R")) {
+                            if (lines.size() >= failureLines) break;
+                            lines.add(l);
+                        }
+                        failed.add(new String[]{c.getAttribute("classname") + "#" + c.getAttribute("name"),
+                                bad.getAttribute("message"), String.join("\n", lines)});
+                    } else if (skip) skipped++;
+                }
+            }
+            // JaCoCo writes a DOCTYPE; the JUnit factory refuses it. External DTD and entities stay off.
+            var jacoco = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            jacoco.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            jacoco.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            jacoco.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            jacoco.setXIncludeAware(false);
+            jacoco.setExpandEntityReferences(false);
+            long lineMiss = 0, lineCov = 0, brMiss = 0, brCov = 0;
+            for (Path f : covs) {
+                org.w3c.dom.Document doc;
+                try { doc = jacoco.newDocumentBuilder().parse(f.toFile()); }
+                catch (Exception e) { err("❌ build-report: cannot parse " + f + ": " + e.getMessage()); System.exit(2); return; }
+                for (var n = doc.getDocumentElement().getFirstChild(); n != null; n = n.getNextSibling()) {
+                    if (!n.getNodeName().equals("counter")) continue;      // direct children only: nested ones are per package/class
+                    var c = (org.w3c.dom.Element) n;
+                    long miss = Long.parseLong(c.getAttribute("missed")), cov = Long.parseLong(c.getAttribute("covered"));
+                    if (c.getAttribute("type").equals("LINE")) { lineMiss += miss; lineCov += cov; }
+                    else if (c.getAttribute("type").equals("BRANCH")) { brMiss += miss; brCov += cov; }
+                }
+            }
+            StringBuilder out = new StringBuilder();
+            out.append("build-report · reports ").append(tests.size()).append(" · coverage files ").append(covs.size())
+                    .append(" · stale ").append(stale).append('\n');
+            if (tests.isEmpty()) out.append("tests none — no test report\n");
+            else out.append("tests ").append(total).append(" · failures ").append(failures).append(" · errors ").append(errors)
+                    .append(" · skipped ").append(skipped).append('\n');
+            if (covs.isEmpty()) out.append("coverage none — no JaCoCo XML report\n");
+            else out.append("coverage lines ").append(percent(lineCov, lineMiss)).append(" · branches ").append(percent(brCov, brMiss)).append('\n');
+            if (!failed.isEmpty()) {
+                int shown = Math.min(failed.size(), maxFailures);
+                out.append("failed (").append(shown).append(" of ").append(failed.size()).append("):\n");
+                for (int i = 0; i < shown; i++) {
+                    String[] t = failed.get(i);
+                    out.append("  ").append(t[0]).append(" — ").append(t[1]).append('\n');
+                    for (String l : t[2].split("\n")) out.append("      ").append(l).append('\n');
+                }
+                if (failed.size() > shown) out.append("  … and ").append(failed.size() - shown).append(" more\n");
+            } else if (log != null) {
+                Path lf = Paths.get(log).toAbsolutePath().normalize();
+                if (!Files.isRegularFile(lf)) out.append("log ").append(lf).append(" not found\n");
+                else {
+                    List<Pattern> pats = new ArrayList<>();
+                    for (String p : asStrList(br.get("log_patterns"))) pats.add(Pattern.compile(p));
+                    List<String> hits = new ArrayList<>();
+                    for (String l : new String(Files.readAllBytes(lf), StandardCharsets.UTF_8).split("\\R")) {
+                        if (hits.size() >= logMax) break;
+                        for (Pattern p : pats) if (p.matcher(l).find()) { hits.add(l); break; }
+                    }
+                    if (!hits.isEmpty()) {
+                        out.append("log (").append(hits.size()).append(" lines matching build_report.log_patterns):\n");
+                        for (String l : hits) out.append("  ").append(l).append('\n');
+                    }
+                }
+            }
+            System.out.print(out);
+        } catch (Exception e) {
+            err("❌ build-report failed: " + e);
+            System.exit(2);
+        }
+    }
+
+    private static String percent(long covered, long missed) {
+        long all = covered + missed;
+        return all == 0 ? "n/a" : String.format(java.util.Locale.ROOT, "%.1f%%", covered * 100.0 / all);
+    }
+
+    /** Every file under {@code root} (never inside {@code .git} or {@code node_modules}) one of {@code globs} matches. */
+    private static List<Path> reportFiles(Path root, List<String> globs) throws Exception {
         List<Pattern> patterns = new ArrayList<>();
         for (String g : globs) patterns.add(Pattern.compile(globRegex(g)));
         List<Path> files = new ArrayList<>();
@@ -1512,6 +1676,12 @@ public class ArchHook {
                 return FileVisitResult.CONTINUE;
             }
         });
+        return files;
+    }
+
+    /** {@code class#name} → {@code pass | fail | skip} for every test case of every report the globs match. */
+    private static Map<String, String> testReports(Path root, List<String> globs) throws Exception {
+        List<Path> files = reportFiles(root, globs);
         Map<String, String> tests = new TreeMap<>();
         var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -9510,6 +9680,13 @@ public class ArchHook {
                     + " Code. Rule: guard.force_push in " + SCHEMA_FILE);
             System.exit(2);
         }
+        String glob = bashUnquotedGlob(asMap(get(sch, "guard", "unquoted_glob")), asMap(get(sch, "shell_globs")), cmd);
+        if (glob != null) {
+            String fixed = glob.replaceFirst("=(.*)$", "='$1'");
+            err("guard: unquoted glob blocked — `" + glob + "`: zsh aborts the command with \"no matches found\" before it runs.");
+            err("  Quote it: " + fixed + ". Rule: guard.unquoted_glob and shell_globs.patterns in " + SCHEMA_FILE);
+            System.exit(2);
+        }
         for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd)) {
             guardPath(sch, state, in, rel);
         }
@@ -9805,6 +9982,44 @@ public class ArchHook {
         return null;
     }
 
+    /**
+     * The first token of {@code cmd} that is an unquoted glob flag ({@code shell_globs.patterns}),
+     * when the session's shell is zsh; null otherwise. zsh aborts such a command with
+     * {@code no matches found} before it runs, and bash passes the word through, so the check is
+     * gated on the basename of the first set variable of {@code shell_env} being in {@code shells}.
+     * {@code shell_globs.exempt_patterns} exempts the whole command. A quoted or backslash-escaped
+     * token, a heredoc body and a {@code sh -c} string are not read.
+     *
+     * <p>Why a refusal inside {@code guard bash}: Form 7c, axis 7 of the design interview — the
+     * root {@code CLAUDE.md} line that names the quoting was ignored twice in one run (issue #202).
+     * The closest rejected form is a sentence in the agent body: prose quoting already regressed
+     * (0037 → 0196). Lists are data, {@code guard.unquoted_glob} and {@code shell_globs} —
+     * invariant 10. Invoked at {@code PreToolUse}, matcher {@code Bash}, through the registration
+     * {@code guard bash} already has. Design:
+     * .claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md
+     */
+    static String bashUnquotedGlob(Map<String, Object> ug, Map<String, Object> globs, String cmd) {
+        if (ug == null || globs == null) return null;
+        String shell = null;
+        for (String v : asStrList(ug.get("shell_env"))) {
+            String val = System.getenv(v);
+            if (val != null && !val.isBlank()) { shell = val; break; }
+        }
+        if (shell == null || !asStrList(ug.get("shells")).contains(bashCommandName(shell))) return null;
+        for (String ex : asStrList(globs.get("exempt_patterns"))) {
+            if (Pattern.compile(ex).matcher(cmd).find()) return null;
+        }
+        List<Pattern> patterns = new ArrayList<>();
+        for (String p : asStrList(globs.get("patterns"))) patterns.add(Pattern.compile(p));
+        for (List<Tok> seg : bashSegments(cmd)) {
+            for (Tok t : seg) {
+                if (t.quoted()) continue;
+                for (Pattern p : patterns) if (p.matcher(t.text()).find()) return t.text();
+            }
+        }
+        return null;
+    }
+
     static String bashCommandName(String word) {
         int slash = word.lastIndexOf('/');
         return slash < 0 ? word : word.substring(slash + 1);
@@ -9836,7 +10051,7 @@ public class ArchHook {
                     continue;
                 }
                 if (c == '\'' || c == '"') { quote = c; quoted = true; started = true; continue; }
-                if (c == '\\' && i + 1 < line.length()) { tok.append(line.charAt(++i)); started = true; continue; }
+                if (c == '\\' && i + 1 < line.length()) { tok.append(line.charAt(++i)); quoted = true; started = true; continue; }
                 if (Character.isWhitespace(c)) {
                     if (started) { cur.add(new Tok(tok.toString(), quoted)); tok.setLength(0); }
                     quoted = false; started = false;

@@ -252,6 +252,12 @@ jobs:
       - name: test-diff separates what the upgrade broke from what was already broken
         run: java .claude/.ci/TestDiffTest.java
 
+      # The executor reads every test run through `build-report`, over Maven's and Gradle's report
+      # layouts. A JaCoCo DOCTYPE the parser refuses, a nested counter summed in, a stale report
+      # read as this run's, or a throw that exits 0 would each read as a result that is not (0203).
+      - name: build-report reads both build tools' reports
+        run: java .claude/.ci/BuildReportTest.java
+
       # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
       # the one gated line that reads code: it sweeps every source file with check's own match.
       # A sweep that matched nothing would read as a clean project, under any agent (0140).

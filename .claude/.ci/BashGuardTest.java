@@ -1,7 +1,8 @@
 ///usr/bin/env java --source 21 "$0" "$@" ; exit $?
 //
 // CI test: proves `ArchHook.jar guard bash` refuses a force push in every spelling
-// `guard.force_push` claims to read, applies the open phase's territory to the targets
+// `guard.force_push` claims to read, refuses an unquoted glob flag when the shell is zsh
+// (`guard.unquoted_glob`, decision 0203), applies the open phase's territory to the targets
 // `guard.bash_write_shapes` names, and lets an ordinary command through.
 //
 // Why this test exists: `guard bash` runs at PreToolUse on EVERY shell command, so it can
@@ -110,13 +111,37 @@ public class BashGuardTest {
                 "sed -i -e 's/a/b/' docs/notes.md", 2,
                 "executor: `sed -i -e` on a file outside its territory — blocked");
 
+        // Decision 0203: under zsh an unquoted glob flag aborts the command with `no matches
+        // found` before it runs; bash passes the word through. `guard.unquoted_glob` refuses it
+        // only when SHELL names zsh. Every case sets SHELL on the spawned process explicitly:
+        // the ones above keep what they inherit, and the machine running this may use either.
+        String globs = "ci-bash-glob-" + System.nanoTime();
+        failures += shell(hook, globs, "/bin/zsh", "grep -rn x src --include=*.java", 2,
+                "--include='*.java'", "G1 zsh: unquoted `--include=*.java` — blocked, the message names the fix");
+        failures += shell(hook, globs, "/bin/zsh", "grep -rn x src --include='*.java'", 0, null,
+                "G2 zsh: quoted `--include='*.java'` — allowed");
+        failures += shell(hook, globs, "/bin/zsh", "grep -rn x src --include=\\*.java", 0, null,
+                "G3 zsh: backslash-escaped `--include=\\*.java` — allowed");
+        failures += shell(hook, globs, "/bin/bash", "grep -rn x src --include=*.java", 0, null,
+                "G4 bash: unquoted `--include=*.java` — allowed, bash passes the word through");
+        failures += shell(hook, globs, "/usr/local/bin/zsh", "ls && grep -r x . --exclude-dir=*tmp*", 2, null,
+                "G5 zsh by basename: unquoted `--exclude-dir=*tmp*` in the second segment — blocked");
+        failures += shell(hook, globs, "/bin/zsh",
+                "cat > \"$TMPDIR/x.md\" <<'EOF'\n--include=*.java\nEOF", 0, null,
+                "G6 zsh: the glob sits in a heredoc body — allowed, not a command");
+        failures += shell(hook, globs, "/bin/zsh", "git commit -m \"use --include=*.java\"", 0, null,
+                "G7 zsh: the glob sits inside a quoted string — allowed");
+        failures += shell(hook, globs, null, "grep -r x . --include=*.java", 0, null,
+                "G8 SHELL unset: unquoted `--include=*.java` — allowed, no shell to judge");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `guard bash` is NOT"
-                    + " enforcing what guard.force_push and guard.bash_write_shapes declare.");
+                    + " enforcing what guard.force_push, guard.bash_write_shapes and guard.unquoted_glob declare.");
             System.exit(1);
         }
         System.out.println("✅ guard bash: every force-push spelling refused, write shapes"
-                + " held to the open phase, ordinary commands let through.");
+                + " held to the open phase, an unquoted glob flag refused under zsh only,"
+                + " ordinary commands let through.");
     }
 
     static int bash(Path hook, String session, String command, int wanted, String label)
@@ -125,6 +150,36 @@ public class BashGuardTest {
                 "{\"session_id\":\"%s\",\"tool_input\":{\"command\":\""
                         + command.replace("%", "%%") + "\"}}",
                 wanted, label);
+    }
+
+    /**
+     * One Bash call with SHELL set to {@code shell} on the spawned process ({@code null}: removed).
+     * {@code command} is the real command; it is JSON-escaped here.
+     * {@code needle}, when given, must appear in the output of a refusal.
+     */
+    static int shell(Path hook, String session, String shell, String command, int wanted,
+                     String needle, String label) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(
+                ProcessHandle.current().info().command().orElse("java"),
+                "-jar", hook.toString(), "guard", "bash");
+        pb.environment().put("CLAUDE_PROJECT_DIR", Paths.get("").toAbsolutePath().toString());
+        if (shell == null) pb.environment().remove("SHELL"); else pb.environment().put("SHELL", shell);
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        p.getOutputStream().write(("{\"session_id\":\"" + session + "\",\"tool_input\":{\"command\":\""
+                + command.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+                + "\"}}").getBytes(StandardCharsets.UTF_8));
+        p.getOutputStream().close();
+        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int code = p.waitFor();
+        if (code == wanted && (needle == null || out.contains(needle))) {
+            System.out.println("✅ " + label);
+            return 0;
+        }
+        System.out.println("❌ " + label + " — expected exit " + wanted
+                + (needle == null ? "" : " naming " + needle) + ", got " + code);
+        System.out.println(out);
+        return 1;
     }
 
     /** A Bash call made by a subagent: judged by that agent's class, not by the open phase. */
