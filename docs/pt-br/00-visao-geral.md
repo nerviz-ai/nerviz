@@ -93,10 +93,10 @@ flowchart TB
     SK_DESIGNER -.->|propõe e escreve, após aprovação| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent no SubagentStart: o catálogo, só no projeto gerado| AG_DEV
     SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_SEARCH -.->|leem § Design-time use, decidem os padrões da camada| SK_PAT
-    SK_NF -->|Agent tool, pre-flight, se commons vazio| AG_LOG
+    SK_NF -->|Agent tool, pre-flight, se nenhum build declara spring-log-utils| AG_LOG
     SK_NF -->|"Agent tool, depois do grupo tests, para cada linha materialize"| AG_COMPOSE
     AG_COMPOSE -->|Skill tool, admitida porque quem chama é um agent com classe| SK_DOCKER
-    AG_LOG -->|escreve| LOGOUT["commons.logging/** + AutoConfiguration.imports"]:::out
+    AG_LOG -->|escreve| LOGOUT["build file: dependência spring-log-utils"]:::out
     SK_AUDIT -->|Bash, audit summary, sem model| HOOK
 
     SK_NF -->|Skill tool, em sequência| SK_UC

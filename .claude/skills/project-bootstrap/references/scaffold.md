@@ -113,21 +113,10 @@ One sentence for the role, and the boundary line only when the module declares
 a rule — cite it by path, invariant 2.
 
 **`commons` (or the blueprint's equivalent, e.g. `modular-monolith`'s `shared.logging`)
-is the one role that stays empty on purpose.** Its `package-info.java` still gets
-written here, same as every other role — but the logging/masking annotations and AOP
-aspects that belong in it are `.java` beyond `package-info.java`, which this skill never
-writes (`SKILL.md` § Contract). They're installed later, once, by the
-`commons-logging-installer` agent, triggered from `/new-feature-implement`'s pre-flight check —
-not from here. Don't write them, and don't skip the empty `package-info.java` either:
-without the package existing on disk, the installer has nowhere to write into.
-
-```java
-/**
- * Cross-cutting logging and masking infrastructure (annotations + AOP aspects). See
- * {@code .claude/rules/logging.md}. Empty until `commons-logging-installer` runs.
- */
-package com.example.demoapp.commons.logging;
-```
+gets no logging `package-info.java`.** The logging/masking annotations and AOP aspects come
+from the `dev.nerviz:spring-log-utils` library, which `commons-logging-installer` adds to the
+build from `/new-feature-implement`'s pre-flight check — nothing of them is written here, and
+no empty logging package is left behind for them.
 
 **b) Configuration for active features.**
 

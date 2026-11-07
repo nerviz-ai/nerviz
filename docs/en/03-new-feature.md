@@ -279,7 +279,7 @@ under `src/`:
 | Gap | How it's detected | Installed via |
 |---|---|---|
 | ArchUnit missing | `grep -rl "ArchRule\|ArchTest" src/test/` is empty | `Skill(test-architect)` with no argument — setup mode, which delegates to `archunit-installer` (ArchUnit + JaCoCo gate) |
-| Logging/masking classes missing | no `commons` folder, or only `package-info.java` in it | `Agent(commons-logging-installer)` — thirteen exemplars from `new-feature-implement/templates/commons/` translated into the real package, plus `AutoConfiguration.imports` and the AOP dependencies |
+| Logging/masking classes missing | no build file declares `spring-log-utils`, and no `LogMask.java` sits under `src/` | `Agent(commons-logging-installer)` — adds the `dev.nerviz:spring-log-utils` dependency, at the version `commons_logging` of `extensions.json` pins and with its exclusions, to the build file of the `commons` module (the root build in a single-module project) |
 
 Each gap found becomes an `AskUserQuestion` (**Install now** / **Skip for this run**);
 no gap, no question. The two may fire in the same turn — and could not before:

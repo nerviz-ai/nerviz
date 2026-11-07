@@ -1,9 +1,0 @@
-/*
- * EXEMPLAR — compilable as-is, not pseudo-code.
- *
- * Lives in the `properties` sub-package of `commons.logging`, with `GlobalProperties`.
- */
-package com.exemplo.minhaapi.commons.logging.properties;
-
-public record HttpMethodProperties(Boolean enabled) {
-}

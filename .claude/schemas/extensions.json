@@ -612,12 +612,8 @@
           "commons-logging-installer": {
             "write_allow": [
               "pom.xml", "**/pom.xml",
-              "src/main/java/**/logging/**",
-              "**/src/main/java/**/logging/**",
-              "src/test/java/**/logging/**",
-              "**/src/test/java/**/logging/**",
-              "src/main/resources/META-INF/spring/*.imports",
-              "**/src/main/resources/META-INF/spring/*.imports"
+              "build.gradle", "**/build.gradle",
+              "build.gradle.kts", "**/build.gradle.kts"
             ]
           },
           "mapstruct-installer": {
@@ -819,6 +815,20 @@
     "stamp_file": ".claude/.arch-provenance.json",
     "$comment_fetch_marker": "Written by `new-project` into the tree it extracts from `base_url` — `{\"ref\": …, \"commit\": …}`, what `git ls-remote` resolved — because a tarball carries no repository. Read by `export` only when the source root is not the top of its own work tree, and only for the field the command line left out, so a project generated from a fetched tree is stamped with a real tag and commit instead of `working-tree`/`unknown`. Never copied into a project: `export` writes only what its own block lists. Design: .claude/decisions/0163-create-project-from-the-plugin.md",
     "fetch_marker": ".claude/.fetched-source.json"
+  },
+
+  "commons_logging": {
+    "$comment": "Single owner of where a generated project's logging and masking classes come from: the published library, never vendored templates. Read by `/new-feature-implement`'s pre-flight (detection) and by `commons-logging-installer` (install), never by a mode. `version` is pinned on purpose — every project is born from the combination `templates.yml` › `java-templates` last compiled; a bump is a PR here, and editing this file triggers that job. `exclusions` are dependencies the pinned release declares and no class of its jar references (checked with `javap` on 3.0.0): delete an entry once the pinned release no longer declares it. `vendored_file` is how a project generated before this block is still recognised as installed — the `commons-logging-from-library` migration moves it to the library. Design: .claude/decisions/0200-commons-logging-from-spring-log-utils-library.md",
+    "coordinate": "dev.nerviz:spring-log-utils",
+    "version": "3.0.0",
+    "exclusions": ["com.fasterxml.jackson.core:jackson-databind", "com.google.guava:guava"],
+    "build_token": "spring-log-utils",
+    "vendored_file": "LogMask.java",
+    "packages": {
+      "annotations": "dev.nerviz.spring.log.utils.features.annotations",
+      "interfaces": "dev.nerviz.spring.log.utils.features.interfaces",
+      "enums": "dev.nerviz.spring.log.utils.features.enums"
+    }
   },
 
   "migrations": {
@@ -1123,6 +1133,12 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
         "note": "A spec's `## Implementation order (checklist)` is no longer fixed at 19 lines: steps 1-7 and 16-19 are in every spec, 8-12 only when `## 3` is not `none`, 13-15 only when `## 4` is not `none`, and one lettered line (H, A, I, G, S, M, J, C) per conditional block the spec carries. `/new-feature-implement` and the executor now run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` first, and the guard refuses `status: approved` on a spec that fails it. A spec approved BEFORE this update that carries a lettered block (`## 3.5 Messaging`, `## 3.6 Jobs`, `## 4.5 Security`, …) has 19 lines and no letter line, so it fails the check and cannot be implemented as it is. Specs already `implemented`, `implemented-blocked` or `draft`, and approved specs with no lettered block, are not affected.",
         "prompt": "List the use case specs of this project that the new checklist rule refuses. Find every `docs/use-cases/UC-*/UC-*-spec.md` whose `status:` is `approved` (skip `draft`, `implemented` and `implemented-blocked`) and run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` on each. Show me the ones that exit 2, each with what the command printed, and wait for my go-ahead. Do not edit an approved spec: the guard refuses it. For each one, tell me what to do by hand: set `status: draft`, add the lettered lines the command named (`missing: M, J`, copied from `.claude/skills/new-feature/templates/feature-spec.md.example`, left open `[ ]`) under `## Implementation order (checklist)`, run `spec check` until it exits 0, then ask me to approve it again so that the guard re-runs the check on `status: approved`. If the executor already ran a block of that case, its files are on disk and the new line is ticked by the next `/new-feature-implement` run, which resumes from the disk."
+      },
+      {
+        "id": "commons-logging-from-library",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "layered", "modular-monolith", "onion", "onion-single-module", "vertical-slice"],
+        "note": "The logging and masking classes (LogExecution, HttpMethodLogExecution, MaskSensitiveData, LogMask and their aspects) now come from the dev.nerviz:spring-log-utils library at the version commons_logging of .claude/schemas/extensions.json pins, instead of being copied into the project's commons logging package. A project that installed the copies keeps working — the pre-flight still treats them as installed — but a fix to an aspect reaches it only through the library. The masking ArchUnit rules (sensitive_dtos_implement_log_mask, sensitive_fields_are_marked) were removed from the template; an ArchitectureTest that has them keeps them until you remove them.",
+        "prompt": "Replace this project's copied logging classes with the dev.nerviz:spring-log-utils library. Read `commons_logging` in .claude/schemas/extensions.json for the coordinate, version and exclusions — never from memory. First list, and change nothing yet: (1) the package holding LogExecution, HttpMethodLogExecution, MaskSensitiveData, LogMask, MaskedType and the three aspects (the root CLAUDE.md names the commons logging package), with its tests; (2) every import of that package outside it, with file and line; (3) the lines of src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports that name those aspects; (4) any app.logging.* property and any use of LoggingOptions, which the library does not expose. Then, after I confirm: add the dependency with its exclusions to the build file of the module that holds that package; rewrite each import in (2) to the library's package — annotations to dev.nerviz.spring.log.utils.features.annotations, LogMask to dev.nerviz.spring.log.utils.features.interfaces, MaskedType to dev.nerviz.spring.log.utils.features.enums; delete the package in (1) and its tests, keeping its package-info.java; remove the lines in (3), deleting the file if nothing is left; report (4) without changing it. Change no other behavior, then run ./mvnw verify (Gradle: ./gradlew build)."
       }
     ]
   },
@@ -1206,7 +1222,23 @@
       ".claude/skills/new-feature/templates/commons/LoggingCommonsMethodsTest.java.example",
       ".claude/skills/new-feature/templates/commons/LoggingOptions.java.example",
       ".claude/skills/new-feature/templates/commons/MaskSensitiveData.java.example",
-      ".claude/skills/new-feature/templates/commons/MaskedType.java.example"
+      ".claude/skills/new-feature/templates/commons/MaskedType.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/AutoConfiguration.imports.example",
+      ".claude/skills/new-feature-implement/templates/commons/GlobalHttpMethodLogAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/GlobalProperties.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecution.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecutionAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecutionAspectTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodProperties.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecution.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecutionAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecutionAspectTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogMask.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingCommonsMethods.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingCommonsMethodsTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingOptions.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/MaskSensitiveData.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/MaskedType.java.example"
     ],
 
     "ensure_dirs": [".claude/audit-usage"],

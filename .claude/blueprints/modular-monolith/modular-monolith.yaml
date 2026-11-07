@@ -114,7 +114,8 @@ packages:
     # annotations, the same reason `shared` is `@ApplicationModule(type = OPEN)` in the
     # first place. A brand-new top-level `commons` package would just become one more
     # ENCAPSULATED module needing the same OPEN marker for no benefit over reusing this
-    # one. Installed once, later, by `commons-logging-installer`, not at bootstrap.
+    # one. The logging classes come from the `dev.nerviz:spring-log-utils` library: the
+    # dependency goes in this build, added by `commons-logging-installer`, not at bootstrap.
     commons.logging: "shared.logging"
     # The system actor a job or a consumer runs its pass under, used by both and by neither's
     # adapter, so it lives beside the logging commons — decision 0149.
