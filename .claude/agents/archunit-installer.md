@@ -133,20 +133,6 @@ back to the caller.
 6. The rules from `naming.md` and `code-quality.md` don't depend on the architecture:
    they all go in, untranslated.
 
-6a. **The masking rules go in too, with three names translated.** The exemplar's last
-   section carries `sensitive_dtos_implement_log_mask` and `sensitive_fields_are_marked`
-   (`@.claude/rules/logging.md` § Masking candidates). Translate the DTO package to this
-   project's inbound REST DTO package, and `LOG_MASK` / `MASK_SENSITIVE` to this project's
-   own `commons` package — Read the root `CLAUDE.md`, which names it. `SENSITIVE_NAMES` is copied
-   verbatim: it is the rule's list, not a suggestion, and shortening it here is how a field
-   stops being checked.
-
-   **Never drop these two rules because the `commons` package isn't installed yet.**
-   `COMMONS_INSTALLED` is what handles that — it resolves the masking interface on the test
-   classpath and makes both rules match nothing when it is absent, so they start enforcing
-   by themselves the moment `commons` lands. A rule left out because the classpath was
-   incomplete at install time never comes back.
-
 7. Run `./mvnw -q test`. Red here is a translation bug, not a project bug — fix and
    rerun before moving on.
 

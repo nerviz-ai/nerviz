@@ -1,3 +1,0 @@
-com.exemplo.minhaapi.commons.logging.aspect.GlobalHttpMethodLogAspect
-com.exemplo.minhaapi.commons.logging.aspect.LogExecutionAspect
-com.exemplo.minhaapi.commons.logging.aspect.HttpMethodLogExecutionAspect

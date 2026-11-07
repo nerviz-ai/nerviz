@@ -28,11 +28,11 @@
  * it, and having both registers the support twice. A `@DltHandler` — the DLQ is monitored at
  * publish time, above.
  *
- * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the commons logging
- * classes are installed: a `LogExecution` annotation exists under the project's commons package
- * with more than a `package-info.java` beside it (the check `/new-feature-implement`'s pre-flight
- * runs, and may have just installed it). Absent → neither the annotation nor the import, and never
- * create it from here. Its parameters are logged through the masking mechanism
+ * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the build declares
+ * `spring-log-utils` (or, in a project from before the library, the commons package has a
+ * `LogExecution` annotation — keep that project's import) — the check
+ * `/new-feature-implement`'s pre-flight runs, and may have just installed it. Absent → neither the
+ * annotation nor the import, and never create it from here. Its parameters are logged through the masking mechanism
  * (`.claude/rules/logging.md` § Masking mechanism): a payload with a masking candidate implements
  * the masking interface, as a REST DTO does.
  *
@@ -102,7 +102,7 @@ package com.example.demo.adapter.in.messaging.stockreplenished;
 
 import com.example.demo.application.port.in.catalog.RefreshAvailabilityCommand;
 import com.example.demo.application.port.in.catalog.RefreshAvailabilityUseCase;
-import com.example.demo.commons.logging.annotations.LogExecution;
+import dev.nerviz.spring.log.utils.features.annotations.LogExecution;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;

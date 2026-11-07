@@ -276,7 +276,7 @@ dois gaps que só importam quando o primeiro `.java` vai ser escrito em `src/`:
 | Gap | Como detecta | Instala via |
 |---|---|---|
 | ArchUnit ausente | `grep -rl "ArchRule\|ArchTest" src/test/` vazio | `Skill(test-architect)` sem argumento — modo setup, que delega a `archunit-installer` (ArchUnit + portão JaCoCo) |
-| Classes de logging/máscara ausentes | pasta `commons` inexistente ou só com `package-info.java` | `Agent(commons-logging-installer)` — treze exemplares de `new-feature-implement/templates/commons/` traduzidos para o package real, mais `AutoConfiguration.imports` e as dependências AOP |
+| Classes de logging/máscara ausentes | nenhum arquivo de build declara `spring-log-utils` e nenhum `LogMask.java` está sob `src/` | `Agent(commons-logging-installer)` — adiciona a dependência `dev.nerviz:spring-log-utils`, na versão que `commons_logging` de `extensions.json` fixa e com suas exclusões, ao build do módulo `commons` (o build raiz num projeto de módulo único) |
 
 Cada gap encontrado vira um `AskUserQuestion` (**Install now** / **Skip for this run**);
 nenhum gap, nenhuma pergunta. Os dois podem disparar no mesmo turno — e não podiam antes:

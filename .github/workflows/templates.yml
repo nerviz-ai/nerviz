@@ -32,7 +32,7 @@ on:
     # Same list under both triggers — keep them identical.
     paths:
       - '.claude/skills/project-bootstrap/templates/checkstyle*.xml.example'
-      - '.claude/skills/new-feature-implement/templates/commons/**'
+      - '.claude/agents/commons-logging-installer.md'
       - '.claude/skills/persistence-architect/templates/JpaEntity.java.example'
       - '.claude/skills/persistence-architect/templates/MongoDocument.java.example'
       - '.claude/skills/persistence-architect/templates/MongoCollections.java.example'
@@ -68,7 +68,7 @@ on:
   pull_request:
     paths:
       - '.claude/skills/project-bootstrap/templates/checkstyle*.xml.example'
-      - '.claude/skills/new-feature-implement/templates/commons/**'
+      - '.claude/agents/commons-logging-installer.md'
       - '.claude/skills/persistence-architect/templates/JpaEntity.java.example'
       - '.claude/skills/persistence-architect/templates/MongoDocument.java.example'
       - '.claude/skills/persistence-architect/templates/MongoCollections.java.example'
@@ -140,7 +140,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: commons templates + AssignedIdEntity in a fresh Initializr project
+      - name: spring-log-utils + AssignedIdEntity in a fresh Initializr project
         run: java .claude/.ci/JavaTemplatesTest.java
 
   mapstruct-wiring:

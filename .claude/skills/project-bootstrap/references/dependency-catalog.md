@@ -17,13 +17,11 @@ Used in step 3 to build the `-d dependencies=` parameter.
 | `uuid-v7` | — | Doesn't exist in the Initializr; add `com.fasterxml.uuid:java-uuid-generator`. Required whenever `persistence-jpa` is active and the primary key is `UUID`: `persistence.md` § Identity and keys requires v7, and JDK 21's `java.util.UUID.randomUUID()` generates v4. See the JDK 25 note below |
 | `spring-modulith` | `modulith` | `modular-monolith` blueprint only. Adds `spring-modulith-starter-core` (compile). **Next to `data-jpa` and `kafka` the Initializr adds more** (served for Boot 4.1.1): `spring-modulith-starter-jpa` (the event publication registry) and `spring-modulith-events-kafka` (its externalization). **Remove both from the build.** The registry needs an `event_publication` table, no migration exists at bootstrap (no business code, `@.claude/decisions/0011-bootstrap-without-business-code.md`) and `ddl-auto=validate` refuses to start the context; `schema-initialization` is a JDBC-registry property and does nothing here. `persistence-architect` brings `starter-jpa` back, with its migration, for the first in-process event across modules; broker delivery is the outbox of `@.claude/rules/messaging.md`, so `events-kafka` does not come back. Also add by hand, same BOM: `spring-modulith-starter-test` (test scope, not in the Initializr catalog) — needed for `ApplicationModules`/`@ApplicationModuleTest`. Import `spring-modulith-bom`, version from `boms.spring-modulith.version` in the same `curl` response, never from memory — it moves independently of Spring Boot's own version. Maven: `<dependencyManagement>` with `<scope>import</scope>`. Gradle: `dependencyManagement { imports { mavenBom "org.springframework.modulith:spring-modulith-bom:<version>" } }`, same block as the `spring-boot-dependencies` import in `templates/build.gradle.parent.example` |
 
-**`commons` logging/masking isn't a `features:` key** — every blueprint carries the
-empty package unconditionally (step 4.7), same as `domain`. Its dependencies
-(`spring-boot-starter-aop`, `spring-boot-configuration-processor`) aren't in this table
-because this skill never adds them: like `archunit`, they're added later, by the
-`commons-logging-installer` agent, once there are classes to compile — see
-`project-bootstrap/SKILL.md` step 4.7 and `.claude/agents/commons-logging-installer.md`.
-No `<version>` on either: `spring-boot-starter-parent` manages both.
+**`commons` logging/masking isn't a `features:` key** — it is the `dev.nerviz:spring-log-utils`
+library, which this skill never adds: like `archunit`, it is added later, by the
+`commons-logging-installer` agent — see `.claude/agents/commons-logging-installer.md`.
+The aspects come from the library and `spring-boot-starter-aspectj` arrives transitively, so
+no AOP starter is declared for them.
 
 ## Warning — Spring Boot 4 renamed starters
 
@@ -34,9 +32,9 @@ template:
 - `spring-boot-starter-web` → **`spring-boot-starter-webmvc`**
 - `spring-boot-starter-aop` → **`spring-boot-starter-aspectj`** — the old artifactId
   isn't in the Boot 4 BOM at all; resolving it fails the POM with `'dependencies.dependency.version'
-  ... is missing`, not a 404. Applies to any AOP consumer added after bootstrap, both
-  `commons-logging-installer` (its aspects) and `rest-api-architect`'s
-  `IdempotencyAspect`
+  ... is missing`, not a 404. Applies to any AOP consumer added after bootstrap, such as `rest-api-architect`'s
+  `IdempotencyAspect`; the logging aspects come from the `spring-log-utils` library, which
+  brings the starter transitively
 - `spring-boot-starter-test` is no longer a single artifact: each production starter
   has its own `-test` (`spring-boot-starter-webmvc-test`,
   `spring-boot-starter-actuator-test`, …)

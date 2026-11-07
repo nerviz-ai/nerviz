@@ -52,14 +52,14 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
   and `## Infrastructure`, for the services the run adds and reports
 - `@.claude/skills/docker-architect/references/compose-service-decision.md` — what each
   `## Infrastructure` decision means, and who acts on it
-- `src/test/**`, the `commons` package, the root `CLAUDE.md`'s `**Mappers:` paragraph — by
+- `src/test/**`, the build files, the root `CLAUDE.md`'s `**Mappers:` paragraph — by
   command, for the pre-flight
 
 **Writes (indirectly):**
 - `src/**`, `pom.xml` and the spec's checklist and `status:` — via `java-spring-boot-developer`
 - the ArchUnit tests and coverage gate — via `test-architect` setup mode → `archunit-installer`
-- the logging/masking classes — via `commons-logging-installer`, from this skill's
-  `templates/commons/*.example`
+- the logging/masking library dependency in the build file — via `commons-logging-installer`,
+  at the version `commons_logging` of `.claude/schemas/extensions.json` pins
 - the project's mapper mechanism — the `**Mappers:` paragraph, and for MapStruct the build wiring
   and every converted mapper — via `mapstruct-installer`, from this skill's
   `templates/mapstruct/*.example`
@@ -141,14 +141,16 @@ approved spec nobody committed yet is the run's input and goes in its `feat` com
 
    ```bash
    grep -rl "ArchRule\|ArchTest" --include='*.java' src/test/ 2>/dev/null | head -1
-   find . -type d -iname commons -o -type d -path '*shared/logging' 2>/dev/null
+   find . -path ./.claude -prune -o \( -name 'pom.xml' -o -name 'build.gradle' -o -name 'build.gradle.kts' \) -print 2>/dev/null | xargs grep -l 'spring-log-utils' 2>/dev/null | head -1
+   find . -path ./.claude -prune -o -path '*/src/main/java/*' -name 'LogMask.java' -print 2>/dev/null | head -1
    grep -n '^\*\*Mappers:' CLAUDE.md 2>/dev/null
    ```
 
    First command empty → ArchUnit not installed yet (the same gap `/new-feature`'s
-   consolidation step 3 already flagged, if this use case is the first one). Second command
-   empty, or the directory it finds has nothing but `package-info.java` → commons-logging
-   classes not installed yet. Third command empty → the project never chose its mapper
+   consolidation step 3 already flagged, if this use case is the first one). Second **and**
+   third command empty → the logging library is not installed (`commons_logging` of
+   `.claude/schemas/extensions.json`); a `LogMask.java` under `src/` is a project from before
+   the library, already installed. Fourth command empty → the project never chose its mapper
    mechanism (`.claude/rules/mapping.md` § One mechanism per project). Any gap found →
    `AskUserQuestion`, one question per gap found: **Install now** / **Skip for this run** for
    the first two; for the mappers, **Keep manual mappers** (recorded, never asked again) /
@@ -293,7 +295,8 @@ failure, and `/new-feature-implement UC-NNN-<slug>` to resume there — no `/git
 - **`@.claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md`** — why the next
   group launches in the turn that receives the previous one's report.
 - **`@.claude/agents/commons-logging-installer.md`** — one-time logging/masking setup,
-  triggered directly from the pre-flight, from this skill's `templates/commons/`.
+  triggered directly from the pre-flight; adds the published library to the build
+  (`@.claude/decisions/0200-commons-logging-from-spring-log-utils-library.md`).
 - **`@.claude/agents/mapstruct-installer.md`** — records the project's mapper mechanism once;
   for MapStruct, wires the build from this skill's `templates/mapstruct/` and converts every
   existing mapper.
