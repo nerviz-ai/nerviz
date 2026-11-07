@@ -78,6 +78,7 @@ flowchart TD
         D27[AsyncApiTemplateTest.java — exemplares AsyncAPI anotam os dois lados explicitamente e fazem do documento servido um gate contra um snapshot]
         D28[BlueprintSkeletonTest.java selftest — o workflow blueprints gera só o que a mudança impacta]
         D29[DiagramsTest.java — diagramas versionados batem com uma renderização nova dos dados que citam]
+        D30[ExportCitationSchemaTest.java — arquivo exportado citando um caminho dentro de uma skill que export.skills.exclude deixa de fora → schema sai com 2, por arquivo e linha]
         D16[corpo de exemplar sem comentário além de Javadoc]
         D9[templates do blueprint existem]
         D10[dono único da norma]

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1096" height="1400" viewBox="0 0 1096 1400" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1096" height="1424" viewBox="0 0 1096 1424" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
 <title>Nerviz — /new-feature-implement</title>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#52606D"/></marker></defs>
-<rect width="1096" height="1400" fill="#FBFAF7"/>
+<rect width="1096" height="1424" fill="#FBFAF7"/>
 <text x="32" y="54" font-size="22" font-weight="700" fill="#1F2933">Nerviz — /new-feature-implement</text>
 <text x="32" y="78" font-size="12" fill="#52606D">Three executor groups, chained; git-publish is printed, never called.</text>
 <g id="edge-flow_root_new-feature-implement_step_new-feature-implement_1">
@@ -12,40 +12,40 @@
 <line x1="352" y1="232" x2="416" y2="232" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-seg_chip_step_new-feature-implement_2_1_0_0_chip_step_new-feature-implement_2_1_0_1">
-<line x1="720" y1="548" x2="808" y2="548" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="720" y1="560" x2="808" y2="560" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-phase_step_new-feature-implement_2_1">
 <line x1="596" y1="448" x2="596" y2="488" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-phase_step_new-feature-implement_2_2">
-<line x1="596" y1="696" x2="596" y2="736" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="596" y1="720" x2="596" y2="760" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-phase_step_new-feature-implement_2_v0">
-<line x1="596" y1="816" x2="596" y2="840" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="596" y1="840" x2="596" y2="864" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-yes_step_new-feature-implement_2_0">
-<line x1="720" y1="880" x2="784" y2="880" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="720" y1="904" x2="784" y2="904" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-seg_chip_step_new-feature-implement_2_3_0_0_chip_step_new-feature-implement_2_3_0_1">
-<line x1="720" y1="1000" x2="808" y2="1000" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="720" y1="1024" x2="808" y2="1024" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-phase_step_new-feature-implement_2_3">
-<line x1="596" y1="920" x2="596" y2="960" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="596" y1="944" x2="596" y2="984" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-entry_step_new-feature-implement_2">
-<line x1="352" y1="672" x2="472" y2="384" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="352" y1="684" x2="472" y2="384" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-flow_step_new-feature-implement_1_step_new-feature-implement_2">
-<line x1="192" y1="280" x2="192" y2="644" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="192" y1="280" x2="192" y2="656" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-flow_step_new-feature-implement_2_step_new-feature-implement_3">
-<line x1="192" y1="700" x2="192" y2="1064" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="192" y1="712" x2="192" y2="1088" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-flow_step_new-feature-implement_3_step_new-feature-implement_4">
-<line x1="192" y1="1120" x2="192" y2="1144" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="192" y1="1144" x2="192" y2="1168" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-flow_step_new-feature-implement_4_handoff_new-feature-implement">
-<line x1="192" y1="1200" x2="192" y2="1224" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<line x1="192" y1="1224" x2="192" y2="1248" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
 <g id="root_new-feature-implement">
 <rect x="32" y="96" width="320" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
@@ -69,8 +69,8 @@
 <text x="680" y="237" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="step_new-feature-implement_2">
-<rect x="32" y="644" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="677" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Implement</text>
+<rect x="32" y="656" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="689" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">2 · Implement</text>
 </g>
 <g id="chip_step_new-feature-implement_2_0_0_0">
 <rect x="472" y="320" width="248" height="128" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
@@ -84,102 +84,104 @@
 <text x="596" y="435" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**</text>
 </g>
 <g id="frame_step_new-feature-implement_2_1">
-<rect x="464" y="488" width="600" height="208" rx="10" fill="none" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="2 4"/>
+<rect x="464" y="488" width="600" height="232" rx="10" fill="none" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="2 4"/>
 </g>
 <g id="chip_step_new-feature-implement_2_1_0_0">
-<rect x="472" y="516" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="596" y="539" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">test-architect</text>
-<text x="596" y="554" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/**</text>
-<text x="596" y="567" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/BACKLOG.md</text>
+<rect x="472" y="528" width="248" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="596" y="551" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">test-architect</text>
+<text x="596" y="566" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/**</text>
+<text x="596" y="579" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/BACKLOG.md</text>
 </g>
 <g id="chip_step_new-feature-implement_2_1_0_1">
-<rect x="808" y="496" width="248" height="104" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="932" y="519" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">archunit-installer</text>
-<text x="932" y="534" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
-<text x="932" y="547" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/ArchitectureTest.java</text>
-<text x="932" y="560" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/ArchitectureTest.java</text>
-<text x="932" y="573" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/TestcontainersConfiguration.java</text>
-<text x="932" y="586" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/TestcontainersConfiguration.java</text>
+<rect x="808" y="496" width="248" height="128" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="932" y="518" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">archunit-installer</text>
+<text x="932" y="533" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
+<text x="932" y="546" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle build.gradle.kts</text>
+<text x="932" y="559" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
+<text x="932" y="572" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/ArchitectureTest.java</text>
+<text x="932" y="585" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/ArchitectureTest.java</text>
+<text x="932" y="598" font-size="11" text-anchor="middle" fill="#52606D">src/test/java/**/TestcontainersConfiguration.java</text>
+<text x="932" y="611" font-size="11" text-anchor="middle" fill="#52606D">**/src/test/java/**/TestcontainersConfiguration.java</text>
 </g>
 <g id="chip_step_new-feature-implement_2_1_1_0">
-<rect x="472" y="608" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="596" y="632" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">commons-logging-installer</text>
-<text x="596" y="647" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
-<text x="596" y="660" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle build.gradle.kts</text>
-<text x="596" y="673" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
+<rect x="472" y="632" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="596" y="656" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">commons-logging-installer</text>
+<text x="596" y="671" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml build.gradle</text>
+<text x="596" y="684" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle build.gradle.kts</text>
+<text x="596" y="697" font-size="11" text-anchor="middle" fill="#52606D">**/build.gradle.kts</text>
 </g>
 <g id="chip_step_new-feature-implement_2_2_0_0">
-<rect x="472" y="736" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
-<text x="596" y="760" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">java-spring-boot-developer</text>
-<text x="596" y="775" font-size="11" text-anchor="middle" fill="#52606D">src/** **/src/**</text>
-<text x="596" y="788" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/UC-*-spec.md</text>
-<text x="596" y="801" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
+<rect x="472" y="760" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5"/>
+<text x="596" y="784" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">java-spring-boot-developer</text>
+<text x="596" y="799" font-size="11" text-anchor="middle" fill="#52606D">src/** **/src/**</text>
+<text x="596" y="812" font-size="11" text-anchor="middle" fill="#52606D">docs/use-cases/UC-*/UC-*-spec.md</text>
+<text x="596" y="825" font-size="11" text-anchor="middle" fill="#52606D">pom.xml **/pom.xml</text>
 </g>
 <g id="verdict_step_new-feature-implement_2_0">
-<polygon points="596,840 720,880 596,920 472,880" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
-<text x="596" y="885" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">a group fails?</text>
+<polygon points="596,864 720,904 596,944 472,904" fill="#F8DCE8" stroke="#B0366E" stroke-width="2" stroke-linejoin="round"/>
+<text x="596" y="909" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">a group fails?</text>
 </g>
 <g id="term_step_new-feature-implement_2_0">
-<rect x="784" y="848" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="908" y="871" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
-<text x="908" y="886" font-size="11" text-anchor="middle" fill="#52606D">reports the failing group</text>
-<text x="908" y="899" font-size="11" text-anchor="middle" fill="#52606D">the chain stops there</text>
+<rect x="784" y="872" width="248" height="64" rx="8" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="908" y="895" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Ends the run</text>
+<text x="908" y="910" font-size="11" text-anchor="middle" fill="#52606D">reports the failing group</text>
+<text x="908" y="923" font-size="11" text-anchor="middle" fill="#52606D">the chain stops there</text>
 </g>
 <g id="tbadge_step_new-feature-implement_2_0">
-<rect x="1036" y="868" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="1048" y="885" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<rect x="1036" y="892" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="1048" y="909" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="chip_step_new-feature-implement_2_3_0_0">
-<rect x="472" y="960" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="596" y="984" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">compose-service-installer</text>
-<text x="596" y="999" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
-<text x="596" y="1012" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
-<text x="596" y="1025" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
+<rect x="472" y="984" width="248" height="80" rx="8" fill="#EBE1F5" stroke="#7A4FA8" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="596" y="1008" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">compose-service-installer</text>
+<text x="596" y="1023" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
+<text x="596" y="1036" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
+<text x="596" y="1049" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
 </g>
 <g id="chip_step_new-feature-implement_2_3_0_1">
-<rect x="808" y="960" width="248" height="80" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="932" y="984" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">docker-architect</text>
-<text x="932" y="999" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
-<text x="932" y="1012" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
-<text x="932" y="1025" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
+<rect x="808" y="984" width="248" height="80" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="932" y="1008" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">docker-architect</text>
+<text x="932" y="1023" font-size="11" text-anchor="middle" fill="#52606D">docker-compose*.yml docker/**</text>
+<text x="932" y="1036" font-size="11" text-anchor="middle" fill="#52606D">Dockerfile .env .env.example</text>
+<text x="932" y="1049" font-size="11" text-anchor="middle" fill="#52606D">.gitignore .dockerignore</text>
 </g>
 <g id="badge_step_new-feature-implement_2_0">
-<rect x="356" y="660" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="368" y="677" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="356" y="672" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="689" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="step_new-feature-implement_3">
-<rect x="32" y="1064" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1097" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Long-running background work</text>
+<rect x="32" y="1088" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1121" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">3 · Long-running background work</text>
 </g>
 <g id="badge_step_new-feature-implement_3_0">
-<rect x="356" y="1080" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="368" y="1097" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="356" y="1104" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="368" y="1121" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="step_new-feature-implement_4">
-<rect x="32" y="1144" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
-<text x="192" y="1177" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Final report</text>
+<rect x="32" y="1168" width="320" height="56" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>
+<text x="192" y="1201" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">4 · Final report</text>
 </g>
 <g id="handoff_new-feature-implement">
-<rect x="32" y="1224" width="320" height="88" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
-<text x="192" y="1246" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
-<text x="192" y="1261" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/clear</text>
-<text x="192" y="1274" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/git-publish</text>
-<text x="192" y="1287" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/new-feature</text>
-<text x="192" y="1300" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
+<rect x="32" y="1248" width="320" height="88" rx="8" fill="#ECECEC" stroke="#7A7A7A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="192" y="1270" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">Hands over</text>
+<text x="192" y="1285" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/clear</text>
+<text x="192" y="1298" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/git-publish</text>
+<text x="192" y="1311" font-size="11" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" fill="#52606D">/new-feature</text>
+<text x="192" y="1324" font-size="11" text-anchor="middle" fill="#52606D">printed — never called</text>
 </g>
 <g id="legend_ask">
-<rect x="32" y="1344" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
-<text x="44" y="1361" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
+<rect x="32" y="1368" width="24" height="24" rx="12" fill="#DCEFF7" stroke="#2B7A9B" stroke-width="1.5"/>
+<text x="44" y="1385" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">?</text>
 </g>
 <g id="legend_stop">
-<rect x="106" y="1344" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
-<text x="118" y="1361" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
+<rect x="106" y="1368" width="24" height="24" rx="12" fill="#FBE3D6" stroke="#C4572A" stroke-width="1.5"/>
+<text x="118" y="1385" font-size="13" font-weight="600" text-anchor="middle" fill="#1F2933">■</text>
 </g>
 <g id="legend_decision">
-<polygon points="198,1344 210,1356 198,1368 186,1356" fill="#F8DCE8" stroke="#B0366E" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="198,1368 210,1380 198,1392 186,1380" fill="#F8DCE8" stroke="#B0366E" stroke-width="1.5" stroke-linejoin="round"/>
 </g>
 <g id="legend_conditional">
-<rect x="293" y="1344" width="24" height="24" rx="6" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<rect x="293" y="1368" width="24" height="24" rx="6" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5" stroke-dasharray="6 4"/>
 </g>
 <g id="yes-label_step_new-feature-implement_1_0">
 <text x="384" y="224" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
@@ -191,51 +193,51 @@
 <text x="612" y="315" font-size="11" text-anchor="start" fill="#52606D">1 · pre-flight, first and alone when it installs</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_1_0_1">
-<text x="764" y="542" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+<text x="764" y="554" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_1_0_0">
-<text x="458" y="529" font-size="11" text-anchor="end" fill="#52606D">Skill</text>
+<text x="458" y="541" font-size="11" text-anchor="end" fill="#52606D">Skill</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_1_1_0">
-<text x="458" y="621" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
+<text x="458" y="645" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
 </g>
 <g id="cap_step_new-feature-implement_2_1">
 <text x="612" y="483" font-size="11" text-anchor="start" fill="#52606D">2 · pre-flight · in parallel, either order</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_2_0_0">
-<text x="466" y="749" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
+<text x="466" y="773" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
 </g>
 <g id="cap_step_new-feature-implement_2_2">
-<text x="612" y="731" font-size="11" text-anchor="start" fill="#52606D">3 · three groups, chained: domain, adapters, tests</text>
+<text x="612" y="755" font-size="11" text-anchor="start" fill="#52606D">3 · three groups, chained: domain, adapters, tests</text>
 </g>
 <g id="yes-label_step_new-feature-implement_2_0">
-<text x="752" y="872" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
+<text x="752" y="896" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_3_0_1">
-<text x="764" y="994" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+<text x="764" y="1018" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
 </g>
 <g id="tool_chip_step_new-feature-implement_2_3_0_0">
-<text x="466" y="973" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
+<text x="466" y="997" font-size="11" text-anchor="end" fill="#52606D">Agent</text>
 </g>
 <g id="cap_step_new-feature-implement_2_3">
-<text x="612" y="955" font-size="11" text-anchor="start" fill="#52606D">4 · only with a materialize row</text>
+<text x="612" y="979" font-size="11" text-anchor="start" fill="#52606D">4 · only with a materialize row</text>
 </g>
 <g id="no-label_step_new-feature-implement_2_3">
-<text x="588" y="936" font-size="11" text-anchor="end" fill="#52606D">no</text>
+<text x="588" y="960" font-size="11" text-anchor="end" fill="#52606D">no</text>
 </g>
 <g id="no-label_step_new-feature-implement_1_step_new-feature-implement_2">
 <text x="202" y="297" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
 <g id="legend-text_ask">
-<text x="62" y="1360" font-size="11" text-anchor="start" fill="#52606D">ask</text>
+<text x="62" y="1384" font-size="11" text-anchor="start" fill="#52606D">ask</text>
 </g>
 <g id="legend-text_stop">
-<text x="136" y="1360" font-size="11" text-anchor="start" fill="#52606D">stop</text>
+<text x="136" y="1384" font-size="11" text-anchor="start" fill="#52606D">stop</text>
 </g>
 <g id="legend-text_decision">
-<text x="216" y="1360" font-size="11" text-anchor="start" fill="#52606D">decision</text>
+<text x="216" y="1384" font-size="11" text-anchor="start" fill="#52606D">decision</text>
 </g>
 <g id="legend-text_conditional">
-<text x="323" y="1360" font-size="11" text-anchor="start" fill="#52606D">conditional</text>
+<text x="323" y="1384" font-size="11" text-anchor="start" fill="#52606D">conditional</text>
 </g>
 </svg>
