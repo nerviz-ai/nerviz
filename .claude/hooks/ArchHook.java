@@ -1648,7 +1648,10 @@ public class ArchHook {
                     }
                 }
             }
-            System.out.print(out);
+            // UTF-8 like ERR: the report carries `·`, `—` and `…`, which a Windows console charset turns into `?`.
+            PrintStream stdout = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
+            stdout.print(out);
+            stdout.flush();
         } catch (Exception e) {
             err("❌ build-report failed: " + e);
             System.exit(2);
