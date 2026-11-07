@@ -207,7 +207,7 @@ Nenhuma é única sozinha. Juntas, nenhum vizinho as reúne:
 
 | Preocupação | Onde vive |
 |---|---|
-| `Idempotency-Key` desde o primeiro endpoint, via AOP e tabela compartilhada | `rest-api-architect` + `persistence-architect` |
+| `Idempotency-Key` no primeiro endpoint que o caso pedir, via AOP e tabela compartilhada | `rest-api-architect` + `persistence-architect` |
 | Log estruturado com mascaramento de dado sensível | `commons-logging-installer`, oferecido no pre-flight do `/new-feature-implement` |
 | Collector OTLP com traces e métricas; Jaeger ou Grafana + Tempo + Prometheus | `docker-architect` |
 | Diagnóstico de compose: container "de pé" que não responde, porta presa por projeto vizinho, default que o host não alcança | `ArchHook.java compose` |

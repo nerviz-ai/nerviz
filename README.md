@@ -438,7 +438,7 @@ the use case's `Storage` row states; stamps or an Envers history when its `Audit
 a decorator of the outbound port, keys, expiry, eviction on every write — only when the use case
 states how old an answer may be), `test-architect`.
 
-**Cross-cutting concerns that arrive solved:** `Idempotency-Key` through AOP, logging with
+**Cross-cutting concerns that arrive solved:** `Idempotency-Key` through AOP (when a use case asks for it), logging with
 sensitive-data masking, an OTLP collector with Jaeger or Grafana + Tempo + Prometheus,
 transport security decided once per project through `transport-security-setup` (edge,
 direct, or mutual TLS, HSTS with exactly one writer), SonarQube or SonarCloud setup,
