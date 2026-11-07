@@ -40,6 +40,10 @@ public class ShellGlobSchemaTest {
                 "# probe\n\ngrep -rn X --include=*.java src/main\n", 0, null);
         failures += expect(repo, hook, "--include with no glob character accepted", RULE,
                 "\ngrep -rn X --include=src src/main\n", 0, null);
+        // copyTree skips audit-usage, so the case writes the file after the copy (0201).
+        failures += expect(repo, hook, "unquoted glob in the audit trail ignored",
+                ".claude/audit-usage/probe.md",
+                "\ngrep -rn X --include=*.java src/main\n", 0, null);
 
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `schema` is NOT enforcing"
@@ -65,6 +69,7 @@ public class ShellGlobSchemaTest {
         }
         if (file != null) {
             Path target = tmp.resolve(file);
+            Files.createDirectories(target.getParent());
             String old = Files.isRegularFile(target)
                     ? Files.readString(target, StandardCharsets.UTF_8) : "";
             Files.writeString(target, old + addition, StandardCharsets.UTF_8);

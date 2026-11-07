@@ -439,7 +439,7 @@ later turn: one run reached a 427,889-token context and 531,362 billable tokens 
   Where one disagrees with the spec, the spec wins, and the disagreement is a finding of this
   group.
 - **Tick at the end of the group, green only.** After the group's last compile passes, tick its
-  steps `[ ]` → `[x]` — the toggles § Contract allows on an approved spec. A group that fails
+  steps `[ ]` → `[x]` with the Edit tool, one line per call — the toggles § Contract allows on an approved spec. A group that fails
   ticks nothing, which is how `/new-feature-implement` knows where to resume. A lettered line is
   ticked when its block's last compile passes. Only the `tests`
   group touches the `status:` line.

@@ -483,16 +483,14 @@ public class ArchHook {
         doctorBoundarySweep(map, rules);
         long badSchema = -1;
         if (Files.isRegularFile(ROOT.resolve(SCHEMA_FILE))) {
-            List<String> errs = new ArrayList<>();
             try {
-                sweep(asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))), errs);
-                badSchema = errs.size();
+                badSchema = schemaSweep(asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))))).size();
             } catch (IOException ignored) { }
         }
         report("Schema", badSchema == 0,
                 "all extension files pass",
                 badSchema < 0 ? "no " + SCHEMA_FILE + " — validation OFF"
-                              : badSchema + " files with invalid frontmatter");
+                              : badSchema + " problem(s) — `java .claude/hooks/ArchHook.java schema` lists them");
         Map<String, Object> hb = hookBuild();
         if (hb != null) {
             String jarProblem = hookJarProblem(hb);
@@ -4586,7 +4584,7 @@ public class ArchHook {
 
         List<String> errors = new ArrayList<>();
         if (file == null) {
-            sweep(sch, errors);                       // Stop, or manual invocation
+            // Stop, or manual invocation: the whole sweep runs below, in schemaSweep
         } else {
             String rel = relative(Paths.get(file));
             String modsRoot = asStr(get(sch, "mods", "root"));
@@ -4604,15 +4602,7 @@ public class ArchHook {
         }
 
         if (file == null) {
-            checkSkillClasses(sch, errors);
-            checkAgentClasses(sch, errors);
-            checkSubagentContext(sch, errors);
-            checkExportManifest(sch, errors);
-            checkSourceBlock(sch, errors);
-            checkMigrations(sch, errors);
-            checkMods(sch, errors);
-            sweepShellGlobs(sch, errors);
-            checkSpecChecklist(sch, errors);
+            errors.addAll(schemaSweep(sch));
             String jarProblem = hookJarProblem(asMap(sch.get("hook_build")));
             if (jarProblem != null) errors.add("  " + jarProblem);
         }
@@ -4627,6 +4617,24 @@ public class ArchHook {
                     + "/references/frontmatter-fields.md");
             System.exit(2);
         }
+    }
+
+    /**
+     * What `schema` checks at Stop and `doctor` reports on its Schema line — one list, so the gated label means the whole check (0201). Invoked by `schema` with no file and by `doctor`.
+     */
+    static List<String> schemaSweep(Map<String, Object> sch) throws IOException {
+        List<String> errors = new ArrayList<>();
+        sweep(sch, errors);
+        checkSkillClasses(sch, errors);
+        checkAgentClasses(sch, errors);
+        checkSubagentContext(sch, errors);
+        checkExportManifest(sch, errors);
+        checkSourceBlock(sch, errors);
+        checkMigrations(sch, errors);
+        checkMods(sch, errors);
+        sweepShellGlobs(sch, errors);
+        checkSpecChecklist(sch, errors);
+        return errors;
     }
 
     // ── mods ─────────────────────────────────────────────────────────────────
@@ -7213,7 +7221,8 @@ public class ArchHook {
             String evKind = asStr(e.get("e"));
             long t = num(e.get("t"));
             // A compaction is the runtime's, not the node's: it doesn't extend whoever ran before it.
-            if (!"run_start".equals(evKind) && !"compact".equals(evKind)) ticks.add(t);
+            // Nor does a plan_usage reading: it is the hook's bookkeeping, appended at flush and close (0201).
+            if (!"run_start".equals(evKind) && !"compact".equals(evKind) && !"plan_usage".equals(evKind)) ticks.add(t);
             switch (evKind) {
                 case "skill" -> nodes.add(new Node("skill", orDash(asStr(e.get("name"))),
                         asStr(e.get("args")), t, openAgents.size() + 1,
@@ -8312,6 +8321,7 @@ public class ArchHook {
             Double delta = null;
             if (b == null || a == null) cell = why;
             else if (bReset != aReset) cell = "not valid — the window reset mid-run";
+            else if (a < b) cell = "not valid — usage fell within the same window";
             else if (last != null && !"after".equals(asStr(last.get("at")))) cell = "provisional";
             else {
                 double d = a - b;
@@ -9434,7 +9444,7 @@ public class ArchHook {
         // The transitions come from guard.status_transitions, the owner isStatusClose reads too.
         List<String> to = asStrList(get(cfg, "status_transitions", status));
         out.add("Writable inside a frozen folder: " + String.join(", ", exempt)
-                + "; the spec's checklist toggles; and its `status:` line, "
+                + "; the spec's checklist toggles (`[ ]` ↔ `[x]`, through the Edit tool — a shell command is refused); and its `status:` line, "
                 + (to.isEmpty() ? "which no tool moves from `" + status + "`."
                         : "only from `" + status + "` to " + to.stream().map(s -> "`" + s + "`")
                                 .collect(Collectors.joining(" or ")) + "."));
@@ -9938,6 +9948,8 @@ public class ArchHook {
      * of them unticked, permanently, with the revert refused too — the spec then describing a
      * feature as unfinished that was on disk, green and committed (lessons-learned-014 § 4). A
      * toggle is monotone: it carries none of the risk immutability exists to prevent.
+     *
+     * <p>Edit only: a shell write carries no old/new text to compare, so `guard bash` refuses it and the denial message names Edit (0201).
      */
     static boolean isChecklistToggle(Map<String, Object> cfg, Object in, String rel, String status) {
         if (cfg == null || !rel.matches(".*/UC-[^/]*-spec\\.md")) return false;
