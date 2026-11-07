@@ -28,11 +28,11 @@
  * it, and having both registers the support twice. A `@DltHandler` — the DLQ is monitored at
  * publish time, above.
  *
- * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the build declares
- * `spring-log-utils` (or, in a project from before the library, the commons package has a
- * `LogExecution` annotation — keep that project's import) — the check
- * `/new-feature-implement`'s pre-flight runs, and may have just installed it. Absent → neither the
- * annotation nor the import, and never create it from here. Its parameters are logged through the masking mechanism
+ * COMMONS LOGGING — `@LogExecution` on `onMessage`, and its import, ONLY IF the commons logging classes are installed:
+ * the build declares `spring-log-utils`, or, in a project from before the library, the commons package has a
+ * `LogExecution` annotation (keep that project's import) — the check `/new-feature-implement`'s pre-flight
+ * runs, and may have just installed it. Absent → neither the annotation nor the import, and never
+ * create it from here. Its parameters are logged through the masking mechanism
  * (`.claude/rules/logging.md` § Masking mechanism): a payload with a masking candidate implements
  * the masking interface, as a REST DTO does.
  *
