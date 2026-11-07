@@ -567,6 +567,25 @@ public class AuditRenderTest {
         md = puClose(hook, repo, id, "pu7");
         must(md, "| 5 h | 20.0 % | 23.5 % | +3.5 pp |", "plan usage: close reads the snapshot again, not flush's reading");
 
+        // 8 — usage that falls within one window (same resets_at) is not valid, never a negative delta (0201)
+        Files.writeString(snap, snapshot(23.5, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu8");
+        Files.writeString(snap, snapshot(22.0, 1000, 41.2, 5000));
+        md = puClose(hook, repo, id, "pu8");
+        must(md, "| 5 h | 23.5 % | 22.0 % | not valid — usage fell within the same window |", "plan usage: a falling usage is not valid");
+        mustNot(md, "-1.5 pp", "plan usage: no negative delta is printed");
+        must(lastHistory(trail), "\"five_hour\":null,\"weekly\":1.2", "plan usage: history holds no delta for the fallen window");
+
+        // 8b — the close-time reading is the hook's bookkeeping, not an event of the last node: the idle
+        // tail between the last event and `close` is not billed to it (0201)
+        Files.writeString(snap, snapshot(20.0, 1000, 40.0, 5000));
+        id = puOpen(hook, repo, "pu8b");
+        run(hook, repo, "call", "{\"session_id\":\"" + id + "\",\"tool_name\":\"Skill\",\"tool_input\":{\"skill\":\"demo-skill\",\"args\":\"x\"},\"tool_use_id\":\"tu8b\"}");
+        run(hook, repo, "flush", "{\"session_id\":\"" + id + "\"}");
+        Thread.sleep(1500);
+        md = puClose(hook, repo, id, "pu8b");
+        must(md, "| 1 | `demo-skill` | 0s |", "plan usage: the idle tail before close is not billed to the last node");
+
         // 9 — the summary's mean counts valid deltas only
         Files.createDirectories(repo.resolve(".claude/skills/pu-skill"));
         Files.writeString(repo.resolve(".claude/skills/pu-skill/SKILL.md"),

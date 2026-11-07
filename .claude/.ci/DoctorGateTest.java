@@ -47,6 +47,10 @@ public class DoctorGateTest {
                 "package x;\n\nimport org.springframework.stereotype.Component;\n\nclass Order { }\n"));
         broken("Schema", p -> write(p.resolve(".claude/skills/x/SKILL.md"),
                 "---\nname: x\nnot-a-field: 1\n---\n# x\n"));
+        // doctor runs the whole `schema` sweep, not the frontmatter alone (0201): an unquoted shell
+        // glob in a file `shell_globs.scope` names is caught only by sweepShellGlobs.
+        broken("Schema", p -> write(p.resolve("CLAUDE.md"),
+                "# probe\n\ngrep -rn X --include=*.java src/main\n"));
         broken("Hook jar", p -> Files.writeString(p.resolve(".claude/hooks/ArchHook.java"),
                 "\n// edited after the build\n", StandardOpenOption.APPEND));
         broken("Hooks", p -> write(p.resolve(".claude/settings.json"),
@@ -63,6 +67,20 @@ public class DoctorGateTest {
                 "{\"exited\":\"warn\"}"), 0, "compose gate file sets exited to warn — gate passes");
         if (!warns.contains("`exited` = \"warn\"")) {
             fail("a valid compose gate file is not reported as in force on the `Compose overrides` line");
+        }
+
+        // The audit trail cuts a Target at 80 chars, leaving a slug prefix that resolves to nothing:
+        // the trail is exempt from the UC references sweep (0201).
+        String uc = run(new String[] {"doctor"}, p -> {
+            write(p.resolve("docs/use-cases/.keep"), "");
+            write(p.resolve(".claude/audit-usage/UC-001.md"),
+                    "Target: docs/use-cases/UC-001-some-case-cut…\n");
+            git(p, "init", "-q");
+            git(p, "add", "-A");
+            git(p, "-c", "user.name=ci", "-c", "user.email=ci@example.com", "commit", "-q", "-m", "x");
+        }, 0, "UC citation cut in the audit trail — UC references stays green");
+        if (!Pattern.compile("  UC references \\.+ ✅").matcher(uc).find()) {
+            fail("a cut UC citation inside .claude/audit-usage reddens `UC references`");
         }
 
         run(new String[] {"doctor"}, p -> Files.delete(p.resolve(".claude/forbidden-imports.txt")), 0,
@@ -122,6 +140,10 @@ public class DoctorGateTest {
         Files.createDirectories(hooks);
         Files.copy(Paths.get(".claude/hooks/ArchHook.java"), hooks.resolve("ArchHook.java"));
         Files.copy(HOOK, hooks.resolve("ArchHook.jar"));
+        // `schema` (and so `doctor`'s Schema line) checks that subagent_context.file exists.
+        Path gof = p.resolve(".claude/skills/gof-design-patterns/SKILL.md");
+        Files.createDirectories(gof.getParent());
+        Files.copy(Paths.get(".claude/skills/gof-design-patterns/SKILL.md"), gof);
         write(p.resolve(".claude/forbidden-imports.txt"), "# boundary\ndomain|org.springframework\n");
         write(p.resolve(".claude/settings.json"), blockedPluginsOff());
         write(p.resolve(".mcp.json"), "{\"mcpServers\":{}}");
@@ -164,6 +186,15 @@ public class DoctorGateTest {
         Matcher q = Pattern.compile("\"([^\"]+)\"").matcher(m.group(1));
         while (q.find()) out.add(q.group(1));
         return out;
+    }
+
+    static void git(Path dir, String... args) throws Exception {
+        List<String> cmd = new ArrayList<>(List.of("git"));
+        cmd.addAll(List.of(args));
+        Process pr = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
+        pr.getOutputStream().close();
+        pr.getInputStream().readAllBytes();
+        if (pr.waitFor() != 0) throw new IllegalStateException("git " + String.join(" ", args) + " failed");
     }
 
     static void write(Path f, String content) throws Exception {

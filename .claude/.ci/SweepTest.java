@@ -141,6 +141,13 @@ public class SweepTest {
                 + "\"}}", 2, "only from `approved` to `implemented` or `implemented-blocked`", null,
                 "write into an approved folder — refused, naming the admitted status moves");
 
+        // A checklist toggle through a shell command is refused, and the message names the tool that
+        // is admitted (the message listed toggles as writable and named no form). Decision 0201.
+        failures += guard(hook, repo, "bash", "{\"session_id\":\"" + s5
+                + "\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"sed -i '' 's/- \\\\[ \\\\] 1\\\\./- [x] 1./' "
+                + spec + "\"}}", 2, "through the Edit tool", null,
+                "checklist toggle by sed -i — refused, the message names the Edit tool");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `guard sweep` is NOT"
                     + " separating what this turn wrote from what was already dirty.");
