@@ -137,7 +137,7 @@ public class BashGuardTest {
 // Decision 0205: relative targets resolve against the shell's working directory — the
 // payload's `cwd`, moved by each literal `cd`/`pushd` — and a newline ends a segment.
 // `agentBashCwd` takes the real command (JSON-escaped there); `cwd` null leaves it out.
-String root = Paths.get("").toAbsolutePath().toString();
+String root = Paths.get("").toAbsolutePath().toString().replace(java.io.File.separatorChar, (char) 47);
 String ex = "java-spring-boot-developer";
 failures += agentBashCwd(hook, report, ex, "cd src/main/java && cat > Foo.java <<EOF\nx\nEOF",
         null, 0, null, "D1 executor: `cd` into its territory, then a relative heredoc write — allowed");
