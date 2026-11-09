@@ -134,7 +134,43 @@ public class BashGuardTest {
         failures += shell(hook, globs, null, "grep -r x . --include=*.java", 0, null,
                 "G8 SHELL unset: unquoted `--include=*.java` — allowed, no shell to judge");
 
-        if (failures > 0) {
+// Decision 0205: relative targets resolve against the shell's working directory — the
+// payload's `cwd`, moved by each literal `cd`/`pushd` — and a newline ends a segment.
+// `agentBashCwd` takes the real command (JSON-escaped there); `cwd` null leaves it out.
+String root = Paths.get("").toAbsolutePath().toString();
+String ex = "java-spring-boot-developer";
+failures += agentBashCwd(hook, report, ex, "cd src/main/java && cat > Foo.java <<EOF\nx\nEOF",
+        null, 0, null, "D1 executor: `cd` into its territory, then a relative heredoc write — allowed");
+failures += agentBashCwd(hook, report, ex, "cd src/main/java && sed -i '' s/a/b/ Foo.java",
+        null, 0, null, "D2 executor: `cd` then BSD `sed -i ''` — allowed");
+failures += agentBashCwd(hook, report, ex, "cd src && cat > ../CLAUDE.md <<EOF\nx\nEOF",
+        null, 2, "CLAUDE.md", "D3 executor: `cd src` then `../CLAUDE.md` — blocked, no longer fail-open");
+failures += agentBashCwd(hook, report, ex, "cd docs && echo x > notes.md",
+        null, 2, "docs/notes.md", "D4 executor: `cd docs` then `notes.md` — blocked, the message names docs/notes.md");
+failures += agentBashCwd(hook, report, ex, "cd $D && echo x > CLAUDE.md",
+        null, 0, null, "D5 executor: non-literal `cd` — a relative target is unresolvable and passes");
+failures += agentBashCwd(hook, report, ex, "cd $D && echo x > " + root + "/CLAUDE.md",
+        null, 2, "CLAUDE.md", "D6 executor: non-literal `cd`, absolute target — still judged");
+failures += agentBashCwd(hook, report, ex, "(cd src && echo x > main/a.txt); echo y > CLAUDE.md",
+        null, 2, "CLAUDE.md", "D7 executor: a ( ) group restores the directory — CLAUDE.md judged at the root");
+failures += agentBashCwd(hook, report, ex,
+        "pushd src/main/java && echo x > A.java && popd && echo y > B.java",
+        null, 0, null, "D8 executor: `pushd` moves, `popd` makes it unknown — allowed");
+failures += agentBashCwd(hook, report, ex,
+        "sed -i '' s/a/b/ src/main/java/Foo.java\npython3 - <<EOF\nprint(1)\nEOF",
+        null, 0, null, "N1 executor: a newline ends the segment — `python3` is no `sed` operand");
+failures += agentBashCwd(hook, report, ex, "ls\nsed -i '' s/a/b/ docs/x.md",
+        null, 2, "docs/x.md", "N2 executor: a write on the second line is seen — blocked");
+failures += agentBashCwd(hook, report, ex, "sed -i '' s/a/b/ \\\nsrc/main/java/Foo.java",
+        null, 0, null, "N3 executor: a trailing backslash is a line continuation — allowed");
+failures += agentBashCwd(hook, report, ex, "git commit -m \"a\nsed -i x CLAUDE.md\"",
+        null, 0, null, "N4 executor: a newline inside quotes stays a character — allowed");
+failures += agentBashCwd(hook, report, ex, "cat > Foo.java <<EOF\nx\nEOF",
+        root + "/src/main/java", 0, null, "P1 executor: payload `cwd` inside its territory — allowed");
+failures += agentBashCwd(hook, report, ex, "echo x > notes.md",
+        root + "/docs", 2, "docs/notes.md", "P2 executor: payload `cwd` docs — blocked, the message names docs/notes.md");
+
+if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `guard bash` is NOT"
                     + " enforcing what guard.force_push, guard.bash_write_shapes and guard.unquoted_glob declare.");
             System.exit(1);
@@ -192,7 +228,38 @@ public class BashGuardTest {
                 wanted, label);
     }
 
-    /** Runs one `guard <phase>` with the given stdin and checks the exit code. */
+/**
+ * A Bash call by a subagent with an optional top-level payload `cwd`. {@code command} is the
+ * real command and is JSON-escaped here; {@code needle}, when given, must appear in the output.
+ */
+static int agentBashCwd(Path hook, String session, String agentType, String command,
+                        String cwd, int wanted, String needle, String label) throws Exception {
+    ProcessBuilder pb = new ProcessBuilder(
+            ProcessHandle.current().info().command().orElse("java"),
+            "-jar", hook.toString(), "guard", "bash");
+    pb.environment().put("CLAUDE_PROJECT_DIR", Paths.get("").toAbsolutePath().toString());
+    pb.redirectErrorStream(true);
+    Process p = pb.start();
+    p.getOutputStream().write(("{\"session_id\":\"" + session + "\",\"agent_id\":\"ci-agent\","
+            + "\"agent_type\":\"" + agentType + "\","
+            + (cwd == null ? "" : "\"cwd\":\"" + cwd.replace("\\", "\\\\") + "\",")
+            + "\"tool_input\":{\"command\":\""
+            + command.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+            + "\"}}").getBytes(StandardCharsets.UTF_8));
+    p.getOutputStream().close();
+    String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    int code = p.waitFor();
+    if (code == wanted && (needle == null || out.contains(needle))) {
+        System.out.println("✅ " + label);
+        return 0;
+    }
+    System.out.println("❌ " + label + " — expected exit " + wanted
+            + (needle == null ? "" : " naming " + needle) + ", got " + code);
+    System.out.println(out);
+    return 1;
+}
+
+/** Runs one `guard <phase>` with the given stdin and checks the exit code. */
     static int run(Path hook, String phase, String session, String jsonTemplate,
                    int wanted, String label) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(
