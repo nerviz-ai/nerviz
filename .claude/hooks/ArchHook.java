@@ -8231,7 +8231,7 @@ public class ArchHook {
         for (BashCall c : sc.bash()) {
             if (c.t() < from) continue;
             try {
-                for (String rel : bashWriteTargets(shapes, c.command())) noteOrigin(originOf, rel, "Bash");
+                for (String rel : bashWriteTargets(shapes, c.command(), ROOT)) noteOrigin(originOf, rel, "Bash");
             } catch (Exception ignored) { }
         }
     }
@@ -9783,7 +9783,16 @@ public class ArchHook {
             err("  Quote it: " + fixed + ". Rule: guard.unquoted_glob and shell_globs.patterns in " + SCHEMA_FILE);
             System.exit(2);
         }
-        for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd)) {
+        // The shell's working directory: the payload's top-level `cwd`, ROOT when absent or relative (0205).
+        Path base = ROOT;
+        String cwd = asStr(get(in, "cwd"));
+        if (cwd != null && !cwd.isBlank()) {
+            try {
+                Path p = Path.of(cwd.strip());
+                if (p.isAbsolute()) base = p.normalize();
+            } catch (Exception ignored) { }
+        }
+        for (String rel : bashWriteTargets(asMap(get(sch, "guard", "bash_write_shapes")), cmd, base)) {
             guardPath(sch, state, in, rel);
         }
     }
@@ -9808,19 +9817,49 @@ public class ArchHook {
      * value, so that value is consumed with the flag, and with a script supplied that way every
      * remaining operand is a file — `tail` becomes `all`. Both read `s/a/b/g` as a path and
      * blocked the executor in two real runs (decision 0118).
+     *
+     * <p>Relative targets resolve against `base`, the shell's working directory: the payload's
+     * `cwd`, moved by each literal `cd`/`pushd` (`bash_write_shapes.cwd_commands`) and made
+     * unknown (null) by a non-literal operand, `-`, no operand, or a `cwd_unknown_commands`
+     * entry; while it is unknown a relative target passes and an absolute one is still judged.
+     * A `( ... )` group restores `base` on close. The check already exists as `guard bash` on
+     * `PreToolUse/Bash`, and it is wrong about where a relative path lands, so the fix belongs
+     * inside it, not in a second mode or in prose. A shell keeps a working directory across
+     * segments and across calls, and a target read against `ROOT` after a `cd` both refuses a
+     * legal write and admits an illegal one. Treating every target after a `cd` as unresolvable
+     * was rejected: it drops a literally readable path and keeps the fail-open (0205).
      */
-    static List<String> bashWriteTargets(Map<String, Object> shapes, String cmd) {
+    static List<String> bashWriteTargets(Map<String, Object> shapes, String cmd, Path base) {
         List<String> out = new ArrayList<>();
         if (shapes == null) return out;
         List<String> ops = asStrList(shapes.get("redirect_operators"));
         List<String> markers = asStrList(shapes.get("unresolvable_markers"));
         List<Object> commands = asList(shapes.get("commands"));
-        for (List<Tok> seg : bashSegments(cmd)) {
+        List<String> cwdCmds = asStrList(shapes.get("cwd_commands"));
+        List<String> cwdUnknown = asStrList(shapes.get("cwd_unknown_commands"));
+        Deque<Path> groups = new ArrayDeque<>();
+        for (List<Tok> segRaw : bashSegments(cmd)) {
+            // 0. Subshell groups: an unquoted leading `(` opens one, a trailing `)` closes it.
+            List<Tok> seg = new ArrayList<>(segRaw);
+            int closes = 0;
+            while (!seg.isEmpty() && !seg.get(0).quoted() && seg.get(0).text().startsWith("(")) {
+                groups.push(base == null ? NO_BASE : base);
+                String rest = seg.get(0).text().substring(1);
+                if (rest.isEmpty()) seg.remove(0); else seg.set(0, new Tok(rest, false));
+            }
+            while (!seg.isEmpty()) {
+                Tok last = seg.get(seg.size() - 1);
+                if (last.quoted() || !last.text().endsWith(")") || last.text().contains("(")) break;
+                closes++;
+                String rest = last.text().substring(0, last.text().length() - 1);
+                if (rest.isEmpty()) seg.remove(seg.size() - 1); else seg.set(seg.size() - 1, new Tok(rest, false));
+            }
+            final Path at = base;
             // 1. Redirection: the operator is bare, and its target is the token after it.
             for (int i = 0; i < seg.size() - 1; i++) {
                 Tok t = seg.get(i);
                 if (!t.quoted() && ops.contains(t.text())) {
-                    addBashTarget(out, markers, seg.get(i + 1));
+                    addBashTarget(out, markers, seg.get(i + 1), at);
                 }
             }
             // 2. A command whose own arguments are what it writes.
@@ -9829,7 +9868,7 @@ public class ArchHook {
                 if (!t.quoted() && ops.contains(t.text())) { words.clear(); continue; }
                 words.add(t);
             }
-            if (words.isEmpty()) continue;
+            if (!words.isEmpty()) {
             String head = bashCommandName(words.get(0).text());
             for (Object o : commands) {
                 Map<String, Object> shape = asMap(o);
@@ -9857,24 +9896,57 @@ public class ArchHook {
                 String targets = orEmpty(asStr(shape.get("targets")));
                 if (scriptByFlag && "tail".equals(targets)) targets = "all";
                 switch (targets) {
-                    case "all"  -> operands.forEach(t -> addBashTarget(out, markers, t));
+                    case "all"  -> operands.forEach(t -> addBashTarget(out, markers, t, at));
                     case "tail" -> operands.subList(1, operands.size())
-                                           .forEach(t -> addBashTarget(out, markers, t));
-                    case "last" -> addBashTarget(out, markers, operands.get(operands.size() - 1));
+                                           .forEach(t -> addBashTarget(out, markers, t, at));
+                    case "last" -> addBashTarget(out, markers, operands.get(operands.size() - 1), at);
                     case "prefixed" -> {
                         String p = orEmpty(asStr(shape.get("operand_prefix")));
                         for (Tok t : operands) {
                             if (t.text().startsWith(p)) {
                                 addBashTarget(out, markers,
-                                        new Tok(t.text().substring(p.length()), t.quoted()));
+                                        new Tok(t.text().substring(p.length()), t.quoted()), at);
                             }
                         }
                     }
                     default -> { }
                 }
             }
+            // 3. The segment may move the directory the next one resolves against.
+            if (cwdUnknown.contains(head)) {
+                base = null;
+            } else if (cwdCmds.contains(head)) {
+                Tok operand = null;
+                for (Tok t : words.subList(1, words.size())) {
+                    if (!t.quoted() && t.text().startsWith("-") && t.text().length() > 1) continue;
+                    operand = t;
+                    break;
+                }
+                base = operand == null ? null : moveBase(base, operand.text(), markers);
+            }
+            }
+            while (closes-- > 0 && !groups.isEmpty()) {
+                Path saved = groups.pop();
+                base = saved == NO_BASE ? null : saved;
+            }
         }
         return out;
+    }
+
+    /** Stands for an unknown (null) base on the group stack, which holds no nulls. */
+    private static final Path NO_BASE = Path.of("/nerviz-unknown-base");
+
+    /** The directory after a `cd operand` from `base`; null when it cannot be read literally. */
+    static Path moveBase(Path base, String operand, List<String> markers) {
+        if (operand.isBlank() || operand.equals("-")) return null;
+        for (String marker : markers) if (operand.contains(marker)) return null;
+        try {
+            Path p = Path.of(operand);
+            if (p.isAbsolute()) return p.normalize();
+            return base == null ? null : base.resolve(p).normalize();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -9883,12 +9955,14 @@ public class ArchHook {
      * `ROOT` is not this repository's territory to police — both are dropped in silence, which
      * is the rule that makes this hook safe to run on every command.
      */
-    static void addBashTarget(List<String> out, List<String> markers, Tok tok) {
+    static void addBashTarget(List<String> out, List<String> markers, Tok tok, Path base) {
         String raw = tok.text();
         if (raw.isBlank()) return;
         for (String marker : markers) if (raw.contains(marker)) return;
         try {
-            Path abs = ROOT.resolve(raw).toAbsolutePath().normalize();
+            Path p = Path.of(raw);
+            if (!p.isAbsolute() && base == null) return;     // unknown working directory: unresolvable
+            Path abs = (p.isAbsolute() ? p : base.resolve(raw)).toAbsolutePath().normalize();
             if (!abs.startsWith(ROOT.toAbsolutePath().normalize())) return;
             String rel = relative(abs);
             if (!rel.isBlank() && !out.contains(rel)) out.add(rel);
@@ -10140,12 +10214,14 @@ public class ArchHook {
                 if (line.strip().equals(heredoc)) heredoc = null;
                 continue;
             }
+            boolean continued = false;
             for (int i = 0; i < line.length(); i++) {
                 char c = line.charAt(i);
                 if (quote != 0) {
                     if (c == quote) quote = 0; else tok.append(c);
                     continue;
                 }
+                if (c == '\\' && i + 1 == line.length()) { continued = true; continue; }
                 if (c == '\'' || c == '"') { quote = c; quoted = true; started = true; continue; }
                 if (c == '\\' && i + 1 < line.length()) { tok.append(line.charAt(++i)); quoted = true; started = true; continue; }
                 if (Character.isWhitespace(c)) {
@@ -10177,9 +10253,13 @@ public class ArchHook {
                 tok.append(c);
                 started = true;
             }
+            if (quote != 0) { tok.append('\n'); continue; }      // the quoted word goes on
+            if (continued) continue;                              // line continuation: token and segment stay open
             if (started) { cur.add(new Tok(tok.toString(), quoted)); tok.setLength(0); }
             quoted = false; started = false;
+            if (!cur.isEmpty()) { segs.add(cur); cur = new ArrayList<>(); }   // a newline ends the segment
         }
+        if (started) cur.add(new Tok(tok.toString(), quoted));
         if (!cur.isEmpty()) segs.add(cur);
         return segs;
     }

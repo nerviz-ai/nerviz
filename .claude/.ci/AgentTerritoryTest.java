@@ -131,7 +131,17 @@ public class AgentTerritoryTest {
                 "docs/use-cases/UC-001-register-customer/UC-001-spec.md",
                 0, "the executor reaches the spec line it closes");
 
-        failures += write(hook, session, "java-spring-boot-developer", "docker-compose.yml",
+// Decision 0205: the build file is pom.xml or build.gradle(.kts); no other Gradle file.
+failures += write(hook, session, "java-spring-boot-developer", "build.gradle",
+        0, "G1 the executor edits build.gradle");
+failures += write(hook, session, "java-spring-boot-developer", "build.gradle.kts",
+        0, "G2 the executor edits build.gradle.kts");
+failures += write(hook, session, "java-spring-boot-developer", "app/build.gradle.kts",
+        0, "G3 the executor edits a module's build.gradle.kts");
+failures += write(hook, session, "java-spring-boot-developer", "settings.gradle",
+        2, "G4 the executor is refused settings.gradle");
+
+failures += write(hook, session, "java-spring-boot-developer", "docker-compose.yml",
                 2, "the executor is refused docker-compose.yml");
 
         // ── driver ───────────────────────────────────────────────────────────

@@ -23,8 +23,8 @@ All three reasons from invariant 6 apply.
 ## Contract
 
 **Class:** executor — the territory is `agent_classes.executor` in
-`@.claude/schemas/extensions.json`: `src/**`, the one `UC-*-spec.md` line below, and `pom.xml`
-for the dependencies the spec declares — and nothing else in it. Every
+`@.claude/schemas/extensions.json`: `src/**`, the one `UC-*-spec.md` line below, and the build file
+(`pom.xml`, `build.gradle(.kts)`) for the dependencies the spec declares — and nothing else in it. Every
 write this agent makes carries its `agent_type`, and `ArchHook.java guard` checks that path
 against the class instead of against whatever skill phase the caller left open. A path
 outside it is exit 2, and the fix is the data, never a retry.
@@ -147,10 +147,14 @@ from the destination map surveyed in the guardrail, never from a path written he
   SQL blocks in the spec's persistence block; name per `.claude/rules/persistence.md`
   § Migrations
 - `src/main/resources/` — application-[feature].yml
-- `pom.xml` — **only** a dependency the spec declares as a requirement (the security
+- The build file — `pom.xml`, or `build.gradle` / `build.gradle.kts` when the project carries `gradlew` — **only** a dependency the spec declares as a requirement (the security
   partial's § 8, the outbound HTTP partial's § 8, the AI partial's § 10, the messaging partial's § 7, the jobs partial's § 7, the cache partial's § 8, the persistence one's equivalent, or the tests
-  partial's § 5 — test scope), one `<dependency>` element per row,
-  with no version when the Boot parent manages it. Nothing else in the file: not a plugin,
+  partial's § 5 — test scope). Maven: one `<dependency>` element per row,
+  with no version when the Boot parent manages it. Gradle: one line per row in the
+  `dependencies { }` block, with the configuration the row's scope maps to (`implementation`,
+  `runtimeOnly`, `testImplementation`) and no version when the `io.spring.dependency-management`
+  plugin manages it — `implementation 'g:a'` in Groovy, `implementation("g:a")` in Kotlin.
+  Nothing else in the file: not a plugin, not a repository,
   not a property, not a version bump. Until lessons-learned-013 § 10 no participant in the
   pipeline owned this file — the design skills are docs-only, `/new-feature` writes the spec,
   the two installers have nothing to do with a feature's dependencies — so a Form B run that
@@ -164,7 +168,7 @@ from the destination map surveyed in the guardrail, never from a path written he
 - Specs, norms, CLAUDE.md, structural configs — except one line: the spec's `status:`,
   from `approved` to `implemented` or to `implemented-blocked`, with a green build (Edit,
   that line only), and the checklist toggles that precede it
-- `pom.xml` beyond the dependencies the spec declares — see above. A needed dependency
+- The build file beyond the dependencies the spec declares — see above. A needed dependency
   missing from the spec is a spec defect: stop and report it. **Never inferred**, and the
   inference that has to be refused is the plausible kind: a `spring.kafka.*` block in the
   configuration section, a checklist item naming a transport, a property whose prefix implies a
@@ -201,9 +205,9 @@ Before writing code:
 3b. **Declared dependencies present** — each block that applies names its build dependencies or
    says `none`. Persistence always; outbound HTTP, messaging, jobs and cache whenever the spec carries their block. **Absent is not
    `none`:** `none` is a decision, absence is a gap, and the list is the only thing entitling
-   this agent to touch `pom.xml`. Missing → spec defect, report and stop. Consolidation gates
+   this agent to touch the build file. Missing → spec defect, report and stop. Consolidation gates
    this too; this check is what stops a spec approved before that gate existed from becoming a
-   `pom.xml` edit
+   build-file edit
 4. **Valid project** — the root build file (parseable): `pom.xml`, or `build.gradle(.kts)`
    when the project carries `gradlew`; `.claude/forbidden-imports.txt`; and a domain package
    **discovered, never assumed**
