@@ -98,6 +98,14 @@ public class ArchHook {
             default -> "";
         };
         HOOK_EVENT = hookEvent(stdin);
+        if (!"doctor".equals(mode)) {
+            // Never through ERR: a refusal repeats ERR on stdout as its reason, and this is no refusal.
+            String stale = rootMismatch();
+            if (stale != null) {
+                PrintStream raw = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
+                raw.println(stale);
+            }
+        }
         try {
             switch (mode) {
                 case "check"  -> { if (args.length > 1) checkPath(args[1]);
@@ -136,6 +144,91 @@ public class ArchHook {
                     || "config".equals(mode) || "spec".equals(mode) ? 1 : 0);
         }
         System.exit(0);
+    }
+
+    /** The file or jar this code runs from: the jar's location, else the {@code .java} the launcher was handed. */
+    static Path codeLocation() {
+        try {
+            var cs = ArchHook.class.getProtectionDomain().getCodeSource();
+            if (cs != null && cs.getLocation() != null && cs.getLocation().getPath().endsWith(".jar")) {
+                return Paths.get(cs.getLocation().toURI());
+            }
+            Matcher m = Pattern.compile("(\\S*ArchHook\\.java)")
+                    .matcher(System.getProperty("sun.java.command", ""));
+            if (m.find()) return Paths.get(m.group(1)).toAbsolutePath();
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    static Path realPath(Path p) {
+        try { return p.toRealPath(); } catch (IOException e) { return p.toAbsolutePath().normalize(); }
+    }
+
+    /**
+     * When {@code CLAUDE_PROJECT_DIR} names another Nerviz project than the one this ArchHook
+     * ships in, the text that says so and how to change the variable in this OS's shell; null
+     * when it matches, is unset, or cannot be told. Never changes {@link #ROOT}: tests, {@code
+     * export} and {@code platform-upgrade} point the variable at another tree on purpose. "Another
+     * Nerviz project" is a folder that holds its own {@code hook_build.jar}, so a throwaway
+     * project of a test stays silent. Design: .claude/decisions/0207-archhook-root-cross-check.md
+     */
+    static String rootMismatch() {
+        try {
+            if (System.getenv("CLAUDE_PROJECT_DIR") == null) return null;
+            Path code = codeLocation();
+            if (code == null) return null;
+            Path realCode = code.toRealPath();
+            // The common case, answered without reading extensions.json: this code sits under the root.
+            if (realCode.startsWith(realPath(ROOT))) return null;
+            Map<String, Object> hb = hookBuild();
+            if (hb == null) return null;
+            String jarRel = asStr(hb.get("jar"));
+            String rel = asStr(hb.get(realCode.toString().endsWith(".jar") ? "jar" : "source"));
+            if (jarRel == null || rel == null || !Files.isRegularFile(ROOT.resolve(jarRel))) return null;
+            Path home = realCode;
+            for (int i = 0; i < Paths.get(rel).getNameCount(); i++) {
+                home = home.getParent();
+                if (home == null) return null;
+            }
+            if (!realCode.equals(realPath(home.resolve(rel)))) return null;
+            return rootMismatchText(home);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    static String rootMismatchText(Path home) {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        String h = home.toString();
+        String hPosix = h.replace('\\', '/');
+        String ps = "'" + h.replace("'", "''") + "'";
+        String sh = "'" + (WINDOWS ? hPosix : h).replace("'", "'\\''") + "'";
+        StringBuilder b = new StringBuilder();
+        b.append("⚠️  ArchHook: CLAUDE_PROJECT_DIR is another Nerviz project.\n");
+        b.append("    CLAUDE_PROJECT_DIR ... ").append(ROOT).append("   (acting on this, as asked)\n");
+        b.append("    this ArchHook ships in ").append(home).append('\n');
+        b.append("    To act on the project this ArchHook belongs to, in this shell:\n");
+        if (WINDOWS) {
+            b.append("      PowerShell   $env:CLAUDE_PROJECT_DIR = ").append(ps).append('\n');
+            b.append("      cmd.exe      set CLAUDE_PROJECT_DIR=").append(h).append('\n');
+            b.append("      Git Bash     export CLAUDE_PROJECT_DIR=").append(sh).append('\n');
+            b.append("    Or drop it (the runtime sets it for each hook):\n");
+            b.append("      PowerShell   Remove-Item Env:CLAUDE_PROJECT_DIR\n");
+            b.append("      cmd.exe      set CLAUDE_PROJECT_DIR=\n");
+            b.append("      Git Bash     unset CLAUDE_PROJECT_DIR\n");
+            b.append("    It came from the Windows environment? Remove it there, then open a new terminal:\n");
+            b.append("      [Environment]::SetEnvironmentVariable('CLAUDE_PROJECT_DIR', $null, 'User')");
+        } else {
+            b.append("      bash / zsh   export CLAUDE_PROJECT_DIR=").append(sh).append('\n');
+            b.append("      fish         set -gx CLAUDE_PROJECT_DIR ").append(sh).append('\n');
+            b.append("    Or drop it (the runtime sets it for each hook):\n");
+            b.append("      bash / zsh   unset CLAUDE_PROJECT_DIR\n");
+            b.append("      fish         set -e CLAUDE_PROJECT_DIR\n");
+            b.append(os.contains("mac")
+                    ? "    It came from a profile (~/.zshrc, ~/.zprofile, ~/.bash_profile)? Remove that line, then open a new terminal."
+                    : "    It came from a profile (~/.bashrc, ~/.profile, ~/.zshrc)? Remove that line, then open a new terminal.");
+        }
+        return b.toString();
     }
 
     /**
@@ -543,6 +636,12 @@ public class ArchHook {
         err("  Project root ...... " + ROOT);
         report("CLAUDE_PROJECT_DIR", System.getenv("CLAUDE_PROJECT_DIR") != null,
                 "set", "NOT set — hooks use the current directory");
+        String stale = rootMismatch();
+        if (stale != null) {
+            report("Root cross-check", false, "",
+                    "CLAUDE_PROJECT_DIR is another Nerviz project than the one this ArchHook ships in — reported, never gated");
+            for (String l : stale.split("\n")) err("      " + l);
+        }
         BuildTool tool = buildTool();
         String w = tool == null ? null : tool.path();
         report("Build wrapper", w != null, w == null ? "" : w + "  (" + tool.id() + ")",
@@ -6623,6 +6722,8 @@ public class ArchHook {
         List<String> badChars = asStrList(get(sch, "settings", "command_forbidden_chars"));
         String archShape = asStr(get(sch, "settings", "archhook_command_pattern"));
         Pattern archRe = archShape == null ? null : Pattern.compile(archShape);
+        String psFrom = asStr(get(sch, "settings", "archhook_powershell", "from"));
+        String psTo = asStr(get(sch, "settings", "archhook_powershell", "to"));
 
         for (Map.Entry<String, Object> ev : hooks.entrySet()) {
             String event = ev.getKey();
@@ -6670,7 +6771,7 @@ public class ArchHook {
                                     + "` is not a hook entry field");
                         }
                     }
-                    checkHookEntry(where, h, entryTypes, badChars, archRe, errors);
+                    checkHookEntry(where, h, entryTypes, badChars, archRe, psFrom, psTo, errors);
                 }
             }
         }
@@ -6711,7 +6812,8 @@ public class ArchHook {
      * `command_forbidden_chars` — a project may register a hook of its own.
      */
     static void checkHookEntry(String where, Map<String, Object> h, List<String> entryTypes,
-                               List<String> badChars, Pattern archRe, List<String> errors) {
+                               List<String> badChars, Pattern archRe, String psFrom, String psTo,
+                               List<String> errors) {
         String type = asStr(h.get("type"));
         if (type != null && !entryTypes.isEmpty() && !entryTypes.contains(type)) {
             errors.add("  " + where + " — `type: " + type + "` has no handler here."
@@ -6734,6 +6836,36 @@ public class ArchHook {
                         + " runs. Write java -jar \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar\""
                         + " <mode> (.claude/schemas/extensions.json › settings.archhook_command_pattern)");
             }
+        }
+
+        // The `powershell` field (0206): the Copilot CLI copies `command` to PowerShell on
+        // Windows, where ${CLAUDE_PROJECT_DIR} is an unset variable. An ArchHook entry carries the
+        // same command with the placeholder in its `$env:` form; the field is derived, never free.
+        String powershell = asStr(h.get("powershell"));
+        if (powershell != null) {
+            for (String bad : badChars) {
+                if (powershell.contains(bad)) {
+                    errors.add("  " + where + " — `powershell` contains `" + bad
+                            + "`: a hook command is one process — no pipe, chain, redirect"
+                            + " or substitution");
+                    break;
+                }
+            }
+        }
+        if (psFrom != null && psTo != null && command != null && command.contains("ArchHook.")) {
+            String expected = command.replace(psFrom, psTo);
+            if (powershell == null) {
+                errors.add("  " + where + " — an ArchHook entry needs `powershell`: under Windows"
+                        + " the Copilot CLI runs `command` in PowerShell, where " + psFrom
+                        + " expands to nothing and every call is denied. Add \"powershell\": \""
+                        + expected + "\"");
+            } else if (!powershell.equals(expected)) {
+                errors.add("  " + where + " — `powershell` is `" + powershell + "`, expected `"
+                        + expected + "`: `command` with " + psFrom + " replaced by " + psTo);
+            }
+        } else if (powershell != null && (command == null || !command.contains("ArchHook."))) {
+            errors.add("  " + where + " — `powershell` on an entry that does not launch ArchHook:"
+                    + " it is derived from `command`, which a project's own hook keeps alone");
         }
 
         Object timeout = h.get("timeout");

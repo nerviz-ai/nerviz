@@ -295,7 +295,11 @@ the same interview again.
      call (`@.claude/decisions/0168-hooks-in-shell-form.md`). Still one process per entry: a
      pipe, a `&&`, a redirect or a substitution inside `"command"` is rejected by
      `ArchHook.java schema`, and so is an `args` list or an ArchHook entry off
-     `settings.archhook_command_pattern`.
+     `settings.archhook_command_pattern`. Every ArchHook entry also carries a `"powershell"`
+     field right after `command`: the same string with `$env:CLAUDE_PROJECT_DIR` in place of
+     `${CLAUDE_PROJECT_DIR}` (`settings.archhook_powershell`), because the Copilot CLI's
+     PowerShell does not expand the braced form. Claude Code ignores it; `schema` requires it
+     (`@.claude/decisions/0206-hook-command-without-claude-project-dir.md`).
    - **Narrow before spawning.** Every entry carries an `if` (a permission rule, e.g.
      `Edit(.claude/**/*.md)`) or sits under a `matcher`, unless the check genuinely has to
      run on every occurrence of the event. Without one, a `PostToolUse` hook pays a JVM
