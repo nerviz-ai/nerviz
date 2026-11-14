@@ -335,9 +335,10 @@ Pinned to `opus`: it merges into a project it did not write, and may write the o
 ## Contract
 
 **Class:** build — the territory is `skill_classes.build`'s override for this skill in
-`@.claude/schemas/extensions.json`: the target project's `.claude/` tree, its
-`.gitignore`, and its root `CLAUDE.md` for step 8's bounded-context line, nothing else.
-`ArchHook.java guard` enforces it.
+`@.claude/schemas/extensions.json`: every destination of the `export` block
+(`export.writer_skill` names this skill, and `ArchHook.java schema` fails when one falls
+outside), the project's `.gitignore`, and its root `CLAUDE.md` for step 8's bounded-context
+line, nothing else. `ArchHook.java guard` enforces it.
 
 **Unfiltered Bash:** adoption fetches the source (`git ls-remote`, `curl`, `tar`), inspects the worktree (`git status`, `git rev-parse`, `find`), and runs `java … export` — spread over two tools that fetch from the network and a command list that grows with the source's layout. Writes stay under `guard`/`guard bash`, and a force push is blocked by `guard bash` (`guard.force_push`).
 
