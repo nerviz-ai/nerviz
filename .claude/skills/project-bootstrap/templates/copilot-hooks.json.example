@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "view|read_file",
+        "bash": "java -jar .claude/hooks/ArchHook.jar guard read",
+        "powershell": "java -jar .claude/hooks/ArchHook.jar guard read",
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

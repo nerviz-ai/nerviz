@@ -71,8 +71,8 @@ and then into this table.
 | Field | Required | For what |
 |---|---|---|
 | `type` | ✅ | `command`. The runtime also serves http/mcp/prompt/agent hooks; this repo runs commands only, and `entry_types` in the schema says so |
-| `command` | ✅ | The **bare executable**, e.g. `java`. A pipe, `&&`, or redirect here is a shell string in the executable's slot — rejected |
-| `args` | ➖ | Arguments, one per array entry. This is exec form: no shell, no quoting, no execute bit, portable to Windows |
+| `command` | ✅ | One shell string: `java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`, the shape `settings.archhook_command_pattern` holds. Claude Code substitutes the braced placeholder, then runs `sh -c` (Git Bash on Windows, PowerShell without it); the Copilot CLI's shell expands it from the environment. A pipe, `&&`, redirect or substitution here is rejected — one process per entry |
+| `args` | ❌ | Rejected. It is exec form, and the Copilot CLI, which reads this same file, ignores `args`, launches a bare `java` that exits 1, and denies every call (`@.claude/decisions/0168-hooks-in-shell-form.md`) |
 | `if` | ➖ | A permission rule (`Edit(.claude/**/*.md)`) evaluated **before** the process is spawned. The single cheapest thing in a hook. A path is matched only through `Edit(...)` or `Read(...)`; `Edit` covers every built-in tool that writes a file, `Write` included, so `Write(<path>)` never narrows anything |
 | `timeout` | ➖ | Seconds, positive. Past it the hook is killed |
 | `statusMessage` | ➖ | What the user sees while it runs |

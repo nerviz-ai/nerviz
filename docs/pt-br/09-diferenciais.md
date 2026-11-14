@@ -190,14 +190,14 @@ As onze invariantes do `CLAUDE.md` são verificadas no CI, não só escritas:
 *Mais perto:* nenhum encontrado. Os vizinhos validam o código gerado, não os próprios
 arquivos de instrução.
 
-### 8 · Enforcement em um único arquivo Java, sem shell
+### 8 · Enforcement em um único arquivo Java, um formato de comando
 
 O `ArchHook.java` tem onze modos: `check`, `format`, `tests`, `schema`, `guard`, `audit`,
 `compose`, `context`, `doctor`, `export`, `build`. Os hooks rodam o `ArchHook.jar`
-pré-compilado e versionado, em exec form: sem shell, sem `chmod`, igual em Linux, macOS e
-Windows. O CI exige que o jar seja, byte a byte, o que o fonte compila sob o JDK fixado. Os
+pré-compilado e versionado, como uma string de shell por hook, que o Claude Code e o GitHub
+Copilot CLI rodam: sem script de shell, sem `chmod`, igual em Linux, macOS e Windows. O CI exige que o jar seja, byte a byte, o que o fonte compila sob o JDK fixado. Os
 testes em `.claude/.ci/` injetam cada violação e exigem o bloqueio, nos três sistemas
-operacionais. A tabela de modos está no [README](../../README.md#enforcement-one-java-file-no-shell).
+operacionais. A tabela de modos está no [README](../../README.md#enforcement-one-java-file-one-command-shape).
 
 *Mais perto:* todo vizinho com hooks que encontramos usa scripts bash.
 
@@ -230,7 +230,7 @@ encontrado.
 | Pipeline de spec em várias fases | ✅ por camada | ✅ | ✅ | — | ✅ | ✅ |
 | Escopo de escrita imposto por hook | ✅ por classe, como dado | ✅ por tarefa | — | — | — (gates de prompt) | ◐ gates de workflow e qualidade |
 | Spec aprovada congelada por hook | ✅ | — | — | — | — | ◐ gates de accept |
-| Hooks sem shell, testados em 3 SOs | ✅ Java | — bash + `jq` | — | — | — | — |
+| Hooks sem script de shell, testados em 3 SOs | ✅ Java | — bash + `jq` | — | — | — | — |
 | Trilha de tokens e encadeamento por execução | ✅ | — | — | — | — | — |
 | Valida os próprios arquivos de instrução | ✅ | — | — | — | — | — |
 | Atualização em projeto existente | ✅ com proveniência + notas de migração | ◐ onboarding | — | ◐ reinstalar plugin | ✅ upgrade/update | ✅ upgrade |

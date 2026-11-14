@@ -890,7 +890,9 @@ JavaScript regex (`^Notebook`, `mcp__.*`).
 
 **Exec form** (with `args`, even `"args": []`): direct executable, no shell — portable
 across Linux, macOS, and Windows, and doesn't need an execute bit. **Shell form**
-(without `args`): string passed to the shell, with expansion and quoting.
+(without `args`): string passed to the shell, with expansion and quoting. The GitHub Copilot
+CLI reads `.claude/settings.json` too and runs `command` alone, ignoring `args`, so only a
+shell-form entry starts under both runtimes (lessons-learned-022 § 2).
 
 Hooks from every settings layer **add up** — a project hook doesn't replace a user
 hook. Matching hooks run in parallel; when they disagree, the most restrictive answer
@@ -1595,9 +1597,11 @@ Decisions in this repository that illustrate the guide's principles well:
   `project-bootstrap` from the blueprint's `depends_on` — and blocks. Here that file
   doesn't exist and the hook exits 0, by design. `.claude/.ci/BoundaryTest.java`
   proves the block on every OS.
-- **Hook in exec form, no shell.** `command: java` + `args: ["-jar", ".claude/hooks/ArchHook.jar", <mode>]`,
-  the jar precompiled from one Java source (a source launch recompiled the file on every
-  call, ~3.3 s against ~0.3 s) — identical on Linux, macOS, and Windows, no `chmod`.
+- **Hook in shell form, one shape.** `command: java -jar "${CLAUDE_PROJECT_DIR}/.claude/hooks/ArchHook.jar" <mode>`,
+  no `args` — the GitHub Copilot CLI reads `.claude/settings.json` too, runs `command` alone
+  and ignores `args`, so exec form denied every call there (0168). The jar precompiled from one Java source (a source launch recompiled the file on every
+  call, ~3.3 s against ~0.3 s) — no `chmod`; on Windows the string runs in Git Bash, or
+  PowerShell without it.
 - **`if` instead of a matcher regex.** `schema` runs on `PreToolUse` and `PostToolUse`,
   filtered by `if: "Edit(.claude/**/*.md)"`, `if: "Edit(.mcp.json)"` and the two settings
   files — no process spawned for a Java edit. A path in `if` only matches through
