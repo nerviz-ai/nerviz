@@ -133,7 +133,9 @@ public class DoctorGateTest {
     /**
      * A settings file carrying `"<id>": false` for every `settings.blocked_plugins` entry, read
      * from the real extensions.json — `schema` fails without them (decision 0138), and an
-     * empty `{}` would turn the healthy fixture's Schema and Hooks lines red.
+     * empty `{}` would turn the healthy fixture's Schema and Hooks lines red. It also carries
+     * a `permissions.deny` `Read(<path>)` line for every `guard.secret_paths` entry, which
+     * `schema` requires too (decision 0173).
      */
     static String blockedPluginsOff() throws Exception {
         String s = Files.readString(Paths.get(".claude/schemas/extensions.json"));
@@ -143,7 +145,14 @@ public class DoctorGateTest {
             Matcher q = Pattern.compile("\"([^\"]+)\"").matcher(m.group(1));
             while (q.find()) off.add("\"" + q.group(1) + "\":false");
         }
-        return "{\"enabledPlugins\":{" + String.join(",", off) + "}}";
+        List<String> deny = new ArrayList<>();
+        Matcher sp = Pattern.compile("\"secret_paths\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(s);
+        if (sp.find()) {
+            Matcher q = Pattern.compile("\"([^\"]+)\"").matcher(sp.group(1));
+            while (q.find()) deny.add("\"Read(" + q.group(1) + ")\"");
+        }
+        return "{\"enabledPlugins\":{" + String.join(",", off) + "},"
+                + "\"permissions\":{\"deny\":[" + String.join(",", deny) + "]}}";
     }
 
     static List<String> gateLabels() throws Exception {
