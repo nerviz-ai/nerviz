@@ -18,6 +18,9 @@
 //   claude   — the placeholder substituted first, then the shell, as Claude Code runs it
 //   copilot  — the raw string with CLAUDE_PROJECT_DIR in the environment, as Copilot runs it
 // Same exit code, same stdout, and the code is 0 or 2.
+// Decision 0206 adds a fourth, on Windows: the `powershell` field every ArchHook entry
+// carries (`$env:CLAUDE_PROJECT_DIR`), run through PowerShell as the Copilot CLI does. Section
+// 1b also checks the field is the one derived from `command`.
 //
 // The shell is `sh -c` on Linux and macOS and Git Bash on Windows — the shells Claude Code
 // itself picks for shell form. The payloads are the shapes lessons-learned-022 captured,
@@ -59,6 +62,10 @@ public class HookShellFormTest {
     static final Pattern COMMAND = Pattern.compile("\"command\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
     static final Pattern TOKEN = Pattern.compile("\"([^\"]*)\"|(\\S+)");
     static final String PLACEHOLDER = "${CLAUDE_PROJECT_DIR}";
+    static final String PS_PLACEHOLDER = "$env:CLAUDE_PROJECT_DIR";
+    /** `command`, then the `powershell` field right after it, as both settings files write them (0206). */
+    static final Pattern PAIR = Pattern.compile(
+            "\"command\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\",\\s*\"powershell\":\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
 
     public static void main(String[] args) throws Exception {
         Path root = Paths.get("").toAbsolutePath();
@@ -82,6 +89,35 @@ public class HookShellFormTest {
                     failures++;
                 }
                 if (cmd.startsWith("java -jar ")) commands.add(cmd);
+            }
+
+            // 1b. Every ArchHook entry carries `powershell`, derived from `command` (0206): the
+            //     Copilot CLI copies `command` to PowerShell on Windows, where the placeholder
+            //     is an unset variable and expands to nothing.
+            int archEntries = 0;
+            Matcher all = COMMAND.matcher(text);
+            while (all.find()) {
+                if (all.group(1).contains("ArchHook.")) archEntries++;
+            }
+            int pairs = 0;
+            Matcher pm = PAIR.matcher(text);
+            while (pm.find()) {
+                String cmd = pm.group(1).replace("\\\"", "\"").replace("\\\\", "\\");
+                String ps = pm.group(2).replace("\\\"", "\"").replace("\\\\", "\\");
+                if (!cmd.contains("ArchHook.")) continue;
+                pairs++;
+                if (!ps.equals(cmd.replace(PLACEHOLDER, PS_PLACEHOLDER))) {
+                    System.out.println("❌ " + rel + " — `powershell` is `" + ps + "`, not `command` with "
+                            + PLACEHOLDER + " replaced by " + PS_PLACEHOLDER);
+                    failures++;
+                }
+            }
+            if (pairs != archEntries) {
+                System.out.println("❌ " + rel + " — " + (archEntries - pairs) + " of " + archEntries
+                        + " ArchHook entries have no `powershell` field right after `command`: under"
+                        + " Windows the Copilot CLI runs `command` in PowerShell, where "
+                        + PLACEHOLDER + " expands to nothing (decision 0206)");
+                failures++;
             }
         }
         if (commands.isEmpty()) {
@@ -119,8 +155,13 @@ public class HookShellFormTest {
                             + " not expand " + PLACEHOLDER + " from the environment");
                     System.out.println(k.out + k.err);
                     failures++;
+                } else if (WINDOWS && psCode(cmd, root, p.getValue(), e)) {
+                    System.out.println("❌ " + label + " — the PowerShell launch differs from the exec"
+                            + " form (exit " + e.code + "): `powershell` did not read "
+                            + PS_PLACEHOLDER + " (decision 0206)");
+                    failures++;
                 } else {
-                    System.out.println("✅ " + label + " — exit " + e.code + " in all three launches");
+                    System.out.println("✅ " + label + " — exit " + e.code + " in all launches");
                 }
             }
         }
@@ -165,6 +206,21 @@ public class HookShellFormTest {
             l.add(cmd);
         }
         return l;
+    }
+
+    /**
+     * Windows only: runs the `powershell` form the way the Copilot CLI does — the string in a
+     * PowerShell, `CLAUDE_PROJECT_DIR` in the environment — and reports whether it differs from
+     * the exec form's result. The string reaches PowerShell in a file for the same reason the
+     * Git Bash one does (see {@link #concat}).
+     */
+    static boolean psCode(String cmd, Path root, String stdin, Result exec) throws Exception {
+        Path script = Files.createTempFile("hook-", ".ps1");
+        script.toFile().deleteOnExit();
+        Files.writeString(script, cmd.replace(PLACEHOLDER, PS_PLACEHOLDER) + "\n", StandardCharsets.UTF_8);
+        Result r = run(List.of("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                script.toString()), root, stdin);
+        return r.code != exec.code || !r.out.equals(exec.out);
     }
 
     record Result(int code, String out, String err) {}
