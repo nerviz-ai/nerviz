@@ -127,6 +127,11 @@ jobs:
       - name: schema blocks an exported file citing a skill that never travels
         run: java .claude/.ci/ExportCitationSchemaTest.java
 
+      # Decision 0208 (issue #212): every destination of the `export` block lies inside the
+      # territory of `export.writer_skill`, or the Stop sweep blocks that skill's update.
+      - name: schema blocks an export destination outside the writer skill's territory
+        run: java .claude/.ci/ExportTerritorySchemaTest.java
+
       # Decision 0197 (issue #191): the checklist of a spec is the core plus the lines of the
       # blocks the spec carries. `spec check` and the `guard write` rule on `status: approved`
       # share one function; this step drives both, and `schema` against the template.

@@ -110,6 +110,24 @@ public class SkillTerritoryTest {
         failures += run(hook, "write", chain,
                 "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"pom.xml\"}}",
                 2, "pom.xml is not arch-adopt's — blocked");
+        // The destinations `export` writes outside `.claude/` are arch-adopt's own: `guard bash`
+        // admits the export without seeing them, so the Stop sweep blocked every update that
+        // created or changed one (issue #212, decision 0208).
+        failures += run(hook, "write", chain,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\".github/hooks/archhook.json\"}}",
+                0, "the Copilot hook file is an export destination — admitted for arch-adopt");
+
+        failures += run(hook, "write", chain,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\".mcp.json\"}}",
+                0, ".mcp.json is an export destination — admitted for arch-adopt");
+
+        failures += run(hook, "write", chain,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"MCP-SETUP.md\"}}",
+                0, "MCP-SETUP.md is an export destination — admitted for arch-adopt");
+
+        failures += run(hook, "write", chain,
+                "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\".github/workflows/ci.yml\"}}",
+                2, "a workflow beside the hook file is not — still blocked");
 
         failures += run(hook, "call", chain,
                 "{\"session_id\":\"%s\",\"tool_name\":\"Skill\","

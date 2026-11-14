@@ -5018,6 +5018,7 @@ public class ArchHook {
         checkAgentClasses(sch, errors);
         checkSubagentContext(sch, errors);
         checkExportManifest(sch, errors);
+        checkExportTerritory(sch, errors);
         checkSourceBlock(sch, errors);
         checkMigrations(sch, errors);
         checkMods(sch, errors);
@@ -5889,6 +5890,43 @@ public class ArchHook {
         if (text != null && max instanceof Number n && text.length() > n.intValue()) {
             errors.add("  subagent_context renders " + text.length() + " characters, over"
                     + " max_chars " + n.intValue() + " — trim the sections it lists");
+        }
+    }
+
+    /**
+     * Every destination `export` writes must sit inside the territory of the skill that runs it
+     * (`export.writer_skill`). The `Stop` sweep judges what a Bash command wrote against the open
+     * phase, and `guard bash` admits `export` without seeing its targets, so a destination outside
+     * the territory blocks every update that creates or changes it (decision 0208, issue #212).
+     * Reads the skill's name and the destinations from `extensions.json`; runs wherever the block
+     * travels, since it compares two lists of the same file.
+     */
+    static void checkExportTerritory(Map<String, Object> sch, List<String> errors) {
+        Map<String, Object> exp = asMap(sch.get("export"));
+        if (exp == null) return;
+        String writer = asStr(exp.get("writer_skill"));
+        if (writer == null) return;                   // no key: nothing declared to compare against
+        String cls = skillClassOf(sch, writer);
+        if (cls == null) {
+            errors.add("  export.writer_skill is `" + writer + "` — no class in skill_classes lists it");
+            return;
+        }
+        List<String> allow = writeAllowOf(sch, writer);
+        Map<String, String> targets = new LinkedHashMap<>();
+        for (String group : List.of("copy", "overwrite", "optional_copy", "binary_copy")) {
+            for (Object e : asList(exp.get(group))) {
+                String to = asStr(get(e, "to"));
+                if (to != null) targets.putIfAbsent(to, "export." + group);
+            }
+        }
+        String bp = asStr(exp.get("blueprint_copy"));
+        if (bp != null) targets.putIfAbsent(bp.replace("{id}", "x"), "export.blueprint_copy");
+        for (Map.Entry<String, String> t : targets.entrySet()) {
+            if (!matchesAny(allow, t.getKey())) {
+                errors.add("  " + t.getValue() + " writes `" + t.getKey() + "`, outside the territory of `"
+                        + writer + "` — add it to skill_classes." + cls + ".overrides." + writer
+                        + ".write_allow, or the Stop sweep blocks every /" + writer + " that changes it");
+            }
         }
     }
 

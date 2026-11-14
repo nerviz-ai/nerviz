@@ -515,7 +515,7 @@
         "overrides": {
           "project-bootstrap": { "write_allow": ["**"] },
           "docker-architect": { "write_allow": ["docker-compose*.yml", "docker/**", "Dockerfile", ".env", ".env.example", ".gitignore", ".dockerignore"] },
-          "arch-adopt": { "write_allow": [".claude/**", ".gitignore", "CLAUDE.md"], "audited": false },
+          "arch-adopt": { "$comment": "`.claude/**` and the root files `export` writes outside it (`.github/hooks/archhook.json`, `.mcp.json`, `MCP-SETUP.md`) — `schema` fails when a destination of the `export` block is missing here (`export.writer_skill`). Design: .claude/decisions/0208-arch-adopt-territory-covers-export-destinations.md", "write_allow": [".claude/**", ".github/hooks/archhook.json", ".mcp.json", "MCP-SETUP.md", ".gitignore", "CLAUDE.md"], "audited": false },
           "gof-design-patterns": { "write_allow": ["src/**", "**/src/**"] },
           "sonarqube-setup": { "write_allow": ["pom.xml", "build.gradle", ".github/workflows/**"] },
           "platform-upgrade": {
@@ -1225,6 +1225,9 @@
       { "$comment": "Apache License 2.0 § 4 obliges whoever redistributes the work to hand over the license text and the NOTICE; what `export` writes under `.claude/` is a redistribution. They sit INSIDE `.claude/`, never at the project root: the root `LICENSE` of a generated project is its owner's choice. Design: .claude/decisions/0181-apache-2-license-notice-and-trademark.md", "from": "LICENSE", "to": ".claude/LICENSE", "verbatim": true },
       { "from": "NOTICE", "to": ".claude/NOTICE", "verbatim": true }
     ],
+
+    "$comment_writer": "The skill that runs `export` inside a project. The Stop sweep judges what its Bash command wrote against this skill's territory, and `guard bash` does not see the targets, so every `to` of copy, overwrite, optional_copy, binary_copy and blueprint_copy must match its `write_allow` — `schema` fails by name on one that does not. Design: .claude/decisions/0208-arch-adopt-territory-covers-export-destinations.md",
+    "writer_skill": "arch-adopt",
 
     "$comment_binary": "Copied as bytes, never read as text, never transformed. What every hook registration launches (`java -jar`), so a project that lacked it would have every hook exit 1 — which does not block. Design: .claude/decisions/0075-precompiled-hook-jar.md",
     "binary_copy": [
