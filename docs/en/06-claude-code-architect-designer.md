@@ -74,10 +74,12 @@ It shows or holds what a Form 7 or 8 beneath it already decides, and gets every 
 `java -jar .claude/hooks/ArchHook.jar`, never by restating the rule. What it may hook, call
 and start is the `mods` block of `extensions.json`; the map is `references/mod-events.md`.
 It also always gets a record under `decisions/`, and it stays in this repository — nothing
-under `.claude/mods/` goes to the generated project. The one shipped, `nerviz-cockpit`, draws
+under `.claude/mods/` goes to the generated project. Two are shipped. `nerviz-cockpit` draws
 the open skill phase and its territory above the prompt, `/nerviz-doctor` in a pane, and
 holds a `guard` refusal behind two buttons (let Claude adapt, or stop the turn) — the refusal
-stands either way.
+stands either way. `nerviz-config` shows the settings a project owns in its own `.claude/` in
+a pane (`/nerviz-config`) and changes one only through `ArchHook.jar config set|unset`, after
+a dialog.
 
 ## Out of scope
 

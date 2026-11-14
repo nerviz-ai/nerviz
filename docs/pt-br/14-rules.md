@@ -105,9 +105,9 @@ para arquitetura (`adapter/in/rest` em uma, `infrastructure/rest` em outra).
 - **Não é dela:** de onde vem o valor do `traceId` (`observability.md`) e o stack trace e os
   campos de uma exceção (`error-handling.md`). O mesmo dado pessoal fora do log, numa coluna ou
   num tópico, é de `personal-data.md`.
-- **Verificada por:** o ArchUnit pega o DTO REST com campo sensível sem máscara e o domínio que
-  depende de API de log. Os `forbidden_imports` do módulo de domínio barram o import. Formato,
-  níveis e conteúdo por classe ficam com o review; nos templates daqui, o `TemplateLogLevelTest`
+- **Verificada por:** o ArchUnit pega o domínio que depende de API de log. Os
+  `forbidden_imports` do módulo de domínio barram o import. O DTO REST com campo sensível sem
+  máscara, o formato, os níveis e o conteúdo por classe ficam com o review; nos templates daqui, o `TemplateLogLevelTest`
   barra `DEBUG`/`TRACE` e a rejeição fora de `WARN`.
 
 ### `lombok.md` — só gera o que não viola invariante

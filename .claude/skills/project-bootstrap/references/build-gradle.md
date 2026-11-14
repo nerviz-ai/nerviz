@@ -14,7 +14,9 @@ write and no `settings.gradle` beyond its existing `rootProject.name` line. The
 Initializr's `build.gradle` still needs the `checkstyle`/`spotless`/`jacoco` blocks and
 the `test`/`integrationTest` task wiring from `templates/build.gradle.parent.example`
 (applied directly to the one project, not inside a `subprojects {}` block — there are no
-subprojects) because none of them come from the Initializr. Copy them in and move on to
+subprojects) because none of them come from the Initializr. Copy them in, add the
+`bootJar` block of `templates/build.gradle.main-boot.example` (the Boot plugin is already
+applied; the name is why the Dockerfile's `COPY` survives a version bump), and move on to
 step 4.6. Steps 4.6 through 4.8 apply to both layouts.
 
 If `multi-module`:
@@ -45,8 +47,9 @@ If `multi-module`:
    never `search.maven.org`'s lagging index.
 3. Create a `build.gradle` per module from `templates/build.gradle.module.example`,
    with the dependencies that module's `depends_on` authorizes — **and only those**. The
-   module with `contains_main: true` additionally applies `org.springframework.boot`
-   and declares the `spring-boot-starter-*` dependencies its features need — every
+   module with `contains_main: true` additionally gets `templates/build.gradle.main-boot.example`
+   — the `org.springframework.boot` plugin and the fixed `bootJar` name the Dockerfile
+   copies — and declares the `spring-boot-starter-*` dependencies its features need; every
    other module stays a plain `java-library`.
 4. Move the `@SpringBootApplication` class to the module with `contains_main: true`.
 5. Move `application.yml` into that module's `resources`. When it imports `.env`

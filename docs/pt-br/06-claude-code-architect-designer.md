@@ -75,10 +75,12 @@ garantia. Mostra ou segura o que uma Forma 7 ou 8 embaixo dele já decide, e peg
 resposta de `java -jar .claude/hooks/ArchHook.jar`, nunca reescrevendo a regra. O que ele
 pode escutar, chamar e iniciar é o bloco `mods` do `extensions.json`; o mapa é
 `references/mod-events.md`. Também sempre ganha registro em `decisions/`, e fica neste
-repositório — nada em `.claude/mods/` vai pro projeto gerado. O único entregue,
-`nerviz-cockpit`, desenha a fase de skill aberta e o território acima do prompt,
+repositório — nada em `.claude/mods/` vai pro projeto gerado. Dois são entregues.
+`nerviz-cockpit` desenha a fase de skill aberta e o território acima do prompt,
 `/nerviz-doctor` num painel, e segura uma recusa do `guard` atrás de dois botões (deixar o
-Claude se ajustar, ou parar o turno) — a recusa vale de qualquer jeito.
+Claude se ajustar, ou parar o turno) — a recusa vale de qualquer jeito. `nerviz-config` mostra
+num painel (`/nerviz-config`) o que um projeto configura no próprio `.claude/` e só muda uma
+configuração por `ArchHook.jar config set|unset`, depois de um diálogo.
 
 ## Fora de escopo
 

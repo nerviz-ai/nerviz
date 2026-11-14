@@ -14,7 +14,7 @@ it is not a norm and is not loaded by any skill or hook.
 | 4 | Feature skills (`use-case-design` → `domain-modeling` → `persistence-architect` → `rest-api-architect` → `test-architect`) | ✅ all 5 partials have an owner |
 | 5 | `new-feature` orchestrator + `java-spring-boot-developer` executor | ✅ end-to-end run against `demo-app`, gaps remediated in D24; since `v0.22.0` the spec is designed by `/new-feature` and implemented by `/new-feature-implement` in a clean session |
 | 6 | Publication: README, LICENSE, `SECURITY.md`, cross-platform CI, a tag per merged PR, GitHub Releases from `v0.15.0` (batched since `v0.22.1`), a reference project with real output ([`nerviz-ai/bank-app`](https://github.com/nerviz-ai/bank-app)) | ✅ |
-| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `cache-architect`, `ai-architect`, `search-architect`, `graphql-api-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
+| 7 | Post-bootstrap extension skills (`docker-architect`, `messaging-architect`, `jobs-architect`, `cache-architect`, `ai-architect`, `search-architect`, `graphql-api-architect`, `security-architect`, `http-client-architect`, `transport-security-setup`, `sonarqube-setup`, `git-publish`, `arch-adopt`, `platform-upgrade`, `audit-usage`), the issue loop (`sonar-lessons`, `report-issue`, `triage-issue`) and meta-tooling (`claude-code-architect-designer`, now also deciding MCP server placement, hooks, `permissions` and mods) | ✅ done; more triggered by real symptoms as they show up |
 | 8 | Multi-agent generated project: the project a team uses daily also guides GitHub Copilot (and other `AGENTS.md` readers), from the same sources, in this repository | 🟡 step 1 shipped in `v0.25.0` (generated `AGENTS.md`, 0139); steps 2–5 wait for a real mixed team's gap — see § Multi-agent portability |
 
 Deliberate order: rules come **before** skills. Writing skills first leads to rules
@@ -150,7 +150,7 @@ copied inside them — exactly the duplication this design exists to avoid.
 - [x] `archunit-installer` (agent, `test-architect`'s setup mode)
 - [x] `commons-logging-installer` (agent, `/new-feature-implement`'s pre-flight)
 - [x] `compose-service-installer` (agent, `/new-feature-implement`'s infrastructure step —
-      runs `docker-architect` after the `tests` group ends green and before `git-publish`)
+      runs `docker-architect` after the `tests` group ends green and before the final report)
 - [x] `ArchHook.java` + `ArchHook.jar` + `schemas/extensions.json`
 
 ### Enforcement
@@ -260,6 +260,8 @@ mixed team reports a gap it did not close.
 
 - [ ] `/refactoring` — new orchestrating, invocable skill
 - [ ] `/solution-design-architect` — new orchestrating, invocable skill
+- [ ] `aws-architect` — brings SQS (and SNS) back as a blueprint feature, with its adapter skill and
+      templates; the retirement is `.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`
 
 Done: GitHub remote-repo creation in `project-initializer`, shipped as the `git-publish`
 skill (Form 1, decision matrix § 2.1 CLI-first check — `gh repo create` + `git push`,

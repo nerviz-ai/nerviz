@@ -105,11 +105,14 @@ subprojects {
 
     tasks.named('test') {
         useJUnitPlatform()
-        // rules/naming.md: `<Class>Test` (unit) vs `<Class>IT` (integration) live in the
-        // same `src/test/java` — no separate source set, same layout Maven's
-        // surefire/failsafe split already assumes. Filtering by name is what keeps them
-        // on separate tasks/JVMs.
-        include '**/*Test.class'
+        // rules/testing.md § Names and shape: `<Class>Test` (unit) vs `<Class>IT`
+        // (integration) live in the same `src/test/java` — no separate source set, same
+        // layout Maven's surefire/failsafe split already assumes. Filtering by name is
+        // what keeps them on separate tasks/JVMs. The includes are surefire's four
+        // defaults, so both build tools run the same classes: `ModularityTests` and the
+        // Initializr's `*ApplicationTests` end in `Tests`, and `include '**/*Test.class'`
+        // alone skipped them with `./gradlew build` green.
+        include '**/Test*.class', '**/*Test.class', '**/*Tests.class', '**/*TestCase.class'
         exclude '**/*IT.class'
         finalizedBy 'jacocoTestReport'
     }

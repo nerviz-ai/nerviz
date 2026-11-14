@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/nerviz-ai/nerviz/actions/workflows/validate.yml/badge.svg)](https://github.com/nerviz-ai/nerviz/actions/workflows/validate.yml)
 [![Release](https://img.shields.io/github/v/tag/nerviz-ai/nerviz?sort=semver&label=release&color=2747D9)](https://github.com/nerviz-ai/nerviz/tags)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 [![Java 21+](https://img.shields.io/badge/Java-21%2B-orange.svg)](#getting-started)
 [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-D97757.svg)](https://claude.com/claude-code)
@@ -16,10 +16,26 @@
 [![GitHub issues](https://img.shields.io/github/issues/nerviz-ai/nerviz.svg)](https://github.com/nerviz-ai/nerviz/issues)
 [![Last commit](https://img.shields.io/github/last-commit/nerviz-ai/nerviz.svg)](https://github.com/nerviz-ai/nerviz/commits)
 
-**An agent harness for Spring Boot on Claude Code.** It generates the project from an
-architecture declared as data, designs every feature as an approved spec before any code
-is written, and blocks at write time what that architecture forbids. Generated projects
-carry the whole harness with them and can update it later.
+**Spec-driven development, AI governance and an agent harness for Spring Boot on Claude Code.**
+
+- **Spec-driven development.** Every feature is designed layer by layer as a spec you
+  approve, then frozen, before a single line of code exists.
+- **AI governance.** What the model may write is enforced by hooks, not requested in a
+  prompt: write territories, forbidden imports, frozen specs. Every run leaves an audit
+  report with time, tokens and files touched.
+- **Agent harness.** Architecture is data (nine blueprints), versions come from Spring
+  Initializr, and the generated project carries the whole harness and can update it later.
+
+<p align="center">
+  <img src="docs/assets/init-project.gif" alt="/init-project interviews, generates the bank-app project with a green build and offers to publish it" width="80%">
+</p>
+<p align="center"><sub><code>/init-project</code>: an interview, then a Spring Boot project with a green build (shown at 2x).</sub></p>
+
+<p align="center">
+  <img src="docs/assets/spec-conflict.gif" alt="/new-feature stops when the request conflicts with a project rule and asks which contract to follow" width="49%">
+  <img src="docs/assets/executor-handoff.gif" alt="/new-feature-implement runs the approved spec through the domain, adapters and tests groups" width="49%">
+</p>
+<p align="center"><sub>Left: the design pipeline finds a request that conflicts with a project rule and asks before writing the spec.<br>Right: the executor builds the approved spec in three chained groups.</sub></p>
 
 Documentation: [`docs/en/`](docs/en/README.md) (English) · [`docs/pt-br/`](docs/pt-br/README.md)
 (português). How it compares with similar projects, with sources:
@@ -208,6 +224,31 @@ hand before overwriting it. On an update, it prints the `migrations` notes for c
 changes the project has not seen yet; it never runs them. See
 [`docs/en/10-arch-adopt.md`](docs/en/10-arch-adopt.md).
 
+### Project below the Spring Boot floor
+
+A project on a Spring Boot line below this `.claude/`'s floor is refused by `export`, and so by
+`/arch-adopt`. `/platform-upgrade` is the way up. Run it inside the project:
+
+```text
+/platform-upgrade
+```
+
+- **What it changes:** the Spring Boot version, the BOMs the Initializr lists (a Spring Cloud train), the
+  renamed starters and Testcontainers artifacts, the starter a used type now needs (`@EnableCaching`),
+  the renamed types (test slices, `@MockBean` and `@SpyBean`), the renamed configuration properties, and
+  a Gradle wrapper the new plugin refuses.
+- **How:** a recipe that `ArchHook.jar upgrade-recipe` writes from data and from the property renames
+  Spring's own jars publish, run by the Apache-licensed OpenRewrite core through the project's own
+  Maven or Gradle wrapper. What no rename covers is a guided pass, one compile error at a time, until
+  the build is green. The tests run before the bump and after, and `ArchHook.jar test-diff` tells what
+  the upgrade broke from what was already broken.
+- **What it never does:** commit, write `.claude/`, or delete, skip or loosen a failing test. It
+  refuses a dirty worktree, and it ends by printing `/arch-adopt`.
+
+![/platform-upgrade, step by step](docs/diagrams/platform-upgrade/platform-upgrade.animated.svg)
+
+See [`docs/en/15-platform-upgrade.md`](docs/en/15-platform-upgrade.md).
+
 ### Silent failures to know about
 
 | Symptom | Cause | Check |
@@ -249,6 +290,8 @@ greens, which is why `/arch-doctor` exists. More traps, runtime and repository a
      └─ if the build is green: OFFERS git-publish — two independent confirmations
 ```
 
+![/init-project, step by step](docs/diagrams/init-project/init-project.animated.svg)
+
 No business code is generated: no `ExampleController` to delete. The first feature comes
 from a real spec.
 
@@ -276,9 +319,10 @@ would pay for that on every turn.
      │
      ▼  consolidates into UC-NNN-spec.md (status: draft)
      ▼  asks approval → status: approved (the guard hook freezes the folder from here)
-     ▼  git-publish (the approved spec only)
-     ▼  prints the next two commands:  /clear  ·  /new-feature-implement UC-NNN-slug
+     ▼  prints the next commands:  /clear  ·  /git-publish (the approved spec only)  ·  /new-feature-implement UC-NNN-slug
 ```
+
+![/new-feature, the design pipeline](docs/diagrams/new-feature/new-feature.animated.svg)
 
 **Flow 2 — implement the spec.** `/new-feature-implement UC-NNN-slug` over an approved spec,
 after `/clear`
@@ -298,8 +342,10 @@ after `/clear`
      ▼  status: implemented (or implemented-blocked)
      ▼  agent: compose-service-installer → docker-architect, for each service the spec
      │         marked materialize — the container lands in the same commit as the code
-     ▼  git-publish (feature commit)
+     ▼  prints the next commands:  /clear  ·  /git-publish (feature commit)  ·  /new-feature <next>
 ```
+
+![/new-feature-implement, step by step](docs/diagrams/new-feature-implement/new-feature-implement.animated.svg)
 
 Each step's output contract is literally the next step's input contract. A free-prose
 handoff degrades by the third hop. Details: [`docs/en/03-new-feature.md`](docs/en/03-new-feature.md).
@@ -368,11 +414,11 @@ proposed fix, before anything is commented or designed. Details:
 
 | Piece | Count | Where |
 |---|---|---|
-| Architecture blueprints | 7 + a template for your own | `.claude/blueprints/` |
+| Architecture blueprints | 9 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 30 | `.claude/skills/` |
-| Agents (driver, executor, installer, verifier) | 6 | `.claude/agents/` |
-| Hook modes, in one Java file | 11 | `.claude/hooks/ArchHook.java` |
+| Skills (design, orchestration, build, ops, meta…) | 35 | `.claude/skills/` |
+| Agents (driver, executor, installer, verifier) | 7 | `.claude/agents/` |
+| Hook modes, in one Java file | 17 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
 
 **Design skills of the `/new-feature` pipeline:** `use-case-design`, `domain-modeling`,
@@ -392,7 +438,7 @@ the use case's `Storage` row states; stamps or an Envers history when its `Audit
 a decorator of the outbound port, keys, expiry, eviction on every write — only when the use case
 states how old an answer may be), `test-architect`.
 
-**Cross-cutting concerns that arrive solved:** `Idempotency-Key` through AOP, logging with
+**Cross-cutting concerns that arrive solved:** `Idempotency-Key` through AOP (when a use case asks for it), logging with
 sensitive-data masking, an OTLP collector with Jaeger or Grafana + Tempo + Prometheus,
 transport security decided once per project through `transport-security-setup` (edge,
 direct, or mutual TLS, HSTS with exactly one writer), SonarQube or SonarCloud setup,
@@ -489,7 +535,7 @@ The rules that follow from it, all gated in CI (the full list of eleven invarian
 | "This skill may only write under `docs/use-cases/`" | `schemas/extensions.json` → `skill_classes` | Territory is data a hook reads |
 | A ritual you trigger by hand (`/release`) | `skills/release/SKILL.md` + `disable-model-invocation: true` | No new `commands/` |
 
-New pieces are designed with `/claude-code-architect-designer`, which picks one of eight
+New pieces are designed with `/claude-code-architect-designer`, which picks one of nine
 forms (or "create nothing") and records hooks and permissions under `decisions/`. The
 frontmatter fields the runtime recognizes are data in `schemas/extensions.json`, explained
 in [`frontmatter-fields.md`](.claude/skills/claude-code-architect-designer/references/frontmatter-fields.md).
@@ -513,7 +559,7 @@ nerviz/
     ├── skills/                    # procedures + templates/*.example
     ├── agents/                    # isolated execution
     ├── hooks/
-    │   ├── ArchHook.java          # enforcement, one file, eleven modes
+    │   ├── ArchHook.java          # enforcement, one file, sixteen modes
     │   └── ArchHook.jar           # what every hook runs — committed, rebuilt by `build`
     ├── decisions/                 # why each piece has its form — history, not norms
     ├── lessons-learned/           # what real runs broke — history, not norms
@@ -554,6 +600,11 @@ Startup costs about 0.3 s per invocation.
 | `audit` | eleven lifecycle events (generated project) | no | execution trail of every skill and agent |
 | `doctor` | manual (`/arch-doctor`), generated CI (`gate`) | `gate` only | diagnoses the setup on this machine, a personal skill shadowing a project one included; `gate` fails on a red committed check (`doctor.gate.labels`) |
 | `export` | manual (through `/arch-adopt`) | no | writes a target project's `.claude/` from the manifest, with the provenance stamp |
+| `upgrade-recipe` | manual (through `/platform-upgrade`) | no | writes the OpenRewrite recipe that takes a project below the Spring Boot floor to it, from `doctor.platform.upgrade`, the Initializr's metadata for the target and the resolved jars' own property metadata |
+| `test-diff` | manual (through `/platform-upgrade`) | no | records the test cases of a build's JUnit reports and compares a later run: exit 2 on a test that got worse or vanished, never on a failure that was already there |
+| `config` | manual, `/project-config` | `set` refuses an invalid value | lists the files a generated project owns in its `.claude/` (`project_config` of `extensions.json`) and is their only writer: `set` validates with `doctor`'s validator before it writes, `unset` restores a default |
+| `boundary-map` | manual (through `project-bootstrap` § 5) | no | writes a generated project's `.claude/forbidden-imports.txt` from the blueprint |
+| `footprint` | manual (through `/harness-lessons`) | no | prints what this `.claude/` puts in context, per session, skill, agent, rule and hook event |
 | `build` | `PostToolUse` on `ArchHook.java` (this repo), manual | no | rebuilds the jar; `--verify` compares it byte for byte |
 
 Every list the hook reads is data in `schemas/extensions.json`, never a constant in the
@@ -619,6 +670,8 @@ exists inside the project:
 | [`10-arch-adopt.md`](docs/en/10-arch-adopt.md) | Installing or updating this `.claude/` in an existing project |
 | [`11-pitfalls.md`](docs/en/11-pitfalls.md) | Every silent trap, the runtime's and this repository's |
 | [`12-issues.md`](docs/en/12-issues.md) | `/report-issue` and `/triage-issue` |
+| [`15-platform-upgrade.md`](docs/en/15-platform-upgrade.md) | Taking a project below the Spring Boot floor up to it, before `/arch-adopt` |
+| [`16-project-config.md`](docs/en/16-project-config.md) | What a generated project configures in its own `.claude/`, `/project-config` and `ArchHook.jar config` |
 | [`roadmap.md`](roadmap.md) | Delivery phases and the feature checklist |
 
 Portuguese versions of every document live under [`docs/pt-br/`](docs/pt-br/README.md).
@@ -647,7 +700,12 @@ the engineer-architect whose structures are their own form. Formerly
 
 ## License
 
-MIT.
+[Apache License 2.0](LICENSE). The code is free to use, modify and redistribute, with an explicit
+patent grant; see [`NOTICE`](NOTICE) for attribution. The name "Nerviz" and the logos under
+`brand/` are **not** licensed with the code — see [`TRADEMARK.md`](TRADEMARK.md).
+
+A project generated by Nerviz is yours: its license is the one you choose. What travels into it
+under `.claude/` carries its own `LICENSE` and `NOTICE`.
 
 Not affiliated with Anthropic, Broadcom or Oracle. Claude Code, Spring and Java are named
 only to describe what Nerviz works with; this is not an official product of any of them.

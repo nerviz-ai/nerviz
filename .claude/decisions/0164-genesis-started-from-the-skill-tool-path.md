@@ -7,7 +7,7 @@
   `GENESIS.md`'s placeholders unfilled.
 - **Decision:** Form 7c, no new mode — `audit genesis` in `.claude/hooks/ArchHook.java` reads two anchor forms
   (option A). No registration, no template, no new data.
-- **State:** approved by the maintainer (lucas.rj.fernandes), on 2026-10-15
+- **State:** approved by the maintainer, on 2026-10-15
 
 Supersedes the Started definition of `0123` § C1 ("the last user entry carrying the
 `/init-project` command"). The rest of § C1 stands. `0123` is not rewritten

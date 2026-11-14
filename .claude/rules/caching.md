@@ -153,18 +153,18 @@ no error; it is served. This norm makes each of those choices explicit.
 
 ```bash
 # Cache annotations live in the cache package only. Zero lines is the expected result.
-grep -rnE "@(Cacheable|CachePut|CacheEvict|Caching)\b" --include=*.java src/main | grep -v "/cache/"
+grep -rnE "@(Cacheable|CachePut|CacheEvict|Caching)\b" --include='*.java' src/main | grep -v "/cache/"
 
 # Exactly one @EnableCaching, and never next to @SpringBootApplication.
-grep -rln "@EnableCaching" --include=*.java src/main | wc -l
-grep -rl "@SpringBootApplication" --include=*.java src/main | xargs grep -l "@EnableCaching"
+grep -rln "@EnableCaching" --include='*.java' src/main | wc -l
+grep -rl "@SpringBootApplication" --include='*.java' src/main | xargs grep -l "@EnableCaching"
 
 # Every @Cacheable names its key. Zero lines is the expected result — review multi-line ones.
-grep -rn "@Cacheable" --include=*.java src/main | grep -v "key *="
+grep -rn "@Cacheable" --include='*.java' src/main | grep -v "key *="
 
 # No Java serialization of cached values. Zero lines is the expected result.
-grep -rn "JdkSerializationRedisSerializer\|implements Serializable" --include=*.java src/main | grep "/cache/"
+grep -rn "JdkSerializationRedisSerializer\|implements Serializable" --include='*.java' src/main | grep "/cache/"
 
 # The in-memory map provider is not the production cache. Zero lines is the expected result.
-grep -rnE "ConcurrentMapCacheManager|cache\.type: *simple" --include=*.java --include=*.yml src/main
+grep -rnE "ConcurrentMapCacheManager|cache\.type: *simple" --include='*.java' --include='*.yml' src/main
 ```

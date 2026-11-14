@@ -1,0 +1,10 @@
+{
+  "kind": "orchestrator",
+  "skill": "new-feature-implement",
+  "title": "Nerviz — /new-feature-implement",
+  "caption": "Three executor groups, chained; git-publish is printed, never called.",
+  "groups": [
+    { "id": "steps", "label": { "fact": "skill:new-feature-implement" }, "nodes": [{ "from": "step:new-feature-implement:*" }] }
+  ],
+  "edges": [{ "derive": "sequence" }]
+}

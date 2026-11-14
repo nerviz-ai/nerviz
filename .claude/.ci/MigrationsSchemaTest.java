@@ -76,6 +76,10 @@ public class MigrationsSchemaTest {
                       String label) throws Exception {
         Path tmp = Files.createTempDirectory("archhook-migrations-ci");
         copyTree(Paths.get(".claude").toAbsolutePath(), tmp.resolve(".claude"));
+        // `export.copy` names LICENSE and NOTICE at the root, outside `.claude/`
+        for (String name : new String[] {"LICENSE", "NOTICE"}) {
+            Files.copy(Paths.get(name), tmp.resolve(name));
+        }
         Files.writeString(tmp.resolve(".claude/schemas/extensions.json"), json,
                 StandardCharsets.UTF_8);
         if (!withCatalog) deleteTree(tmp.resolve(".claude/blueprints"));

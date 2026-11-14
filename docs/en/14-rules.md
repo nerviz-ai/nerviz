@@ -105,8 +105,8 @@ architecture (`adapter/in/rest` in one, `infrastructure/rest` in another).
 - **Not its call:** where the `traceId` value comes from (`observability.md`) and an exception's
   stack trace and fields (`error-handling.md`). The same personal data outside the log, in a
   column or a topic, is `personal-data.md`'s.
-- **Verified by:** ArchUnit catches a REST DTO with an unmasked sensitive field and a domain that
-  depends on a logging API. The domain module's `forbidden_imports` refuse the import. Format,
+- **Verified by:** ArchUnit catches a domain that depends on a logging API. The domain module's
+  `forbidden_imports` refuse the import. A REST DTO with an unmasked sensitive field, the format,
   levels and per-class content stay with review; in this repository's templates,
   `TemplateLogLevelTest` refuses `DEBUG`/`TRACE` and a rejection logged below `WARN`.
 

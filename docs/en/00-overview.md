@@ -93,10 +93,10 @@ flowchart TB
     SK_DESIGNER -.->|proposes and writes, after approval| SK_UC & AG_DEV & RULES
     HOOK -.->|context subagent at SubagentStart: the catalog, generated project only| AG_DEV
     SK_DOM & SK_PERS & SK_REST & SK_GQL & SK_SEC & SK_HTTP & SK_MSG & SK_JOBS & SK_CACHE & SK_AI & SK_SEARCH -.->|read § Design-time use, decide the layer's patterns| SK_PAT
-    SK_NF -->|Agent tool, pre-flight, if commons is empty| AG_LOG
+    SK_NF -->|Agent tool, pre-flight, if no build declares spring-log-utils| AG_LOG
     SK_NF -->|"Agent tool, after the tests group, for each materialize row"| AG_COMPOSE
     AG_COMPOSE -->|Skill tool, admitted because the caller is a classed agent| SK_DOCKER
-    AG_LOG -->|writes| LOGOUT["commons.logging/** + AutoConfiguration.imports"]:::out
+    AG_LOG -->|writes| LOGOUT["build file: spring-log-utils dependency"]:::out
     SK_AUDIT -->|Bash, audit summary, no model| HOOK
 
     SK_NF -->|Skill tool, in sequence| SK_UC
@@ -226,7 +226,7 @@ of it.
 | `/init-project` | Interview → picks a blueprint → generates the complete Spring Boot project structure, with no business code | [02-init-project.md](02-init-project.md) |
 | `/new-feature <description>` · `/new-feature UC-NNN-slug` | **Create the spec:** designs one use case per run (use case → domain → REST → messaging and jobs when they apply → persistence → tests) into a single spec, asks approval and commits it; `UC-NNN-slug` resumes a draft. Ends by printing `/clear` and `/new-feature-implement UC-NNN-slug` | [03-new-feature.md](03-new-feature.md) |
 | `/new-feature-implement UC-NNN-slug` | **Implement the spec:** over an approved spec, after `/clear`, runs the pre-flight and the executor in three chained groups (domain → adapters → tests), then commits the feature | [03-new-feature.md](03-new-feature.md) |
-| `/arch-doctor` | Diagnoses active hooks, loaded boundaries, Maven wrapper, `java` on PATH, schema, audit trail, compose services | [04-arch-doctor.md](04-arch-doctor.md) |
+| `/arch-doctor` | Diagnoses active hooks, loaded boundaries, build wrapper, `java` on PATH, schema, audit trail, compose services | [04-arch-doctor.md](04-arch-doctor.md) |
 | `/audit-usage` | Reads the generated project's audit trail: spend per skill and agent across runs, failure rate, which report to open. Here it reports the trail is off | [08-audit-usage.md](08-audit-usage.md) |
 | `/claude-code-architect-designer` | Decides which of the nine forms (auto-invocable skill, manual skill, agent, rule, `CLAUDE.md` section, MCP server, hook, `permissions` rule, mod — or nothing) solves a scenario, and writes the file after approval. Meta-repo only | [06-claude-code-architect-designer.md](06-claude-code-architect-designer.md) |
 | `/arch-adopt` | Installs this `.claude/` into a project never generated here, or updates one that is behind. Refuses a dirty worktree, writes through the `export` mode, and leaves the diff ready for review | [10-arch-adopt.md](10-arch-adopt.md) |

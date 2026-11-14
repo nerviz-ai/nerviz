@@ -235,6 +235,29 @@ public class SkillTerritoryTest {
                 "{\"session_id\":\"%s\",\"tool_input\":{\"file_path\":\"src/main/java/A.java\"}}",
                 2, "src/ is not a report's — blocked");
 
+        // harness-lessons' override (decision 0188): in this repository its file is history
+        // about `.claude/`, beside the run reports — never in the public docs/ tree. The glob is
+        // `harness-*.md`, so a run report next to it stays out of reach.
+        String harness = "ci-territory-harness-" + System.nanoTime();
+        failures += run(hook, "prompt", harness,
+                "{\"session_id\":\"%s\",\"prompt\":\"/harness-lessons\"}",
+                0, "prompt opens harness-lessons' report phase");
+
+        failures += run(hook, "write", harness,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/harness-002.md\"}}",
+                0, ".claude/lessons-learned/harness-*.md — allowed by the override");
+
+        failures += run(hook, "write", harness,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/lessons-learned-026.md\"}}",
+                2, "a run report beside it is not harness-lessons' — blocked");
+
+        failures += run(hook, "write", report,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\".claude/lessons-learned/harness-002.md\"}}",
+                2, "the override is harness-lessons' alone — sonar-lessons blocked");
+
         // `blocked_during_design`: a report is a full build, so a design run cannot reach it.
         String reportMidDesign = "ci-territory-report-design-" + System.nanoTime();
         failures += run(hook, "prompt", reportMidDesign,
@@ -329,6 +352,23 @@ public class SkillTerritoryTest {
         // The meta class writes the README's skill list and counts when it adds a piece (0144 to
         // 0162 did), and nothing else at the repository's root but CLAUDE.md and .mcp.json.
         // Before decision 0163 the README was outside it, and the edit went in unguarded.
+        // class `media` (decision 0190): diagrams of this `.claude/` under docs/diagrams/, and no
+        // spec folder — `.drawio`/`.excalidraw` beside a spec stay refused (decision 0143).
+        String media = "ci-territory-media-" + System.nanoTime();
+        failures += run(hook, "prompt", media,
+                "{\"session_id\":\"%s\",\"prompt\":\"/nerviz-diagrams\"}",
+                0, "prompt opens nerviz-diagrams' media phase");
+
+        failures += run(hook, "write", media,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\"docs/diagrams/layers/layers.svg\"}}",
+                0, "docs/diagrams/** — allowed for class media");
+
+        failures += run(hook, "write", media,
+                "{\"session_id\":\"%s\",\"tool_input\":"
+                        + "{\"file_path\":\"docs/use-cases/UC-001-x/a.drawio\"}}",
+                2, "a diagram beside a spec is not media's — blocked");
+
         String meta = "ci-territory-meta-" + System.nanoTime();
         failures += run(hook, "prompt", meta,
                 "{\"session_id\":\"%s\",\"prompt\":\"/claude-code-architect-designer x\"}",
@@ -432,8 +472,10 @@ public class SkillTerritoryTest {
                 + " agent_type judged by its own class on writes and Skill calls,"
                 + " build-class calls refused mid-design,"
                 + " same-class chains summing territories, report-class runs held to"
-                + " docs/lessons-learned/, manual skills run only from the user's own"
-                + " `/<skill>` under `Skill` and `skill`, and no restriction with no phase open.");
+                + " docs/lessons-learned/ (harness-lessons also its own .claude/lessons-learned/harness-*.md),"
+                + " media-class runs held to docs/diagrams/**,"
+                + " manual skills run only from the user's own `/<skill>` under `Skill` and `skill`,"
+                + " and no restriction with no phase open.");
     }
 
     /** Runs one `guard <phase>` with the given stdin and checks the exit code. */

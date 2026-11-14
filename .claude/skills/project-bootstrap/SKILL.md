@@ -164,6 +164,7 @@ Read the YAML and check, one by one:
 | 4 | Every `feature` referenced by a module exists in `features` | Stop and name the feature |
 | 5 | Every `templates.<role>` points to an existing file | Stop and name the path |
 | 6 | `architecture_paths` is not an empty list | Stop — without this, step 6.6 has nothing to write |
+| 7 | `features.messaging-sqs` is absent or `false` | Stop — the feature was retired (`@.claude/decisions/0178-retire-the-sqs-blueprint-feature.md`): no skill or template delivers an SQS adapter. Say to set the key `false` or remove it |
 
 Don't invent defaults for `dependency_rules` — it's the backbone of the enforcement.
 
@@ -230,6 +231,20 @@ grep -m1 '<version>' pom.xml && grep -m1 'java.version' pom.xml
 # gradle
 grep -m1 "id 'org.springframework.boot'" build.gradle && grep -m1 'sourceCompatibility\|JavaVersion' build.gradle
 ```
+
+The build tool's own version is the one the wrapper pins. Read it from the file the
+`starter.tgz` extracted — never write it, never edit that file:
+
+```bash
+# maven
+grep distributionUrl .mvn/wrapper/maven-wrapper.properties
+
+# gradle
+grep distributionUrl gradle/wrapper/gradle-wrapper.properties
+```
+
+The version in the distribution's file name (`apache-maven-<v>-bin.zip`, `gradle-<v>-bin.zip`)
+is `{{wrapperVersion}}`, shown in the root `CLAUDE.md`, the README and the report below.
 
 If the network isn't available, **stop and ask** the user for the versions. Never write
 them from memory. If you pin `bootVersion` explicitly, don't use the `.RELEASE`
@@ -355,7 +370,7 @@ Modules:
   <path> → depends on <list>
   ...
 
-Versions (resolved by the Initializr): Java <x> · Spring Boot <y> · <build tool>
+Versions (resolved by the Initializr): Java <x> · Spring Boot <y> · <build tool> (wrapper <z>)
 Active features: <list>
 Business code: none — by design. <n> package-info.java written
 Boundaries: <n> rules in .claude/forbidden-imports.txt — blocking verified ✓

@@ -232,3 +232,19 @@ current shape was chosen.
 
 By contributing you agree your contribution is licensed under the
 [MIT License](LICENSE).
+
+## License of contributions and sign-off
+
+This repository is under the [Apache License 2.0](LICENSE). By submitting a contribution you
+license it under those terms (Apache License § 5) — no CLA to sign.
+
+Every commit should carry a [Developer Certificate of Origin](https://developercertificate.org)
+sign-off, which says you wrote it or have the right to submit it:
+
+```bash
+git commit -s -m "feat: ..."      # adds: Signed-off-by: Your Name <you@example.com>
+```
+
+Do not paste code from a project whose license is not compatible with Apache 2.0 (GPL, AGPL,
+SSPL, BSL, or "source available"). The name and logo are not part of the license — see
+[`TRADEMARK.md`](TRADEMARK.md).

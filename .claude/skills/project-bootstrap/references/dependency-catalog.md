@@ -8,7 +8,6 @@ Used in step 3 to build the `-d dependencies=` parameter.
 | `persistence-jpa` | `data-jpa` | Also adds the driver: `postgresql`, `mysql`, `h2` |
 | `flyway` | `flyway` | Migrations in `db/migration` |
 | `messaging-kafka` | `kafka` | |
-| `messaging-sqs` | — | Doesn't exist in the Initializr; add `spring-cloud-aws-starter-sqs` by hand |
 | `openapi` | — | Doesn't exist in the Initializr; add `springdoc-openapi-starter-webmvc-ui` |
 | `testcontainers` | `testcontainers` | Adds the module for the chosen DB |
 | `actuator` | `actuator` | |
@@ -16,15 +15,13 @@ Used in step 3 to build the `-d dependencies=` parameter.
 | `validation` | `validation` | **Mandatory whenever `rest` is active.** `api-rest.md` § Errors requires bean validation on the DTO, and without this dependency `@NotBlank`/`@Email`/`@Size` don't compile and the controller's `@Valid` has no processor. Not optional: it's a direct consequence of a rule the same blueprint installs |
 | `observability` | — | Doesn't exist in the Initializr; add `io.micrometer:micrometer-tracing-bridge-otel`, `io.opentelemetry:opentelemetry-exporter-otlp`, **and** the Boot glue that registers the `Tracer` bean — on Spring Boot 4, `org.springframework.boot:spring-boot-starter-opentelemetry` (verified on `4.1.1`; version managed by the parent). The bridge and the exporter alone register no bean. On Boot 3 the bean came from `actuator`'s auto-configuration; for any other line, confirm the artifactId against the resolved BOM, never from memory. Without this feature there's no `Tracer` bean, and an error handler that injects it prevents the context from starting — `.claude/rules/observability.md` § Correlation then requires generating the identifier locally and saying so in a comment |
 | `uuid-v7` | — | Doesn't exist in the Initializr; add `com.fasterxml.uuid:java-uuid-generator`. Required whenever `persistence-jpa` is active and the primary key is `UUID`: `persistence.md` § Identity and keys requires v7, and JDK 21's `java.util.UUID.randomUUID()` generates v4. See the JDK 25 note below |
-| `spring-modulith` | `modulith` | `modular-monolith` blueprint only. Adds `spring-modulith-starter-core` (compile). Also add by hand, same BOM: `spring-modulith-starter-test` (test scope, not in the Initializr catalog) — needed for `ApplicationModules`/`@ApplicationModuleTest`. Import `spring-modulith-bom`, version from `boms.spring-modulith.version` in the same `curl` response, never from memory — it moves independently of Spring Boot's own version. Maven: `<dependencyManagement>` with `<scope>import</scope>`. Gradle: `dependencyManagement { imports { mavenBom "org.springframework.modulith:spring-modulith-bom:<version>" } }`, same block as the `spring-boot-dependencies` import in `templates/build.gradle.parent.example` |
+| `spring-modulith` | `modulith` | `modular-monolith` blueprint only. Adds `spring-modulith-starter-core` (compile). **Next to `data-jpa` and `kafka` the Initializr adds more** (served for Boot 4.1.1): `spring-modulith-starter-jpa` (the event publication registry) and `spring-modulith-events-kafka` (its externalization). **Remove both from the build.** The registry needs an `event_publication` table, no migration exists at bootstrap (no business code, `@.claude/decisions/0011-bootstrap-without-business-code.md`) and `ddl-auto=validate` refuses to start the context; `schema-initialization` is a JDBC-registry property and does nothing here. `persistence-architect` brings `starter-jpa` back, with its migration, for the first in-process event across modules; broker delivery is the outbox of `@.claude/rules/messaging.md`, so `events-kafka` does not come back. Also add by hand, same BOM: `spring-modulith-starter-test` (test scope, not in the Initializr catalog) — needed for `ApplicationModules`/`@ApplicationModuleTest`. Import `spring-modulith-bom`, version from `boms.spring-modulith.version` in the same `curl` response, never from memory — it moves independently of Spring Boot's own version. Maven: `<dependencyManagement>` with `<scope>import</scope>`. Gradle: `dependencyManagement { imports { mavenBom "org.springframework.modulith:spring-modulith-bom:<version>" } }`, same block as the `spring-boot-dependencies` import in `templates/build.gradle.parent.example` |
 
-**`commons` logging/masking isn't a `features:` key** — every blueprint carries the
-empty package unconditionally (step 4.7), same as `domain`. Its dependencies
-(`spring-boot-starter-aop`, `spring-boot-configuration-processor`) aren't in this table
-because this skill never adds them: like `archunit`, they're added later, by the
-`commons-logging-installer` agent, once there are classes to compile — see
-`project-bootstrap/SKILL.md` step 4.7 and `.claude/agents/commons-logging-installer.md`.
-No `<version>` on either: `spring-boot-starter-parent` manages both.
+**`commons` logging/masking isn't a `features:` key** — it is the `dev.nerviz:spring-log-utils`
+library, which this skill never adds: like `archunit`, it is added later, by the
+`commons-logging-installer` agent — see `.claude/agents/commons-logging-installer.md`.
+The aspects come from the library and `spring-boot-starter-aspectj` arrives transitively, so
+no AOP starter is declared for them.
 
 ## Warning — Spring Boot 4 renamed starters
 
@@ -35,9 +32,9 @@ template:
 - `spring-boot-starter-web` → **`spring-boot-starter-webmvc`**
 - `spring-boot-starter-aop` → **`spring-boot-starter-aspectj`** — the old artifactId
   isn't in the Boot 4 BOM at all; resolving it fails the POM with `'dependencies.dependency.version'
-  ... is missing`, not a 404. Applies to any AOP consumer added after bootstrap, both
-  `commons-logging-installer` (its aspects) and `rest-api-architect`'s
-  `IdempotencyAspect`
+  ... is missing`, not a 404. Applies to any AOP consumer added after bootstrap, such as `rest-api-architect`'s
+  `IdempotencyAspect`; the logging aspects come from the `spring-log-utils` library, which
+  brings the starter transitively
 - `spring-boot-starter-test` is no longer a single artifact: each production starter
   has its own `-test` (`spring-boot-starter-webmvc-test`,
   `spring-boot-starter-actuator-test`, …)
@@ -51,6 +48,13 @@ template:
 - `bootVersion` **doesn't accept** the `.RELEASE` suffix (`4.1.1.RELEASE` gives a 404
   on Maven Central); if you pin the version, pass just `4.1.1`. Preferable: don't pin
   and let the Initializr choose the current GA.
+
+**The renames a project below the floor needs are not listed here.** The coordinates, the
+packages of the test slices and the Testcontainers artifacts are data, owned by
+`doctor.platform.upgrade` in `@.claude/schemas/extensions.json` — `renames` for the mechanical
+ones, `test_starters` for the test slice a compile error names — and `platform-upgrade` applies
+them to a project that builds on an older line. A rename found in this section that the block
+lacks belongs in the block, not in a second list here (invariant 2).
 
 **Practical rule:** after `curl`-ing the Initializr, trust the `artifactId` that came
 back in the generated `pom.xml`/`build.gradle`, never the name you have from memory — it
@@ -84,7 +88,7 @@ In a multi-module layout, dependencies **don't** all go to the root:
 |---|---|
 | `web`, `springdoc` | inbound REST adapter |
 | `data-jpa`, driver, `flyway` | outbound persistence adapter |
-| `kafka`, `sqs` | messaging adapter |
+| `kafka` | messaging adapter |
 | `actuator`, `observability` | bootstrap |
 | `validation` | wherever validation happens — never in `domain` |
 | `uuid-v7` | wherever the id is generated: the application layer, not `domain` |

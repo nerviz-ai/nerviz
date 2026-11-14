@@ -39,7 +39,7 @@
  * why `StoredResponse` carries `headers` — see that record's own comment.
  *
  * TWO CHECKSTYLE EXEMPTIONS THIS FILE NEEDS, both already in
- * `@.claude/skills/project-bootstrap/templates/checkstyle.xml.example`, scoped to this
+ * the project's `config/checkstyle/checkstyle.xml`, scoped to this
  * class name only (`IllegalThrows`/`IllegalCatch` on every other file still fail the
  * build normally):
  *   - `IllegalThrows` on `aroundIdempotent` — `proceed()`'s own contract, not a choice
@@ -52,9 +52,9 @@
  * `@.claude/skills/sonarqube-setup/templates/pom-sonar.xml.example`. Don't "fix" it by
  * wrapping: the aspect must rethrow exactly what the endpoint threw.
  *
- * Dependency: `spring-boot-starter-aspectj` — Boot-version rename, owner:
- * `.claude/skills/project-bootstrap/references/dependency-catalog.md` § Warning —
- * Spring Boot 4 renamed starters.
+ * Dependency: `spring-boot-starter-aspectj` — the Spring Boot 4 name of
+ * `spring-boot-starter-aop`, a rename recorded in `doctor.platform.upgrade.renames` of
+ * `.claude/schemas/extensions.json`.
  *
  * Each `// --- <File>.java` block is its own file. Package per the active blueprint's
  * `packages.map` — shown here as `adapter.in.rest.idempotent`/`application.port.out` to

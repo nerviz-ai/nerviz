@@ -1,0 +1,25 @@
+{
+  "kind": "layers",
+  "title": "Nerviz — the layers of .claude/",
+  "caption": "Dependencies point down; the leaf holds norms and data. Counts are the entries on disk when this was rendered.",
+  "groups": [
+    { "id": "row-interface", "label": { "caption": "Interface" }, "nodes": [{ "fact": "layer:mods" }] },
+    { "id": "row-enforcement", "label": { "caption": "Infrastructure — enforcement" }, "nodes": [{ "fact": "layer:hooks" }, { "fact": "layer:settings" }] },
+    { "id": "row-procedure", "label": { "caption": "Procedure and exemplars" }, "nodes": [{ "fact": "layer:skills" }] },
+    { "id": "row-isolation", "label": { "caption": "Isolated execution" }, "nodes": [{ "fact": "layer:agents" }] },
+    { "id": "row-norms", "label": { "caption": "Norms and data — the leaf" }, "nodes": [{ "fact": "layer:rules" }, { "fact": "layer:blueprints" }, { "fact": "layer:mcp" }] },
+    { "id": "row-history", "label": { "caption": "History — outside the graph" }, "nodes": [{ "fact": "layer:decisions" }] }
+  ],
+  "edges": [
+    { "from": "row-interface", "to": "row-enforcement", "evidence": "layer:mods" },
+    { "from": "row-enforcement", "to": "row-procedure", "evidence": "layer:hooks" },
+    { "from": "row-procedure", "to": "row-isolation", "evidence": "layer:skills" },
+    { "from": "row-isolation", "to": "row-norms", "evidence": "layer:agents" }
+  ],
+  "steps": [
+    "row-interface", "row-interface>row-enforcement", "row-enforcement", "row-enforcement>row-procedure",
+    "row-procedure", "row-procedure>row-isolation", "row-isolation", "row-isolation>row-norms",
+    "row-norms", "row-history"
+  ],
+  "emphasis": ["row-norms"]
+}

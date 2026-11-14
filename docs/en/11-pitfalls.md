@@ -116,6 +116,13 @@ does not look at `.claude/agents/`, `.claude/rules/`, or `.claude/settings.json`
 malformed YAML, nothing else. What validates fields is
 `java .claude/hooks/ArchHook.java schema`.
 
+**Claude Code's frontmatter parser forgives what a strict YAML parser refuses.** An unquoted
+`description` holding `: ` loads in Claude Code, and GitHub Copilot drops the whole file with
+`mapping values are not allowed in this context` — how `mapstruct-installer` vanished under
+Copilot (lessons-learned-022 § 9). A value holding `: `, or starting with a backtick or `@`, goes
+in double quotes or folded with `>`. `schema` refuses it by file and line
+(`@.claude/decisions/0174-strict-frontmatter-qualified-names-and-the-local-build.md`).
+
 ### Hooks
 
 **`.claude/settings.json` is only read at session startup.** Editing hooks mid-session has no
@@ -274,6 +281,15 @@ project, `guard read` in `.github/hooks/archhook.json` denies the Copilot CLI's 
 list first, and `schema` fails when the `Read(...)` lines of a `settings.json` drift from it. Design:
 `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
 
+**A project setting cannot be edited, not even outside any skill.** A Write, an Edit or a shell
+redirect into a file `project_config` lists (`audited.json`, `plan-limits.json`,
+`compose-gate.json`) is refused by `guard write` / `guard bash`, phase or no phase. That is not
+a broken tool. Those files have one writer, `java -jar .claude/hooks/ArchHook.jar config set
+<id> <key> <value>`, which validates before it writes, and the refusal names it. `guard sweep`
+skips these paths, so the write `config` makes during `/project-config` never blocks the Stop.
+Editing by hand outside Claude Code still works, and `doctor` still validates the result. See
+`16-project-config.md`. Design: `.claude/decisions/0187-project-config-registry-skill-and-mod.md`.
+
 ### Classes and models
 
 **Every skill declares `model`, from its class's set.** `schema` fails a `SKILL.md` without
@@ -303,6 +319,17 @@ unticked boxes forever. The order is still the executor's contract, not the hook
 line is the last write it makes to the folder. Design:
 `.claude/decisions/0066-spec-state-machine.md`.
 
+**A refused `status: approved` on a spec means its checklist does not match the blocks it
+carries.** The checklist is the core (steps 1-7 and 16-19) plus the lines of the blocks the spec
+has: 8-12 only when `## 3` is not `none`, 13-15 only when `## 4` is not `none`, one lettered line
+per conditional block present. The guard prints `missing:`, `extra:` or `duplicate:` with the
+ids; fix them while the spec is still `draft` — copy the lines from
+`new-feature/templates/feature-spec.md.example`, drop the ones of an absent block, and run
+`java -jar .claude/hooks/ArchHook.jar spec check <spec>` until it exits 0. The data is
+`spec_checklist` in `extensions.json`. `sed -i` on the status line is the one way around the
+guard; `/new-feature-implement` and the executor run the same check and stop. Design:
+`.claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md`.
+
 ### Compose
 
 **`compose gate` runs the compose check unprompted, and it blocks.** `docker-architect` step 7
@@ -315,8 +342,15 @@ too; that is a gate, not a bug. Design: `.claude/decisions/0064-compose-gate-on-
 A foreign container on one of the declared host ports is the exception: while no container of
 this project exists (`docker compose ps -a` lists nothing), it is a warning that `compose` and
 `doctor` print and the gate does not block on, since a stack nobody started has nothing to
-bind yet. Once any container of the project exists, stopped or `created` included, it blocks
-as before. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`.
+bind yet. The same holds while every container of the project is `exited` or `dead`: nothing
+of it holds or wants the port, and the only way to clear the line would be to stop another
+project's container. A `created` container, which failed to bind, and a collision beside a
+running service still block. Issue #107, `.claude/decisions/0129-compose-gate-foreign-port-warns-without-our-stack.md`;
+Issue #175, `.claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md`.
+The `exited` line itself still blocks, and the block names the way out: `docker compose down`,
+or `{"exited": "warn"}` in the project's versioned `.claude/compose-gate.json` (`config set compose-gate exited warn`, its only writer; see `16-project-config.md`), which turns
+that one line into a warning `compose` and `doctor` keep printing. `export` never names the
+file, so `/arch-adopt` leaves it alone; `doctor` validates it on the `Compose overrides` line.
 
 **A healthcheck that passes proves nothing about host reachability** — it runs inside the
 container, where `localhost` is the service. A service that publishes a port to the host
@@ -605,6 +639,17 @@ nothing. Rewording a guard message without updating its marker makes `schema` fa
 otherwise the dialog would stop appearing in silence. The refusal stands whichever button is
 pressed; "Stop the turn" only ends the turn.
 
+### Spikes
+
+**In a `/spike` worktree `.claude/settings.json` differs from `HEAD`, yet `git status` is clean,
+and only the audit hooks run there.** `ArchHook.jar spike` reduces the worktree's hook
+registrations to `spike.keep_modes` and marks the file `skip-worktree` in that worktree's index
+alone, so the relaxed registrations can never be committed or merged: `git ls-files -v` shows
+`S` there and `H` in the main checkout. `format`, `check`, `tests`, `compose gate` and `guard`
+are off in the spike by design, and what is promoted back goes through `/new-feature` in the
+main checkout. To see the real diff, run `git update-index --no-skip-worktree
+.claude/settings.json` in the worktree (`.claude/decisions/0198-spike-worktree-with-hooks-off.md`).
+
 ### Rules and decisions
 
 **A rule without `paths` loads at launch, every session — it is not "citation only".** So
@@ -612,6 +657,24 @@ every rule declares the narrowest glob that holds it, and Java is `**/src/**/*.j
 `**/*.java`: that one matches `.claude/hooks/ArchHook.java` and pulls every Java norm in on
 each read of the hook. A renamed rule's old name goes in `export.retired`, or the target keeps
 both. Design: `.claude/decisions/0082-rules-without-paths-load-at-launch.md`.
+
+**`schema` blocks a shell glob written without quotes.** `--include=*.java` in a command shown by
+a rule, an agent or a skill works in bash, which is what CI runs, and in zsh — the shell the
+Bash tool runs for most people — aborts with `no matches found` before the command starts,
+whenever the word matches no file of the working directory. Quote it: `--include='*.java'`.
+`shell_globs` in `extensions.json` holds the scope (`.claude/**/*.md`, `.claude/**/*.example`,
+`CLAUDE.md`; decision records and lessons-learned excluded) and the patterns; `schema` fails per
+line, and `doctor gate` carries it into a generated project. Design:
+`.claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md`.
+
+**`guard bash` refuses an unquoted glob flag when the session's shell is zsh.** `schema` reads files; this one reads the command a tool is about to run. A token such as `grep -rn x src --include=*.java`, written with no quote and no backslash, exits 2 when the basename of `$SHELL` is in `guard.unquoted_glob.shells`: zsh would abort it with `no matches found` and name neither the flag nor the fix, and the root `CLAUDE.md` line that asks for quotes was ignored twice in one run. The message prints the quoted form. Quote the value (`--include='*.java'`) or escape it (`--include=\*.java`). Under bash, or with `SHELL` unset, nothing is refused. Not caught: a glob outside the flag forms `shell_globs.patterns` names (`find -name *.java`). Design: `.claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md`.
+
+**A step of `/new-feature` can move its prose to `references/`; its heading and field block cannot.**
+`nerviz-diagrams` parses every `### <id> · <Name>` heading under `## Procedure` and the
+`**Runs:**` … `**Hands over:**` lines below it; a step moved whole into a reference drops out of
+the committed diagrams and `Diagrams.java check` fails. `## Contract` and the why section stay in
+the body (`skill_classes.universal_sections`, `why_section`): the contract keeps a summary and
+its full text is `references/contract.md`.
 
 **`.claude/decisions/` is neither a norm nor living documentation.** It records what was
 decided on the date, not what holds today: no `paths`, outside `00-index.md`, and it does not
@@ -625,3 +688,6 @@ exemplars and the `tools.jackson..` allowlist this `.claude/` ships do not apply
 line. There is no flag to bypass it. A version held in a property, a corporate parent or a
 catalog no pattern reads is not refused, because a refusal needs evidence; `doctor` prints
 `Platform ⚪` there. Design: `.claude/decisions/0161-spring-boot-3-5-line-for-adopted-projects.md`.
+
+**A hand-edited file under `docs/diagrams/` turns CI red.**
+Every `.drawio`, `.excalidraw`, `.svg` and `dist/` file is a render of a `view.json` and of the data it cites (`extensions.json`, the step headings and field block (`**Runs:**`, `**Then runs:**`, `**Stops when:**`, `**Skips when:**`, `**Hands over:**`) of each skill a view names, the dispatch of `ArchHook.java`, the tree on disk); `Diagrams.java check` compares them byte for byte. Edit `view.json` and run `Diagrams.java render`, never the rendered file. Adding a skill, agent or class — or rewording a step heading or a line of its field block — needs `render` in the same PR. Design: `.claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md`, `.claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md`, `.claude/decisions/0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md`; the contract: `.claude/skills/nerviz-diagrams/references/step-contract.md`.

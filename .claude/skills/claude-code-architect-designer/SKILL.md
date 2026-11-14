@@ -126,6 +126,14 @@ below eliminates candidate forms, and an unanswered axis leaves the decision gue
 | 19 | Guarantee beneath — which settings hook or `permissions` rule already decides what the piece shows or holds | Form 9 only on top of one; none → Form 7 or 8 first, or the mod only observes |
 | 20 | State — what the piece keeps, and for how long: nothing, the session (`$.state`), or across sessions (`$.store`, shared by every session on the machine) | Which mods API the mod calls; `$.store` is not atomic — one key per item |
 
+**Prior art, before the first question.** Grep the scenario's key terms — the mechanism,
+the piece, the symptom — in `.claude/decisions/[0-9]*.md` and `.claude/lessons-learned/*.md`,
+and read only the hits: a record's `State` and rejected options, a lesson's findings and
+`Next`. A record that already rejected the mechanism being proposed is a constraint on
+the interview, not a fresh question — re-opening it needs a fact the record did not have.
+Every hit used goes into the Phase 3 references table. The injected inventory gives titles
+only, and a title does not say what was rejected (`@.claude/decisions/0189-architect-designer-reads-prior-decisions-and-lessons.md`).
+
 Axis 9 is checked against the inventory injected at the top, not from memory. Two pieces
 writing to the same paths is an ownership bug, not a style decision.
 
@@ -208,6 +216,8 @@ a skill and not an agent, and the twenty-axis interview starts over from scratch
 - Two or more options scored ≥ 5 — there was a real choice.
 - The top-scoring option strains an invariant of `@CLAUDE.md`.
 - Axis 8 answered "both" — the piece also goes to the generated project.
+- Phase 4 will be delegated (step 8) — **always**: the subagent works from the record. A
+  small Phase 4 written inline needs none, unless another bullet applies.
 - Axis 13 answered "both" — the MCP server is declared in `.mcp.json` and in
   `project-bootstrap`'s template. The duplication is deliberate (invariant 9), and
   without a record nobody six months from now can tell it apart from drift.
@@ -363,22 +373,36 @@ the same interview again.
    A creation skill (only useful before the project exists) goes in `export.skills.exclude`,
    like `project-bootstrap` and `init-project`. State this explicitly in the report.
 
-   **Delegation, and only in this case.** If axis 8 or axis 13 answered "both,"
-   propagation grows — the `export` block plus `project-bootstrap`'s `templates/`.
-   There, delegate **this step 8 and no other** to the generic agent with `model:
-   sonnet`, passing the path of the Phase 3.5 record and the exact list of files to
-   touch. These are mechanical table edits with a destination fixed in writing. Without a
-   saved record, don't delegate: the subagent doesn't see the conversation, and the
-   interview is what justifies each line. **Never delegate a Form 7 or Form 8
-   propagation** even when axis 8 is "both": the second file is a hook registration that
-   executes, and a wrong `if` or `matcher` copied into the generated project's template
-   ships to every project made afterwards.
+   **Delegation, by default.** Once the decision record has State approved, Phase 4
+   (steps 1 through 10) is delegated to **one** `general-purpose` agent with `model:
+   sonnet` (`@.claude/decisions/0191-architect-designer-delegates-phase-4-to-sonnet.md`).
+   Never `haiku`: Phase 4 writes Java, loops on `schema` until green and runs a test that
+   must fail for the right reason.
 
-   Steps 1 through 7, and step 9, **never** get delegated. Writing the `description` decides whether
-   the skill fires, and the `## Contract` decides ownership — that's design, not
-   transcription. For MCP the same split holds: which server to add, its credential
-   shape, and its destination are design; copying an already-approved `.mcp.json` entry
-   into a second file is the only mechanical part.
+   - **Precondition: the record carries the design, verbatim.** Each new file's
+     `description` and `## Contract`, the `## Why this is <form>` sentences, the test cases
+     of step 9 with the defect that makes each one fail, the exact JSON of any hook entry or
+     `permissions` line, the Propagation table (the files to touch), and the verification
+     commands. The subagent does not see the conversation; text not in the record does not
+     exist for it. If the record cannot carry it, the piece is not ready: finish the
+     record, do not delegate half.
+   - **The handoff prompt is self-contained:** the record path, the verbatim texts, the
+     files to touch, the verification commands, and "no commit".
+   - **Skip the delegation and write inline** when Phase 4 is small: one file of a few
+     lines and no test (a rule line, a routing row, a `CLAUDE.md` section). The handoff
+     would cost more than the work.
+   - **Forms 7 and 8 (and 7c):** delegation is allowed only when the record holds the exact
+     JSON or Java text **and** the main thread reviews the full diff of the hook
+     registration, permission line or mode before reporting. A wrong `if` or `matcher`
+     copied unreviewed into `project-bootstrap/templates/settings.json.example` ships to
+     every project made afterwards.
+   - **Never delegated, always in the main thread:** the interview, the classification, the
+     proposal, the record itself, the review of the subagent's diff, and step 11 — the main
+     thread runs `claude plugin validate`, `schema`, `doctor`, `build` and the tests itself
+     and does not trust the subagent's report. It relays that report only after reading
+     the diff.
+   - For MCP, which server to add, its credential shape and its destination are design:
+     they live in the record before the handoff.
 
 9. **CI coverage — write the check the approved option's CI item named.** The map of
    what already covers each form, and where a new check goes, is
@@ -413,16 +437,18 @@ the same interview again.
 
    Prove the check before reporting it: run it green, then once with the defect it guards
    against injected, and see it fail by name (`0099` § Verified before committing). A test
-   that never failed proves nothing. **Never delegated**, not even with axis 8 = "both":
-   which cases the test holds is design, the same as the piece's `description`.
+   that never failed proves nothing. The cases the test holds, and the defect that makes
+   each one fail, are design: written in the record before the handoff. The subagent only
+   transcribes and runs them.
 
-10. If you saved a draft in Phase 3.5, promote it: fill in `Decision`, `State` (approved
+10. If you saved a draft in Phase 3.5, promote it (the subagent fills it from the record;
+    the main thread verifies it): fill in `Decision`, `State` (approved
     by whom, on what date), the `Propagation` table with the files steps 8 and 9 touched,
     and `## CI coverage` with step 9's outcome — the job and step that run it, and the
     green and red runs.
 
-11. Run `claude plugin validate .claude/skills` and report the output without rewriting
-    it. **It does not look at `.mcp.json`, `.claude/settings.json`, or
+11. In the main thread, never the subagent, run `claude plugin validate .claude/skills`
+    and report the output without rewriting it. **It does not look at `.mcp.json`, `.claude/settings.json`, or
     `.claude/agents/`** — run `java .claude/hooks/ArchHook.java schema` too, always when
     step 1 touched a `.mcp.json` or any `settings.json`. For Form 7, add
     `java .claude/hooks/ArchHook.java doctor` and read its `Hooks` line: it is the only
@@ -516,7 +542,8 @@ registered in this meta-repository at all. A new skill is **incomplete** until a
 
 **Reads** `@claude-help.md`, `@CLAUDE.md` (the eleven invariants),
 `@docs/pt-br/11-pitfalls.md` (every silent trap, runtime and repository), `@.claude/rules/00-index.md`, `@.claude/blueprints/_schema.md` when the decision touches
-blueprints, and the inventory injected at the top. Reads this skill's `references/`
+blueprints, the inventory injected at the top, and the hits of the Phase 1 prior-art grep
+in `.claude/decisions/` and `.claude/lessons-learned/`. Reads this skill's `references/`
 before classifying — the matrix is deliberately not in the body — and
 `.github/workflows/*.yml` for axis 17, since `references/ci-coverage.md` quotes them and they
 win where the two disagree.
@@ -547,11 +574,12 @@ prose inside a `SKILL.md`. Nor does it hardcode a list into `ArchHook.java`: eve
 path, and pattern a Form 7c mode reads lives in `.claude/schemas/extensions.json`,
 invariant 10.
 
-**Delegates** at most step 8 of Phase 4 (propagation), and only when axis 8 or axis 13 is
-"both", a decision record has been saved, and the approved form is **not** 7 or 8.
-Classifying, proposing, writing the body, and writing the CI check (step 9) always stay in
-this thread — the subagent doesn't receive the conversation, and the interview is the
-heart of the task.
+**Delegates** Phase 4 steps 1 through 10 to a `general-purpose` agent on `sonnet` once the
+record is approved and complete, per Phase 4 step 8
+(`@.claude/decisions/0191-architect-designer-delegates-phase-4-to-sonnet.md`). Never
+delegates the interview, the classification, the proposal, the record, the review of the
+subagent's diff or step 11 — the subagent doesn't receive the conversation, and the
+interview is the heart of the task.
 
 **Stays out of the generated project.** It's a creation skill, like `project-bootstrap`
 and `init-project`: whoever clones an already-generated project has no extensions to

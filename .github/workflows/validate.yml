@@ -81,6 +81,12 @@ jobs:
       - name: hook blocks forbidden import, from the payload and from argv
         run: java .claude/.ci/BoundaryTest.java
 
+      # Issue #167: `check` and `doctor` resolved `mvnw` only, so a Gradle project — a supported
+      # `build.tool` — got no incremental compile and a red `Maven wrapper` forever (0180). The
+      # tools are `build_tools` data now; a fake wrapper records what each one is handed.
+      - name: check compiles with the project's Maven or Gradle wrapper
+        run: java .claude/.ci/BuildToolTest.java
+
       # Issue #60: `moduleOf` never looked at the root POM, so `format`, `check` and `tests`
       # returned before calling Maven in every single-module project, silently (0107).
       - name: format, check and tests hand Maven the module the edited file belongs to
@@ -98,11 +104,39 @@ jobs:
       - name: hook blocks a cwd-relative frontmatter injection
         run: java .claude/.ci/InjectionPathTest.java
 
+      # Decision 0174: Claude Code's frontmatter parser forgives an unquoted `: `, GitHub
+      # Copilot's refuses it and drops the file. `schema` scans by hand, with no YAML library,
+      # so each shape it refuses or reads is a case (lessons-learned-022 § 9).
+      - name: schema refuses frontmatter a strict YAML parser refuses
+        run: java .claude/.ci/FrontmatterYamlTest.java
+
       # Decision 0104: `arch-adopt` reads the `migrations` block with the model, so a
       # misspelled blueprint id or a reused id means a project is never told its code
       # predates a convention change — with no error anywhere.
       - name: schema blocks a migrations entry no project would see
         run: java .claude/.ci/MigrationsSchemaTest.java
+
+      # Decision 0196: the Bash tool runs the user's shell. zsh aborts `--include=*.java` with
+      # "no matches found" before the command runs; bash, which CI uses, passes it through, so
+      # only this check keeps a prose fix (0037) from coming back.
+      - name: schema blocks a shell glob zsh aborts on
+        run: java .claude/.ci/ShellGlobSchemaTest.java
+
+      # Decision 0204 (issue #194): an exported file citing a path inside a skill that
+      # `export.skills.exclude` keeps out is a dead citation in every generated project.
+      - name: schema blocks an exported file citing a skill that never travels
+        run: java .claude/.ci/ExportCitationSchemaTest.java
+
+      # Decision 0197 (issue #191): the checklist of a spec is the core plus the lines of the
+      # blocks the spec carries. `spec check` and the `guard write` rule on `status: approved`
+      # share one function; this step drives both, and `schema` against the template.
+      - name: spec check and the approval guard
+        run: java .claude/.ci/SpecChecklistTest.java
+
+      # Decision 0199: the executor reads one file per block; the files, the ids of
+      # `spec_checklist` and the agent's § Blocks table must agree.
+      - name: Executor block files
+        run: java .claude/.ci/ExecutorBlocksTest.java
 
       # Question 3 of the `compose` mode reads two files and needs no Docker, so it runs
       # on all three OSes — including the two runners with no daemon. The test also proves
@@ -171,6 +205,12 @@ jobs:
       - name: guard status prints the open phase the cockpit draws
         run: java .claude/.ci/GuardStatusTest.java
 
+      # harness-lessons judges the harness from these numbers and never recomputes them: a
+      # manual skill counted in the listing, or a backticked path counted as an import, would
+      # file a saving that does not exist (0188).
+      - name: footprint counts what loads every session the way the runtime loads it
+        run: java .claude/.ci/FootprintTest.java
+
       # A mod that hooks an unknown event, gates without `.catch`, calls the network or the
       # model, or that the marketplace or settings forgot, loads half-way in silence. The
       # `mods` workflow runs the TypeScript; this is the half that runs on every OS (0131).
@@ -189,6 +229,20 @@ jobs:
       # not; a renamed label drops out of the gate in silence, so the test fails on that too.
       - name: doctor gate fails on every gated line and only on those
         run: java .claude/.ci/DoctorGateTest.java
+
+      # `config` is the only writer of the files a generated project owns in its `.claude/`
+      # (`project_config`, 0187): a value its validator lets through is the silent
+      # switch-nothing file 0111 and 0186 made doctor fail on, and a guard that let a tool write
+      # the JSON would bring back two owners of each file's shape.
+      - name: config writes only valid project settings, and guard leaves it the only writer
+        run: java .claude/.ci/ProjectConfigTest.java
+
+      # A spike keeps its audit trail and loses every other check (0198). A filter that keeps
+      # every entry, a write under the wrong root, a missing skip-worktree, a missing
+      # linked-worktree check or a hardcoded mode each leave a spike that enforces too much, or
+      # a main checkout that does not.
+      - name: spike keeps only the hooks keep_modes lists, in a linked worktree, uncommittable
+        run: java .claude/.ci/SpikeTest.java
 
       # A plugin enabled at user level loads again, in silence, the moment its project-level
       # `false` is gone; the list sits in two settings files and drifts on the first edit to
@@ -220,6 +274,26 @@ jobs:
       # before writing a byte, and doctor reports the same line, never gated (0161).
       - name: export refuses a Spring Boot line below the floor, and doctor reports it
         run: java .claude/.ci/PlatformLineTest.java
+
+      # Below the floor `export` refuses, and `/platform-upgrade` is the way up. Its recipe is a
+      # Form 7c mode that reads `doctor.platform.upgrade` and the jars' own metadata; a mode that
+      # throws exits 0 through `main`'s catch. The engine that reads the recipe is proven apart, in
+      # `templates.yml` (0175). The bump also adds the starter a used type needs, strips the pin a
+      # renamed coordinate carried, and moves the BOMs the Initializr lists — with the text edits
+      # last, or a build file stops being a model to the steps after them (0176).
+      - name: upgrade-recipe writes the bump and the property renames, and refuses what it cannot spell
+        run: java .claude/.ci/UpgradeRecipeTest.java
+
+      # `platform-upgrade` compares the tests before and after the bump. A comparison that exits 0
+      # on a test that vanished, or on a build that ran none, reads as "nothing worse" (0176).
+      - name: test-diff separates what the upgrade broke from what was already broken
+        run: java .claude/.ci/TestDiffTest.java
+
+      # The executor reads every test run through `build-report`, over Maven's and Gradle's report
+      # layouts. A JaCoCo DOCTYPE the parser refuses, a nested counter summed in, a stale report
+      # read as this run's, or a throw that exits 0 would each read as a result that is not (0203).
+      - name: build-report reads both build tools' reports
+        run: java .claude/.ci/BuildReportTest.java
 
       # The generated project's `boundaries` job is `doctor gate`, and `Boundary violations` is
       # the one gated line that reads code: it sweeps every source file with check's own match.
@@ -295,6 +369,18 @@ jobs:
       # A skill folder named after a native slash command used to be a step here, over a
       # list that lived only in this YAML and that a generated project never ran. The list
       # is `types.skill.native_commands` now, and `schema` above fails on it (0084).
+
+      # The diagrams under docs/diagrams/ are renders of view.json and of the data it cites.
+      # `Diagrams.java check` is Java only; the test proves each way a committed one drifts —
+      # a renamed cited skill, a skill added to a class, a hand-edited byte, a node with no
+      # evidence, a step that breaks the step contract (0192, 0193: a branch gate word with no
+      # Stops when line, a condition past its limit, Reads or To naming a wrong step, a field line
+      # outside its block, a note on a one-phase step, emphasis/steps/kind pipeline in an orchestrator
+      # view), a dist/ hash — goes red by name (0190).
+      - name: committed diagrams match the data they cite
+        run: |
+          java .claude/skills/nerviz-diagrams/scripts/Diagrams.java check
+          java .claude/.ci/DiagramsTest.java
 
       - name: decisions/ doesn't grow paths or enter 00-index.md
         run: |
@@ -396,6 +482,12 @@ jobs:
       # out the @FieldDefaults the same norm required. The executor copies the shape it sees (0158).
       - name: exemplars let Lombok write the logger, the plain constructor and the field modifiers
         run: java .claude/.ci/TemplateLombokTest.java
+
+      # The Gradle exemplar included only `*Test`, so `ModularityTests` and the Initializr's
+      # `*ApplicationTests` never ran under Gradle with the build green. No job built the templates'
+      # own build files (`BlueprintSkeletonTest` writes its own), so this one reads them (0179).
+      - name: Gradle and Maven run the same test classes, and every test exemplar is named for both
+        run: java .claude/.ci/TestNameFilterTest.java
 
       # `hexagonal-single-module` lists its ten adapter packages against each other by hand (a package
       # has no `adapters/*` wildcard), and the `check` hook of a generated project refuses an import the
@@ -593,7 +685,8 @@ jobs:
           # transport-security.md, the placeholder rule to secrets.md, which four norms used to
           # restate (0122).
           for term in "Constructor injection" "Zero framework" "RuntimeException" \
-                      "forward-headers-strategy" "reload-on-update" "A placeholder for a secret has no default"; do
+                      "forward-headers-strategy" "reload-on-update" "A placeholder for a secret has no default" \
+                      "A value with no source is not a fact"; do
             HITS=$(grep -rl "$term" .claude/rules/ || true)
             N=$(echo "$HITS" | grep -c . || true)
             if [ "$N" -gt 1 ]; then

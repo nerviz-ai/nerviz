@@ -6,7 +6,7 @@
 //
 // Why this test exists: until `agent_classes`, each agent file documented a prose
 // `**Writes:**` / `**Does not write:**` contract — archunit-installer promising not to touch
-// docker-compose.yml, commons-logging-installer promising to stay inside its own package —
+// docker-compose.yml, commons-logging-installer promising to stay inside its own package (a build file only, since 0200) —
 // and the guard granted all four an unconditional bypass. Nothing enforced any of it. The
 // promises are data now, and "deny by default" is exactly the kind of claim that rots
 // silently: it holds until one `write_allow` entry is widened by accident.
@@ -42,6 +42,19 @@ public class AgentTerritoryTest {
         failures += write(hook, session, "archunit-installer", "app/pom.xml",
                 0, "…and a module POM");
 
+        // Gradle builds (decision 0204): the installer wires ArchUnit and the gate there too.
+        failures += write(hook, session, "archunit-installer", "build.gradle",
+                0, "archunit-installer edits the root build.gradle");
+
+        failures += write(hook, session, "archunit-installer", "app/build.gradle",
+                0, "…and a module build.gradle");
+
+        failures += write(hook, session, "archunit-installer", "build.gradle.kts",
+                0, "…and a Kotlin DSL build");
+
+        failures += write(hook, session, "archunit-installer", "settings.gradle",
+                2, "archunit-installer is still refused settings.gradle");
+
         // The prose promise this class turns into enforcement.
         failures += write(hook, session, "archunit-installer", "docker-compose.yml",
                 2, "archunit-installer is refused docker-compose.yml");
@@ -51,30 +64,20 @@ public class AgentTerritoryTest {
                 2, "archunit-installer is refused main source");
 
         // ── installer · commons-logging-installer ────────────────────────────
+        // The logging classes come from the published library (decision 0200): the installer
+        // edits build files and nothing under src/.
         failures += write(hook, session, "commons-logging-installer",
                 "src/main/java/com/acme/commons/logging/LogExecution.java",
-                0, "commons-logging-installer writes its own package");
+                2, "commons-logging-installer is refused a logging class under src/main");
 
-        // modular-monolith names the same package `shared.logging` — the glob matches the leaf
-        // segment on purpose, since no blueprint guarantees either name.
-        failures += write(hook, session, "commons-logging-installer",
-                "shared/src/main/java/com/acme/shared/logging/LogMask.java",
-                0, "the leaf-segment glob covers the modular-monolith package");
+        failures += write(hook, session, "commons-logging-installer", "build.gradle",
+                0, "commons-logging-installer edits the root Gradle build");
 
-        failures += write(hook, session, "commons-logging-installer",
-                "src/main/resources/META-INF/spring/"
-                        + "org.springframework.boot.autoconfigure.AutoConfiguration.imports",
-                0, "commons-logging-installer writes the imports file");
+        failures += write(hook, session, "commons-logging-installer", "commons/build.gradle.kts",
+                0, "…and a module's Kotlin Gradle build");
 
-        // The installer ships the unit tests of what it installs (decision 0098): its test
-        // territory is the mirror of its main one — the `logging` package, nothing else.
-        failures += write(hook, session, "commons-logging-installer",
-                "src/test/java/com/acme/commons/logging/aspect/LogExecutionAspectTest.java",
-                0, "commons-logging-installer writes the tests of its own package");
-
-        failures += write(hook, session, "commons-logging-installer",
-                "src/test/java/com/acme/order/OrderTest.java",
-                2, "commons-logging-installer is refused src/test outside its package");
+        failures += write(hook, session, "commons-logging-installer", "commons/pom.xml",
+                0, "…and a module POM");
 
         // ── installer · mapstruct-installer ──────────────────────────────────
         // Converts every manual mapper, its callers and their tests (decision 0160): both source
@@ -128,7 +131,17 @@ public class AgentTerritoryTest {
                 "docs/use-cases/UC-001-register-customer/UC-001-spec.md",
                 0, "the executor reaches the spec line it closes");
 
-        failures += write(hook, session, "java-spring-boot-developer", "docker-compose.yml",
+// Decision 0205: the build file is pom.xml or build.gradle(.kts); no other Gradle file.
+failures += write(hook, session, "java-spring-boot-developer", "build.gradle",
+        0, "G1 the executor edits build.gradle");
+failures += write(hook, session, "java-spring-boot-developer", "build.gradle.kts",
+        0, "G2 the executor edits build.gradle.kts");
+failures += write(hook, session, "java-spring-boot-developer", "app/build.gradle.kts",
+        0, "G3 the executor edits a module's build.gradle.kts");
+failures += write(hook, session, "java-spring-boot-developer", "settings.gradle",
+        2, "G4 the executor is refused settings.gradle");
+
+failures += write(hook, session, "java-spring-boot-developer", "docker-compose.yml",
                 2, "the executor is refused docker-compose.yml");
 
         // ── driver ───────────────────────────────────────────────────────────

@@ -18,11 +18,11 @@ existe dentro de um projeto já gerado** por `/init-project`: lê `pom.xml`,
 
 | Fluxo | Comando | Termina com |
 |---|---|---|
-| 1 · Criar a spec | `/new-feature <descrição>` (ou `UC-NNN-slug` de um draft para retomar) | a spec aprovada e commitada pelo `git-publish`, e os dois comandos a digitar em seguida: `/clear` · `/new-feature-implement UC-NNN-slug` |
-| 2 · Implementar a spec | `/new-feature-implement UC-NNN-slug` sobre uma spec `approved`, depois do `/clear` | o pre-flight, depois o `java-spring-boot-developer` em três grupos encadeados — `domain` (blocos 1–2) → `adapters` (H, 3, S, M, J) → `tests` (bloco 4) —, `status: implemented` e o commit da feature |
+| 1 · Criar a spec | `/new-feature <descrição>` (ou `UC-NNN-slug` de um draft para retomar) | a spec aprovada, e os comandos a digitar em seguida: `/clear` · `/git-publish …` (os paths da spec aprovada) · `/new-feature-implement UC-NNN-slug` |
+| 2 · Implementar a spec | `/new-feature-implement UC-NNN-slug` sobre uma spec `approved`, depois do `/clear` | o pre-flight, depois o `java-spring-boot-developer` em três grupos encadeados — `domain` (blocos 1–2) → `adapters` (H, 3, S, M, J) → `tests` (bloco 4) —, `status: implemented` e os comandos a digitar em seguida: `/clear` · `/git-publish …` (o commit da feature) · `/new-feature <próxima>` |
 
 O design deixa a thread principal com 250–370k tokens de contexto; implementar em cima dele
-pagaria isso a cada hand-back e no `git-publish`. Cada grupo do executor recomeça da spec e do
+pagaria isso a cada hand-back — e num `git-publish` encadeado, por isso nenhum dos fluxos o encadeia: cada um imprime a linha `/git-publish` para digitar depois do `/clear`. Cada grupo do executor recomeça da spec e do
 disco em vez de carregar os blocos anteriores
 (`.claude/decisions/0130-executor-split-by-block-group-implement-in-clean-session.md`).
 Desde a decisão 0135, o fluxo de implementação é uma skill própria, a `new-feature-implement`:
@@ -40,8 +40,9 @@ bloqueia com `exit 2`, `permissions.ask` pergunta, ou a consolidação para:
   própria *chamada* a uma skill de classe `build` — `docker-architect` incluída — enquanto
   o run está aberto. Serviço de compose que falta é **registrado** na parcial, com o
   comando que o cria.
-- **Git só via `git-publish`**, atrás das duas confirmações — em todo fim de fluxo,
-  inclusive o sem executor. `git push` é sempre `ask`.
+- **Git só via `git-publish`**, atrás das duas confirmações — digitado por você, a partir da
+  linha que o relatório final de cada fluxo imprime depois do `/clear`; nenhum dos fluxos o
+  invoca (`.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`). `git push` é sempre `ask`.
 - **Spec aprovado é imutável.** Um caso posterior registra a mudança necessária na
   própria seção `## Impact on approved use cases`, e uma linha no `CHANGELOG.md` da pasta
   de cada caso alterado. O `guard` congela os arquivos — e libera exatamente esse
@@ -95,6 +96,8 @@ quase-acerto responder com o slug real em vez de "não encontrado".
 Os dois fluxos abaixo são duas execuções, com `/clear` entre elas.
 
 ### Fluxo 1 — criar a spec: `/new-feature <descrição>`
+
+![/new-feature, passo a passo](../diagrams/new-feature/new-feature.animated.svg)
 
 ```mermaid
 sequenceDiagram
@@ -157,12 +160,14 @@ sequenceDiagram
     alt manter draft
         NF-->>U: comando para retomar, sem git
     else aprovar (status: approved)
-        NF->>GIT: só os docs do spec aprovado — dois portões
-        NF-->>U: relatório final + /clear, depois /new-feature-implement UC-NNN-slug
+        NF-->>U: relatório final + /clear, /git-publish (paths do spec), /new-feature-implement UC-NNN-slug
+        U->>GIT: digitado depois do /clear — só os docs do spec aprovado, dois portões
     end
 ```
 
 ### Fluxo 2 — implementar a spec: `/new-feature-implement UC-NNN-slug` sobre uma spec aprovada
+
+![/new-feature-implement, passo a passo](../diagrams/new-feature-implement/new-feature-implement.animated.svg)
 
 ```mermaid
 sequenceDiagram
@@ -191,8 +196,8 @@ sequenceDiagram
         CMP->>DKR: Skill, admitida porque quem chama é um agent com classe
         CMP-->>NFI: uma linha por serviço — added, already present ou failed
     end
-    NFI->>GIT: feat(UC-NNN-slug) — dois portões
-    NFI-->>U: relatório final + recomenda /clear
+    NFI-->>U: relatório final + /clear, /git-publish feat(UC-NNN-slug)
+    U->>GIT: digitado depois do /clear — dois portões
 ```
 
 ## Peças e o que cada uma escreve
@@ -215,7 +220,7 @@ sequenceDiagram
 | — | `new-feature` (consolidação) | todas acima | `UC-NNN-spec.md` |
 | 6 | `java-spring-boot-developer` (agent) | spec `approved` | código e migrations em `src/**` |
 | 7 | `compose-service-installer` (agent) | código `implemented` e uma linha `materialize` no `## Infrastructure` | o bloco do serviço no `docker-compose.yml`, escrito pelo `docker-architect` |
-| — | `git-publish` | fim do fluxo | commit + push, atrás de dois portões |
+| — | `git-publish` | digitado depois do `/clear` do fluxo | commit + push, atrás de dois portões |
 
 **Diagramas no spec.** `00-use-case.md` traz dois. Um `sequenceDiagram` em `## Flow` mostra
 quem chama quem no caminho que dá certo, com uma mensagem por passo da lista numerada. Um
@@ -245,10 +250,10 @@ Quando `persistence-architect` ou `messaging-architect` detecta que o serviço d
 adiciona, e registra a resposta (`materialize`, `external` ou `pending`) no `## Compose services`
 da parcial. A consolidação copia essas linhas para o `## Infrastructure` da spec; a ausência
 interrompe a consolidação. O `/new-feature-implement` então dispara o `compose-service-installer`
-para cada linha `materialize`, depois que o grupo `tests` termina verde e antes do `git-publish`.
+para cada linha `materialize`, depois que o grupo `tests` termina verde e antes do relatório final.
 O agent roda o `docker-architect` via `Skill` — o guard admite porque a chamada de um agent com
 classe é ignorada, enquanto a chamada da própria thread do implement continua recusada — e o
-`git-publish` commita a mudança do compose junto com o código. O relatório final lista cada linha
+o `/git-publish` que você digita commita a mudança do compose junto com o código. O relatório final lista cada linha
 do `## Infrastructure` com o que o run fez com ela
 (`.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
 
@@ -271,7 +276,7 @@ dois gaps que só importam quando o primeiro `.java` vai ser escrito em `src/`:
 | Gap | Como detecta | Instala via |
 |---|---|---|
 | ArchUnit ausente | `grep -rl "ArchRule\|ArchTest" src/test/` vazio | `Skill(test-architect)` sem argumento — modo setup, que delega a `archunit-installer` (ArchUnit + portão JaCoCo) |
-| Classes de logging/máscara ausentes | pasta `commons` inexistente ou só com `package-info.java` | `Agent(commons-logging-installer)` — treze exemplares de `new-feature-implement/templates/commons/` traduzidos para o package real, mais `AutoConfiguration.imports` e as dependências AOP |
+| Classes de logging/máscara ausentes | nenhum arquivo de build declara `spring-log-utils` e nenhum `LogMask.java` está sob `src/` | `Agent(commons-logging-installer)` — adiciona a dependência `dev.nerviz:spring-log-utils`, na versão que `commons_logging` de `extensions.json` fixa e com suas exclusões, ao build do módulo `commons` (o build raiz num projeto de módulo único) |
 
 Cada gap encontrado vira um `AskUserQuestion` (**Install now** / **Skip for this run**);
 nenhum gap, nenhuma pergunta. Os dois podem disparar no mesmo turno — e não podiam antes:

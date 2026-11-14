@@ -298,7 +298,7 @@ suffix. Non-blocking adds one topic per retry delay, declared and provisioned li
 
 ```bash
 # No Kafka type outside the messaging adapter. Zero lines is the expected result.
-grep -rn "org.apache.kafka\|org.springframework.kafka" --include=*.java . | grep -v "/messaging/"
+grep -rn "org.apache.kafka\|org.springframework.kafka" --include='*.java' . | grep -v "/messaging/"
 
 # Producer idempotence and acks are set explicitly, not left to the client default.
 grep -rn "enable.idempotence\|acks" src/main/resources/
@@ -309,18 +309,18 @@ grep -rn "value-serializer\|value-deserializer" src/main/resources/ | grep -v "S
 
 # Form B only: the relay never reaches the persistence adapter's entity or repository.
 # Zero lines is the expected result.
-grep -rn "import .*persistence.*\(Entity\|Repository\)" --include=*.java . | grep -i "outbox\|relay"
+grep -rn "import .*persistence.*\(Entity\|Repository\)" --include='*.java' . | grep -i "outbox\|relay"
 
 # AsyncAPI annotations stay in the messaging adapter, and not on the relay's broker sender.
 # Zero lines is the expected result for both.
-grep -rln "io.github.springwolf" --include=*.java src/main | grep -v "/messaging/"
-grep -rln "AsyncPublisher\|AsyncListener" --include=*.java src/main | grep -i "OutboxEventSender"
+grep -rln "io.github.springwolf" --include='*.java' src/main | grep -v "/messaging/"
+grep -rln "AsyncPublisher\|AsyncListener" --include='*.java' src/main | grep -i "OutboxEventSender"
 
 # Springwolf's listener scanner and UI publishing are off, written explicitly (two lines expected).
 grep -rn "kafka-listener:\|publishing:" -A1 src/main/resources/ | grep "enabled"
 
 # No Jackson 2 databind or core import in application code. Zero lines is the expected result.
-grep -rnE "com\.fasterxml\.jackson\.(databind|core)" --include=*.java src/
+grep -rnE "com\.fasterxml\.jackson\.(databind|core)" --include='*.java' src/
 
 # The snapshot exists outside the test classpath (a missing file prints nothing and fails here).
 test -f src/test/asyncapi/asyncapi.snapshot.json && echo ok

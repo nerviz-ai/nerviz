@@ -80,8 +80,8 @@ When a caller already passed an answer in its one-line context, don't ask it aga
 
 ### 3 · Write the build configuration
 
-Resolve the scanner version on the repository itself — never from memory, same rule
-`project-bootstrap/references/build-maven.md` § 4.6 applies to every plugin:
+Resolve the scanner version on the repository itself — never from memory, the same rule every
+plugin version follows:
 
 ```bash
 # maven

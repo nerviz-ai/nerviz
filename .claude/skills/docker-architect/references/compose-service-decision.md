@@ -25,7 +25,7 @@ verifies it before it writes anything.
 |---|---|---|---|
 | `exists` | The compose file already declares the service | Nobody | — |
 | `external` | The service runs outside this compose file: a shared environment, another project's stack, a managed instance | Nobody. The partial's configuration block uses this address as the host default of the address property, in place of the compose port | `host:port` |
-| `materialize` | The user asked for it to be added to the compose file | `compose-service-installer`, during `/new-feature-implement`, after the tests group ends green and before `git-publish` | — |
+| `materialize` | The user asked for it to be added to the compose file | `compose-service-installer`, during `/new-feature-implement`, after the tests group ends green and before the final report | — |
 | `pending` | The user will add it by hand, or the project has no `docker-compose.yml` | The user, from a prompt of its own | The reason and the `/docker-architect docs/use-cases/UC-NNN-<slug>/` command |
 
 ## The question

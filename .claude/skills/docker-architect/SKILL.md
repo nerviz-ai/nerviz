@@ -55,8 +55,7 @@ Two paths, both real: `/docker-architect` by hand — when the user wants a serv
 checked, and that is how a pending service recorded by a use case spec gets materialized; and
 chained by `project-bootstrap` itself, right after it writes the base pair in its own
 step 4.10, once per blueprint feature that's already active and needs a container
-(`persistence-jpa` → Postgres, `observability` → the OTLP collector) — see
-`project-bootstrap/SKILL.md` step 4.10. A third path: chained by `sonarqube-setup` for a
+(`persistence-jpa` → Postgres, `observability` → the OTLP collector). A third path: chained by `sonarqube-setup` for a
 local `sonarqube` service when the project has no server of its own; a fourth, by
 `transport-security-setup` for the local `edge` of topology A or the `Dockerfile` port of
 topology B. A fifth, by `compose-service-installer` inside `/new-feature-implement`, with the
@@ -380,7 +379,7 @@ vendor on its own — but it is a starting point, not the end of the road: step 
 so the gap gets named out loud instead of waiting for someone to notice that "the traces
 work" and "I can see the traces" are different sentences.
 
-Other engines and brokers (Oracle, RabbitMQ, SQS via LocalStack) follow the same shape as
+Other engines and brokers (Oracle, RabbitMQ) follow the same shape as
 the templates above: image, fixed dev port, named volume for data, healthcheck,
 environment for user/password/database (or broker-equivalent). Write the block by hand
 from that shape; don't wait for a template to exist before extending a project that needs

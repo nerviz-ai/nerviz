@@ -69,6 +69,10 @@ What the block's vocabulary means:
   model is unknown. It is the first thing to read before comparing two runs of the same
   pipeline: the trail counts tokens only, and a token weighs more on a larger model — on
   the bill and on the plan — so the same token count is not the same spend.
+- **Effort** — the effort the run's turns were made at, or a comma-separated list when a
+  subagent ran at another one: compare two runs of a piece only at the same effort. Read from
+  the transcript, where the runtime writes it (observed, not documented); `—` means the run
+  was recorded before the column existed or the transcript carried none.
 - **root · nested · preloaded** — the piece opened its own run; it was chained
   inside another run; or it was loaded through an agent's `skills:` frontmatter (no
   tokens of its own — they are its agent's).
@@ -87,6 +91,9 @@ What the block's vocabulary means:
   `budget` or `time` says which limit binds. Max 5x and 20x are multiples of Pro on 5 hours,
   the only multiplier Anthropic publishes; Max weekly has no column. A root row counts the
   whole run, what typing that command spends; a `(chained, own)` row only that piece's share.
+- **Plan usage (measured)** — the account's 5-hour and weekly percentages before and after a
+  run, from the personal status line's snapshot; the block computed the delta and each cell's
+  reason; never recomputed.
 
 ## Procedure
 
@@ -113,13 +120,22 @@ includes time the user spent thinking. Then add what the block can't:
    repeatedly is a bad spec, not bad luck.
 4. **What to read next** — the single most relevant report, and the exact
    `/audit-usage <fragment>` that opens it.
+5. **What to cut** — only when one piece holds the largest share of own tokens, the worst
+   failure ratio, or a peak that stands out: print `/harness-lessons <piece>`, which judges that
+   piece against the harness best practices and writes the lesson. Print it, never invoke it —
+   it runs on `opus` and writes a file (`@.claude/decisions/0188-harness-lessons-and-footprint-mode.md`).
 
 If the plan windows say `not configured`, say so and point at
-`.claude/audit-usage/plan-limits.json` — `{"pro": {"five_hour_tokens": <n>, "weekly_tokens": <n>}}`,
-the billable tokens the person saw a Pro window hold (the audit's total when `/usage` reached
+`.claude/audit-usage/plan-limits.json`, set with `/project-config` or
+`java -jar .claude/hooks/ArchHook.jar config set plan-limits pro.five_hour_tokens <n>` (and
+`pro.weekly_tokens`) — never by editing the JSON, which `guard` refuses — the billable tokens the person saw a Pro window hold (the audit's total when `/usage` reached
 100%). Never suggest a budget: Anthropic publishes none, and one written from memory looks as
 authoritative as a measured one. Never convert anything to a currency either: the trail prices
 nothing, and a rate written from memory is wrong the day after it changes.
+
+If the plan usage says `not captured — no snapshot`, say so and point at
+`.claude/skills/audit-usage/templates/statusline-rate-limits.json.example` and § Plan usage of
+`docs/<lang>/08-audit-usage.md`; never write `~/.claude/settings.json`.
 
 ### 3 · Single run
 
@@ -165,9 +181,10 @@ single session a report stays stamped `⏳ in progress` until something ends the
 asking for the report is what finalizes it.
 
 `arch-adopt` is never recorded either — fixed in its own class override. Any other piece
-can be switched per project in `.claude/audit-usage/audited.json` (`{"skills": {"<name>":
-false}, "agents": {}}`), the one file of `.claude/` the project owns and `/arch-adopt` never
-overwrites; `doctor`'s `Audit overrides` line validates it.
+can be switched per project in `.claude/audit-usage/audited.json`, one of the files of
+`.claude/` the project owns and `/arch-adopt` never overwrites — through `/project-config` or
+`java -jar .claude/hooks/ArchHook.jar config set audited skills.<name> false`, the only
+writer; `doctor`'s `Audit overrides` line validates it.
 
 Runs on `sonnet` with `effort: low`: `audit summary` already did the sums, and what is
 left is ranking and rendering (`@.claude/decisions/0080-procedural-skills-on-sonnet.md`).

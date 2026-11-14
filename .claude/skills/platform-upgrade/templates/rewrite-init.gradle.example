@@ -1,0 +1,36 @@
+// Gradle init script that applies the OpenRewrite plugin to a project that does not declare it,
+// for one run of `rewriteRun`. Passed with `--init-script`; the project's own build files are
+// never edited to carry it.
+//
+// Nothing is substituted in this file. The run supplies three system properties:
+//   -Dnerviz.plugin.version=<version>   the `org.openrewrite:plugin` version the skill resolved
+//   -Dnerviz.recipe=<absolute path>     the recipe file `ArchHook.jar upgrade-recipe` wrote
+//   -Dnerviz.recipe.name=<recipe name>  `doctor.platform.upgrade.recipes.*_name` of extensions.json
+//
+// `mavenCentral()` comes first on purpose: the plugin's POM imports `rewrite-bom`, and that BOM is
+// served by Maven Central, not by the Plugin Portal. The plugin version is chosen so that BOM
+// exists there (`doctor.platform.upgrade.engine`).
+initscript {
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://plugins.gradle.org/m2") }
+    }
+    dependencies {
+        classpath("org.openrewrite:plugin:${System.getProperty('nerviz.plugin.version')}")
+    }
+}
+
+rootProject {
+    plugins.apply(org.openrewrite.gradle.RewritePlugin)
+    rewrite {
+        configFile = file(System.getProperty("nerviz.recipe"))
+        activeRecipe(System.getProperty("nerviz.recipe.name"))
+    }
+    afterEvaluate {
+        if (repositories.isEmpty()) {
+            repositories {
+                mavenCentral()
+            }
+        }
+    }
+}

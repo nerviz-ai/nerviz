@@ -29,7 +29,7 @@ trade_offs:
 
 build:
   layout: multi-module
-  tool: maven
+  tool: maven   # default — /init-project offers maven | gradle
 
 # Globs that identify the code covered by `rules/architecture-ddd.md` (DDD +
 # dependency direction). They go verbatim into the `paths` frontmatter of the file the
@@ -68,8 +68,9 @@ modules:
   # Cross-cutting infra (logging/masking annotations + AOP aspects, see rules/logging.md)
   # — not business code. A leaf, same as `domain`, but on the other side of the
   # zero-framework line: everything else depends on it, `domain` never does. Bootstrap
-  # only creates the empty package-info; the real classes are installed once, later, by
-  # the `commons-logging-installer` agent.
+  # only creates the empty package-info; the logging/masking classes come from the
+  # `dev.nerviz:spring-log-utils` library, so the `commons-logging-installer` agent puts the
+  # dependency in this module's build file.
   - id: commons
     path: commons
     depends_on: []
@@ -185,7 +186,6 @@ features:
   uuid-v7: true # persistence.md requires UUID v7 and JDK 21 only generates v4
   flyway: true
   messaging-kafka: false
-  messaging-sqs: false
   openapi: true
   testcontainers: true
   actuator: true

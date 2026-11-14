@@ -185,8 +185,10 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
       </plugin>
 
-      <!-- rules/naming.md separates `<Class>Test` (unit, surefire) from `<Class>IT`
-           (integration, failsafe). Surefire doesn't pick up the `IT` suffix, and
+      <!-- rules/testing.md § Names and shape separates `<Class>Test` (unit, surefire) from
+           `<Class>IT` (integration, failsafe). Surefire keeps its default includes
+           (`Test*`, `*Test`, `*Tests`, `*TestCase`) — the Gradle template lists the same
+           four, so both tools run the same classes. It doesn't pick up the `IT` suffix, and
            spring-boot-starter-parent manages failsafe's version but doesn't wire up any
            execution. Without this block the `*IT`s don't run anywhere — not locally,
            not in CI's `./mvnw -B clean verify`, which would go green without running them.

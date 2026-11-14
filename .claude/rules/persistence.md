@@ -384,30 +384,30 @@ recorded in an ADR.
 
 ```bash
 # No persistence type inside the domain. Zero lines is the expected result.
-grep -rnE "jakarta.persistence|org.springframework.data.mongodb|com.mongodb|org.bson" --include=*.java . | grep -v "/persistence/"
+grep -rnE "jakarta.persistence|org.springframework.data.mongodb|com.mongodb|org.bson" --include='*.java' . | grep -v "/persistence/"
 
 # ddl-auto must be validate and open-in-view must be false, in every profile.
 grep -rn "ddl-auto\|open-in-view" src/main/resources/
 
 # On Postgres, @Lob on a String field is a `text` mapping bug. Review every hit.
-grep -rn "@Lob" --include=*.java src/main/java
+grep -rn "@Lob" --include='*.java' src/main/java
 
 # Every MongoDB document names its collection, its alias and its version. Each file listed lacks one.
-grep -rL "@Document(\"" $(grep -rl "data.mongodb.core.mapping.Document" --include=*.java src/main/java)
-grep -rL "@TypeAlias\|@Version" $(grep -rl "data.mongodb.core.mapping.Document" --include=*.java src/main/java)
+grep -rL "@Document(\"" $(grep -rl "data.mongodb.core.mapping.Document" --include='*.java' src/main/java)
+grep -rL "@TypeAlias\|@Version" $(grep -rl "data.mongodb.core.mapping.Document" --include='*.java' src/main/java)
 
 # The Spring Boot 4 connection prefix. Zero lines is the expected result.
 grep -rn "spring.data.mongodb.uri" src/main/resources/
 
 # Audit types stay in the persistence adapter. Zero lines is the expected result.
-grep -rnE "org.hibernate.envers|org.springframework.data.history|org.springframework.data.annotation.(Created|LastModified)" --include=*.java src/main/java | grep -v "/persistence/"
+grep -rnE "org.hibernate.envers|org.springframework.data.history|org.springframework.data.annotation.(Created|LastModified)" --include='*.java' src/main/java | grep -v "/persistence/"
 
 # A bulk write on an audited entity leaves no history. Review every hit against the audited entities.
-grep -rn "@Modifying\|CriteriaUpdate\|CriteriaDelete" --include=*.java src/main/java
-grep -rln "@Audited" --include=*.java src/main/java
+grep -rn "@Modifying\|CriteriaUpdate\|CriteriaDelete" --include='*.java' src/main/java
+grep -rln "@Audited" --include='*.java' src/main/java
 
 # Auditing enabled on the application class breaks every slice without the store. Zero lines is the expected result.
-grep -lE "@Enable(Jpa|Mongo)Auditing" $(grep -rl "@SpringBootApplication" --include=*.java src/main/java)
+grep -lE "@Enable(Jpa|Mongo)Auditing" $(grep -rl "@SpringBootApplication" --include='*.java' src/main/java)
 
 # Assigned ids without Persistable, and @Lob on String, are also architecture-test rules.
 

@@ -19,7 +19,7 @@
 //   - no `.java.example` maps a path or a request rule naming `/api/v<N>`, nor declares a
 //     `BASE_PATH` that spells it;
 //   - every `@Get/Post/Put/Patch/DeleteMapping` of an exemplar declares a `version`;
-//   - the config exemplar adds the `/api/v{version}` prefix scoped to its own package, reads the
+//   - the config exemplar adds the `/api/v{version}` prefix scoped to the application base package, reads the
 //     version through the two-argument `usePathSegment`, requires it, detects no supported version
 //     from the mappings, sets no default, and never calls `setSunsetLink`;
 //   - no yml or properties exemplar sets `spring.mvc.apiversion.*` — a second resolver;
@@ -145,8 +145,11 @@ public class ApiVersionTemplateTest {
         String text = code(read(CONFIG));
         require(rel, text, "addPathPrefix(\"/api/v{version}\"",
                 "does not add the /api/v{version} prefix — /api/{version} is documented by springdoc as /api/1/...");
-        require(rel, text, "forBasePackageClass(",
-                "scopes the prefix by annotation alone — springdoc's own @RestController gets it and /v3/api-docs answers 404");
+        require(rel, text, "forBasePackage(APPLICATION_PACKAGE)",
+                "does not scope the prefix to the application's base package — by annotation alone springdoc's own @RestController gets it and /v3/api-docs answers 404; by this class's package, a module's controllers in another REST package get none (0180)");
+        if (text.contains("forBasePackageClass(")) {
+            fail(rel, "scopes the prefix to one class's package — a modular monolith's other modules keep unversioned paths (issue #167, 0180)");
+        }
         if (!Pattern.compile("usePathSegment\\([^;]*,").matcher(text).find()) {
             fail(rel, "reads the version from every path — the two-argument usePathSegment keeps /actuator and /v3/api-docs out");
         }

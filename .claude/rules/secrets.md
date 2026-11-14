@@ -69,7 +69,7 @@ git grep -lE "BEGIN ([A-Z]+ )?PRIVATE KEY"
 
 # No literal value next to a secret-looking key. Review every hit.
 grep -rniE "(password|secret|token|api[-_]?key|private[-_]?key)\s*[:=]\s*[^$ {][^ ]*" \
-  --include=*.yml --include=*.yaml --include=*.properties src/main/resources/
+  --include='*.yml' --include='*.yaml' --include='*.properties' src/main/resources/
 
 # No default on a secret placeholder. Review every hit.
 grep -rnE "\\$\{[A-Z_]*(PASSWORD|SECRET|TOKEN|KEY)[A-Z_]*:[^}]+\}" src/main/resources/

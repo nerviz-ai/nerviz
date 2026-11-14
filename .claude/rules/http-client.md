@@ -181,23 +181,23 @@ on the wire. Mandatory cases, each that applies to the operation:
 
 ```bash
 # No RestTemplate in new code. Zero lines is the expected result.
-grep -rn "RestTemplate" --include=*.java src/main
+grep -rn "RestTemplate" --include='*.java' src/main
 
 # No client built bare — RestClient.create()/WebClient.create() skip observations. Zero lines expected.
-grep -rnE "(RestClient|WebClient)\.create\(" --include=*.java src/main
+grep -rnE "(RestClient|WebClient)\.create\(" --include='*.java' src/main
 
 # No trust-all TLS. Zero lines is the expected result.
-grep -rnE "TrustAllStrategy|NoopHostnameVerifier|InsecureTrustManagerFactory|trustAll" --include=*.java src/main
+grep -rnE "TrustAllStrategy|NoopHostnameVerifier|InsecureTrustManagerFactory|trustAll" --include='*.java' src/main
 
 # The engine is pinned.
 grep -rn "imperative.factory\|imperative:" src/main/resources/
 
 # Every @Retryable names its predicate. Review any hit without it.
-grep -rn "@Retryable" --include=*.java src/main | grep -v "predicate"
+grep -rn "@Retryable" --include='*.java' src/main | grep -v "predicate"
 
 # No transport type leaks past the adapters. Zero lines is the expected result.
-grep -rlnE "RestClientException|ResourceAccessException|HttpStatusCodeException|FeignException|WebClientResponseException" --include=*.java src/main | grep -vE "/(http|client)/"
+grep -rlnE "RestClientException|ResourceAccessException|HttpStatusCodeException|FeignException|WebClientResponseException" --include='*.java' src/main | grep -vE "/(http|client)/"
 
 # The adapter tests open a real socket. Zero lines is the expected result.
-grep -rln "MockRestServiceServer" --include=*.java src/test
+grep -rln "MockRestServiceServer" --include='*.java' src/test
 ```

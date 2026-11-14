@@ -14,6 +14,12 @@ name: templates
 #   5. the MapStruct build fragments wire Lombok, the configuration processor and MapStruct on
 #      Maven and Gradle, every MapStruct mapper exemplar compiles under them, and an unmapped
 #      target fails the compile (decision 0160)
+#   6. `platform-upgrade` takes a project on the newest GA line below the floor to the
+#      Initializr's current one on Maven and Gradle: the recipe `upgrade-recipe` writes, run by
+#      the OpenRewrite core, then the renamed starter, types and properties, a green build
+#      (decision 0175); the context loads (cache and Flyway starters), the Spring Cloud BOM
+#      moves, a Gradle wrapper older than the plugin is fixed, and no test is worse than before
+#      the bump (decision 0176)
 # Design: .claude/decisions/0099-ci-tests-for-verbatim-templates.md
 #
 # Path-filtered on purpose: every job downloads from Maven Central, GitHub or
@@ -26,7 +32,7 @@ on:
     # Same list under both triggers — keep them identical.
     paths:
       - '.claude/skills/project-bootstrap/templates/checkstyle*.xml.example'
-      - '.claude/skills/new-feature-implement/templates/commons/**'
+      - '.claude/agents/commons-logging-installer.md'
       - '.claude/skills/persistence-architect/templates/JpaEntity.java.example'
       - '.claude/skills/persistence-architect/templates/MongoDocument.java.example'
       - '.claude/skills/persistence-architect/templates/MongoCollections.java.example'
@@ -46,14 +52,26 @@ on:
       - '.claude/skills/project-bootstrap/templates/pom.parent.xml.example'
       - '.claude/skills/project-bootstrap/templates/build.gradle.parent.example'
       - '.claude/.ci/CiItCheckTest.java'
+      - '.claude/skills/project-bootstrap/templates/Dockerfile.example'
+      - '.claude/skills/project-bootstrap/templates/Dockerfile-gradle.example'
+      - '.claude/skills/project-bootstrap/templates/pom.main-build.xml.example'
+      - '.claude/skills/project-bootstrap/templates/build.gradle.main-boot.example'
+      - '.claude/skills/project-bootstrap/references/scaffold.md'
+      - '.claude/.ci/DockerfileJarTest.java'
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/test-architect/templates/archunit-*'
+      - '.claude/agents/archunit-installer.md'
+      - '.claude/.ci/ArchUnitWiringTest.java'
+      - '.claude/skills/platform-upgrade/templates/**'
+      - '.claude/.ci/PlatformUpgradeTest.java'
+      - '.claude/schemas/extensions.json'
       - '.github/workflows/templates.yml'
   pull_request:
     paths:
       - '.claude/skills/project-bootstrap/templates/checkstyle*.xml.example'
-      - '.claude/skills/new-feature-implement/templates/commons/**'
+      - '.claude/agents/commons-logging-installer.md'
       - '.claude/skills/persistence-architect/templates/JpaEntity.java.example'
       - '.claude/skills/persistence-architect/templates/MongoDocument.java.example'
       - '.claude/skills/persistence-architect/templates/MongoCollections.java.example'
@@ -73,9 +91,21 @@ on:
       - '.claude/skills/project-bootstrap/templates/pom.parent.xml.example'
       - '.claude/skills/project-bootstrap/templates/build.gradle.parent.example'
       - '.claude/.ci/CiItCheckTest.java'
+      - '.claude/skills/project-bootstrap/templates/Dockerfile.example'
+      - '.claude/skills/project-bootstrap/templates/Dockerfile-gradle.example'
+      - '.claude/skills/project-bootstrap/templates/pom.main-build.xml.example'
+      - '.claude/skills/project-bootstrap/templates/build.gradle.main-boot.example'
+      - '.claude/skills/project-bootstrap/references/scaffold.md'
+      - '.claude/.ci/DockerfileJarTest.java'
       - '.claude/skills/new-feature-implement/templates/mapstruct/**'
       - '.claude/skills/*/templates/*MapStructMapper.java.example'
       - '.claude/.ci/MapStructWiringTest.java'
+      - '.claude/skills/test-architect/templates/archunit-*'
+      - '.claude/agents/archunit-installer.md'
+      - '.claude/.ci/ArchUnitWiringTest.java'
+      - '.claude/skills/platform-upgrade/templates/**'
+      - '.claude/.ci/PlatformUpgradeTest.java'
+      - '.claude/schemas/extensions.json'
       - '.github/workflows/templates.yml'
   workflow_dispatch:
 
@@ -116,7 +146,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: commons templates + AssignedIdEntity in a fresh Initializr project
+      - name: spring-log-utils + AssignedIdEntity in a fresh Initializr project
         run: java .claude/.ci/JavaTemplatesTest.java
 
   mapstruct-wiring:
@@ -134,6 +164,22 @@ jobs:
 
       - name: build fragments + every MapStruct exemplar, green then an unmapped target red
         run: java .claude/.ci/MapStructWiringTest.java
+
+  archunit-wiring:
+    name: ArchUnit fragments wire a coverage gate that fails on Maven and Gradle
+    runs-on: ubuntu-latest
+    # Two fresh Initializr projects (Maven and Gradle wrappers, cold caches), two builds each.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: build fragments wire ArchUnit and a coverage gate that fails, Maven and Gradle
+        run: java .claude/.ci/ArchUnitWiringTest.java
 
   transport-templates:
     name: transport templates pass their IT per topology
@@ -170,3 +216,40 @@ jobs:
       # never caught the Docker-guard skip it exists for (decision 0127).
       - name: "@Nested ITs pass, a Docker-guard skip fails, on Maven and Gradle"
         run: java .claude/.ci/CiItCheckTest.java
+
+  dockerfile-jar:
+    name: generated Dockerfile survives a version bump
+    runs-on: ubuntu-latest
+    # Two fresh Initializr projects (Maven, Gradle), five image builds each; the runner has Docker.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # The jar path in the Dockerfile once carried the project version; nothing built the image,
+      # so a bump broke `docker build` unseen (issue #149, decision 0183).
+      - name: versioned path fails after a bump, fixed name builds before and after, Maven and Gradle
+        run: java .claude/.ci/DockerfileJarTest.java
+
+  platform-upgrade:
+    name: platform-upgrade takes a project below the floor to the current line
+    runs-on: ubuntu-latest
+    # Two fixtures (Maven, Gradle) on cold caches: the engine, two Boot lines and their test
+    # dependencies download once per build tool.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Also the only check on `doctor.platform.upgrade`'s data: a path-filtered run on every PR
+      # that touches `extensions.json`, since a rename list nobody ran is a guess (decision 0175).
+      - name: Maven and Gradle fixtures, 3.x to the Initializr's line, context loads, no test worse
+        run: java .claude/.ci/PlatformUpgradeTest.java

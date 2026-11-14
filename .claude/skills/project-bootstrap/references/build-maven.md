@@ -12,8 +12,10 @@ If `build.layout: single-module`, the result of step 3 already works as the stru
 just create the packages from `packages.map`, there's no per-layer POM to write. The
 Initializr's `pom.xml` still needs the `<build>` blocks from
 `templates/pom.parent.xml.example` — Spotless, Checkstyle, failsafe, and JaCoCo —
-because none of them come from the Initializr. Copy them into that `pom.xml` and move
-on to step 4.6. Steps 4.6 through 4.8 apply to both layouts.
+because none of them come from the Initializr. Copy them into that `pom.xml`, add the
+`<finalName>` line of `templates/pom.main-build.xml.example` to its `<build>` (the Boot
+plugin is already there; the name is why the Dockerfile's `COPY` survives a version bump),
+and move on to step 4.6. Steps 4.6 through 4.8 apply to both layouts.
 
 If `multi-module`:
 
@@ -36,7 +38,10 @@ If `multi-module`:
    3.10.2 in the repository) and responds intermittently. The same holds for every
    version resolved in this skill.
 2. Create a `pom.xml` per module from `templates/pom.module.xml.example`,
-   with the dependencies that module's `depends_on` authorizes — **and only those**.
+   with the dependencies that module's `depends_on` authorizes — **and only those**. The
+   module with `contains_main: true` also gets the `<build>` of
+   `templates/pom.main-build.xml.example` in place of the empty one: the Spring Boot plugin
+   and the fixed `<finalName>` the Dockerfile copies. No other module carries either.
 3. Move the `@SpringBootApplication` class to the module with `contains_main: true`.
 4. Move `application.yml` into that module's `resources`. When it imports `.env`
    (`persistence-jpa`), the import becomes

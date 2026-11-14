@@ -1,0 +1,19 @@
+// Gradle init script that registers `nervizClasspath` in every project of the build: it appends the
+// test runtime classpath of the project, one line, to the file named by
+// `-Dnerviz.classpath.out=<absolute path>`. `ArchHook.jar upgrade-recipe --pass properties` reads
+// that file to find the jars whose metadata declares a property rename.
+//
+// A project with no `sourceSets` (the root of a multi-project build that applies no Java plugin)
+// writes nothing. The caller removes the output file first: this script only appends.
+allprojects {
+    tasks.register("nervizClasspath") {
+        doLast {
+            def sets = project.extensions.findByName("sourceSets")
+            if (sets == null) return
+            def files = sets.findByName("test")?.runtimeClasspath?.files ?: []
+            new File(System.getProperty("nerviz.classpath.out")).withWriterAppend {
+                it.println(files.join(File.pathSeparator))
+            }
+        }
+    }
+}

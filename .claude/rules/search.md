@@ -158,13 +158,13 @@ when one of them is touched. Decision recorded in
 
 ```bash
 # No search client outside the search adapter. Zero lines is the expected result.
-grep -rnE "org.springframework.data.elasticsearch|co.elastic|org.opensearch" --include=*.java src/main/java | grep -v "/search/"
+grep -rnE "org.springframework.data.elasticsearch|co.elastic|org.opensearch" --include='*.java' src/main/java | grep -v "/search/"
 
 # Every search document turns index creation off. Each file listed lacks it.
-grep -rL "createIndex = false" $(grep -rl "data.elasticsearch.annotations.Document" --include=*.java src/main/java)
+grep -rL "createIndex = false" $(grep -rl "data.elasticsearch.annotations.Document" --include='*.java' src/main/java)
 
 # No field left to dynamic inference, and no refresh forced on a write path.
-grep -rn "FieldType.Auto\|RefreshPolicy.IMMEDIATE" --include=*.java src/main/java
+grep -rn "FieldType.Auto\|RefreshPolicy.IMMEDIATE" --include='*.java' src/main/java
 
 # Every mapping file is strict.
 grep -rL '"dynamic": *"strict"' src/main/resources/search/

@@ -12,7 +12,8 @@ RUN ./mvnw -q -DskipTests package
 FROM eclipse-temurin:{{JAVA_VERSION}}-jre-alpine
 WORKDIR /app
 # {{MAIN_MODULE_JAR_PATH}} is the module with contains_main: true — single-module
-# layouts copy from target/, multi-module layouts from <module>/target/.
+# layouts copy target/app.jar, multi-module layouts <module>/target/app.jar. The name is fixed
+# by pom.main-build.xml.example's <finalName>: a version bump must not change it.
 COPY --from=build /workspace/{{MAIN_MODULE_JAR_PATH}} app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,0 +1,8 @@
+{
+  "$comment": "Personal status line that leaves the account's plan usage where the audit reads it. Paste the `statusLine` entry into ~/.claude/settings.json — never into a project's settings, which would override everyone else's status line. It saves the status line's stdin to ~/.claude/rate-limits.json, atomically (tmp + mv), only when the input carries `rate_limits`: a fresh session has none before its first response and must not overwrite a good snapshot. `refreshInterval` keeps the file's mtime fresh while a session is open; the audit ignores a snapshot older than `audit.plan_usage.max_age_minutes`. Already have a status line? Keep it and append `; printf '%s' \"$input\" | <your command>` to the command. The path must equal `audit.plan_usage.snapshot` in .claude/schemas/extensions.json — under CLAUDE_CONFIG_DIR edit it in both places. POSIX sh only (macOS, Linux, WSL); not verified on native Windows, where the snapshot never appears and the report says `not captured`. Design: .claude/decisions/0194-audit-plan-usage-delta-from-a-personal-status-line-snapshot.md",
+  "statusLine": {
+    "type": "command",
+    "command": "f=\"$HOME/.claude/rate-limits.json\"; input=$(cat); case \"$input\" in *'\"rate_limits\"'*) printf '%s' \"$input\" > \"$f.tmp\" && mv \"$f.tmp\" \"$f\";; esac",
+    "refreshInterval": 60
+  }
+}

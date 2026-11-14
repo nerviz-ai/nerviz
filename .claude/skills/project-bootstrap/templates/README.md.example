@@ -44,7 +44,7 @@ Resolved live by the Spring Initializr at generation time — never pinned from 
 
 - Java {{javaVersion}}
 - Spring Boot {{springBootVersion}}
-- Build: {{buildTool}}
+- Build: {{buildTool}} (wrapper {{wrapperVersion}})
 
 ## Active features
 

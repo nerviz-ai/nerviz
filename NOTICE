@@ -1,0 +1,19 @@
+Nerviz
+Copyright 2026 Lucas Fernandes
+
+This product includes software developed by Lucas Fernandes and the Nerviz
+contributors (https://github.com/nerviz-ai/nerviz).
+
+The names "Nerviz" and the logos under brand/ are not licensed under the Apache
+License; see TRADEMARK.md.
+
+Third-party software
+--------------------
+Nerviz does not bundle third-party libraries in this repository. It invokes, at run
+time and from the project's own wrapper:
+
+  - OpenRewrite core (Apache License 2.0) — run by `platform-upgrade`, never copied here.
+  - Spring Initializr (start.spring.io) — queried for versions and the project archive.
+
+Code generated into a project by Nerviz depends on libraries chosen by that project's
+blueprint; each is under its own license, resolved by the project's build.

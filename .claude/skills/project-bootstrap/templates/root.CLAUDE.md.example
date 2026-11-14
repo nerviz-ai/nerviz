@@ -9,7 +9,7 @@ that doesn't exist is worse than not routing at all.
 
 # {{projectName}}
 
-Spring Boot · Java {{javaVersion}} · Build: {{buildTool}} · Architecture: **{{blueprint.name}}**
+Spring Boot · Java {{javaVersion}} · Build: {{buildTool}} (wrapper {{wrapperVersion}}) · Architecture: **{{blueprint.name}}**
 
 **Bounded context: `{{boundedContext}}`.** First segment of every topic name, for every use
 case, forever — renaming it is a migration of every topic, not a refactor. Whoever designs
@@ -60,7 +60,7 @@ copy step isn't updated alongside it.
 | Tests, coverage, installing ArchUnit | skill `test-architect` |
 | A mapper — DTO, entity, document, payload or provider DTO to and from the model — MapStruct, `@Mapper`, the annotation processor path | `.claude/rules/mapping.md` — the mechanism is this file's **Mappers:** paragraph under the title, manual while it is absent; `/new-feature-implement` asks once and runs `mapstruct-installer` |
 | Designing a full feature (use case → domain → REST → persistence → tests) up to an approved spec | skill `new-feature` — manual only: the user types `/new-feature <description>`, the model can't invoke it. One use case per run |
-| Implementing an approved spec | skill `new-feature-implement` — manual only: `/new-feature-implement UC-NNN-<slug>` after `/clear`. Pre-flight, the executor in three block groups, then `git-publish` |
+| Implementing an approved spec | skill `new-feature-implement` — manual only: `/new-feature-implement UC-NNN-<slug>` after `/clear`. Pre-flight, the executor in three block groups, then it prints `/clear` and `/git-publish …` for you to type |
 | Diagnosing hooks and enforcement | `/arch-doctor` |
 | What a skill or agent run cost, what it chained, what it changed — invoked by `/command` or by the model | skill `audit-usage` — consolidates spend per skill and agent and failures across runs, and points at the report to open. The reports themselves are `.claude/audit-usage/<timestamp>--<piece>.md`, written by the `audit` hook at every `Stop`, never by hand; `history.jsonl` next to them is one line per top-level run, `nodes.jsonl` one line per piece it chained. Delete the directory to switch the trail off |
 | Kafka producer/consumer, publishing or consuming a domain event over a broker, a listener's retry or DLQ (blocking, or non-blocking with `@RetryableTopic`), the ack mode | skill `messaging-architect` — norms in `.claude/rules/messaging.md` § Retry and DLQ |
@@ -73,14 +73,17 @@ copy step isn't updated alongside it.
 | Reducing SonarQube issues at their source — run the analysis, trace each group of issues to the `.claude/` template or norm that produced it, report it upstream | skill `sonar-lessons` — manual only (`/sonar-lessons`). Writes `docs/lessons-learned/sonar-NNN.md` and ends with the `/report-issue` command that files it |
 | Reporting a defect or a gap in this `.claude/` upstream, to Nerviz — from a description or a `docs/lessons-learned/` file | skill `report-issue` — manual only (`/report-issue`). Asks for the evidence a maintainer needs to verify it, warns when this project is behind the latest release, opens the issue only after confirmation, carrying no path, package or code of this project |
 | Pulling a newer version of this `.claude/` into the project | skill `arch-adopt` — manual only (`/arch-adopt`), refuses a dirty worktree |
-| Creating a git repo, committing, or pushing this project | skill `git-publish` — chained automatically after `java-spring-boot-developer` succeeds; behind two confirmations |
+| Creating a git repo, committing, or pushing this project | skill `git-publish` — typed by you (`/git-publish`), the line `/new-feature` and `/new-feature-implement` print after `/clear`; behind two confirmations |
+| A throwaway spike or POC, with `format`, `check`, `tests`, `compose gate` and `guard` out of the way | skill `spike` — typed by you (`/spike <slug>`): a git worktree beside the project where only the audit hooks run; this checkout stays enforced; `/spike end <slug>` prints the cleanup |
 
 ## Under another agent
 
 This file is also read by GitHub Copilot, and `AGENTS.md` points every other agent here.
-**Outside Claude Code, only the build is guaranteed**: the CI job `architectural boundaries`
-fails on an import `.claude/forbidden-imports.txt` forbids, and Checkstyle, the JaCoCo gate and — once
-`test-architect` installed it — the ArchUnit test refuse a violation whoever wrote it. The rest
+**Outside Claude Code, only CI is guaranteed**: the CI job `architectural boundaries` runs
+`java .claude/hooks/ArchHook.java doctor gate`, which fails on an import or a qualified name
+`.claude/forbidden-imports.txt` forbids, whoever wrote it. Run it before a push: the local build
+runs Checkstyle and the JaCoCo gate, but refuses a forbidden dependency only once `test-architect`
+installed the ArchUnit test. The rest
 of what `.claude/` enforces runs as Claude Code hooks and permissions — the same forbidden
 imports blocked at edit time, each skill's write territory, approved specs under `docs/use-cases/`
 frozen, the `deny` list on secrets and force pushes, the audit trail, the pattern catalog
@@ -117,6 +120,12 @@ of truth for its topic and is cited, never copied.
   broad `git *` permission mid-task.
 - **`/clear` between two runs** — between designing a spec (`/new-feature`) and implementing it
   (`/new-feature-implement`), and before the next use case. One use case per run, in a clean context.
+- **An IDE may refuse the build tool the wrapper pins.** `./mvnw` and `./gradlew` use the
+  version in the header above (`.mvn/wrapper/maven-wrapper.properties`,
+  `gradle/wrapper/gradle-wrapper.properties`); an IDE that imports through its own bundled
+  Maven or Gradle can fail where the command line is green. Point the IDE at the wrapper or
+  at its bundled tool, or update the IDE. Do not edit `distributionUrl` to make an import
+  pass: it changes the version the command line and CI build with.
 {{#if features.persistence-jpa}}
 - **Local values live in the untracked `.env`** — `DB_PASSWORD` and any host port moved off
   its default. docker compose reads it for the services, and `application.yml` imports it for

@@ -1,6 +1,6 @@
 ---
 name: compose-service-installer
-description: Adds to docker-compose.yml every service an implemented use case spec marks `materialize` in its `## Infrastructure` section, by running the docker-architect skill for that use case folder, then checks the result with ArchHook compose. Invoked by /new-feature-implement after the tests group ends green and before git-publish — never directly by the user.
+description: Adds to docker-compose.yml every service an implemented use case spec marks `materialize` in its `## Infrastructure` section, by running the docker-architect skill for that use case folder, then checks the result with ArchHook compose. Invoked by /new-feature-implement after the tests group ends green and before the final report — never directly by the user.
 model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 effort: medium
@@ -15,7 +15,7 @@ materialize the service its spec decided at design time, and its own thread cann
 `ArchHook.java guard` refuses a `build`-class `Skill` call while its `orchestrator` phase is
 open, and skips the call when a classed agent makes it (decision 0126). Running
 `docker-architect` here also keeps the skill's body out of the implement thread, and keeps its
-`opus` pin out of the turns that follow, `git-publish` included (decision 0080). The closest
+`opus` pin out of the turns that follow (decision 0080). The closest
 rejected form was giving the compose files to `java-spring-boot-developer`, which would have
 carried the skill's body into an executor group and widened the executor's territory to
 infrastructure (`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
@@ -96,8 +96,8 @@ The base pair is project-bootstrap's. Nothing added; every materialize row stays
 Run /docker-architect docs/use-cases/UC-NNN-<slug>/ to finish it.
 ```
 
-No rollback. The implement run reports each row as it left it, and still offers
-`git-publish`: the code is green whether or not the container exists.
+No rollback. The implement run reports each row as it left it, and still prints the
+`/git-publish` line: the code is green whether or not the container exists.
 
 ---
 

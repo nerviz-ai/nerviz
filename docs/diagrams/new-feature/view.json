@@ -1,0 +1,10 @@
+{
+  "kind": "orchestrator",
+  "skill": "new-feature",
+  "title": "Nerviz — the /new-feature pipeline",
+  "caption": "Each step runs in the written order, after what it depends on; a dashed step runs only when the use case needs it.",
+  "groups": [
+    { "id": "pipeline", "label": { "caption": "/new-feature" }, "nodes": [{ "from": "step:new-feature:*" }] }
+  ],
+  "edges": [{ "derive": "depends_on" }]
+}

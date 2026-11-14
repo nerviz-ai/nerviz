@@ -105,6 +105,27 @@ never print the value. The header is only sent when the variable is set: a publi
 needs no credential. `--fail` is what turns an HTTP error into an error; without it a 404
 page lands in the tarball and `tar` fails with something that says nothing about access.
 
+### 3b · The fetched copy governs
+
+The text running right now is the one the plugin vendored, or the one in the project, and either
+can be older than `$SRC`. Everything after this point reads `$SRC`'s jar and data, so the procedure
+text has to be `$SRC`'s too — with `--source <path>` as well, which skips steps 2 and 3 but not this one.
+Name the running skill once (`arch-adopt`, or the skill that cited this step):
+
+```bash
+cmp -s "$SRC/.claude/skills/<running skill>/SKILL.md" "${CLAUDE_SKILL_DIR}/SKILL.md" && echo same
+```
+
+- `same`, or `$SRC` has no such file (a ref older than the skill) → go on with the running text. The
+  guards that follow judge the ref, as they always did.
+- Different → read `$SRC/.claude/skills/<running skill>/SKILL.md` in full and follow **that** file from
+  the step that fetched, skipping only the fetch itself: `$SRC` is already in place, and fetching
+  twice could land on a newer tag than the first. The running text is not consulted again. Say it
+  once, in one line, before going on: `Procedure: fetched <ref> replaces the running text.`
+
+The report of whichever skill ran says which text it followed (`Procedure` line). A fetched text is
+remote content run with the same trust the fetched `export` already has.
+
 ### 4 · Decide the blueprint
 
 Three states, not two. Read them in this order.
@@ -182,6 +203,8 @@ project, and it belongs in the report, not in silence.
 `export` exits 2 before writing a byte when the project's build declares a Spring Boot line
 below `doctor.platform.min_line` of the fetched `extensions.json`. Show the user its message
 as it is and stop: the floor is data, not a flag to work around, and there is no `--force`.
+Name `/platform-upgrade` as the way up — it migrates the build, the renamed types and the
+configuration properties, never commits, and hands back to this skill.
 A build whose line no pattern reads is not refused, so a corporate parent hiding the version
 still goes through: `doctor`'s `Platform` line, step 6, says ⚪ then — put it in the report.
 
@@ -276,6 +299,7 @@ where it stays.
 ✅ <installed | updated> — blueprint <id>, ref <ref> (<short sha>)
 
 Source ....... <base_url host>, fetched at <time>
+Procedure .... <the running text | the fetched text — see step 3b>
 Files ........ <n> written · <n> unchanged · <n> overwritten
 Warnings ..... <none | the surviving-citation lines, verbatim>
 Schema ....... <exit 0 | the failure>

@@ -49,6 +49,13 @@ skill has no `disable-model-invocation` (so it's invocable by the model too), bu
 practice it's only triggered through this path and by `/new-feature` when a project
 doesn't yet exist.
 
+## Step diagram
+
+Rendered from the step contract of the skill's `SKILL.md` by `/nerviz-diagrams`; a dashed
+step runs only when it is needed.
+
+![/init-project, step by step](../diagrams/init-project/init-project.animated.svg)
+
 ## Sequence diagram
 
 ```mermaid
@@ -72,7 +79,7 @@ sequenceDiagram
         CMD->>AG: Agent tool with every answer (isolated context, restricted tools, no AskUserQuestion, model sonnet)
         AG->>BOOT: follows the defined procedure
         BOOT->>BP: dynamically lists .claude/blueprints/*/*.yaml
-        BOOT->>BOOT: validates the blueprint (6 rules — CLAUDE.md § _schema.md)
+        BOOT->>BOOT: validates the blueprint (7 rules — CLAUDE.md § _schema.md)
         BOOT->>INIT: curl start.spring.io/starter.tgz (real versions, never from memory)
         INIT-->>BOOT: starter.tgz (pom.xml, mvnw, Application.java)
         BOOT->>BOOT: restructures per module (multi-module) or packages (single-module)
@@ -129,7 +136,7 @@ in the main session and before delegating: build (already given, also skipped), 
 TLS and Sonar (the questions of `transport-security-setup` and `sonarqube-setup`), at most four
 questions per call. The agent asks nothing. Features are asked only where the blueprint sets
 them `false`: `hexagonal` already turns on REST, JPA+Flyway, OpenAPI, Testcontainers and
-Actuator, so the one question offers Kafka and SQS. Suppose the user checks neither.
+Actuator, so the one question offers Kafka, as a yes or no. Suppose the user answers no.
 
 The **bounded context** (`--bounded-context`) is its own question, defaulting to the
 artifactId. It is a project fact, not a per-use-case answer: it is the

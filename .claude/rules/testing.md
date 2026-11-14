@@ -69,7 +69,10 @@ below.
 ## Names and shape
 
 - File: `<ClassUnderTest>Test`. Integration test: `<ClassUnderTest>IT` — it's the
-  suffix failsafe picks up, and without it the test doesn't run in `verify`.
+  suffix failsafe picks up, and without it the test doesn't run in `verify`. A test of
+  the application as a whole — the context loading, the module structure — has no single
+  class under test and ends in `Tests` (`<Name>ApplicationTests`, `ModularityTests`):
+  both build tools run that suffix as a unit test.
 - The method name describes the expected behavior, not the method called:
   `rejectsEmailWithoutAtSign`, not `testValidate`.
 - One test, one behavior assertion. Several assertions about the same result are
@@ -186,5 +189,5 @@ below.
 
 # verify exits 0 without running any integration test when the file suffix is wrong.
 # Read the count, not just the exit code.
-grep -rl "class .*IT" --include=*.java src/test/
+grep -rl "class .*IT" --include='*.java' src/test/
 ```

@@ -1,0 +1,51 @@
+// EXEMPLAR — what `archunit-installer` merges into a Gradle build (Groovy DSL; an adopted
+// Kotlin DSL build gets the same lines in its own syntax). A fragment: each block goes into
+// the block of the same name that already exists, or is added beside it.
+//
+// Placement:
+//   - `ext` — the root build.gradle, top level.
+//   - `testImplementation` — the `dependencies` of the module with `contains_main: true`;
+//     single-module: the root `dependencies`.
+//   - `jacocoTestCoverageVerification` and the `check` wiring — beside the existing
+//     `jacocoTestReport` block: inside `subprojects` on a multi-module build, top level on a
+//     single-module one.
+//
+// Version: repo1.maven.org's `maven-metadata.xml` `<release>` for archunit-junit5, at install
+// time, never from memory. ArchUnit is not in the Spring Boot BOM, so the version is explicit.
+//
+// Limits: `.claude/rules/testing.md` § Coverage. Never lowered to make the build pass.
+// Class directories: the same set `jacocoTestReport` already filters, so Maven and Gradle
+// measure the same classes. A module with no execution data skips the task (Gradle's own
+// `onlyIf`), as Maven's `check` skips a module with no `jacoco.exec`.
+
+ext {
+    archunitVersion = '<!-- resolved: com/tngtech/archunit/archunit-junit5/maven-metadata.xml <release> -->'
+}
+
+dependencies {
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+jacocoTestCoverageVerification {
+    dependsOn tasks.named('test')
+    classDirectories.setFrom(jacocoTestReport.classDirectories)
+    violationRules {
+        rule {
+            element = 'BUNDLE'
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification')
+}

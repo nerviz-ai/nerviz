@@ -13,8 +13,9 @@
 // makes Claude Code load a module's context once it lives in `AGENTS.md` — a module
 // `AGENTS.md` alone is skipped while the root has a `CLAUDE.md`, in silence (reproduced on
 // Claude Code 2.1.296). The files are rendered by the model from templates, so the check is
-// what catches a module left out. Report only, by the user's answer: the build refuses a
-// forbidden import, and an adopted project has none of these files. Decision 0139.
+// what catches a module left out. Report only, by the user's answer: CI's `doctor gate` refuses
+// a forbidden import (the local build only once ArchUnit is installed, 0174), and an adopted
+// project has none of these files. Decision 0139.
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;

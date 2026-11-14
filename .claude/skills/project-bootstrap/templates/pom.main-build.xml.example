@@ -1,0 +1,33 @@
+<!--
+  EXEMPLAR — the <build> of the module with `contains_main: true`, the only one that builds the
+  executable jar. Compilable as-is; the Spring Boot plugin takes its version from the
+  spring-boot-starter-parent the parent POM inherits, so nothing is pinned here.
+
+  <finalName> is why this file exists: the Maven default is ${artifactId}-${project.version},
+  so the jar the Dockerfile copies would change name with every version bump and `docker build`
+  would break while `./mvnw verify` stays green. `app` is the name Dockerfile.example copies:
+  `{{MAIN_MODULE_JAR_PATH}}` is `target/app.jar` (single-module) or `<module-path>/target/app.jar`
+  (multi-module), never a name with a version in it.
+
+  single-module: the Initializr's pom.xml already has this plugin with this <configuration> —
+  add only the <finalName> line to its <build>.
+  multi-module: the whole block goes into the pom.xml of the module with `contains_main: true`;
+  pom.module.xml.example, for every other module, keeps its <plugins> empty on purpose.
+-->
+<build>
+  <finalName>app</finalName>
+  <plugins>
+    <plugin>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-maven-plugin</artifactId>
+      <configuration>
+        <excludes>
+          <exclude>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+          </exclude>
+        </excludes>
+      </configuration>
+    </plugin>
+  </plugins>
+</build>

@@ -127,7 +127,7 @@ skill.
    |---|---|
    | What operations the client needs beyond the use case's own | Whether there's a read `GET`, and how many endpoints come out of this |
    | Does the collection grow without bound | Whether it's paginated — and it is, unless proven otherwise |
-   | Does the `POST` create a resource, move money, or touch an external system | Whether `Idempotency-Key` is required |
+   | Does `00-use-case.md`'s `Repetition` row state a safe resend (`retry safety: required`) | Whether `Idempotency-Key` is required — it is not, otherwise, whatever the `POST` creates, moves or touches |
    | Is there concurrent writing on the same resource | Whether `ETag` + `If-Match` come in (412 and 428) |
    | Is the resource's existence sensitive information | 404 instead of 403, for the whole resource |
    | Is the client internal or public | Weight of `operationId` stability |
@@ -203,6 +203,15 @@ skill.
    The transaction shape is fixed by `@.claude/rules/api-rest.md` § Idempotency — don't
    reopen it per use case: the controller calls `IdempotentExecution`, the command
    carries no key, and `10-domain.md`'s use case signature doesn't change for it.
+
+   **Show the cost when the key table is new.** The key exists only when `00-use-case.md`'s
+   `Repetition` row states `retry safety: required`; once it does, it holds whatever the row says
+   about domain uniqueness (`@.claude/rules/api-rest.md` § Idempotency). A row that states none
+   adds no key, no table and no cost line. When `idempotency_keys` is **NEW** in the project,
+   the partial opens its idempotency section with one line the approver reads: what this case adds
+   — the aspect, interceptor, store, table with its migrations and the cleanup job — paid once
+   per project and inherited by every later key endpoint. When the table already exists the
+   line is absent: the cost is not this case's.
 
    **Every `Idempotency-Key` endpoint, including the first one in the project, uses
    `@Idempotent` + `IdempotencyAspect`** (`templates/IdempotencyAspect.java.example`,

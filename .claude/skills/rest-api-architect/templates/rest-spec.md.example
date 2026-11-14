@@ -32,7 +32,7 @@ higher one supersedes it.
 No `PUT` nor `PATCH` in this iteration: the parent spec has no update use case.
 Adding an endpoint with no use case behind it is guessing the contract.
 
-`POST /api/v1/users` requires `Idempotency-Key`: it creates a resource. The `GET`s don't — they're safe.
+`POST /api/v1/users` requires `Idempotency-Key`: this example's `Repetition` row states `retry safety: required`. Without that statement the `POST` carries no key. The `GET`s don't — they're safe.
 
 ## 2 · DTOs
 
@@ -89,7 +89,7 @@ after this partial:
 
 | Requirement | Why |
 |---|---|
-| `idempotency_keys` table, shared — reuse if it already exists | `POST /api/v1/users` requires `Idempotency-Key` (`api-rest.md` § Idempotency) |
+| `idempotency_keys` table, shared — reuse if it already exists | `POST /api/v1/users` requires `Idempotency-Key`: `Repetition` states `retry safety: required` (`api-rest.md` § Idempotency) |
 | `users` expected volume: ~200,000 rows in 12 months | decides offset pagination here; sizes indexes there |
 
 **Dependencies to add** — the executor applies them to `pom.xml`; this skill only

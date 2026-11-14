@@ -58,6 +58,7 @@ public class ExportProvenanceTest {
                 "commit", "-q", "--allow-empty", "-m", "outer");
         Path inner = outer.resolve("arch-src");
         copyTree(REPO.resolve(".claude"), inner.resolve(".claude"));
+        copyRootLegalFiles(REPO, inner);
         Path dest2 = Files.createTempDirectory("archhook-export-prov2");
         r = export(inner, dest2);
         check(r.code == 0 && stampCommit(dest2).equals("unknown"),
@@ -69,6 +70,7 @@ public class ExportProvenanceTest {
         // A fetched tree: a copy of .claude/ in a directory that is no work tree at all.
         Path fetched = Files.createTempDirectory("archhook-export-fetched");
         copyTree(REPO.resolve(".claude"), fetched.resolve(".claude"));
+        copyRootLegalFiles(REPO, fetched);
         Path marker = fetched.resolve(fetchMarker(fetched));
         Path dest3 = Files.createTempDirectory("archhook-export-prov3");
         r = export(fetched, dest3);
@@ -164,6 +166,13 @@ public class ExportProvenanceTest {
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
         p.waitFor();
         return out;
+    }
+
+    /** `export.copy` names LICENSE and NOTICE at the root, outside `.claude/`. */
+    static void copyRootLegalFiles(Path from, Path to) throws Exception {
+        for (String name : new String[] {"LICENSE", "NOTICE"}) {
+            Files.copy(from.resolve(name), to.resolve(name));
+        }
     }
 
     static void copyTree(Path from, Path to) throws Exception {

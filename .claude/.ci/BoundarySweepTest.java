@@ -41,7 +41,7 @@ public class BoundarySweepTest {
         f.put("adapters/rest/src/main/java/x/Api.java",
                 "package x;\n\nimport org.springframework.web.bind.annotation.RestController;\n");
         String out = doctor(f, false);
-        expect(out, "Boundary violations . ❌ 2 file(s) import what their module forbids",
+        expect(out, "Boundary violations . ❌ 2 file(s) depend on what their module forbids",
                 "two module files counted; the adapter outside every module path is not");
         expect(out, "domain/src/main/java/x/Order.java → org.springframework.  (forbidden in module 'domain')",
                 "a forbidden import is named with its prefix and module");
@@ -54,6 +54,41 @@ public class BoundarySweepTest {
                 "package com.acme.shop.domain.model;\nimport org.springframework.util.Assert;\n");
         expect(doctor(f, false), "src/main/java/com/acme/shop/domain/model/Sku.java → org.springframework.",
                 "a single-module package-path prefix matches");
+
+        f = tree();
+        f.put("domain/src/main/java/x/Bean.java",
+                "package x;\n\n@org.springframework.stereotype.Component\nclass Bean { }\n");
+        f.put("domain/src/main/java/x/Guard.java",
+                "package x;\n\nclass Guard {\n  char q = '\"';\n"
+                        + "  void f(Object o) { jakarta.persistence.Persistence.class.getName(); }\n}\n");
+        f.put("domain/src/main/java/x/Mentions.java", """
+                package x;
+
+                // org.springframework.stereotype.Component would make this a bean
+                /** Not a {@link org.springframework.context.ApplicationContext}. */
+                class Mentions {
+                  String a = "org.springframework.Foo";
+                  char c = '\\'';
+                  String b = \"""
+                      jakarta.persistence.Entity
+                      \""";
+                  Object d = com.vendor.org.springframework.Thing.class;
+                }
+                """);
+        out = doctor(f, false);
+        expect(out, "domain/src/main/java/x/Bean.java → org.springframework.  (qualified name, forbidden in module 'domain')",
+                "a fully qualified annotation with no import is named as a qualified name");
+        expect(out, "domain/src/main/java/x/Guard.java → jakarta.persistence.  (qualified name",
+                "a qualified call after a `'\"'` char literal is still code");
+        expect(out, "Boundary violations . ❌ 2 file(s) depend on what their module forbids",
+                "a comment, a Javadoc link, a string, a text block and a longer name are not a dependency");
+        if (out.contains("Mentions.java")) fail("a mention of a prefix outside code was reported");
+        Path q = project(f, false);
+        int fqn = exec(q, "check", "domain/src/main/java/x/Bean.java");
+        int mention = exec(q, "check", "domain/src/main/java/x/Mentions.java");
+        deleteTree(q);
+        if (fqn == 2 && mention != 2) System.out.println("✅ check blocks the qualified name, and not the mention");
+        else fail("check on a qualified name exit " + fqn + ", on a mention " + mention);
 
         f = tree();
         f.put("target/generated-sources/x/Gen.java", "import org.springframework.Gen;\n");

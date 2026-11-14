@@ -2,8 +2,12 @@
  * EXEMPLAR — the project's one API versioning configuration (`.claude/rules/api-rest.md`
  * § Versioning). Written by the first use case that exposes REST, from its `30-rest.md`
  * § 7 · Versioning; every later case CHANGEs it only to add a version, deprecate one, or
- * retire one. Lives in the REST adapter's root package — its own package is what scopes the
- * prefix. Compilable as-is — not pseudo-code.
+ * retire one. Lives in the REST adapter's root package; the prefix is scoped to the
+ * application's base package, `APPLICATION_PACKAGE`, so a blueprint with one REST package per
+ * module (modular-monolith's `<module>.internal.adapter.rest`) prefixes every module's
+ * controllers from this one configuration — scoping by this class's own package left every
+ * module but one without it (issue #167, `.claude/decisions/0180-module-slot-boundary-gradle-wrapper-and-approval-checks.md`).
+ * Compilable as-is — not pseudo-code.
  *
  * Everything sits here and nowhere else. No `spring.mvc.apiversion.use.*` property in
  * `application.yml`: Boot would register a second resolver beside the one below, and Boot has
@@ -16,7 +20,7 @@
  *     pattern, `/api/v{version}`, and the OpenAPI document then reads `/api/v1/users`;
  *   - prefix scoped by `@RestController` alone → springdoc's own endpoint is a
  *     `@RestController` too, receives the prefix, and `/v3/api-docs` answers 404. The
- *     package predicate keeps it to this adapter.
+ *     package predicate keeps it to the application's own controllers.
  */
 package com.exemplo.minhaapi.adapter.in.rest;
 
@@ -38,15 +42,19 @@ public class ApiVersioningConfig implements WebMvcConfigurer {
     /** The path segment that holds the version: `/api` is segment 0, `v1` segment 1. */
     private static final int VERSION_SEGMENT = 1;
 
+    /** The application's base package — the one the Initializr generated, every module under it. */
+    private static final String APPLICATION_PACKAGE = "com.exemplo.minhaapi";
+
     /**
-     * Every controller of this package and its subpackages, and no other — a framework's own
-     * `@RestController` (the OpenAPI endpoint) keeps its path.
+     * Every `@RestController` of the application, whichever module or adapter package holds it,
+     * and no other — a framework's own `@RestController` (the OpenAPI endpoint) lives outside the
+     * base package and keeps its path.
      */
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
         configurer.addPathPrefix("/api/v{version}",
                 HandlerTypePredicate.forAnnotation(RestController.class)
-                        .and(HandlerTypePredicate.forBasePackageClass(ApiVersioningConfig.class)));
+                        .and(HandlerTypePredicate.forBasePackage(APPLICATION_PACKAGE)));
     }
 
     /**

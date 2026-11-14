@@ -56,6 +56,8 @@ Detail: `10-domain.md` § 1-4.
 
 ## 3. Persistence — implement after 2
 
+When the case needs no persistence (the Storage row is none and no partial asked for a schema), this block's first line is "none — <reason>" and nothing else follows; the checklist then has no steps 8-12.
+
 Detail: `20-persistence.md` § 1-5. Migration SQL — or, for a `document (MongoDB)` aggregate, the
 collection's schema declaration: § 4 of that partial — the executor materializes it verbatim.
 
@@ -126,6 +128,8 @@ in `23-search.md`. Implemented by the executor's Block I, after Block A.
 ---
 
 ## 4. REST API — implement after 2
+
+When the Trigger names no HTTP adapter, this block's first line is "none — <reason>"; the checklist then has no steps 13-15. When it names GraphQL alone: "none — GraphQL only".
 
 Detail: `30-rest.md` § 1-5, § 7 and § 8.
 
@@ -226,8 +230,16 @@ touches none of them.
 
 ## Implementation order (checklist)
 
-Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is marked
-`n/a` with the reason — never deleted.
+The executor's checkpoints. **Core** — steps 1-7 and 16-19 — is in every spec. Every other line
+exists only when its block does: a block this case does not carry adds no line, and no line is
+marked `n/a` for an absent block. Inside a block that is present, a step the case doesn't need
+is marked `n/a` with the reason — never deleted. The ids are stable names, not a sequence: 8-12
+are Persistence (`## 3`), 13-15 REST (`## 4`), and each letter is the executor's block. Which
+lines a spec must carry is `spec_checklist` in `.claude/schemas/extensions.json`;
+`java -jar .claude/hooks/ArchHook.jar spec check <spec>` says what is missing or extra, and the
+guard refuses `status: approved` until it passes.
+
+### Domain — core
 
 - [ ] 1. Domain exceptions (`10-domain.md` § 2)
 - [ ] 2. Value objects + constructor validation
@@ -236,18 +248,35 @@ Fixed at 19 steps, the executor's checkpoints. A step this case doesn't need is 
 - [ ] 5. Use case command
 - [ ] 6. Use case (port and implementation per the blueprint vocabulary)
 - [ ] 7. Output ports
+
+### Persistence — only when `## 3` is not `none`
+
 - [ ] 8. Migration — materialize from `20-persistence.md` § 4
 - [ ] 9. Persistence entity
 - [ ] 10. Spring Data interface
 - [ ] 11. Repository adapter
 - [ ] 12. Persistence properties
-- [ ] 13. DTOs + manual mapper
+
+### Adapters — only the blocks the spec carries
+
+- [ ] 13. DTOs + manual mapper — `## 4` not `none`
 - [ ] 14. Controller + contract interface + `ApiExceptionHandler` + API versioning config (first REST case: NEW)
 - [ ] 15. Idempotency interceptor + `IdempotentExecution` wiring (first time: store + component) + REST properties
+- [ ] H. Outbound HTTP (H1-H3) — `## 3.3`
+- [ ] A. AI (A1-A3) — `## 3.7`
+- [ ] I. Search (I1-I3) — `## 3.8`
+- [ ] G. GraphQL (G1-G3) — `## 4.1`
+- [ ] S. Security (S1-S3) — `## 4.5`
+- [ ] M. Messaging (M1-M4) — `## 3.5`
+- [ ] J. Jobs (J1-J3) — `## 3.6`
+- [ ] C. Cache (C1-C3) — `## 3.4`
+
+### Tests — core
+
 - [ ] 16. Test fixtures
 - [ ] 17. Unit tests
 - [ ] 18. Integration + contract tests
-- [ ] 19. `./mvnw verify` — green build, coverage gate
+- [ ] 19. `./mvnw verify` (Gradle: `./gradlew build`) — green build, coverage gate
 
 ---
 
@@ -259,7 +288,7 @@ differently; empty when there were none.
 
 | Fact | Discarded value | Adopted value | Decided by |
 |---|---|---|---|
-| Invalid payload status | `422` (`00-use-case.md`) | `400` | `30-rest.md` — `422` is reserved for business-rule violations |
+| Status when a value object refuses a field | `422` (`00-use-case.md`) | `400` | `30-rest.md` — a refused field is input; `422` is reserved for business-rule violations |
 
 <!--
 HOW TO USE THIS:
@@ -270,4 +299,5 @@ HOW TO USE THIS:
   decisions an implementer needs to not misread the partial, and the partial's path.
   Copying the partials doubled the output in a real run and gained nothing.
 - Every block is present. A block that doesn't apply says "none" and why.
+- Checklist: copy the lines of the blocks this spec carries and drop the others; run spec check.
 -->

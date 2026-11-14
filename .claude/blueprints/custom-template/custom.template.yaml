@@ -76,7 +76,6 @@ features:
   uuid-v7: false # turn on together with persistence-jpa if the primary key is a UUID
   flyway: false
   messaging-kafka: false
-  messaging-sqs: false
   openapi: false
   testcontainers: true
   actuator: true

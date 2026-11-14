@@ -79,6 +79,44 @@
     "exempt_patterns": []
   },
 
+  "shell_globs": {
+    "$comment": "Read by ArchHook.java `schema`, over files, and by `guard bash` (`guard.unquoted_glob`), over the command a tool is about to run. A glob value of a shell flag written without quotes (`--include=*.java`) makes zsh abort with `no matches found` before the command runs: the Bash tool runs the user's shell, and bash, which CI uses, passes the word through, so the defect never shows there. 0037 quoted the five sites of its day by hand and the defect came back in 13 files, 52 lines. `scope` is every file the check reads (globs from the project root, `**` crosses `/`; a path with no `*` is one file) and `exclude` the prefixes left out: a decision record or a lessons-learned quotes the defect. A line matching any of `patterns` (a regex, found per line) is an error; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. The quoting is the fix, so a fenced block is not dropped: a command shown is a command run. Design: .claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md `.claude/audit-usage/` is the audit trail: the hooks write it, it quotes failed commands verbatim, nobody edits it (0105, 0201).",
+    "scope": [".claude/**/*.md", ".claude/**/*.example", "CLAUDE.md"],
+    "exclude": [".claude/decisions", ".claude/lessons-learned/", ".claude/audit-usage/", ".claude/skills/nerviz-diagrams/node_modules/"],
+    "patterns": ["(^|\\s)--(include|exclude|exclude-dir)=[^\\s'\"]*[*?\\[]"],
+    "exempt_patterns": []
+  },
+
+  "build_report": {
+    "$comment": "Read by ArchHook.java `build-report`, which the java-spring-boot-developer agent runs after every test run. Test reports come from `doctor.platform.upgrade.test_reports` (one owner of where JUnit XML lives, Maven and Gradle). `coverage_reports` are the JaCoCo XML files each build template writes: Maven's `report` goal at `verify`, Gradle's `jacocoTestReport` (`xml.required = true`; the CSV is off). LINE and BRANCH counters directly under `<report>` are summed across files. At most `max_failures` failed cases are printed, each with its first `failure_lines` lines. `log_patterns` (a regex, found per line) select the lines of `--log` printed when no report shows a failed test — a compile error, a context that did not start, a gate — at most `log_max_lines`. Maven prefixes errors `[ERROR]`; Gradle prints `* What went wrong:`, `<file>.java:<n>: error:` and `> ` continuation lines. Design: .claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md",
+    "coverage_reports": ["**/target/site/jacoco/jacoco.xml", "**/build/reports/jacoco/test/jacocoTestReport.xml"],
+    "max_failures": 20,
+    "failure_lines": 12,
+    "log_patterns": ["^\\[ERROR\\]", "Caused by:", "^\\* What went wrong:", "\\.java:\\d+: error:", "^> ", "FAILED$"],
+    "log_max_lines": 60
+  },
+
+  "spec_checklist": {
+    "$comment": "Read by ArchHook.java `spec check`, by `guard write` when a spec is approved, and cross-checked against the template by `schema`. The lines a UC-NNN-spec.md must carry in `## Implementation order (checklist)`: the core always, plus the ids of every block the spec carries. A block is present when its heading matches a line of the spec and the first non-blank line after it does not match `absent_marker` (every conditional block reads `none` when absent). Ids are stable names, not a sequence. Design: .claude/decisions/0197-spec-checklist-follows-the-blocks-the-case-carries.md",
+    "checklist_heading": "^## Implementation order \\(checklist\\)",
+    "item_pattern": "^- \\[[ x]\\] ([0-9]+|[A-Z])\\. ",
+    "absent_marker": "^none\\b",
+    "core": ["1","2","3","4","5","6","7","16","17","18","19"],
+    "short_items": ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19"],
+    "blocks": [
+      { "id": "persistence", "heading": "^## 3\\. ",   "items": ["8","9","10","11","12"] },
+      { "id": "rest",        "heading": "^## 4\\. ",   "items": ["13","14","15"] },
+      { "id": "http",        "heading": "^## 3\\.3 ",  "items": ["H"] },
+      { "id": "cache",       "heading": "^## 3\\.4 ",  "items": ["C"] },
+      { "id": "messaging",   "heading": "^## 3\\.5 ",  "items": ["M"] },
+      { "id": "jobs",        "heading": "^## 3\\.6 ",  "items": ["J"] },
+      { "id": "ai",          "heading": "^## 3\\.7 ",  "items": ["A"] },
+      { "id": "search",      "heading": "^## 3\\.8 ",  "items": ["I"] },
+      { "id": "graphql",     "heading": "^## 4\\.1 ",  "items": ["G"] },
+      { "id": "security",    "heading": "^## 4\\.5 ",  "items": ["S"] }
+    ]
+  },
+
   "arguments": {
     "$comment": "Read by ArchHook.java `schema`, same scope and same two escapes as `injections` above. The runtime interpolates the marker at EVERY occurrence, not only at the interpolation point, so a sentence that talks about the argument arrives with the real value inside it: lessons-learned-012 § 2 caught `/new-feature` telling the model to invoke test-architect `with empty $ARGUMENTS (setup mode)` and the model reading `with empty UC-003-initiate-kyc-verification (setup mode)` — setup mode named by the argument that means design mode. Seven occurrences across six skills, every one of them a sentence about the argument. `requires_field` limits the check to a file that actually receives one; `interpolation_line` is the single allowed shape, a line holding nothing but the marker; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. Why a hook and not a review item: CLAUDE.md invariant 6 — the defect is invisible in the source and only appears in what the model receives. Design: .claude/decisions/0056-lessons-learned-012-remediation.md",
     "marker": "$ARGUMENTS",
@@ -88,13 +126,13 @@
   },
 
   "doctor": {
-    "$comment": "Read by ArchHook.java `doctor`. `uc_references` sweeps the versioned files for a citation of a `docs/use-cases/UC-NNN-slug/` folder that no longer exists on disk: deleting or renaming a use case folder leaves its citations behind, and each one was correct in the commit that wrote it, so nothing else ever revisits them — lessons-learned-012 § 14 found a `docker-compose.yml` comment pointing at the `25-mensageria.md` of a folder deleted in the run before. Reported, never blocking: a stale citation is a documentation defect and `doctor` is where a person is already reading. Group 1 of `pattern` is the folder path. `root` gates the whole sweep: where that directory does not exist there are no use cases to be stale against, which is the case in this meta-repository — the check belongs to the generated project. `extensions` keeps the sweep off binaries and lockfiles; `exempt_paths` is a prefix match for files that name a folder as illustration rather than reference — a skill body, an agent, a decision record, a lessons-learned.",
+    "$comment": "Read by ArchHook.java `doctor`. `uc_references` sweeps the versioned files for a citation of a `docs/use-cases/UC-NNN-slug/` folder that no longer exists on disk: deleting or renaming a use case folder leaves its citations behind, and each one was correct in the commit that wrote it, so nothing else ever revisits them — lessons-learned-012 § 14 found a `docker-compose.yml` comment pointing at the `25-mensageria.md` of a folder deleted in the run before. Reported, never blocking: a stale citation is a documentation defect and `doctor` is where a person is already reading. Group 1 of `pattern` is the folder path. `root` gates the whole sweep: where that directory does not exist there are no use cases to be stale against, which is the case in this meta-repository — the check belongs to the generated project. `extensions` keeps the sweep off binaries and lockfiles; `exempt_paths` is a prefix match for files that name a folder as illustration rather than reference — a skill body, an agent, a decision record, a lessons-learned. `.claude/audit-usage` too: the trail cuts a Target at 80 characters, which leaves a slug prefix that resolves to nothing (0201).",
     "uc_references": {
       "root": "docs/use-cases",
       "pattern": "(docs/use-cases/UC-[0-9]{3}-[a-z0-9]+(?:-[a-z0-9]+)*)",
       "extensions": [".md", ".yml", ".yaml", ".java", ".json", ".xml", ".sql", ".txt"],
       "$comment_exempt": "Prefixes, matched with startsWith, and written WITHOUT a trailing slash on purpose: a directory prefix spelled with one IS an export residue marker, so this file would report itself as carrying a dead citation on every run. These paths are data, not citations.",
-      "exempt_paths": [".claude/decisions", ".claude/lessons-learned", ".claude/skills", ".claude/agents", "docs/lessons-learned"]
+      "exempt_paths": [".claude/decisions", ".claude/lessons-learned", ".claude/skills", ".claude/agents", ".claude/audit-usage", "docs/lessons-learned"]
     },
 
     "$comment_bl": "bl_references is uc_references' twin, for the backlog's own identifier. A BL-NN is what an impact row cites when the use case that satisfies a precondition has not been designed yet: BACKLOG.md deliberately reserves no UC number, so before this identifier existed the `Satisfied by` gate was unsatisfiable whenever the satisfier was in the backlog, and two reports of one run invented `UC-004` to fill the sentence (lessons-learned-014 § 7). The citation has to keep resolving after the case IS designed, since the spec carrying it is immutable once approved — which is why BACKLOG.md keeps a `## Retired` table and this check accepts a hit in either one: `resolves_in` is the file, and a BL-NN present anywhere in it counts. Reported, never blocking, like its twin, and `root` gates the whole sweep, so it is silent in this meta-repository. Design: .claude/decisions/0069-backlog-identifier.md",
@@ -103,12 +141,12 @@
       "resolves_in": "docs/use-cases/BACKLOG.md",
       "pattern": "\\b(BL-[0-9]{2,3})\\b",
       "extensions": [".md", ".yml", ".yaml", ".java", ".json", ".xml", ".sql", ".txt"],
-      "exempt_paths": [".claude/decisions", ".claude/lessons-learned", ".claude/skills", ".claude/agents", "docs/lessons-learned"]
+      "exempt_paths": [".claude/decisions", ".claude/lessons-learned", ".claude/skills", ".claude/agents", ".claude/audit-usage", "docs/lessons-learned"]
     },
 
-    "$comment_gate": "Read by `doctor gate`, the form the generated project's CI runs: the same report, then exit 1 when a line whose label is listed here printed ❌. A line doctor does not print — no .mcp.json, no audit directory — passes; an empty or missing list fails closed. Each label is a check of a committed file a push can break — `Boundary violations` too: every source file swept for a forbidden import, the one line that reads code rather than the setup (decision 0140). Left out on purpose: `CLAUDE_PROJECT_DIR` and `Compose`, which are runner state (a CI runner never sets the variable and never starts the services); `Maven wrapper`, which the build job already fails without and which is blind to gradlew; `Audit`, which prices runs and gates nothing; `git HEAD`, always true on a checkout; the UC and BL references, which are documentation defects. Labels match the first argument of `report(...)` in ArchHook.java exactly — DoctorGateTest fails when one stops appearing. Design: .claude/decisions/0128-doctor-gate-fails-the-generated-boundaries-job.md",
+    "$comment_gate": "Read by `doctor gate`, the form the generated project's CI runs: the same report, then exit 1 when a line whose label is listed here printed ❌. A line doctor does not print — no .mcp.json, no audit directory — passes; an empty or missing list fails closed. Each label is a check of a committed file a push can break — `Boundary violations` too: every source file swept for a forbidden import, the one line that reads code rather than the setup (decision 0140). Left out on purpose: `CLAUDE_PROJECT_DIR` and `Compose`, which are runner state (a CI runner never sets the variable and never starts the services); `Build wrapper`, which the build job already fails without; `Audit`, which prices runs and gates nothing; `git HEAD`, always true on a checkout; the UC and BL references, which are documentation defects. Labels match the first argument of `report(...)` in ArchHook.java exactly — DoctorGateTest fails when one stops appearing. Design: .claude/decisions/0128-doctor-gate-fails-the-generated-boundaries-job.md",
     "gate": {
-      "labels": ["Boundaries", "Boundary violations", "Schema", "Hook jar", "Hooks", "MCP", "Audit overrides"]
+      "labels": ["Boundaries", "Boundary violations", "Schema", "Hook jar", "Hooks", "MCP", "Audit overrides", "Compose overrides"]
     },
 
     "$comment_shadowing": "Read by `doctor`, the `Skill shadowing` line. Claude Code resolves two skills with one name as enterprise over personal over project, so a folder in the personal skills directory named like one of .claude/skills/ replaces the project's skill for every /command and every automatic invocation, with no warning — the pipeline runs a skill that knows nothing of rules/ or the partials. A plugin skill cannot do this: it is namespaced as plugin:skill, and `settings.blocked_plugins` handles plugins. `config_dir_env` is the variable that relocates the personal directory, `config_dir_default` is used when it is unset (`~` is the user's home), `skills_subdir` is joined to either. Runner state: never in `gate.labels`, since a CI runner has no personal skills and a developer's home is not the project. Design: .claude/decisions/0138-block-colliding-plugins-and-report-shadowed-skills.md",
@@ -124,7 +162,7 @@
       "walk_exclude_dirs": [".git", "target", "build", ".gradle", "node_modules", "out", ".idea"]
     },
 
-    "$comment_agent_instructions": "Read by `doctor`, the `Agent instructions` line: the files `project-bootstrap` step 6 writes so that an agent other than Claude Code gets this project's context. `root_files` must exist. For every entry under `modules_key` of the active blueprint — the copy at `blueprint_dir` + `blueprint_file` — split, and the directory written without a trailing slash, because that spelling is the export residue marker — its id read from the provenance stamp — whose `forbidden_key` list is not empty and whose `path_key` directory exists, `module_file` must list every prefix and `import_file` must hold `import_line`: Claude Code skips a module AGENTS.md while the root has a CLAUDE.md, so without that one line the module context is gone for it, in silence. Every token of those files matching `cited_path_pattern` (group 1) must exist, resolved from the project root. Silent where there is no stamp — this meta-repository writes the files, carries none. Reported, never gating: the build is what refuses a forbidden import, and drift here is a documentation defect. Design: .claude/decisions/0139-agents-md-root-pointer-module-owner.md",
+    "$comment_agent_instructions": "Read by `doctor`, the `Agent instructions` line: the files `project-bootstrap` step 6 writes so that an agent other than Claude Code gets this project's context. `root_files` must exist. For every entry under `modules_key` of the active blueprint — the copy at `blueprint_dir` + `blueprint_file` — split, and the directory written without a trailing slash, because that spelling is the export residue marker — its id read from the provenance stamp — whose `forbidden_key` list is not empty and whose `path_key` directory exists, `module_file` must list every prefix and `import_file` must hold `import_line`: Claude Code skips a module AGENTS.md while the root has a CLAUDE.md, so without that one line the module context is gone for it, in silence. Every token of those files matching `cited_path_pattern` (group 1) must exist, resolved from the project root. Silent where there is no stamp — this meta-repository writes the files, carries none. Reported, never gating: `doctor gate` in CI is what refuses a forbidden import (the local build only once ArchUnit is installed, 0174), and drift here is a documentation defect. Design: .claude/decisions/0139-agents-md-root-pointer-module-owner.md",
     "agent_instructions": {
       "stamp_file": ".claude/.arch-provenance.json",
       "blueprint_dir": ".claude/blueprints",
@@ -166,7 +204,132 @@
         "id\\s*\\(?\\s*['\"]org\\.springframework\\.boot['\"]\\s*\\)?\\s*version\\s*['\"](\\d+\\.\\d+)",
         "org\\.springframework\\.boot:spring-boot-(?:dependencies|gradle-plugin):(\\d+\\.\\d+)",
         "(?i)\\bspring[-_]?boot\\s*=\\s*\"(\\d+\\.\\d+)"
-      ]
+      ],
+      "upgrade": {
+        "$comment": "Read by ArchHook.java `upgrade-recipe`, which writes the OpenRewrite recipe that the `platform-upgrade` skill runs on a project below `min_line`. Clean room: every `to` below comes from an exemplar this repository compiles on `min_line` in CI, or from an artifact the Spring Boot BOM manages; no entry is copied from a recipe module under another license (Moderne's `rewrite-spring`), and none is to be. A wrong `from` renames nothing, a wrong `to` breaks a build, so a `to` is checked against a published artifact before it lands and a `from` against the jar of the line it leaves. The engine is data as well: `recipes` names what runs and with which options, so replacing it edits this block and no Java (invariant 10). Placeholders: `${target}` the Boot version the skill resolved from the Initializr; `${from_group}`, `${from_artifact}`, `${to_group}`, `${to_artifact}` the two sides of a `group:artifact` entry; `${from}` and `${to}` the two sides of a type entry; `${key}` and `${replacement}` a property; `${group}`, `${artifact}`, `${type}` an added starter and the type that asks for it (`requires_starter`); `${group_regex}` and `${artifact_regex}` a coordinate with its dots escaped, for a recipe that edits text; `${version}` a BOM or dependency version read from the Initializr file `--initializr` names. `recipes.unpin` removes a version the old coordinate carried from every renamed or added one, because the Spring Boot BOM manages them all; `recipes.bom` moves each BOM the build declares to the version the Initializr serves for the target; `test_reports` is where `test-diff` and `build-report` look for JUnit XML. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md and .claude/decisions/0176-platform-upgrade-baseline-context-and-runtime-starters.md",
+        "target_pattern": "\\d+\\.\\d+\\.\\d+",
+        "metadata_entry": "META-INF/spring-configuration-metadata.json",
+        "recipes": {
+          "bump_name": "org.nerviz.platform.Bump",
+          "properties_name": "org.nerviz.platform.Properties",
+          "bump": [
+            {"type": "org.openrewrite.maven.UpgradeParentVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-parent", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.maven.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-dependencies", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.maven.UpgradePluginVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-maven-plugin", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.plugins.UpgradePluginVersion",
+             "options": {"pluginIdPattern": "org.springframework.boot", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-gradle-plugin", "newVersion": "${target}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "org.springframework.boot", "artifactId": "spring-boot-dependencies", "newVersion": "${target}"}}
+          ],
+          "dependency": [
+            {"type": "org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId",
+             "options": {"oldGroupId": "${from_group}", "oldArtifactId": "${from_artifact}", "newGroupId": "${to_group}", "newArtifactId": "${to_artifact}"}},
+            {"type": "org.openrewrite.gradle.ChangeDependency",
+             "options": {"oldGroupId": "${from_group}", "oldArtifactId": "${from_artifact}", "newGroupId": "${to_group}", "newArtifactId": "${to_artifact}"}}
+          ],
+          "type": [
+            {"type": "org.openrewrite.java.ChangeType",
+             "options": {"oldFullyQualifiedTypeName": "${from}", "newFullyQualifiedTypeName": "${to}"}}
+          ],
+          "add": [
+            {"type": "org.openrewrite.maven.AddDependency",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "version": "latest.release", "onlyIfUsing": "${type}"}},
+            {"type": "org.openrewrite.gradle.AddDependency",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "version": "latest.release", "configuration": "implementation", "onlyIfUsing": "${type}"}}
+          ],
+          "unpin": [
+            {"type": "org.openrewrite.text.FindAndReplace",
+             "options": {"find": "(<groupId>${group_regex}</groupId>\\s*<artifactId>${artifact_regex}</artifactId>)\\s*<version>[^<]*</version>", "replace": "$1", "regex": "true", "filePattern": "**/pom.xml"}},
+            {"type": "org.openrewrite.text.FindAndReplace",
+             "options": {"find": "(${group_regex}:${artifact_regex}):[^'\"\\s)]+", "replace": "$1", "regex": "true", "filePattern": "**/build.gradle*"}}
+          ],
+          "bom": [
+            {"type": "org.openrewrite.maven.UpgradeDependencyVersion",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "newVersion": "${version}"}},
+            {"type": "org.openrewrite.gradle.UpgradeDependencyVersion",
+             "options": {"groupId": "${group}", "artifactId": "${artifact}", "newVersion": "${version}"}}
+          ],
+          "property": [
+            {"type": "org.openrewrite.properties.ChangePropertyKey",
+             "options": {"oldPropertyKey": "${key}", "newPropertyKey": "${replacement}"}},
+            {"type": "org.openrewrite.yaml.ChangePropertyKey",
+             "options": {"oldPropertyKey": "${key}", "newPropertyKey": "${replacement}"}}
+          ]
+        },
+        "metadata_deprecation": {"level": "error"},
+        "engine": {
+          "$comment": "Read by the `platform-upgrade` skill, never by the mode: where the engine's own versions are listed, which artifacts it runs from, and the one trap measured on 2026-10-19 — Maven Central stops its OpenRewrite core at one release (`rewrite-bom` 8.90.4) while the Gradle plugin on the Plugin Portal keeps publishing against newer BOMs Central does not serve (`org.openrewrite:plugin` 7.40.0 and 7.41.0 import `rewrite-bom` 8.91.0, a 404 there), so `latest.release` fails to resolve. The Gradle plugin version is therefore the newest in `gradle_plugin_metadata` whose POM's `rewrite-bom` version has a POM at `central_bom`. The Maven plugin lives on Central itself and its `release` is coherent with it. Every artifact named here is Apache 2.0 (`org.openrewrite:plugin`'s POM declares it, as do the core modules and `rewrite-maven-plugin`).",
+          "maven_plugin": "org.openrewrite.maven:rewrite-maven-plugin",
+          "maven_plugin_metadata": "https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml",
+          "gradle_plugin": "org.openrewrite:plugin",
+          "gradle_plugin_metadata": "https://plugins.gradle.org/m2/org/openrewrite/plugin/maven-metadata.xml",
+          "gradle_plugin_pom": "https://plugins.gradle.org/m2/org/openrewrite/plugin/{version}/plugin-{version}.pom",
+          "central_bom": "https://repo.maven.apache.org/maven2/org/openrewrite/rewrite-bom/{version}/rewrite-bom-{version}.pom",
+          "initializr_starter": "https://start.spring.io/starter.tgz",
+          "initializr_dependencies": "https://start.spring.io/dependencies",
+          "initializr_accept": "application/vnd.initializr.v2.2+json",
+          "gradle_versions_all": "https://services.gradle.org/versions/all",
+          "gradle_distribution": "https://services.gradle.org/distributions/gradle-{version}-bin.zip",
+          "gradle_current": "https://services.gradle.org/versions/current",
+          "migration_guide": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide",
+          "gradle_candidates": 12
+        },
+        "test_starters": {
+          "$comment": "Read by the `platform-upgrade` skill, not by the mode: a test slice moved out of `spring-boot-test-autoconfigure` into one artifact per technology, which `spring-boot-starter-test` no longer brings. A compile error naming a package of the left column is cured by the test-scope dependency of the right one, `group:artifact` with no version (the BOM manages it). Each pair was resolved on Maven Central: the starter's POM depends on the module whose jar holds the package.",
+          "org.springframework.boot.webmvc.test.autoconfigure": "org.springframework.boot:spring-boot-starter-webmvc-test",
+          "org.springframework.boot.data.jpa.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-jpa-test",
+          "org.springframework.boot.data.mongodb.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-mongodb-test",
+          "org.springframework.boot.data.elasticsearch.test.autoconfigure": "org.springframework.boot:spring-boot-starter-data-elasticsearch-test",
+          "org.springframework.boot.graphql.test.autoconfigure": "org.springframework.boot:spring-boot-starter-graphql-test",
+          "org.springframework.boot.jdbc.test.autoconfigure": "org.springframework.boot:spring-boot-starter-jdbc-test"
+        },
+        "requires_starter": {
+          "$comment": "Read by `upgrade-recipe --pass bump`: a type the sources use, and the starter that brings the auto-configuration which acts on it. On the line below `min_line` that auto-configuration lived in `spring-boot-autoconfigure`, so the type alone was enough; on the floor it moved into a module of its own (`CacheAutoConfiguration` is in `spring-boot-cache`, which only `spring-boot-starter-cache` brings), and the build compiles and the context fails to start. The recipe adds the starter with no version, only when a source uses the type. Each pair was checked on 2026-10-19: the class is absent from `spring-boot-autoconfigure` 4.0.8 and present in the module the starter's POM depends on.",
+          "org.springframework.cache.annotation.EnableCaching": "org.springframework.boot:spring-boot-starter-cache"
+        },
+        "test_reports": [
+          "**/target/surefire-reports/TEST-*.xml",
+          "**/target/failsafe-reports/TEST-*.xml",
+          "**/build/test-results/**/TEST-*.xml"
+        ],
+        "renames": {
+          "dependencies": [
+            {"from": "org.springframework.boot:spring-boot-starter-web", "to": "org.springframework.boot:spring-boot-starter-webmvc"},
+            {"from": "org.springframework.boot:spring-boot-starter-aop", "to": "org.springframework.boot:spring-boot-starter-aspectj"},
+            {"from": "org.testcontainers:postgresql", "to": "org.testcontainers:testcontainers-postgresql"},
+            {"from": "org.testcontainers:mongodb", "to": "org.testcontainers:testcontainers-mongodb"},
+            {"from": "org.testcontainers:elasticsearch", "to": "org.testcontainers:testcontainers-elasticsearch"},
+            {"from": "org.testcontainers:junit-jupiter", "to": "org.testcontainers:testcontainers-junit-jupiter"},
+            {"from": "org.flywaydb:flyway-core", "to": "org.springframework.boot:spring-boot-starter-flyway"},
+            {"from": "org.liquibase:liquibase-core", "to": "org.springframework.boot:spring-boot-starter-liquibase"}
+          ],
+          "types": [
+            {"from": "org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest", "to": "org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc", "to": "org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc"},
+            {"from": "org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest", "to": "org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest", "to": "org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.data.elasticsearch.DataElasticsearchTest", "to": "org.springframework.boot.data.elasticsearch.test.autoconfigure.DataElasticsearchTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.graphql.GraphQlTest", "to": "org.springframework.boot.graphql.test.autoconfigure.GraphQlTest"},
+            {"from": "org.springframework.boot.test.autoconfigure.graphql.tester.AutoConfigureHttpGraphQlTester", "to": "org.springframework.boot.graphql.test.autoconfigure.tester.AutoConfigureHttpGraphQlTester"},
+            {"from": "org.springframework.boot.test.mock.mockito.MockBean", "to": "org.springframework.test.context.bean.override.mockito.MockitoBean"},
+            {"from": "org.springframework.boot.test.mock.mockito.SpyBean", "to": "org.springframework.test.context.bean.override.mockito.MockitoSpyBean"},
+            {"from": "org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCustomizer", "to": "org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer"},
+            {"from": "org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizers", "to": "org.springframework.boot.transaction.autoconfigure.TransactionManagerCustomizers"},
+            {"from": "org.springframework.boot.autoconfigure.graphql.GraphQlSourceBuilderCustomizer", "to": "org.springframework.boot.graphql.autoconfigure.GraphQlSourceBuilderCustomizer"},
+            {"from": "org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest", "to": "org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest"},
+            {"from": "org.springframework.boot.autoconfigure.http.client.ClientHttpRequestFactoryBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.ClientHttpRequestFactoryBuilderCustomizer"},
+            {"from": "org.springframework.boot.autoconfigure.http.client.reactive.ClientHttpConnectorBuilderCustomizer", "to": "org.springframework.boot.http.client.autoconfigure.reactive.ClientHttpConnectorBuilderCustomizer"},
+            {"from": "org.testcontainers.containers.PostgreSQLContainer", "to": "org.testcontainers.postgresql.PostgreSQLContainer"},
+            {"from": "org.testcontainers.containers.MongoDBContainer", "to": "org.testcontainers.mongodb.MongoDBContainer"},
+            {"from": "org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase", "to": "org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase"}
+          ]
+        }
+      }
     }
   },
 
@@ -225,25 +388,32 @@
   },
 
   "audit": {
-    "$comment": "Read by ArchHook.java `audit` mode. The audited set is not listed here: any name that resolves to .claude/skills/<n>/SKILL.md or .claude/agents/<n>.md is recorded, invoked by `/command` or by the model's own Skill/Agent call. Not frontmatter: it lives here because this file is the single owner of every list the hook reads. `redact` runs before the initial prompt, and the first line of each tool error, are written into the versioned .claude/audit-usage/ report — each `patterns` entry MUST expose the key part as group 1, the replacement keeps $1 and blanks the rest. Which pieces are NOT recorded is not listed here either: a class in `skill_classes` or `agent_classes` that declares `audited: false` leaves no report for any piece it lists — today `observer` (`audit-usage` reads the trail, `arch-doctor` reads the setup) and `ops` (`git-publish`: its own report would land after its commit). Three levels decide it, first boolean wins: a piece's own `overrides.<name>.audited` in its class, fixed here and out of the project's reach (`arch-adopt`, never audited); then the project's `project_overrides` file; then the class flag. Design: .claude/decisions/0035-auditoria-execucao-hook.md, .claude/decisions/0038-audit-trail-every-skill-and-agent.md, .claude/decisions/0085-audit-where-the-run-spent-and-english.md, .claude/decisions/0086-audit-exclusion-owned-by-the-class.md and .claude/decisions/0111-audit-opt-out-owned-by-the-project.md",
-    "$comment_project_overrides": "Resolved inside the trail directory. One of the two files of `.claude/` a generated project writes for itself (the other is `plan_limits`): `export` never names it, so `/arch-adopt` never touches it. Shape: {\"skills\": {\"<name>\": true|false}, \"agents\": {\"<name>\": true|false}} — `false` takes a piece out of the trail with the semantics of `audited: false`, `true` puts back one its class leaves out. Absent file or absent name: the class decides, as before. `doctor` validates it strictly — any other key, a non-boolean, a name with no file, or a piece fixed by its class override fails by name: the file sets which pieces are audited and nothing else. Design: .claude/decisions/0111-audit-opt-out-owned-by-the-project.md",
-    "project_overrides": "audited.json",
+    "$comment": "Read by ArchHook.java `audit` mode. The audited set is not listed here: any name that resolves to .claude/skills/<n>/SKILL.md or .claude/agents/<n>.md is recorded, invoked by `/command` or by the model's own Skill/Agent call. Not frontmatter: it lives here because this file is the single owner of every list the hook reads. `redact` runs before the initial prompt, and the first line of each tool error, are written into the versioned .claude/audit-usage/ report — each `patterns` entry MUST expose the key part as group 1, the replacement keeps $1 and blanks the rest. Which pieces are NOT recorded is not listed here either: a class in `skill_classes` or `agent_classes` that declares `audited: false` leaves no report for any piece it lists — today `observer` (`audit-usage` reads the trail, `arch-doctor` reads the setup) and `ops` (`git-publish`: its own report would land after its commit). Three levels decide it, first boolean wins: a piece's own `overrides.<name>.audited` in its class, fixed here and out of the project's reach (`arch-adopt`, never audited); then the project's `audited` file of `project_config`; then the class flag. Design: .claude/decisions/0035-auditoria-execucao-hook.md, .claude/decisions/0038-audit-trail-every-skill-and-agent.md, .claude/decisions/0085-audit-where-the-run-spent-and-english.md, .claude/decisions/0086-audit-exclusion-owned-by-the-class.md and .claude/decisions/0111-audit-opt-out-owned-by-the-project.md",
     "$comment_harness_prompts": "Prompts the harness injects on its own while a background agent's run is open — matched with find(), each one a regex. Not user intent: `audit prompt` neither closes, nor opens, nor overwrites the observer file on them, so the run keeps absorbing the agent's remaining events. `<task-notification>` is the agent's completion notice (decision 0041); `<agent-message` is its report, delivered through the runtime's one-shot hand-back (decision 0119). Both are undocumented runtime formats: a renamed shape closes runs early again, in silence — AuditRenderTest pins both.",
     "harness_prompts": ["^\\s*<task-notification>", "^\\s*<agent-message\\b"],
     "$comment_growth_top": "How many tool calls the report's `What grew the context` table lists, ranked by the tokens later requests re-read because of them; 0 keeps only the per-tool line of each piece. Every request rereads the whole context, so a result that enters early is paid on every later turn — the per-piece totals could not say which call that was, and each proposed cut to the executor was chosen blind (issue #111). Design: .claude/decisions/0132-audit-per-piece-cache-and-context-growth.md",
     "growth_top": 10,
-    "$comment_plans": "Read by `audit` (the run report's `Plan windows` section and `audit summary`) and by `doctor`. How many runs of a piece fit a plan's 5-hour and weekly windows, as if nothing else ran: the plan's budget for the window ÷ the run's billable tokens (input + output + cache write), capped by the window's hours ÷ the run's active duration. Anthropic publishes no limit in tokens or dollars — only that Max gives 5x or 20x the usage of Pro per 5-hour session, and that paid plans add weekly limits on top with no multiplier stated. So the budget is the project's own reading, in billable tokens — the trail's only unit, model-blind on purpose (0134) — in the `plan_limits` file of the trail (owned by the project, never named by `export`, like `project_overrides`), for `budget_plan` only; every other plan is that budget × its multiplier, and a `null` multiplier prints `not published`. Re-read `plans_source` before changing a multiplier: a number that changes outside this repository is never written from memory (invariant 8). Design: .claude/decisions/0133-audit-plan-window-projection.md, unit by .claude/decisions/0134-audit-tokens-only-no-usd-pricing.md",
+    "$comment_plans": "Read by `audit` (the run report's `Plan windows` section and `audit summary`) and by `doctor`. How many runs of a piece fit a plan's 5-hour and weekly windows, as if nothing else ran: the plan's budget for the window ÷ the run's billable tokens (input + output + cache write), capped by the window's hours ÷ the run's active duration. Anthropic publishes no limit in tokens or dollars — only that Max gives 5x or 20x the usage of Pro per 5-hour session, and that paid plans add weekly limits on top with no multiplier stated. So the budget is the project's own reading, in billable tokens — the trail's only unit, model-blind on purpose (0134) — in the `plan-limits` file of `project_config` (owned by the project, never named by `export`), for `budget_plan` only; every other plan is that budget × its multiplier, and a `null` multiplier prints `not published`. Re-read `plans_source` before changing a multiplier: a number that changes outside this repository is never written from memory (invariant 8). Design: .claude/decisions/0133-audit-plan-window-projection.md, unit by .claude/decisions/0134-audit-tokens-only-no-usd-pricing.md",
     "plans_source": "https://claude.com/pricing, read 2026-10-08",
-    "plan_limits": "plan-limits.json",
     "budget_plan": "pro",
     "windows": {
-      "five_hour": {"label": "5 h", "hours": 5, "budget": "five_hour_tokens"},
-      "weekly": {"label": "week", "hours": 168, "budget": "weekly_tokens"}
+      "five_hour": {"label": "5 h", "hours": 5, "budget": "five_hour_tokens", "rate_limits_key": "five_hour"},
+      "weekly": {"label": "week", "hours": 168, "budget": "weekly_tokens", "rate_limits_key": "seven_day"}
     },
     "plans": {
       "pro": {"label": "Pro", "multipliers": {"five_hour": 1, "weekly": 1}},
       "max-5x": {"label": "Max 5x", "multipliers": {"five_hour": 5, "weekly": null}},
       "max-20x": {"label": "Max 20x", "multipliers": {"five_hour": 20, "weekly": null}}
+    },
+    "$comment_plan_usage": "The account's real plan usage, measured around a run: the snapshot a personal status line (or any personal producer writing the same shape) leaves at `snapshot` — the status line's stdin as received. `audit` reads `<root>.<window rate_limits_key>.<used>` and `.<resets_at>` at run open, at `flush` (provisional) and at `close` (final: the status line refreshes 300 ms after the last response, after `Stop`), and copies those numbers only, never other text of the file — no redaction applies. Older than `max_age_minutes`, absent or unreadable → `not captured`; absent with a `not_available_env` variable set → `not available`; a changed `resets_at` → `not valid`. `~` is `user.home`. The producer never travels: its snippet is .claude/skills/audit-usage/templates/statusline-rate-limits.json.example, pasted by the person into ~/.claude/settings.json; an existing project learns of it from the `audit-plan-usage-statusline` entry of `migrations`, whose prompt the person pastes. Design: .claude/decisions/0194-audit-plan-usage-delta-from-a-personal-status-line-snapshot.md",
+    "plan_usage": {
+      "snapshot": "~/.claude/rate-limits.json",
+      "max_age_minutes": 15,
+      "root": "rate_limits",
+      "used": "used_percentage",
+      "resets_at": "resets_at",
+      "resolution_pp": 0.1,
+      "not_available_env": ["CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "CLAUDE_CODE_USE_ANTHROPIC_AWS", "CLAUDE_CODE_USE_MANTLE", "ANTHROPIC_API_KEY"]
     },
     "$comment_genesis": "Read by `audit genesis <project> <session-id>`, which `/init-project` runs after `project-initializer` returns and before `git-publish`. `file` is the generated project's genesis record, relative to its root; `command` the skill whose entry marks Started in this session's transcript — a `<command-name>` message when it was typed, or the prompt behind a Skill tool result whose `toolUseResult.commandName` names it (0164); `placeholders` the three literals step 8.6 of project-bootstrap leaves in the file and this mode replaces — Started, Finished (the moment it runs), and the tokens of the main transcript and every subagent transcript from Started on — no cost, the trail prices nothing (0134). The model never writes those three values. Design: .claude/decisions/0123-lessons-learned-020-init-project-run.md, Started anchors amended by .claude/decisions/0164-genesis-started-from-the-skill-tool-path.md",
     "genesis": {
@@ -261,11 +431,41 @@
     }
   },
 
+  "footprint": {
+    "$comment": "Read by ArchHook.java `footprint`, the read-only mode `harness-lessons` injects: what this `.claude/` puts in context every session (root CLAUDE.md and what it imports, rules without `paths`, the listing of every model-invocable skill and every agent, MCP servers) and what each piece adds when it loads (skill body, references, injections; agent body and preloaded skills), plus hook registrations per event and how many of those on a `settings.matcher_events` event spawn a process on every occurrence. Report only: `limits` marks a number past a documented threshold with `over`, and nothing exits non-zero on it — no run was ever measured over one (0188, mirror of invariant 6). `bytes_per_token` turns bytes into an ESTIMATE the output labels as such: the exact count needs the `count_tokens` API, a network call and a key. Each limit's source is the `harness-lessons` reference that cites it, re-read past its window; a limit changes here, never in the Java. Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md",
+    "bytes_per_token": 4,
+    "claude_md": ["CLAUDE.md", ".claude/CLAUDE.md"],
+    "import_max_depth": 4,
+    "skills": ".claude/skills/*/SKILL.md",
+    "agents": ".claude/agents/*.md",
+    "rules": ".claude/rules/*.md",
+    "settings": ".claude/settings.json",
+    "mcp": ".mcp.json",
+    "listing_fields": ["description", "when_to_use"],
+    "limits": {
+      "claude_md_lines": 200,
+      "skill_body_lines": 500,
+      "listing_chars": 1536,
+      "reference_toc_lines": 100
+    },
+    "toc_dirs": ["references"]
+  },
+
   "tests": {
     "$comment": "Read by ArchHook.java `tests`. `tests agent-start` (SubagentStart) and `tests agent-end` (SubagentStop), registered only in project-bootstrap/templates/settings.json.example, keep one marker per `agent_id` for every agent whose class in `agent_classes` has `executor: true`; the `Stop` gate defers, exit 0 with one stderr line, while a marker younger than `writer_agent_max_minutes` exists. A background executor's Stop otherwise ran Maven over its half-written tree and blocked a main thread that cannot write src/ (issue #76). The cap is what an agent killed by machine sleep, which never reaches SubagentStop, costs: past it the marker is deleted and the gate runs again. Design: .claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md",
     "writer_agent_max_minutes": 120,
     "$comment_stop_maven_args": "What the `Stop` gate hands the Maven wrapper after `-q -o -pl <changed modules> -am`. `verify`, because the generated POM binds spotless:check and checkstyle-test there, and a gate stopping at `test` printed green on a tree CI's `./mvnw clean verify` rejects (issue #126). `-DskipITs` and `-Djacoco.skip=true` keep Docker and the coverage gate out of every turn end: integration tests need Testcontainers, and JaCoCo's check blocks mid-feature before the tests exist — the executor's own `verify` and CI run both. A project with a network-bound plugin of its own at `verify` adds its skip flag here; the gate runs offline. A missing or empty list blocks, naming this key. Design: .claude/decisions/0142-stop-gate-runs-verify-without-its.md",
     "stop_maven_args": ["verify", "-DskipITs", "-Djacoco.skip=true"]
+  },
+
+  "build_tools": {
+    "$comment": "Read by ArchHook.java `check` (its incremental compile), `moduleOf` and `doctor`'s `Build wrapper` line. One entry per build tool a blueprint's `build.tool` may name: `wrapper` is the file at the project root, Unix then Windows; `module_files` mark a directory as a build module; `compile` is what `check` hands the wrapper after an edit — `{module}` the module path, `{task}` its Gradle task prefix (`:a:b:`, empty for the root). The first tool whose wrapper exists wins. The `format` and `tests` hooks run Maven goals and stay Maven-only (the Stop gate does not run under Gradle, migration `stop-gate-runs-verify`). Until this block, `check` skipped its compile and `doctor` printed `Maven wrapper ❌` on every Gradle project (issue #167). Design: .claude/decisions/0180-module-slot-boundary-gradle-wrapper-and-approval-checks.md",
+    "tools": [
+      {"id": "maven", "wrapper": ["mvnw", "mvnw.cmd"], "module_files": ["pom.xml"],
+       "compile": ["-q", "-o", "-pl", "{module}", "-am", "test-compile"]},
+      {"id": "gradle", "wrapper": ["gradlew", "gradlew.bat"], "module_files": ["build.gradle.kts", "build.gradle"],
+       "compile": ["-q", "--offline", "{task}compileTestJava"]}
+    ]
   },
 
   "skill_classes": {
@@ -309,13 +509,23 @@
         "allowed_models": ["opus", "sonnet"],
         "write_allow": [],
         "required_sections": ["## Procedure"],
-        "skills": ["project-bootstrap", "docker-architect", "arch-adopt", "gof-design-patterns", "sonarqube-setup", "transport-security-setup"],
+        "skills": ["project-bootstrap", "docker-architect", "arch-adopt", "gof-design-patterns", "sonarqube-setup", "transport-security-setup", "platform-upgrade"],
         "overrides": {
           "project-bootstrap": { "write_allow": ["**"] },
           "docker-architect": { "write_allow": ["docker-compose*.yml", "docker/**", "Dockerfile", ".env", ".env.example", ".gitignore", ".dockerignore"] },
           "arch-adopt": { "write_allow": [".claude/**", ".gitignore", "CLAUDE.md"], "audited": false },
           "gof-design-patterns": { "write_allow": ["src/**", "**/src/**"] },
           "sonarqube-setup": { "write_allow": ["pom.xml", "build.gradle", ".github/workflows/**"] },
+          "platform-upgrade": {
+            "$comment": "The build and the sources of the project being brought up to `doctor.platform.min_line`: the root build file and the wrapper files, `src/**` for the type and property renames and the compile errors left over, every path twice, rooted and under `**/`, for a multi-module layout. Never `.claude/**` — that is `arch-adopt`'s, run afterwards. `$WORK` lives outside the working tree, which the guard does not judge. Design: .claude/decisions/0175-platform-upgrade-below-the-floor.md",
+            "write_allow": [
+              "pom.xml", "**/pom.xml",
+              "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
+              "**/build.gradle", "**/build.gradle.kts", "gradle/libs.versions.toml", "gradle.properties",
+              ".mvn/wrapper/**", "gradle/wrapper/**",
+              "src/**", "**/src/**"
+            ]
+          },
           "transport-security-setup": {
             "$comment": "The transport configuration, the HSTS filter and the two transport ITs, and the `**Transport:**` paragraph of the root CLAUDE.md. `src/test/**` whole, not the two IT names: with TLS on by default a `@SpringBootTest` that runs without the `test` profile can no longer start, and the setup adds the profile to each one it finds. Every path twice, rooted and under `**/`, for the multi-module layouts. Design: .claude/decisions/0122-transport-security-setup-and-secrets.md",
             "write_allow": [
@@ -346,20 +556,31 @@
         "skills": ["claude-code-architect-designer"]
       },
       "ops": {
-        "$comment": "Effect outside the working tree. Writes no file, so an empty write_allow is exact rather than restrictive. `audited: false`: a run of its own would render its report at the `Stop` AFTER the commit it made, so every publish left the tree dirty with a report about publishing (lessons-learned-012 § 15). Typed as `/git-publish` it now closes the run in progress first — that run's report and ledger lines land on disk before the commit, and go into it. Chained inside another run it stays part of that run, with its own tokens, like any nested piece. Design: .claude/decisions/0086-audit-exclusion-owned-by-the-class.md. `triage-issue` has the same shape — its effect is a comment on an issue, outside the tree, and it writes no file; the judgment that would otherwise argue for `opus` lives in the `issue-verifier` agent it delegates to. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md",
+        "$comment": "Effect outside the working tree. Writes no file, so an empty write_allow is exact rather than restrictive. `audited: false`: a run of its own would render its report at the `Stop` AFTER the commit it made, so every publish left the tree dirty with a report about publishing (lessons-learned-012 § 15). Typed as `/git-publish` it now closes the run in progress first — that run's report and ledger lines land on disk before the commit, and go into it. Chained inside another run it stays part of that run, with its own tokens, like any nested piece. Design: .claude/decisions/0086-audit-exclusion-owned-by-the-class.md. `triage-issue` has the same shape — its effect is a comment on an issue, outside the tree, and it writes no file; the judgment that would otherwise argue for `opus` lives in the `issue-verifier` agent it delegates to. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `project-config` writes no file with a tool either: every change is `ArchHook.jar config set|unset`, the one writer of the `project_config` files, which validates before it writes and which `guard` names whenever a tool tries the write itself. Design: .claude/decisions/0187-project-config-registry-skill-and-mod.md. `spike` writes no file with a tool either: its effect is a sibling git worktree, made by `git worktree add` and reduced by `ArchHook.jar spike`. Design: .claude/decisions/0198-spike-worktree-with-hooks-off.md",
         "audited": false,
         "allowed_models": ["sonnet"],
         "write_allow": [],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["git-publish", "triage-issue", "new-project"]
+        "skills": ["git-publish", "triage-issue", "new-project", "project-config", "spike"]
       },
       "report": {
-        "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md",
+        "$comment": "Runs an analyzer over the project, writes one findings file under docs/lessons-learned/, and — behind a confirmation — publishes a sanitized copy outside the working tree. Not `build`, whose reason to exist is materializing files outside docs/, and not `ops`, which writes no file and allows sonnet only while this class's tracing step is judgment. `## Failure modes` is required because every run depends on two external systems — the analyzer's server and the forge the issue goes to — and each one fails in a way the reader must be told how to leave. Blocked during design: a run is a full build. The territory is the class default on purpose, so a second report skill joins by name, with no override. Design: .claude/decisions/0100-sonar-lessons-skill.md. `report-issue` is that second skill: the one door from a generated project to the meta-repository, so sonar-lessons now writes its findings file and prints the command instead of publishing — one owner of the privacy rule and the duplicate search. Design: .claude/decisions/0103-issue-filing-and-skeptical-triage.md. `harness-lessons` is the one override: in the Nerviz repository its lessons file is history about this `.claude/`, so it goes beside the run reports in `.claude/lessons-learned/` instead of the public `docs/` tree; in a generated project it stays in `docs/lessons-learned/`, gitignored there and read by `report-issue`. The glob is `harness-*.md` alone, never the run reports beside it. Design: .claude/decisions/0188-harness-lessons-and-footprint-mode.md",
         "blocked_during_design": true,
         "allowed_models": ["opus"],
         "write_allow": ["docs/lessons-learned/**"],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["sonar-lessons", "report-issue"]
+        "overrides": {
+          "harness-lessons": {"write_allow": ["docs/lessons-learned/**", ".claude/lessons-learned/harness-*.md"]}
+        },
+        "skills": ["sonar-lessons", "report-issue", "harness-lessons"]
+      },
+      "media": {
+        "$comment": "Renders diagrams of this repository's own `.claude/` from its data and writes them under docs/diagrams/ — and nothing else. Not `report`, whose reason to exist is an analyzer that writes a findings file and publishes it through report-issue: a renderer is neither, and borrowing its class with an override would name a territory the class does not describe (option B of the record). `blocked_during_design` because rendering is not part of a design run. Meta-repository only: the skill is in export.skills.exclude. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md",
+        "blocked_during_design": true,
+        "allowed_models": ["sonnet"],
+        "write_allow": ["docs/diagrams/**"],
+        "required_sections": ["## Procedure", "## Failure modes"],
+        "skills": ["nerviz-diagrams"]
       }
     }
   },
@@ -385,16 +606,16 @@
         "agents": ["project-initializer"]
       },
       "executor": {
-        "$comment": "Implements an approved spec: the spec replaces the interview, so the body carries an input guardrail instead of questions. The one path outside src/ is the single Edit that closes `status: approved` to `status: implemented` — the frozen-folder check in `guard` allows that line and only that line, and the allowlist has to let the file through before that check is even reached. `pom.xml` is here since lessons-learned-013 § 10: Form B needed `spring-kafka`, no participant in the feature pipeline owned the file (the design skills are docs-only, `/new-feature` writes the spec, the two installers have nothing to do with a feature's dependencies) and the run unblocked only because a human edited it outside every territory. The territory is file-level and cannot say `dependency blocks only` — what bounds it is the agent's own body: a dependency the spec's § 3 or § 6 names as a declared requirement, nothing else, and any other change to the file is reported instead of written. `pattern_catalog: true`: this is the agent that designs the feature's Java, and the catalog has to be in its context before the first class is written, not after the second occurrence of a symptom.",
+        "$comment": "Implements an approved spec: the spec replaces the interview, so the body carries an input guardrail instead of questions. The one path outside src/ is the single Edit that closes `status: approved` to `status: implemented` — the frozen-folder check in `guard` allows that line and only that line, and the allowlist has to let the file through before that check is even reached. `pom.xml` is here since lessons-learned-013 § 10: Form B needed `spring-kafka`, no participant in the feature pipeline owned the file (the design skills are docs-only, `/new-feature` writes the spec, the two installers have nothing to do with a feature's dependencies) and the run unblocked only because a human edited it outside every territory. The territory is file-level and cannot say `dependency blocks only` — what bounds it is the agent's own body: a dependency the spec's § 3 or § 6 names as a declared requirement, nothing else, and any other change to the file is reported instead of written. The build file is `pom.xml` or `build.gradle(.kts)`, rooted and under `**/` like `src/**`, since `project-bootstrap` generates both (0179/0180); the agent body bounds what it may write there (0205). `pattern_catalog: true`: this is the agent that designs the feature's Java, and the catalog has to be in its context before the first class is written, not after the second occurrence of a symptom.",
         "executor": true,
         "pattern_catalog": true,
         "required_fields": ["effort"],
-        "write_allow": ["src/**", "**/src/**", "docs/use-cases/UC-*/UC-*-spec.md", "pom.xml", "**/pom.xml"],
+        "write_allow": ["src/**", "**/src/**", "docs/use-cases/UC-*/UC-*-spec.md", "pom.xml", "**/pom.xml", "build.gradle", "**/build.gradle", "build.gradle.kts", "**/build.gradle.kts"],
         "required_sections": ["## Input validation", "## Failure mode", "## References"],
         "agents": ["java-spring-boot-developer"]
       },
       "installer": {
-        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the POMs, which the two Java installers both edit, and each agent replaces it with its own full list. `pattern_catalog: false`: the Java installers write under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context. compose-service-installer writes no Java at all: it carries docker-architect's procedure into an implement run, so its territory is that skill's, decision 0137.",
+        "$comment": "One-shot mechanical setup with no interview, returning a structured summary. The class default is the POMs; each Java installer replaces it with its own list, build.gradle and build.gradle.kts included. `pattern_catalog: false`: the Java installers write under src/, but copy fixed templates — nothing they write is designed, so a catalog would only cost context. compose-service-installer writes no Java at all: it carries docker-architect's procedure into an implement run, so its territory is that skill's, decision 0137.",
         "executor": true,
         "pattern_catalog": false,
         "required_fields": ["effort"],
@@ -406,6 +627,8 @@
             "$comment": "Each path is listed twice, once rooted and once under `**/`, because `**` expands to `.*` and a single-module project writes `src/test/...` with nothing before it — the same pair `executor` carries for `src/**`.",
             "write_allow": [
               "pom.xml", "**/pom.xml",
+              "build.gradle", "**/build.gradle",
+              "build.gradle.kts", "**/build.gradle.kts",
               "src/test/java/**/ArchitectureTest.java",
               "**/src/test/java/**/ArchitectureTest.java",
               "src/test/java/**/TestcontainersConfiguration.java",
@@ -415,12 +638,8 @@
           "commons-logging-installer": {
             "write_allow": [
               "pom.xml", "**/pom.xml",
-              "src/main/java/**/logging/**",
-              "**/src/main/java/**/logging/**",
-              "src/test/java/**/logging/**",
-              "**/src/test/java/**/logging/**",
-              "src/main/resources/META-INF/spring/*.imports",
-              "**/src/main/resources/META-INF/spring/*.imports"
+              "build.gradle", "**/build.gradle",
+              "build.gradle.kts", "**/build.gradle.kts"
             ]
           },
           "mapstruct-installer": {
@@ -464,7 +683,53 @@
     "max_chars": 9000
   },
 
+  "spike": {
+    "$comment": "What `ArchHook.java spike <worktree>` keeps in a spike worktree's `.claude/settings.json`: every hook entry whose ArchHook mode (the argument right after `ArchHook.jar`) is listed in `keep_modes`; every other entry is dropped, an emptied matcher group and an emptied event with it. Everything outside `hooks` is left as is. `audit` stays so a spike's token spend lands in the main checkout's trail. Design: .claude/decisions/0198-spike-worktree-with-hooks-off.md",
+    "keep_modes": ["audit"]
+  },
+
+  "project_config": {
+    "$comment": "Single owner of what a generated project configures in its own `.claude/`: every file below is the project's — `export` never names it, so `/arch-adopt` never touches it, and an absent file, an absent key or a key at its default means the behaviour upstream ships. Read by ArchHook.java `config` (list, set, unset — the only writer), by the readers of each file (`audit`, `compose`, `doctor`), and by `guard`: `guard write` and `guard bash` refuse any tool a direct write of a path listed here and name the `config set` command instead, and `guard sweep` skips these paths, since the write `config` made came from no tool. `base` says what `path` is relative to — `audit` is the trail directory (AUDIT_DIR, the main checkout's in a worktree), `root` the project root. `validator` names the check `config set` and `doctor` share, a closed set dispatched in the Java: `audit_overrides` (skills and agents, booleans, a name with a file, no piece fixed by its class override), `plan_limits` (`audit.budget_plan` and the `budget` fields of `audit.windows`, a number above 0 or null), `keys` (the `keys` listed here, each one of its `values`). `keys` is what `config list` prints for a file: a `{skill}` or `{agent}` in a key expands to every one on disk, `{budget_plan}` and `{window_budget}` to the audit block's values. A new project setting is one entry here, its validator, and the reader of its behaviour. Design: .claude/decisions/0187-project-config-registry-skill-and-mod.md",
+    "files": {
+      "audited": {
+        "base": "audit",
+        "path": "audited.json",
+        "validator": "audit_overrides",
+        "doctor_label": "Audit overrides",
+        "summary": "Which skills and agents the audit trail records, over each one's class default",
+        "decision": ".claude/decisions/0111-audit-opt-out-owned-by-the-project.md",
+        "keys": [
+          {"key": "skills.{skill}", "type": "boolean", "default": "the skill's class (`audited` in skill_classes)", "effect": "`false` leaves no run report and no history.jsonl line for the skill; `true` records one its class leaves out. `arch-adopt` is fixed off and refused"},
+          {"key": "agents.{agent}", "type": "boolean", "default": "the agent's class (`audited` in agent_classes)", "effect": "The same, for an agent"}
+        ]
+      },
+      "plan-limits": {
+        "base": "audit",
+        "path": "plan-limits.json",
+        "validator": "plan_limits",
+        "doctor_label": "Plan limits",
+        "summary": "The billable-token budget the plan-window projection of the audit reports starts from",
+        "decision": ".claude/decisions/0133-audit-plan-window-projection.md",
+        "keys": [
+          {"key": "{budget_plan}.{window_budget}", "type": "positive_number_or_null", "default": "unset — no plan-window projection", "effect": "The budget observed for the window, in billable tokens; every other plan is it times its multiplier"}
+        ]
+      },
+      "compose-gate": {
+        "base": "root",
+        "path": ".claude/compose-gate.json",
+        "validator": "keys",
+        "doctor_label": "Compose overrides",
+        "summary": "Whether a compose service stopped on purpose blocks the end of a turn",
+        "decision": ".claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md",
+        "keys": [
+          {"key": "exited", "type": "enum", "values": ["block", "warn"], "default": "block", "effect": "`warn` turns the lines for services in `exited` or `dead` into warnings `compose` and `doctor` print and the Stop gate never reads; `created` and every file check still block"}
+        ]
+      }
+    }
+  },
+
   "compose": {
+    "$comment_project": "The one thing about the compose gate a generated project sets for itself is the `compose-gate` file of `project_config`, with the single key `exited` — `block` (the default, and what an absent file, an absent key or any other value means) or `warn`. `warn` sends the lines for services in `exited` or `dead` to the warnings that `compose` and `doctor` print and the gate never reads. `created`, any other non-running state, a foreign container beside a running or `created` service and every file-only check keep exiting 2. Design: .claude/decisions/0186-compose-gate-foreign-port-warns-while-our-stack-is-stopped.md",
     "$comment": "Read by ArchHook.java `compose`, and through it by `doctor`. A service that publishes a port to the host is claiming the host can reach it; when it ALSO advertises its own address to clients — a broker, a registry, anything that answers a bootstrap with `talk to me there instead` — the two claims have to agree. docker-architect's Kafka exemplar published 9092:9092 and advertised only `kafka:9092`, so every host-side publish died on `UnknownHostException: kafka` while the broker's healthcheck (run INSIDE the container, where localhost IS the broker) passed and Testcontainers' own correctly-wired listeners kept the integration tests green: lessons-learned-013 § 11. Every mechanism that could have caught it looked somewhere else, which is why this one reads the file instead of the runtime and answers with the daemon down. `advertised_env_suffixes` are matched with endsWith against each environment key, not as globs — one less pattern language in a check whose whole value is being unambiguous; a new advertising service adds a suffix here, never a condition in the Java, invariant 10. `host_addresses` is what counts as reachable from the host, and its first entry is the one the error message tells the reader to advertise. Design: .claude/decisions/0060-lessons-learned-013-shipping-defects.md Question 5 of `compose`: every `${VAR:default}` the application points at a compose service must hold on both sides — the default reaches a host address on a port that service publishes (the run on the host), and the application's own service sets VAR, by name or by the relaxed-binding form of the property it sits under (the run in the container). The OTLP collector published no port from 0046 until issue #66, so every host-run export failed while `compose` reported healthy, and projects generated before 0046 never set OTLP_METRICS_ENDPOINT on `app`. `app_config_globs` are the files read for placeholders; `app_service_key` is the key that marks a compose service as the application itself (built here, not pulled). Design: .claude/decisions/0110-otlp-host-first-collector.md",
     "advertised_env_suffixes": [
       "_ADVERTISED_LISTENERS",
@@ -539,9 +804,11 @@
     "checklist_toggle_statuses": ["approved", "implemented", "implemented-blocked"],
 
     "bash_write_shapes": {
-      "$comment": "Read by ArchHook.java `guard bash`, registered as PreToolUse/matcher Bash in the same two settings files as `guard write`. Every other enforcement here is reached through a tool-name matcher, so a heredoc, a `sed -i` or a `tee` passed through none of them — the net was tool-shaped, not filesystem-shaped, and a host setting that prefers Bash for edits disabled all of it in silence (lessons-learned-014 § 1). The exposure is uneven and only two guarantees have no second net: class territory and the frozen UC-NNN folder, which is what `guard bash` checks. The layer boundary is re-checked by ArchUnit at `./mvnw verify` and formatting by `spotless:apply`, so `check` and `format` stay off Bash on purpose — a PostToolUse matcher there pays a JVM on every `ls`. THE BAR IS NOT COMPLETENESS: shell has more ways to write a file than any list holds, and a parser that blocked on what it could not read would stop `./mvnw` on its first false positive and be deleted the same week. A target holding an `unresolvable_markers` entry, or landing outside the repository, is skipped without a word; a command with no shape below exits immediately. What this buys is that the obvious spellings stop being free. `targets` says where a command's own writes sit: `all` operands, the `tail` after the first (a sed script), the `last` one, or the ones carrying `operand_prefix`. `requires_flag_prefix` is what keeps a read-only `sed` out of it. `script_flags` name the flags whose value is the script (`sed -e 's/…/'`, `-f file.sed`, `--expression=…`): when one is present, no operand is a script, so a `tail` shape judges every operand. An empty word (`''`, the in-place suffix of BSD/macOS `sed -i ''`) is never an operand. Before 0118, both read the sed script as a path and refused it (`s/a/b/g is outside its territory`). Adding a shape is one entry here and no Java — invariant 10. Design: .claude/decisions/0063-bash-write-enforcement.md, .claude/decisions/0118-skill-model-pin-audit-tail-and-bsd-sed.md",
+      "$comment": "Read by ArchHook.java `guard bash`, registered as PreToolUse/matcher Bash in the same two settings files as `guard write`. Every other enforcement here is reached through a tool-name matcher, so a heredoc, a `sed -i` or a `tee` passed through none of them — the net was tool-shaped, not filesystem-shaped, and a host setting that prefers Bash for edits disabled all of it in silence (lessons-learned-014 § 1). The exposure is uneven and only two guarantees have no second net: class territory and the frozen UC-NNN folder, which is what `guard bash` checks. The layer boundary is re-checked by ArchUnit at `./mvnw verify` and formatting by `spotless:apply`, so `check` and `format` stay off Bash on purpose — a PostToolUse matcher there pays a JVM on every `ls`. THE BAR IS NOT COMPLETENESS: shell has more ways to write a file than any list holds, and a parser that blocked on what it could not read would stop `./mvnw` on its first false positive and be deleted the same week. A target holding an `unresolvable_markers` entry, or landing outside the repository, is skipped without a word; a command with no shape below exits immediately. What this buys is that the obvious spellings stop being free. `targets` says where a command's own writes sit: `all` operands, the `tail` after the first (a sed script), the `last` one, or the ones carrying `operand_prefix`. `requires_flag_prefix` is what keeps a read-only `sed` out of it. `script_flags` name the flags whose value is the script (`sed -e 's/…/'`, `-f file.sed`, `--expression=…`): when one is present, no operand is a script, so a `tail` shape judges every operand. An empty word (`''`, the in-place suffix of BSD/macOS `sed -i ''`) is never an operand. Before 0118, both read the sed script as a path and refused it (`s/a/b/g is outside its territory`). Adding a shape is one entry here and no Java — invariant 10. `cwd_commands` move the directory relative targets resolve against — start at the payload's `cwd`, ROOT when absent; a literal operand moves it, an operand holding an `unresolvable_markers` entry, `-`, or none makes it unknown, and so does a `cwd_unknown_commands` entry: while it is unknown a relative target is unresolvable and passes, an absolute one is still judged (0205). Design: .claude/decisions/0063-bash-write-enforcement.md, .claude/decisions/0118-skill-model-pin-audit-tail-and-bsd-sed.md",
       "redirect_operators": [">", ">>"],
       "unresolvable_markers": ["$", "`", "*", "?", "~"],
+      "cwd_commands": ["cd", "pushd"],
+      "cwd_unknown_commands": ["popd"],
       "commands": [
         { "name": "tee", "targets": "all" },
         { "name": "truncate", "targets": "all" },
@@ -590,6 +857,12 @@
       "commands": ["cat", "head", "tail", "less", "more", "wc", "grep", "egrep", "fgrep", "rg", "awk", "sed", "cut", "sort", "nl", "od", "xxd", "hexdump", "strings", "base64", "diff", "source", "."],
       "write_flag_prefixes": { "sed": "-i" },
       "input_redirect_operators": ["<"]
+    },
+
+    "unquoted_glob": {
+      "$comment": "Read by ArchHook.java `guard bash` (bashUnquotedGlob), after the force-push check and before any write target: when the basename of the first non-empty variable of `shell_env` is in `shells`, a token written with no quote and no backslash escape that matches any of `shell_globs.patterns` exits 2 — zsh aborts such a command with `no matches found` before it runs, and its message names neither the flag nor the fix. Any other shell passes the word through, so nothing is refused there. `shell_globs.exempt_patterns` exempts the whole command. Heredoc bodies and quoted strings are not commands and are not read; a `sh -c` string runs in that shell, not zsh, and is not re-parsed. Not caught, by the bar 0063 set: a glob outside the flag forms `shell_globs.patterns` names (`find -name *.java`). Design: .claude/decisions/0203-build-report-mode-and-zsh-unquoted-glob-guard.md",
+      "shell_env": ["SHELL"],
+      "shells": ["zsh"]
     }
   },
 
@@ -603,6 +876,20 @@
     "stamp_file": ".claude/.arch-provenance.json",
     "$comment_fetch_marker": "Written by `new-project` into the tree it extracts from `base_url` — `{\"ref\": …, \"commit\": …}`, what `git ls-remote` resolved — because a tarball carries no repository. Read by `export` only when the source root is not the top of its own work tree, and only for the field the command line left out, so a project generated from a fetched tree is stamped with a real tag and commit instead of `working-tree`/`unknown`. Never copied into a project: `export` writes only what its own block lists. Design: .claude/decisions/0163-create-project-from-the-plugin.md",
     "fetch_marker": ".claude/.fetched-source.json"
+  },
+
+  "commons_logging": {
+    "$comment": "Single owner of where a generated project's logging and masking classes come from: the published library, never vendored templates. Read by `/new-feature-implement`'s pre-flight (detection) and by `commons-logging-installer` (install), never by a mode. `version` is pinned on purpose — every project is born from the combination `templates.yml` › `java-templates` last compiled; a bump is a PR here, and editing this file triggers that job. `exclusions` are dependencies the pinned release declares and no class of its jar references (checked with `javap` on 3.0.0): delete an entry once the pinned release no longer declares it. `vendored_file` is how a project generated before this block is still recognised as installed — the `commons-logging-from-library` migration moves it to the library. Design: .claude/decisions/0200-commons-logging-from-spring-log-utils-library.md",
+    "coordinate": "dev.nerviz:spring-log-utils",
+    "version": "3.0.0",
+    "exclusions": ["com.fasterxml.jackson.core:jackson-databind", "com.google.guava:guava"],
+    "build_token": "spring-log-utils",
+    "vendored_file": "LogMask.java",
+    "packages": {
+      "annotations": "dev.nerviz.spring.log.utils.features.annotations",
+      "interfaces": "dev.nerviz.spring.log.utils.features.interfaces",
+      "enums": "dev.nerviz.spring.log.utils.features.enums"
+    }
   },
 
   "migrations": {
@@ -847,6 +1134,72 @@
         "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "modular-monolith", "layered", "vertical-slice", "onion"],
         "note": "The framework's `required` flag of API versioning now stays off (.claude/rules/api-rest.md § Versioning). The flag reaches every handler of the mapping, not only the paths the version resolver reads, so a library controller outside `/api/` answers 500 with `MissingApiVersionException`: Springwolf's `/springwolf/docs` is the one that bit, and any other such controller would. Under `/api/` nothing changes: the `/api/v{version}` prefix already makes the segment part of every project mapping, an unsupported version is 400 and a path with none is 404. Only matters if the project has an `ApiVersioningConfig` that sets `setVersionRequired(true)` and serves a library controller outside `/api/` — in practice, one that also has the AsyncAPI contract. Nothing breaks if left, except that document.",
         "prompt": "Stop the API versioning config from requiring a version outside `/api/`, as .claude/rules/api-rest.md § Versioning now states, using .claude/skills/rest-api-architect/templates/ApiVersioningConfig.java.example as the shape. First check whether it applies: if no class in src/main calls `setVersionRequired(true)` on an `ApiVersionConfigurer`, tell me so and stop. Then, in that class, change `setVersionRequired(true)` to `setVersionRequired(false)` and add the Javadoc paragraph the template carries, changing nothing else in the chain (the two-argument `usePathSegment`, `detectSupportedVersions(false)`, the supported list). If the build declares `io.github.springwolf:springwolf-kafka` and the project has `AsyncApiContractIT`, make it assert `response.getStatus()` is 200 before it reads the body, as .claude/skills/test-architect/templates/AsyncApiContractIT.java.example does. Change no URL, no handler and no exception handler. Run `./mvnw verify` and show me the tail of its output."
+      },
+      {
+        "id": "boundary-qualified-names",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The boundary check now also refuses a forbidden prefix written as a fully qualified name with no `import` — `@org.springframework.stereotype.Component` in the domain, say. The edit-time `check` hook and `doctor gate`, the CI job `architectural boundaries`, share that match, so a qualified name that passed both before this update now fails CI. A mention in a comment, a Javadoc link or a string is not a dependency and still passes. Nothing changes for a project whose forbidden modules name such prefixes only in `import` lines.",
+        "prompt": "Run `java .claude/hooks/ArchHook.java doctor gate` and read its `Boundary violations` line. If it is green, tell me so and stop. Otherwise, for every file it names with `(qualified name, …)`, the code in that module depends on a prefix .claude/forbidden-imports.txt forbids there: move that dependency out of the module, the same way a forbidden import is resolved under .claude/rules/architecture-ddd.md — never by rewriting it as an `import`, which fails the same check, and never by editing .claude/forbidden-imports.txt. Run `doctor gate` again until the line is green, then run the build."
+      },
+      {
+        "id": "root-claude-md-local-build",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The `## Under another agent` section of the root CLAUDE.md said that outside Claude Code \"only the build is guaranteed\". The local build does not refuse a forbidden import: only CI's `architectural boundaries` job does, through `doctor gate`, and the build only once `test-architect` installed the ArchUnit test. The root CLAUDE.md is not rewritten by an update, so a project generated before this change keeps the false sentence until it is edited. Nothing breaks if it stays; an agent reading it may skip `doctor gate` before a push.",
+        "prompt": "In the root CLAUDE.md, section `## Under another agent`, replace the sentence that starts with **Outside Claude Code, only the build is guaranteed** and ends before \"The rest of what `.claude/` enforces\" with this text, keeping everything around it: **Outside Claude Code, only CI is guaranteed**: the CI job `architectural boundaries` runs `java .claude/hooks/ArchHook.java doctor gate`, which fails on an import or a qualified name `.claude/forbidden-imports.txt` forbids, whoever wrote it. Run it before a push: the local build runs Checkstyle and the JaCoCo gate, but refuses a forbidden dependency only once `test-architect` installed the ArchUnit test. If the section or the sentence is not there, tell me so and change nothing."
+      },
+      {
+        "id": "gradle-test-filter-tests-suffix",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The Gradle `test` task now runs the same classes Maven's Surefire does: its includes are Surefire's four defaults (`Test*`, `*Test`, `*Tests`, `*TestCase`), where they were `*Test` alone (.claude/rules/testing.md § Names and shape). A Gradle project generated before this change skips every class ending in `Tests` — the Initializr's `*ApplicationTests` (the context load) and, in a modular monolith, `ModularityTests` (`ApplicationModules.verify()`) — and `./gradlew build` stays green. /arch-adopt writes no build file, so the filter stays as it was. Only matters if the project builds with Gradle. Once the filter is fixed, a test that was never running can fail; each failure is a real finding, not a regression.",
+        "prompt": "Make this project's Gradle test task run every class ending in Tests. First, if the project has no build.gradle (it builds with Maven), tell me so and stop. Find the `tasks.named('test')` block (the root build.gradle, inside `subprojects` in a multi-module project). If its include line already lists '**/*Tests.class', or it has no include line, tell me so and stop. Otherwise change that one line, exactly as written, keeping the `exclude '**/*IT.class'` line below it: include '**/Test*.class', '**/*Test.class', '**/*Tests.class', '**/*TestCase.class' Then run ./gradlew build. Tests that were skipped before can now fail: list each one with its failure and what you plan to change, and wait for my go-ahead before touching anything but that include line. Change no behavior."
+      },
+      {
+        "id": "modulith-shared-open",
+        "blueprints": ["modular-monolith"],
+        "note": "The `shared` package of a modular monolith is now marked `@ApplicationModule(type = ApplicationModule.Type.OPEN)`, as the blueprint always described. Projects generated before this change have a `shared/package-info.java` holding only a one-sentence Javadoc, so Spring Modulith treats `shared` like a bounded context and `ModularityTests` fails as soon as one module imports a type of it. Nothing shows today in a Gradle project, because `ModularityTests` does not run there until the gradle-test-filter-tests-suffix migration is applied: apply that one first.",
+        "prompt": "Mark this project's Shared Kernel package as an open Spring Modulith module. First, find the package-info.java of the top-level `shared` package, directly under the base package in src/main/java (shared/package-info.java). If that file already has an @ApplicationModule annotation, tell me so and stop. Otherwise keep its Javadoc and add, after it, exactly: @ApplicationModule(type = ApplicationModule.Type.OPEN) before the `package` line, and import org.springframework.modulith.ApplicationModule after it. Then run ./mvnw verify (Gradle: ./gradlew build) and show me the result. Change no behavior."
+      },
+      {
+        "id": "modular-monolith-module-slot-boundary",
+        "blueprints": ["modular-monolith"],
+        "note": "The boundary map of a modular monolith now covers every module, not only `shared`. The blueprint declares `packages.module_slot: shared`, and `boundary-map` writes its lines with `{module}` in place of `shared`, which `check` and `doctor gate` match against any one module directory. Projects generated before this change have a `.claude/forbidden-imports.txt` naming `shared/internal/...` only: a framework import in the domain of any module created after bootstrap passes the edit-time check and the CI gate. Regenerating the file may turn the `Boundary violations` line red on code already written — that code was always outside the rule (issue #167).",
+        "prompt": "Regenerate this project's architectural boundary map so it covers every module. First, read the base package from the `package` line of the class annotated @SpringBootApplication under src/main/java. Then run, from the project root: java -jar .claude/hooks/ArchHook.jar boundary-map . --blueprint modular-monolith --package <that base package>. Show me the lines of .claude/forbidden-imports.txt that contain {module}; if there are none, stop and tell me — the blueprint copy this project carries is older than this migration. Then run java -jar .claude/hooks/ArchHook.jar doctor and show me its `Boundaries` and `Boundary violations` lines. For each file it names, list the forbidden import and the module, and propose where the code belongs per .claude/rules/architecture-ddd.md — do not move anything until I confirm. Never edit .claude/forbidden-imports.txt by hand."
+      },
+      {
+        "id": "api-version-prefix-base-package",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The `/api/v{version}` prefix is now scoped to the application's base package instead of the versioning configuration's own package (.claude/rules/api-rest.md § Versioning). With one REST package per module — a modular monolith's `<module>.internal.adapter.rest` — the old predicate prefixed only the controllers beside the configuration, and every other module served unversioned paths (issue #167). A project with a single REST adapter package sees no change in any URL.",
+        "prompt": "Scope this project's API version prefix to the application's base package. First, find the class that calls addPathPrefix(\"/api/v{version}\" under src/main/java; if there is none, tell me so and stop. If its predicate already uses HandlerTypePredicate.forBasePackage with the base package, tell me so and stop. Otherwise read the base package from the `package` line of the @SpringBootApplication class, add to the configuration class a constant `private static final String APPLICATION_PACKAGE = \"<that base package>\";`, and replace HandlerTypePredicate.forBasePackageClass(<the configuration class>.class) with HandlerTypePredicate.forBasePackage(APPLICATION_PACKAGE), keeping the forAnnotation(RestController.class) part. Then list every @RestController under the base package and the path it now answers on, and run ./mvnw verify (Gradle: ./gradlew build) and show me the result. Change no handler mapping."
+      },
+      {
+        "id": "dockerfile-fixed-jar-name",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The executable jar now has a fixed name, `app.jar`, and the Dockerfile copies that. Code generated before this change copies `<artifactId>-<version>.jar`: the first version bump renames the jar, `docker build` fails on the COPY, and `./mvnw verify` or `./gradlew build` stays green because nothing in the build or the generated CI builds the image. Nothing breaks until the version changes; the fix is two lines in the build file of the module that holds the `@SpringBootApplication` class and one in the Dockerfile.",
+        "prompt": "Give this project's executable jar a fixed name and make the Dockerfile copy that. If there is no Dockerfile at the root, tell me so and stop. Find the module that holds the @SpringBootApplication class (the root project in a single-module layout). Maven: in that module's pom.xml, add <finalName>app</finalName> as the first child of <build>; if the module has no spring-boot-maven-plugin in <build><plugins> (a multi-module project whose parent does not declare it), add it too, without a version. Gradle: in that module's build.gradle, add bootJar { archiveFileName = 'app.jar' } and, if the org.springframework.boot plugin is not applied there, apply it in a plugins {} block at the top of the file, without a version. Then in the Dockerfile change the COPY --from=build source to <that module's path, empty for a single-module layout>target/app.jar on Maven, or build/libs/app.jar under the module's path on Gradle. Change nothing else. Run docker build -t app-check . and show me the result; if Docker is not available, run ./mvnw -DskipTests package or ./gradlew bootJar instead and show me the path of the jar it wrote."
+      },
+      {
+        "id": "audit-plan-usage-statusline",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "The audit can now report how many percentage points of your plan's 5-hour and weekly windows each skill or agent run consumed, measured from the account (decision 0194). It reads a snapshot that a status line in your own ~/.claude/settings.json writes — never one in the project's settings, which would override everyone else's. Optional and personal: no project code is left behind, nothing breaks without it, and on an API key, Bedrock, Vertex or Foundry there is nothing to measure. Without it, reports say `not captured` and `/arch-doctor` shows `Plan usage ⚪`. POSIX sh only (macOS, Linux, WSL).",
+        "prompt": "Add the plan-usage status line to my personal Claude Code settings. Read .claude/skills/audit-usage/templates/statusline-rate-limits.json.example, including its `$comment`. Then read ~/.claude/settings.json (if it does not exist, the result is a new file holding only the `statusLine` key). If it has no `statusLine`, the result adds the template's `statusLine` entry as is. If it already has one, keep my command running: append `; printf '%s' \"$input\" | <my current command>` to the template's command, keep my own `padding` and `refreshInterval` if set, and tell me what you changed. Touch no other key of the file and never write this into the project's .claude/settings.json. Show me the whole resulting `statusLine` block and wait for my confirmation before writing. After writing, tell me to restart claude, since settings are read at startup, and that `java -jar .claude/hooks/ArchHook.jar doctor` should then show the `Plan usage` line with ✅ once a session has had a response."
+      },
+      {
+        "id": "quoted-shell-globs",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "`doctor gate` now fails on a shell glob left unquoted in a flag (`--include=*.java`) in this project's `.claude/` files or root `CLAUDE.md`: zsh aborts on it before the command runs. The files `/arch-adopt` writes are already quoted; a file this project wrote itself is not touched.",
+        "prompt": "Quote every glob value of a `--include=`, `--exclude=` or `--exclude-dir=` flag in this project's own `.claude/` files and root `CLAUDE.md`, as `--include='*.java'`, then run `java .claude/hooks/ArchHook.java schema` until it reports none."
+      },
+      {
+        "id": "spec-checklist-per-block",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "modular-monolith", "layered", "vertical-slice", "onion", "onion-single-module"],
+        "note": "A spec's `## Implementation order (checklist)` is no longer fixed at 19 lines: steps 1-7 and 16-19 are in every spec, 8-12 only when `## 3` is not `none`, 13-15 only when `## 4` is not `none`, and one lettered line (H, A, I, G, S, M, J, C) per conditional block the spec carries. `/new-feature-implement` and the executor now run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` first, and the guard refuses `status: approved` on a spec that fails it. A spec approved BEFORE this update that carries a lettered block (`## 3.5 Messaging`, `## 3.6 Jobs`, `## 4.5 Security`, …) has 19 lines and no letter line, so it fails the check and cannot be implemented as it is. Specs already `implemented`, `implemented-blocked` or `draft`, and approved specs with no lettered block, are not affected.",
+        "prompt": "List the use case specs of this project that the new checklist rule refuses. Find every `docs/use-cases/UC-*/UC-*-spec.md` whose `status:` is `approved` (skip `draft`, `implemented` and `implemented-blocked`) and run `java -jar .claude/hooks/ArchHook.jar spec check <spec>` on each. Show me the ones that exit 2, each with what the command printed, and wait for my go-ahead. Do not edit an approved spec: the guard refuses it. For each one, tell me what to do by hand: set `status: draft`, add the lettered lines the command named (`missing: M, J`, copied from `.claude/skills/new-feature/templates/feature-spec.md.example`, left open `[ ]`) under `## Implementation order (checklist)`, run `spec check` until it exits 0, then ask me to approve it again so that the guard re-runs the check on `status: approved`. If the executor already ran a block of that case, its files are on disk and the new line is ticked by the next `/new-feature-implement` run, which resumes from the disk."
+      },
+      {
+        "id": "commons-logging-from-library",
+        "blueprints": ["clean-architecture-single-module", "clean-architecture-multi-module", "hexagonal", "hexagonal-single-module", "layered", "modular-monolith", "onion", "onion-single-module", "vertical-slice"],
+        "note": "The logging and masking classes (LogExecution, HttpMethodLogExecution, MaskSensitiveData, LogMask and their aspects) now come from the dev.nerviz:spring-log-utils library at the version commons_logging of .claude/schemas/extensions.json pins, instead of being copied into the project's commons logging package. A project that installed the copies keeps working — the pre-flight still treats them as installed — but a fix to an aspect reaches it only through the library. The masking ArchUnit rules (sensitive_dtos_implement_log_mask, sensitive_fields_are_marked) were removed from the template; an ArchitectureTest that has them keeps them until you remove them.",
+        "prompt": "Replace this project's copied logging classes with the dev.nerviz:spring-log-utils library. Read `commons_logging` in .claude/schemas/extensions.json for the coordinate, version and exclusions — never from memory. First list, and change nothing yet: (1) the package holding LogExecution, HttpMethodLogExecution, MaskSensitiveData, LogMask, MaskedType and the three aspects (the root CLAUDE.md names the commons logging package), with its tests; (2) every import of that package outside it, with file and line; (3) the lines of src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports that name those aspects; (4) any app.logging.* property and any use of LoggingOptions, which the library does not expose. Then, after I confirm: add the dependency with its exclusions to the build file of the module that holds that package; rewrite each import in (2) to the library's package — annotations to dev.nerviz.spring.log.utils.features.annotations, LogMask to dev.nerviz.spring.log.utils.features.interfaces, MaskedType to dev.nerviz.spring.log.utils.features.enums; delete the package in (1) and its tests, keeping its package-info.java; remove the lines in (3), deleting the file if nothing is left; report (4) without changing it. Change no other behavior, then run ./mvnw verify (Gradle: ./gradlew build)."
       }
     ]
   },
@@ -866,7 +1219,9 @@
 
     "copy": [
       { "$comment": "`verbatim`: copied byte for byte, skipping `transform`. The jar below carries the SHA-256 of THIS source, and `schema` compares the two inside the generated project too — a citation cut here would make every exported jar read as stale. Design: .claude/decisions/0075-precompiled-hook-jar.md", "from": ".claude/hooks/ArchHook.java", "to": ".claude/hooks/ArchHook.java", "verbatim": true },
-      { "from": ".claude/schemas/extensions.json", "to": ".claude/schemas/extensions.json" }
+      { "from": ".claude/schemas/extensions.json", "to": ".claude/schemas/extensions.json" },
+      { "$comment": "Apache License 2.0 § 4 obliges whoever redistributes the work to hand over the license text and the NOTICE; what `export` writes under `.claude/` is a redistribution. They sit INSIDE `.claude/`, never at the project root: the root `LICENSE` of a generated project is its owner's choice. Design: .claude/decisions/0181-apache-2-license-notice-and-trademark.md", "from": "LICENSE", "to": ".claude/LICENSE", "verbatim": true },
+      { "from": "NOTICE", "to": ".claude/NOTICE", "verbatim": true }
     ],
 
     "$comment_binary": "Copied as bytes, never read as text, never transformed. What every hook registration launches (`java -jar`), so a project that lacked it would have every hook exit 1 — which does not block. Design: .claude/decisions/0075-precompiled-hook-jar.md",
@@ -929,7 +1284,23 @@
       ".claude/skills/new-feature/templates/commons/LoggingCommonsMethodsTest.java.example",
       ".claude/skills/new-feature/templates/commons/LoggingOptions.java.example",
       ".claude/skills/new-feature/templates/commons/MaskSensitiveData.java.example",
-      ".claude/skills/new-feature/templates/commons/MaskedType.java.example"
+      ".claude/skills/new-feature/templates/commons/MaskedType.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/AutoConfiguration.imports.example",
+      ".claude/skills/new-feature-implement/templates/commons/GlobalHttpMethodLogAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/GlobalProperties.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecution.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecutionAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodLogExecutionAspectTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/HttpMethodProperties.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecution.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecutionAspect.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogExecutionAspectTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LogMask.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingCommonsMethods.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingCommonsMethodsTest.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/LoggingOptions.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/MaskSensitiveData.java.example",
+      ".claude/skills/new-feature-implement/templates/commons/MaskedType.java.example"
     ],
 
     "ensure_dirs": [".claude/audit-usage"],
@@ -959,23 +1330,27 @@
         "git-publish",
         "gof-design-patterns",
         "graphql-api-architect",
+        "harness-lessons",
         "http-client-architect",
         "jobs-architect",
         "messaging-architect",
         "new-feature",
         "new-feature-implement",
         "persistence-architect",
+        "platform-upgrade",
+        "project-config",
         "report-issue",
         "rest-api-architect",
         "search-architect",
         "security-architect",
         "sonar-lessons",
         "sonarqube-setup",
+        "spike",
         "test-architect",
         "transport-security-setup",
         "use-case-design"
       ],
-      "exclude": ["claude-code-architect-designer", "init-project", "new-project", "project-bootstrap", "triage-issue"]
+      "exclude": ["claude-code-architect-designer", "init-project", "nerviz-diagrams", "new-project", "project-bootstrap", "triage-issue"]
     },
 
     "agents": {
@@ -1109,7 +1484,7 @@
       "classic.PreToolUse", "classic.UserPromptSubmit", "classic.Stop", "classic.SubagentStop",
       "classic.PostToolBatch", "classic.PermissionRequest"
     ],
-    "$comment_calls": "What a mod here never calls: the network, the model (it spends the person's plan), a prompt or message sent as the person, a change to the environment every later command inherits, and a file write that no tool-time guard sees. `process_allow` is the only program `$.process.run` may start — the first element of its argument list, as a string literal; the mod reaches the repository's rules through `java -jar .claude/hooks/ArchHook.jar`, and nothing else.",
+    "$comment_calls": "What a mod here never calls: the network, the model (it spends the person's plan), a prompt or message sent as the person, a change to the environment every later command inherits, and a file write that no tool-time guard sees. One write is admitted: `ArchHook.jar config set|unset`, the single writer of a project's own settings — it validates before it writes and refuses with nothing written, and `guard` refuses every other path to those files (0187). `process_allow` is the only program `$.process.run` may start — the first element of its argument list, as a string literal; the mod reaches the repository's rules through `java -jar .claude/hooks/ArchHook.jar`, and nothing else.",
     "forbidden_calls": [
       "$.http.fetch", "$.model.complete", "$.model.fork", "$.model.classify",
       "$.prompt.submit", "$.session.send", "$.env.set", "$.fs.write", "$.process.spawn"
@@ -1120,7 +1495,7 @@
   },
 
   "boundary_map": {
-    "$comment": "Read by ArchHook.java `boundary-map`, which writes the generated project's `.claude/forbidden-imports.txt` from a blueprint. A multi-module blueprint carries `forbidden_imports` per module and the mode copies them (a trailing `..` becomes `.`); a single-module one carries only `dependency_rules.forbidden`, and the mode derives one line per (from, to) pair of `packages.map` entries, plus the `framework_roots` of the `from` name when this block lists it — architecture-ddd.md § Domain: both Jackson roots, since a guard that lists one lets the other through. `source_root` is the single module's source folder, where the left side of every derived line starts. Design: .claude/decisions/0166-blueprint-skeleton-generated-in-ci.md",
+    "$comment": "Read by ArchHook.java `boundary-map`, which writes the generated project's `.claude/forbidden-imports.txt` from a blueprint. A multi-module blueprint carries `forbidden_imports` per module and the mode copies them (a trailing `..` becomes `.`); a single-module one carries only `dependency_rules.forbidden`, and the mode derives one line per (from, to) pair of `packages.map` entries, plus the `framework_roots` of the `from` name when this block lists it — architecture-ddd.md § Domain: both Jackson roots, since a guard that lists one lets the other through. A blueprint that declares `packages.module_slot` gets that first segment written as `{module}` on both sides of each derived line, and `check` matches `{module}` against any one directory, so modules created after bootstrap are covered (decision 0180). `source_root` is the single module's source folder, where the left side of every derived line starts. Design: .claude/decisions/0166-blueprint-skeleton-generated-in-ci.md",
     "source_root": "src/main/java",
     "framework_roots": {
       "domain": ["org.springframework.", "jakarta.", "com.fasterxml.jackson.", "tools.jackson."]

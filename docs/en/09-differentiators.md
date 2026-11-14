@@ -204,7 +204,7 @@ None of these is unique on its own. Together, no neighbor gathers them:
 
 | Concern | Where it lives |
 |---|---|
-| `Idempotency-Key` from the first endpoint, via AOP and a shared table | `rest-api-architect` + `persistence-architect` |
+| `Idempotency-Key` on the first endpoint whose use case asks for it, via AOP and a shared table | `rest-api-architect` + `persistence-architect` |
 | Structured logging with sensitive-data masking | `commons-logging-installer`, offered by `/new-feature-implement`'s pre-flight |
 | OTLP collector with traces and metrics; Jaeger or Grafana + Tempo + Prometheus | `docker-architect` |
 | Compose diagnosis: a container "up" but not answering, a port held by a sibling project, a default the host cannot reach | `ArchHook.java compose` |

@@ -160,7 +160,15 @@ and go straight to step 6 (diagnosis) — `references/sql-tuning.md`.
    consumer, and anything else listed there gets designed now, not in a second pass.
 
    A domain partial whose Events block is "none" or in-process means no messaging partial
-   exists and none is expected — read nothing, stop for nothing.
+   exists and none is expected — read nothing, stop for nothing. One exception: when the
+   project has `spring-modulith` and the Events block names an event that crosses two
+   modules in-process, the event publication registry is this pass's: `project-bootstrap` removes
+   `spring-modulith-starter-jpa` at generation (its `event_publication` table has no migration and
+   `ddl-auto=validate` refuses to start), so this pass adds the starter back and designs the
+   migration for that table. The columns are read from the schema file inside the resolved
+   `spring-modulith-starter-jpa` jar, never from memory — they change across Modulith lines.
+   `spring-modulith-events-kafka` is not brought back: broker delivery is `25-messaging.md`'s
+   Form B.
 
    Also read `28-http-client.md` whenever `10-domain.md` declares a port of kind `external HTTP`
    — missing → stop and tell the caller to run `/http-client-architect` first; in `/new-feature` it

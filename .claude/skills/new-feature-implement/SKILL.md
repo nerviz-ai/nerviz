@@ -1,6 +1,6 @@
 ---
 name: new-feature-implement
-description: Implements one already-approved UC-NNN-spec.md — one-time setup pre-flight, then java-spring-boot-developer in three chained block groups, then git-publish. The second half of the feature pipeline; /new-feature designs the spec
+description: Implements one already-approved UC-NNN-spec.md — one-time setup pre-flight, then java-spring-boot-developer in three chained block groups, then prints the git-publish command. The second half of the feature pipeline; /new-feature designs the spec
 disable-model-invocation: true
 argument-hint: "UC-NNN-slug of an approved case | empty to list"
 model: sonnet
@@ -39,7 +39,7 @@ The class keeps `design_phase: true`, so `ArchHook.java guard` refuses a `Skill`
 `build`-class skill while the run is open.
 
 **Ownership:** Feature spec→code orchestrator. Owns the pre-flight, the group chain, the
-hand-off between groups, and the `git-publish` offer of an implemented case. Does **not** own
+hand-off between groups, and the `/git-publish` line an implemented case ends with. Does **not** own
 the spec — `/new-feature` writes it and its `status:` up to `approved`;
 `java-spring-boot-developer` writes `implemented` or `implemented-blocked`
 (`@.claude/skills/new-feature/SKILL.md` § Spec lifecycle).
@@ -52,14 +52,14 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
   and `## Infrastructure`, for the services the run adds and reports
 - `@.claude/skills/docker-architect/references/compose-service-decision.md` — what each
   `## Infrastructure` decision means, and who acts on it
-- `src/test/**`, the `commons` package, the root `CLAUDE.md`'s `**Mappers:` paragraph — by
+- `src/test/**`, the build files, the root `CLAUDE.md`'s `**Mappers:` paragraph — by
   command, for the pre-flight
 
 **Writes (indirectly):**
 - `src/**`, `pom.xml` and the spec's checklist and `status:` — via `java-spring-boot-developer`
 - the ArchUnit tests and coverage gate — via `test-architect` setup mode → `archunit-installer`
-- the logging/masking classes — via `commons-logging-installer`, from this skill's
-  `templates/commons/*.example`
+- the logging/masking library dependency in the build file — via `commons-logging-installer`,
+  at the version `commons_logging` of `.claude/schemas/extensions.json` pins
 - the project's mapper mechanism — the `**Mappers:` paragraph, and for MapStruct the build wiring
   and every converted mapper — via `mapstruct-installer`, from this skill's
   `templates/mapstruct/*.example`
@@ -68,22 +68,25 @@ the spec — `/new-feature` writes it and its `status:` up to `approved`;
 
 **Writes (directly): none.**
 
-**Never runs `git add`, `git commit`, or `git push`.** Git happens only through `git-publish`,
-behind its two confirmations. No end of this flow is left without an explicit git instruction.
+**Never runs `git add`, `git commit`, or `git push`, and never invokes `git-publish`.** Git
+happens only through `git-publish`, which the person types after `/clear`, behind its two
+confirmations; the final report prints the command
+(`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`). No end of
+this flow is left without an explicit git instruction.
 
-**Integrates with:**
-1. `test-architect` (setup mode), `commons-logging-installer` and `mapstruct-installer` —
-   pre-flight, each only when its gap is found; the first two when the user answers **Install
-   now**, the third with whichever mechanism the user picks
-2. `java-spring-boot-developer` — three chained delegations, one per block group
-3. `compose-service-installer` — on success, only when the spec has a `materialize` row
-4. `git-publish` — on success
+**Integrates with** the agents and skills step 2's field lines name, phase by phase; when each runs is step 2's body.
+
+`git-publish` is not an integration: § 4 prints its command.
 
 ---
 
 ## Procedure
 
 ### 1 · Entry guardrail
+
+**Runs:** self · **Gate:** stop
+
+**Stops when:** no approved case given? · **Says:** prints the error and usage; or lists the cases (empty)
 
 Runs before any skill invocation, any delegation, and any question. **Read
 `@.claude/skills/new-feature/references/entry-guardrail.md`** and run its § 1 (survey and
@@ -115,9 +118,21 @@ Row 8 exists because free text is what `/new-feature` takes: a description typed
 there, and running the design from this skill would load the body this split exists to keep out.
 
 Then the reference's §§ 2–4 (worktree, project, disk), in that order. `IGNORED` and the list of
-pre-existing changes travel to `git-publish` at the end of the run.
+pre-existing changes travel into the `/git-publish` line § 4 prints. This run's own folder,
+`docs/use-cases/UC-NNN-<slug>/`, and `docs/use-cases/BACKLOG.md` are never pre-existing: an
+approved spec nobody committed yet is the run's input and goes in its `feat` commit.
 
 ### 2 · Implement
+
+**Runs:** agent:mapstruct-installer? · **Gate:** ask, stop · **Note:** pre-flight, first and alone when it installs
+
+**Then runs:** skill:test-architect>agent:archunit-installer?, agent:commons-logging-installer? · **Note:** pre-flight
+
+**Then runs:** agent:java-spring-boot-developer · **Note:** three groups, chained: domain, adapters, tests
+
+**Stops when:** a group fails? · **Says:** reports the failing group; the chain stops there
+
+**Then runs:** agent:compose-service-installer>skill:docker-architect? · **Note:** only with a materialize row
 
 1. **One-time setup pre-flight, before delegating.** The executor is about to write the
    first `.java` under `src/` for this project run — the only point in the pipeline
@@ -126,14 +141,16 @@ pre-existing changes travel to `git-publish` at the end of the run.
 
    ```bash
    grep -rl "ArchRule\|ArchTest" --include='*.java' src/test/ 2>/dev/null | head -1
-   find . -type d -iname commons -o -type d -path '*shared/logging' 2>/dev/null
+   find . -path ./.claude -prune -o \( -name 'pom.xml' -o -name 'build.gradle' -o -name 'build.gradle.kts' \) -print 2>/dev/null | xargs grep -l 'spring-log-utils' 2>/dev/null | head -1
+   find . -path ./.claude -prune -o -path '*/src/main/java/*' -name 'LogMask.java' -print 2>/dev/null | head -1
    grep -n '^\*\*Mappers:' CLAUDE.md 2>/dev/null
    ```
 
    First command empty → ArchUnit not installed yet (the same gap `/new-feature`'s
-   consolidation step 3 already flagged, if this use case is the first one). Second command
-   empty, or the directory it finds has nothing but `package-info.java` → commons-logging
-   classes not installed yet. Third command empty → the project never chose its mapper
+   consolidation step 3 already flagged, if this use case is the first one). Second **and**
+   third command empty → the logging library is not installed (`commons_logging` of
+   `.claude/schemas/extensions.json`); a `LogMask.java` under `src/` is a project from before
+   the library, already installed. Fourth command empty → the project never chose its mapper
    mechanism (`.claude/rules/mapping.md` § One mechanism per project). Any gap found →
    `AskUserQuestion`, one question per gap found: **Install now** / **Skip for this run** for
    the first two; for the mappers, **Keep manual mappers** (recorded, never asked again) /
@@ -143,7 +160,7 @@ pre-existing changes travel to `git-publish` at the end of the run.
      names; never invoke `archunit-installer` directly, it stays `test-architect`'s alone.
    - Commons-logging, install now → **invoke** `commons-logging-installer` directly via
      the `Agent` tool. No owning per-feature skill to route through: this orchestrator
-     is the trigger, same as it owns `git-publish`'s invocation.
+     is the trigger.
    - Mappers, either answer → **invoke** `mapstruct-installer` directly via the `Agent` tool,
      with the mode — `manual` or `install` — and the project root. It writes the
      `**Mappers:` paragraph either way, so the question is never asked twice. **When its mode is
@@ -175,12 +192,17 @@ pre-existing changes travel to `git-publish` at the end of the run.
    later turn — 427,889 tokens of context and 531,362 billable tokens in the run that reopened this
    (`0130`). Each group starts again from the spec and what is on disk:
 
-   | Group | Blocks | Checklist steps it ticks |
+   | Group | Blocks | Checklist lines it ticks |
    |---|---|---|
-   | `domain` | 1, 2 | 1–12 |
-   | `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | 13–15 |
-   | `tests` | 4 | 16–19, then the `status:` line |
+   | `domain` | 1, 2 | 1-7, and 8-12 when the spec carries them |
+   | `adapters` | H, A, I, 3, G, S, M, J, C — those the spec carries | 13-15 when present, and each lettered line |
+   | `tests` | 4 | 16-19, then the `status:` line |
 
+   - **No valid checklist, no chain.** Before the first delegation run
+     `java -jar .claude/hooks/ArchHook.jar spec check <spec>`. Exit 2 → stop, nothing delegated:
+     ❌ `<UC-NNN-slug> has no valid implementation checklist` — followed by what the command printed and
+     `reopen it as draft and run /new-feature <UC-NNN-slug>`. The executor's precondition 5 would abort
+     the first group after the context was spent (issue #191)
    - **Where the chain starts.** At the first group with a checklist step neither ticked nor
      `n/a`. A group ticks its steps only when it ends green, so a run that failed in
      `adapters` starts there again, and a fresh spec starts at `domain`.
@@ -196,8 +218,7 @@ pre-existing changes travel to `git-publish` at the end of the run.
      No git. `/new-feature-implement UC-NNN-<slug>` again resumes at that group.
    - **Success** — the `tests` group reports the checklist complete, the build green, and the
      spec at `status: implemented` (or `implemented-blocked`, which is a success too, with the
-     case it blocks on named) → item 3 below, then **invoke** `git-publish` via the `Skill` tool,
-     with `feat(UC-NNN-<slug>): <one-line summary>` as context.
+     case it blocks on named) → item 3 below, then § 4. No `Skill` call to `git-publish`.
 
 3. **Add the compose services the spec decided.** Read the spec's `## Infrastructure`. A
    `materialize` row → **invoke** `compose-service-installer` via the `Agent` tool, in the
@@ -207,12 +228,15 @@ pre-existing changes travel to `git-publish` at the end of the run.
    (`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`).
    No `materialize` row, or no section → skip silently. The agent failing does not stop the
    run: the code is green, the row is reported with the `/docker-architect` command, and
-   `git-publish` is still offered.
+   the `/git-publish` line is still printed.
 
-`git-publish`'s two confirmation gates decide whether anything is committed or pushed —
-this orchestrator only triggers the offer.
+`git-publish`'s two confirmation gates decide whether anything is committed or pushed — the
+person types it, after `/clear`, so the commit runs at near-zero context and carries the whole
+audit trail of this run.
 
 ### 3 · Long-running background work
+
+**Runs:** self · **Gate:** ask
 
 Implementing a complete feature takes dozens of minutes. An executor launched in the
 background **doesn't survive the machine sleeping**: the watchdog cuts the stream and
@@ -229,6 +253,10 @@ first `Write`. A chain cut between groups resumes at the first group with open s
 
 ### 4 · Final report
 
+**Runs:** self
+
+**Hands over:** `/clear`, `/git-publish`, `/new-feature`
+
 Last message of the run, and the only report: the spec path and its `status:`, the groups that
 ran and how each ended, **every `## Infrastructure` row of the spec, with what this run did to it** —
 `added` or `failed` by the installer, `already present`, `external` with its address, or
@@ -238,10 +266,21 @@ run left unreachable end to end**, with the backlog row that restores it named b
 its owner** (or "none"), **every guarantee delegated to a consumer outside this project whose
 idempotency is assumed or unknown** (or "none"), and **every personal-data field that crosses
 a boundary in clear, with its receiver** (or "none") — the findings come from the `tests`
-group's report, which carries every group's lines — what `git-publish` did, and the next
-command: `/clear` before the next `/new-feature`. A clean context per use case keeps cost
-measurable per case. A failed group's report instead names the group, its failure, and
-`/new-feature-implement UC-NNN-<slug>` to resume there.
+group's report, which carries every group's lines — and the next commands, in this order:
+
+```
+/clear
+/git-publish feat(UC-NNN-<slug>): <one-line summary>[ — pre-existing: <paths>]
+/new-feature <next feature description>
+```
+
+`/clear` comes first: the commit then runs on a clean context, and `SessionEnd` has closed this
+run, so its report and `history.jsonl` line are on disk and enter the same commit instead of
+staying staged behind it. `— pre-existing:` is present only when the guardrail's worktree step
+listed changes from before the run, with the list itself (directories past 20 paths).
+`/git-publish` is the person's call and may be skipped or typed later. A clean context per use
+case keeps cost measurable per case. A failed group's report instead names the group, its
+failure, and `/new-feature-implement UC-NNN-<slug>` to resume there — no `/git-publish`.
 
 ---
 
@@ -256,12 +295,18 @@ measurable per case. A failed group's report instead names the group, its failur
 - **`@.claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md`** — why the next
   group launches in the turn that receives the previous one's report.
 - **`@.claude/agents/commons-logging-installer.md`** — one-time logging/masking setup,
-  triggered directly from the pre-flight, from this skill's `templates/commons/`.
+  triggered directly from the pre-flight; adds the published library to the build
+  (`@.claude/decisions/0200-commons-logging-from-spring-log-utils-library.md`).
 - **`@.claude/agents/mapstruct-installer.md`** — records the project's mapper mechanism once;
   for MapStruct, wires the build from this skill's `templates/mapstruct/` and converts every
   existing mapper.
 - **`@.claude/agents/compose-service-installer.md`** — adds the spec's `materialize` services
-  through `docker-architect`, after the `tests` group and before `git-publish`.
+  through `docker-architect`, after the `tests` group and before the final report.
+- **`references/blocks/`** — owned by this skill: the executor's per-block procedure, read by
+  `java-spring-boot-developer` one block at a time
+  (`@.claude/decisions/0199-executor-blocks-on-demand-read-discipline-archunit-translation.md`).
+- **`@.claude/decisions/0182-git-publish-printed-not-chained-by-the-feature-flows.md`** — why the
+  report prints `/git-publish` instead of invoking it.
 - **`@.claude/decisions/0137-pending-compose-service-decided-at-design-materialized-at-implement.md`**
   — why the service is decided at design time and added here, by an agent.
 

@@ -76,10 +76,10 @@ The concrete tool for the "mask it" half of the rule above, same discipline
 staying abstract: a field-level `@MaskSensitiveData` annotation (predefined patterns —
 email, document, name, date, address, zip code, number, telephone — or a custom regex,
 declared once per field) plus a small interface a record or DTO implements to get a
-masked `toString()` for free. Lives in the project's cross-cutting `commons` package
-(named per this project's own `CLAUDE.md`), alongside two logging annotations —
-`@LogExecution` for a method, `@HttpMethodLogExecution` for a REST endpoint — and a
-global aspect that logs every REST endpoint's parameters and response **by default**,
+masked `toString()` for free. Comes from the `dev.nerviz:spring-log-utils` library —
+`@MaskSensitiveData` and the `@LogExecution` / `@HttpMethodLogExecution` annotations in
+`dev.nerviz.spring.log.utils.features.annotations`, `LogMask` in `…features.interfaces` —
+alongside a global aspect that logs every REST endpoint's parameters and response **by default**,
 opt-out via configuration, not opt-in.
 
 That default matters here specifically: a response DTO reaching a controller without
@@ -156,11 +156,7 @@ identifier comes from is `observability.md`'s decision, not this file's.
 
 ## How to verify
 
-§ Masking candidates is checked by an architecture test: a DTO in the inbound REST
-adapter's DTO package with a field matching the derivation implements the masking
-interface and marks the field. The test is guarded by the presence of that interface —
-where the `commons` package was never installed there is nothing to implement, and the
-rule evaluates vacuously instead of failing.
+§ Masking candidates is checked by review: a DTO in the inbound REST adapter's DTO package with a field matching the derivation implements `LogMask` and marks the field with `@MaskSensitiveData`.
 
 The domain's silence is checked twice. Where the blueprint gives the domain its own module,
 the logging prefixes are among that module's forbidden imports, refused at the import. In

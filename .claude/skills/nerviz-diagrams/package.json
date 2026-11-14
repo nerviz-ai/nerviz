@@ -1,0 +1,12 @@
+{
+  "name": "nerviz-diagrams-export",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PNG and video export for /nerviz-diagrams. Installed into a per-user cache by npm ci, never into the repository.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "playwright": "1.64.0"
+  }
+}

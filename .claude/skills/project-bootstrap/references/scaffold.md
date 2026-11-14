@@ -113,21 +113,10 @@ One sentence for the role, and the boundary line only when the module declares
 a rule — cite it by path, invariant 2.
 
 **`commons` (or the blueprint's equivalent, e.g. `modular-monolith`'s `shared.logging`)
-is the one role that stays empty on purpose.** Its `package-info.java` still gets
-written here, same as every other role — but the logging/masking annotations and AOP
-aspects that belong in it are `.java` beyond `package-info.java`, which this skill never
-writes (`SKILL.md` § Contract). They're installed later, once, by the
-`commons-logging-installer` agent, triggered from `/new-feature-implement`'s pre-flight check —
-not from here. Don't write them, and don't skip the empty `package-info.java` either:
-without the package existing on disk, the installer has nowhere to write into.
-
-```java
-/**
- * Cross-cutting logging and masking infrastructure (annotations + AOP aspects). See
- * {@code .claude/rules/logging.md}. Empty until `commons-logging-installer` runs.
- */
-package com.example.demoapp.commons.logging;
-```
+gets no logging `package-info.java`.** The logging/masking annotations and AOP aspects come
+from the `dev.nerviz:spring-log-utils` library, which `commons-logging-installer` adds to the
+build from `/new-feature-implement`'s pre-flight check — nothing of them is written here, and
+no empty logging package is left behind for them.
 
 **b) Configuration for active features.**
 
@@ -137,7 +126,7 @@ package com.example.demoapp.commons.logging;
 | `observability` | Merges `templates/features/observability/application-observability.yml.example` into the same `application.yml` — the tracing bridge's export destination. Owned exemplar, same mechanism as `actuator`'s; the container it points at is provisioned in step 4.10, not here. Also adds the method in `templates/features/observability/ApplicationTests-tracer.java.example` to the generated `*ApplicationTests`: a context that starts without a `Tracer` bean is a generation gap, and nothing else catches it before the first use case |
 | `flyway` | Creates `src/main/resources/db/migration/` in the module with the `infrastructure.persistence` role, **empty**. No `.gitkeep` and no `V1__`: `spring.flyway.fail-on-missing-locations` defaults to `false` (verified in `spring-boot-flyway`'s metadata), so a missing or empty location doesn't break startup. The first migration comes from `java-spring-boot-developer`, materialized from the SQL `persistence-architect` fixed in the partial |
 | `persistence-jpa`, `rest`, `openapi`, `testcontainers`, `archunit` | Nothing here. They're dependencies (step 3) and POM configuration (step 4). The code that uses them comes from the first feature |
-| `spring-modulith` | Writes `<main-module>/src/test/java/**/ModularityTests.java`, from `templates/features/spring-modulith/ModularityTests.java.example`, adjusting only the package and the `@SpringBootApplication` class reference. Safe to write now, unlike ArchUnit — `ApplicationModules.of(...).verify()` passes meaningfully over zero modules; it isn't gated behind business code existing |
+| `spring-modulith` | Writes `<main-module>/src/test/java/**/ModularityTests.java`, from `templates/features/spring-modulith/ModularityTests.java.example`, adjusting only the package and the `@SpringBootApplication` class reference. Safe to write now, unlike ArchUnit — `ApplicationModules.of(...).verify()` passes meaningfully over zero modules; it isn't gated behind business code existing. Also writes `<main-module>/src/main/java/<package of the `shared` role>/package-info.java` from `templates/features/spring-modulith/shared-package-info.java.example`, replacing the one sentence 4.7.a wrote there: the blueprint declares `shared` as `@ApplicationModule(type = OPEN)` and nothing else marks it. `ModularityTests` runs under both build tools (`rules/testing.md` § Names and shape), so a missing marker fails the first module that imports a `shared` type |
 
 **No business classes.** No entity, no controller, no use case, no migration with a
 table. Each one's shape has an owner — `domain-modeling`, `persistence-architect`,
@@ -208,15 +197,18 @@ that second category — a made-up aggregate competing with a real spec — not 
    gradle`) — never both, same exemplar the resolved build tool has used since step 3.
    Fill `{{JAVA_VERSION}}` with the version resolved in step 3 and
    `{{MAIN_MODULE_JAR_PATH}}` with the jar path of the module with `contains_main:
-   true`:
-   - Maven: `target/<artifactId>-<version>.jar` in `single-module`,
-     `<module-path>/target/<artifactId>-<version>.jar` in `multi-module`. In
+   true`. The jar name is fixed, `app.jar`, never one built from the artifactId and the version: the build step
+   already pinned it (`pom.main-build.xml.example`'s `<finalName>`, `build.gradle.main-boot.example`'s
+   `archiveFileName`), and a version in the `COPY` source breaks `docker build` on the next
+   version bump while `verify` stays green (issue #149):
+   - Maven: `target/app.jar` in `single-module`,
+     `<module-path>/target/app.jar` in `multi-module`. In
      `multi-module`, replace `{{MODULE_POM_COPIES}}` with one `COPY <module>/pom.xml
      <module>/` line per module, so the dependency-resolution layer caches correctly;
      in `single-module`, delete that placeholder line — there's nothing to copy beyond
      the root `pom.xml` already copied above.
-   - Gradle: `build/libs/<artifactId>-<version>.jar` in `single-module`,
-     `<module-path>/build/libs/<artifactId>-<version>.jar` in `multi-module`. In
+   - Gradle: `build/libs/app.jar` in `single-module`,
+     `<module-path>/build/libs/app.jar` in `multi-module`. In
      `multi-module`, replace `{{MODULE_BUILD_GRADLE_COPIES}}` with one `COPY
      <module>/build.gradle <module>/` line per module, same caching reason; in
      `single-module`, delete that placeholder line — there's nothing to copy beyond the
@@ -256,6 +248,15 @@ that second category — a made-up aggregate competing with a real spec — not 
      `localhost`, silently.
    - A feature with no service template (`rest`, `openapi`, `testcontainers`, `flyway`
      — Flyway rides on the same Postgres connection, `archunit`) adds nothing here.
+   - **No `latest` image survives in `TestcontainersConfiguration.java`.** The Initializr
+     writes `postgres:latest` and, with `messaging-kafka`, `apache/kafka-native:latest`.
+     Set the Postgres tag to the one of the service just merged — `ArchHook.java compose`
+     fails on the pair otherwise — and **remove the Kafka container and its `@ServiceConnection`
+     bean**: the project has no producer or consumer yet, so every context test would start a
+     broker nothing uses, and no compose service exists to compare its tag with. The first
+     messaging case adds it back, through `test-architect`, with compose's repository and tag.
+     Any other `latest` the Initializr wrote gets the tag of the matching `docker-architect`
+     template; with no template, say it in the Output contract (`verify-and-report.md` § 8).
 4. Same rule as § andaime (step 4): the exemplar's top comment explaining *why* stays;
    anything describing the file as a template goes.
 

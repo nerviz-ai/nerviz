@@ -90,7 +90,7 @@ para as regras ArchUnit.
 Corolário para quem escreve um blueprint: adicionar uma feature significa adicionar
 uma linha em `project-bootstrap`'s `dependency-catalog.md`, não uma amostra de código.
 
-## Regras de validação (as 6 que `project-bootstrap` roda no passo 2)
+## Regras de validação (as 7 que `project-bootstrap` roda no passo 2)
 
 1. O grafo de `depends_on` é acíclico.
 2. Exatamente **um** módulo tem `contains_main: true`.
@@ -99,6 +99,8 @@ uma linha em `project-bootstrap`'s `dependency-catalog.md`, não uma amostra de 
 5. Em `layout: single-module`, `modules` tem um único elemento, e
    `forbidden_imports` é aplicado por package, não por módulo.
 6. `architecture_paths` existe e não está vazio.
+7. `features.messaging-sqs` está ausente ou `false`. A feature foi retirada até existir uma
+   skill que a trate; um blueprint que a liga é recusado.
 
 **Não há validador externo, nada a instalar** — esse template assume só o
 JDK, git e curl — o Maven wrapper vem no `starter.tgz` do Initializr. O árbitro final é
@@ -201,7 +203,7 @@ features:
   # ...
 ```
 
-A validação é a checklist de 6 regras acima, rodada pelo agent no passo 2 de
+A validação é a checklist de 7 regras acima, rodada pelo agent no passo 2 de
 `project-bootstrap` — a mesma validação que qualquer blueprint nativo passa. Não há
 etapa separada de "publicar" um blueprint: assim que o `.yaml` existe e valida, ele
 aparece na listagem dinâmica que `init-project` mostra na entrevista

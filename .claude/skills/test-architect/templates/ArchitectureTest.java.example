@@ -10,11 +10,6 @@
 //
 // Dependency direction: one rule per line of the blueprint's `dependency_rules.forbidden`.
 // Domain purity mirrors the blueprint's `forbidden_imports`.
-//
-// Masking: the name list in SENSITIVE_NAMES is `.claude/rules/logging.md` § Masking
-// candidates', not this file's — keep the two in step, and add a name here when the rule
-// gains one. Replace the two fully-qualified names in LOG_MASK and MASK_SENSITIVE with this
-// project's own `commons` package (its root `CLAUDE.md` names it).
 package com.exemplo.minhaapi;
 
 import static com.tngtech.archunit.library.GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS;
@@ -28,7 +23,6 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -37,8 +31,6 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Locale;
-import java.util.Set;
 
 @AnalyzeClasses(packages = "com.exemplo.minhaapi", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
@@ -210,83 +202,4 @@ class ArchitectureTest {
 
     @ArchTest
     static final ArchRule no_system_out = NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS;
-
-    /**
-     * Masking (`.claude/rules/logging.md` § Masking candidates). The global REST aspect logs
-     * request and response DTOs BY DEFAULT, opt-out. So a DTO that carries personal data and
-     * does not implement the masking interface leaks it the moment the endpoint runs — which
-     * is how a {@code String securityNumber} holding a CPF crossed design, implementation,
-     * review and a green build in a real project. The type half of the derivation needs no
-     * list: a field whose raw type is one of the catalog's personal-data value objects
-     * matches by type.
-     */
-    private static final Set<String> SENSITIVE_NAMES = Set.of(
-            "cpf", "cnpj", "rg", "ssn", "taxid", "nationalid", "securitynumber", "socialsecurity",
-            "document", "documento", "documentnumber", "passport", "driverlicense",
-            "email", "phone", "telefone", "celular", "mobile", "whatsapp",
-            "address", "endereco", "street", "logradouro", "zipcode", "cep", "postalcode",
-            "birthdate", "datanascimento", "dateofbirth",
-            "card", "cardnumber", "cvv", "cvc", "iban", "pix", "accountnumber", "agency",
-            "password", "senha", "secret", "token", "apikey", "accesskey", "privatekey");
-
-    private static final String LOG_MASK = "com.exemplo.minhaapi.commons.logging.LogMask";
-    private static final String MASK_SENSITIVE = "com.exemplo.minhaapi.commons.logging.MaskSensitiveData";
-
-    /**
-     * The guard, and it has to be on the `that()` side. `should().implement("...")` against
-     * an interface that is not on the classpath FAILS for every matched class — it does not
-     * skip — so `allowEmptyShould` alone would turn "commons not installed" into a red
-     * build. Matching nothing is what makes the rule vacuous.
-     */
-    private static final boolean COMMONS_INSTALLED = isOnClasspath(LOG_MASK);
-
-    private static boolean isOnClasspath(String fqn) {
-        try { Class.forName(fqn, false, ArchitectureTest.class.getClassLoader()); return true; }
-        catch (ClassNotFoundException e) { return false; }
-    }
-
-    private static final Set<String> SENSITIVE_TYPES =
-            Set.of("Email", "PhoneNumber", "Cpf", "Cnpj", "Document");
-
-    private static final DescribedPredicate<JavaField> SENSITIVE_FIELD = DescribedPredicate.describe(
-            "be derived as sensitive by name or by type",
-            field -> {
-                if (!COMMONS_INSTALLED) return false;
-                String name = field.getName().toLowerCase(Locale.ROOT);
-                return SENSITIVE_NAMES.stream().anyMatch(name::contains)
-                        || SENSITIVE_TYPES.contains(field.getRawType().getSimpleName());
-            });
-
-    private static final DescribedPredicate<JavaClass> CARRY_SENSITIVE_DATA = DescribedPredicate.describe(
-            "carry a field the masking rule derives as sensitive",
-            javaClass -> javaClass.getAllFields().stream().anyMatch(SENSITIVE_FIELD));
-
-    /**
-     * Guarded: {@code commons} is installed on demand, not at bootstrap. Where the masking
-     * interface does not exist on the classpath the predicate matches nothing and
-     * {@code allowEmptyShould(true)} keeps the rule vacuous instead of failing a project that
-     * never installed it — or one with no sensitive DTO.
-     */
-    @ArchTest
-    static final ArchRule sensitive_dtos_implement_log_mask = classes()
-            .that().resideInAPackage("..adapter.in.rest.dto..")
-            .and(CARRY_SENSITIVE_DATA)
-            .should().implement(LOG_MASK)
-            .because("the REST aspect logs every DTO by default; an unmasked one leaks the field"
-                    + " (@.claude/rules/logging.md § Masking candidates)")
-            .allowEmptyShould(true);
-
-    /**
-     * The interface alone gives a masked `toString()` only for the fields that say which
-     * pattern to use. A class that implements it and marks nothing masks nothing.
-     */
-    @ArchTest
-    static final ArchRule sensitive_fields_are_marked = fields()
-            .that().areDeclaredInClassesThat().resideInAPackage("..adapter.in.rest.dto..")
-            .and().areDeclaredInClassesThat().implement(LOG_MASK)
-            .and(SENSITIVE_FIELD)
-            .should().beAnnotatedWith(MASK_SENSITIVE)
-            .because("masking is per field, and the default is to mask"
-                    + " (@.claude/rules/logging.md § Masking candidates)")
-            .allowEmptyShould(true);
 }

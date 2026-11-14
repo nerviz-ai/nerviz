@@ -1540,7 +1540,7 @@ claude-help.md                     # this guide; cited from CLAUDE.md, not impor
 │   ├── new-feature/                       # orchestrates the pipeline above
 │   ├── gof-design-patterns/               # catalog: read at design time, injected into the executor
 │   ├── docker-architect/                  # extends docker-compose after bootstrap
-│   └── git-publish/                       # chained after /init-project and the executor
+│   └── git-publish/                       # chained after /init-project; typed after /new-feature and /new-feature-implement
 ├── agents/
 │   ├── project-initializer.md         # subagent: interviews, validates, delegates
 │   ├── java-spring-boot-developer.md  # /new-feature's executor
@@ -1643,7 +1643,9 @@ Decisions in this repository that illustrate the guide's principles well:
   the *generated* project; `/audit-usage` and `/arch-doctor` sit in the `observer` class,
   which declares `audited: false`, so reading the trail doesn't append to it.
   `/arch-adopt` is never recorded (its own class override); any other piece can be
-  switched per project in `.claude/audit-usage/audited.json`, which `export` never writes.
+  switched per project in `.claude/audit-usage/audited.json`, which `export` never writes —
+  one of the files `project_config` lists, changed with `ArchHook.jar config set` or
+  `/project-config`.
 
 ---
 
