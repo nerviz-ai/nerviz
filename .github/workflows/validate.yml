@@ -318,6 +318,12 @@ jobs:
       - name: boundary-map derives every blueprint's rules, and check enforces them
         run: java .claude/.ci/BoundaryMapTest.java
 
+      # A project extends its boundary map in `.claude/boundary-extensions.json` (`config set boundary`):
+      # `check` enforces it beside the delivered lines, a rerun of `boundary-map` keeps it, and the
+      # validator refuses what is no module path or package prefix (0209).
+      - name: a project's boundary extensions are enforced, survive boundary-map, and are validated
+        run: java .claude/.ci/BoundaryExtensionTest.java
+
       # What export tells the person who runs it: `Overwrites` only for a file that exists and
       # changes, and a stamp whose commit is the one given, the source's own HEAD, the fetch
       # marker's in a tree new-project extracted (0163), or "unknown" — never a parent

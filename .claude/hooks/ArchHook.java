@@ -318,8 +318,7 @@ public class ArchHook {
         Path map = ROOT.resolve(".claude/forbidden-imports.txt");
         if (Files.isRegularFile(map)) {
             String src = Files.readString(abs, StandardCharsets.UTF_8);
-            List<String> viol = forbiddenImports(rel, src,
-                    Files.readAllLines(map, StandardCharsets.UTF_8));
+            List<String> viol = forbiddenImports(rel, src, boundaryLines());
             if (!viol.isEmpty()) {
                 err("❌ Architectural boundary violation — " + rel);
                 err("Forbidden imports or qualified names found:");
@@ -357,6 +356,137 @@ public class ArchHook {
             tail(r.out, 30).forEach(ArchHook::err);
             blockExit();
         }
+    }
+
+    /**
+     * Every boundary rule in force: the lines of `.claude/forbidden-imports.txt` — what
+     * `boundary-map` delivered — then one `<module-path>|<prefix>` line per prefix of
+     * `.claude/boundary-extensions.json`, the project's own (`project_config.files.boundary`).
+     * {@link #forbiddenImports} stays the single matcher of both. An unreadable extension file
+     * adds nothing here; `doctor`'s `Boundary extensions` line says so. Decision 0209.
+     */
+    static List<String> boundaryLines() throws IOException {
+        Path map = ROOT.resolve(".claude/forbidden-imports.txt");
+        List<String> out = new ArrayList<>(Files.isRegularFile(map)
+                ? Files.readAllLines(map, StandardCharsets.UTF_8) : List.of());
+        out.addAll(boundaryExtensionLines());
+        return out;
+    }
+
+    /** The extension file's lines, `<module-path>|<prefix>`; empty when absent or not an object. */
+    static List<String> boundaryExtensionLines() {
+        List<String> out = new ArrayList<>();
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        String name = projectConfigRel(sch, "boundary");
+        if (name == null) return out;
+        Path f = ROOT.resolve(name);
+        if (!Files.isRegularFile(f)) return out;
+        Map<String, Object> root = asMap(Json.parse(readOrNull(f)));
+        if (root == null) return out;
+        for (Map.Entry<String, Object> e : root.entrySet()) {
+            for (String prefix : asStrList(e.getValue())) out.add(e.getKey() + "|" + prefix);
+        }
+        return out;
+    }
+
+    /** A note for the `Boundaries` line naming how many rules are the project's own, or empty. */
+    static String boundaryExtensionNote() {
+        int n = boundaryExtensionLines().size();
+        return n == 0 ? "" : " (" + n + " from the project's boundary extensions)";
+    }
+
+    /**
+     * The `Boundary extensions` line: what the project's own `.claude/boundary-extensions.json`
+     * holds, through the validator `config set` runs. Silent with no file. Not gated: `check`
+     * ignores a file it cannot read, and the report names what to fix. Decision 0209.
+     */
+    static void doctorBoundaryExtensions() {
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        if (sch == null || projectConfigEntry(sch, "boundary") == null) return;
+        List<String> problems = projectConfigFileProblems(sch, "boundary", auditDir());
+        if (problems == null) return;
+        String set = problems.remove(problems.size() - 1);
+        report(projectConfigLabel(sch, "boundary"), problems.isEmpty(), set.isEmpty() ? "none set" : set,
+                String.join("; ", problems));
+    }
+
+    /** The value after `# <key>:` in the leading comment lines of the delivered map, or null. */
+    static String boundaryHeader(List<String> lines, String key) {
+        for (String l : lines) {
+            if (!l.startsWith("#")) break;
+            String t = l.substring(1).strip();
+            if (key.equals("blueprint")) {
+                int i = t.indexOf("blueprint:");
+                if (i >= 0) {
+                    String v = t.substring(i + "blueprint:".length()).strip();
+                    int dash = v.indexOf(" — ");
+                    return (dash >= 0 ? v.substring(0, dash) : v).strip();
+                }
+            } else if (t.startsWith(key + ":")) {
+                return t.substring(key.length() + 1).strip();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The `Boundary map` line: the delivered `.claude/forbidden-imports.txt` against what the
+     * active blueprint copy derives for the header's package — a line missing or one added is
+     * red, and `doctor.gate.labels` gates it. A file whose header names no blueprint or no
+     * package (written before 0209) or a blueprint copy that is gone is only a warning: the
+     * comparison cannot run, and failing every older project would be the wrong signal. Silent
+     * without the map, since `Boundaries` is already red for that one cause. Reads the
+     * blueprint at `export.blueprint_copy`. Decision 0209.
+     */
+    static void doctorBoundaryMap(Path map) {
+        if (!Files.isRegularFile(map)) return;
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> bm = sch == null ? null : asMap(sch.get("boundary_map"));
+        // The exported extensions.json drops its `export` block, so inside a project the path is the
+        // convention `blueprint_copy` writes to — the same default `boundary-map` falls back on.
+        String tpl = asStr(get(sch, "export", "blueprint_copy"));
+        if (tpl == null) tpl = ".claude/blueprints/{id}/{id}.yaml";
+        if (bm == null) return;
+        List<String> mapLines;
+        try {
+            mapLines = Files.readAllLines(map, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            report("Boundary map", false, "", map + " unreadable");
+            return;
+        }
+        String id = boundaryHeader(mapLines, "blueprint");
+        String pkg = boundaryHeader(mapLines, "package");
+        if (id == null || pkg == null) {
+            err("  Boundary map ..... ⚠️  header names no " + (id == null ? "blueprint" : "package")
+                    + " — delivered lines not compared (file written before decision 0209;"
+                    + " rerun `boundary-map` to record it)");
+            return;
+        }
+        Path bp = ROOT.resolve(tpl.replace("{id}", id));
+        if (!Files.isRegularFile(bp)) {
+            err("  Boundary map ..... ⚠️  blueprint copy " + relative(bp) + " missing — delivered lines not compared");
+            return;
+        }
+        Set<String> want;
+        try {
+            want = deriveBoundaryLines(bm, Files.readAllLines(bp, StandardCharsets.UTF_8), pkg, new ArrayList<>());
+        } catch (IOException e) {
+            report("Boundary map", false, "", bp + " unreadable");
+            return;
+        }
+        Set<String> have = new LinkedHashSet<>();
+        for (String l : mapLines) {
+            String t = l.strip();
+            if (!t.isEmpty() && !t.startsWith("#") && t.contains("|")) have.add(t);
+        }
+        List<String> missing = want.stream().filter(l -> !have.contains(l)).toList();
+        List<String> extra = have.stream().filter(l -> !want.contains(l)).toList();
+        report("Boundary map", missing.isEmpty() && extra.isEmpty(),
+                have.size() + " delivered line(s) equal what " + id + " derives",
+                missing.size() + " line(s) missing, " + extra.size() + " not derived from " + id
+                        + " — a delivered line is changed by hand; extend through `config set boundary <module-path> <prefix>`");
+        missing.stream().limit(5).forEach(l -> err("    missing: " + l));
+        extra.stream().limit(5).forEach(l -> err("    extra:   " + l));
     }
 
     /** The token of a boundary-map line that stands for any one module — a format, like the `|`. */
@@ -648,17 +778,21 @@ public class ArchHook {
                 "missing — run /init-project (starter.tgz already brings mvnw or gradlew)");
         Path map = ROOT.resolve(".claude/forbidden-imports.txt");
         long rules = 0;
+        List<String> boundary = List.of();
         try {
             if (Files.isRegularFile(map)) {
-                rules = Files.readAllLines(map).stream()
+                boundary = boundaryLines();
+                rules = boundary.stream()
                         .map(String::strip)
                         .filter(l -> !l.isEmpty() && !l.startsWith("#") && l.contains("|"))
                         .count();
             }
         } catch (IOException ignored) { }
-        report("Boundaries", rules > 0, rules + " active rules",
+        report("Boundaries", rules > 0, rules + " active rules" + boundaryExtensionNote(),
                 "0 rules — ENFORCEMENT OFF. Generated by /init-project");
-        doctorBoundarySweep(map, rules);
+        doctorBoundaryMap(map);
+        doctorBoundaryExtensions();
+        doctorBoundarySweep(boundary, rules);
         long badSchema = -1;
         if (Files.isRegularFile(ROOT.resolve(SCHEMA_FILE))) {
             try {
@@ -1075,7 +1209,7 @@ public class ArchHook {
      * Reads `doctor.boundary_sweep` (invariant 10).
      * Design: `.claude/decisions/0140-boundary-sweep-in-doctor-gate.md`.
      */
-    static void doctorBoundarySweep(Path map, long rules) {
+    static void doctorBoundarySweep(List<String> mapLines, long rules) {
         Map<String, Object> spec = doctorSpec("boundary_sweep");
         if (spec == null) return;
         if (rules == 0) {
@@ -1083,13 +1217,6 @@ public class ArchHook {
             return;
         }
         List<String> exts = asStrList(spec.get("extensions"));
-        List<String> mapLines;
-        try {
-            mapLines = Files.readAllLines(map, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            report("Boundary violations", false, "", map + " unreadable");
-            return;
-        }
         List<String> files = null;
         try {
             Proc p = run(gitCmd(), "ls-files", "--cached", "--others", "--exclude-standard");
@@ -2385,8 +2512,8 @@ public class ArchHook {
                 configWrite(sch, args[2], args[3], args[4], false);
             }
             case "unset" -> {
-                if (args.length != 4) configUsage();
-                configWrite(sch, args[2], args[3], null, true);
+                if (args.length != 4 && args.length != 5) configUsage();
+                configWrite(sch, args[2], args[3], args.length == 5 ? args[4] : null, true);
             }
             default -> configUsage();
         }
@@ -2502,7 +2629,8 @@ public class ArchHook {
     }
 
     static void configUsage() {
-        err("usage: config [list] | config set <id> <key> <value> | config unset <id> <key>");
+        err("usage: config [list] | config set <id> <key> <value> | config unset <id> <key> [<prefix>]");
+        err("  <prefix> only for a `prefix_list` key (`boundary`): `unset` takes out that one prefix, the whole key without it");
         System.exit(1);
     }
 
@@ -2569,8 +2697,52 @@ public class ArchHook {
             case "audit_overrides" -> auditOverrideContentProblems(sch, root, projectConfigName(sch, id));
             case "plan_limits" -> planLimitContentProblems(sch, root);
             case "keys" -> keysContentProblems(e, root);
+            case "boundary_extensions" -> boundaryExtensionProblems(sch, root);
             default -> new ArrayList<>(List.of("project_config.files." + id + " names no known validator", ""));
         };
+    }
+
+    /** True for a project file whose keys are free names, each a list of strings — `boundary`. */
+    static boolean isPrefixListFile(Map<String, Object> sch, String id) {
+        return "boundary_extensions".equals(asStr(get(projectConfigEntry(sch, id), "validator")));
+    }
+
+    /**
+     * The `boundary_extensions` validator: every key a module path, every value a non-empty list
+     * of forbidden package prefixes. A module path is a relative path of plain segments (`{module}`
+     * allowed, as in the delivered map); one that starts at `src` must start at
+     * `boundary_map.source_root`, which keeps a single-module line under the production tree. A
+     * multi-module project's modules (`domain`) sit outside `src`, so they pass as plain
+     * directories — the record's "outside source_root is refused" is read as "outside the source
+     * tree the blueprint names", not "every path must start with it" (decision 0209).
+     */
+    static List<String> boundaryExtensionProblems(Map<String, Object> sch, Map<String, Object> root) {
+        String sourceRoot = orEmpty(asStr(get(sch, "boundary_map", "source_root")));
+        List<String> out = new ArrayList<>();
+        int rules = 0;
+        for (Map.Entry<String, Object> e : root.entrySet()) {
+            String path = e.getKey();
+            if (!path.matches("[A-Za-z0-9_.{}-]+(/[A-Za-z0-9_.{}-]+)*") || Arrays.asList(path.split("/")).contains("..")
+                    || Arrays.asList(path.split("/")).contains(".")) {
+                out.add("`" + path + "` is not a module path — a relative path of plain segments, no `..`");
+            } else if (path.split("/")[0].equals(sourceRoot.split("/")[0])
+                    && !path.equals(sourceRoot) && !path.startsWith(sourceRoot + "/")) {
+                out.add("`" + path + "` is under `src` but outside `" + sourceRoot + "` — only the production source tree takes a rule");
+            }
+            if (!(e.getValue() instanceof List<?> l) || l.isEmpty()) {
+                out.add("`" + path + "` must be a non-empty list of package prefixes");
+                continue;
+            }
+            for (Object o : l) {
+                if (!(o instanceof String v) || !v.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_{][A-Za-z0-9_{}]*)*\\.?")) {
+                    out.add("`" + path + "`: " + jsonOf(o) + " is not a package prefix — dotted Java names such as `org.apache.pdfbox.`");
+                } else {
+                    rules++;
+                }
+            }
+        }
+        out.add(rules == 0 ? "" : rules + " project rule(s) over " + root.size() + " module path(s)");
+        return out;
     }
 
     /** The `keys` validator: only the listed keys, each one of its `values`. */
@@ -2618,12 +2790,14 @@ public class ArchHook {
             for (Object o : asList(e.get("keys"))) {
                 Map<String, Object> k = asMap(o);
                 if (k == null) continue;
-                for (String key : configExpand(sch, asStr(k.get("key")))) {
+                for (String key : configExpand(sch, asStr(k.get("key")), root)) {
                     StringBuilder b = new StringBuilder("{\"key\":\"").append(jsonEscape(key)).append('"')
                             .append(",\"type\":").append(jsonOf(k.get("type")))
                             .append(",\"default\":").append(jsonOf(configDefault(sch, id, key, k.get("default"))))
                             .append(",\"effect\":").append(jsonOf(k.get("effect")))
-                            .append(",\"value\":").append(jsonOf(get(root, key.split("\\."))));
+                            .append(",\"value\":").append(jsonOf(isPrefixListFile(sch, id)
+                                    ? (root instanceof Map<?, ?> rm ? rm.get(key) : null)
+                                    : get(root, key.split("\\."))));
                     if (k.get("values") != null) b.append(",\"values\":").append(jsonOf(k.get("values")));
                     if (configFixed(sch, id, key)) b.append(",\"fixed\":true");
                     keys.add(b.append('}').toString());
@@ -2677,10 +2851,14 @@ public class ArchHook {
     }
 
     /** One key pattern of `project_config` as the concrete keys it stands for on this disk. */
-    static List<String> configExpand(Map<String, Object> sch, String pattern) {
+    static List<String> configExpand(Map<String, Object> sch, String pattern, Object root) {
         List<String> out = new ArrayList<>();
         if (pattern == null) return out;
-        if (pattern.contains("{skill}")) {
+        if (pattern.contains("{module_path}")) {
+            // The keys the project wrote; the pattern itself while there are none, so the entry documents itself.
+            if (root instanceof Map<?, ?> m && !m.isEmpty()) m.keySet().forEach(k -> out.add(String.valueOf(k)));
+            else out.add(pattern);
+        } else if (pattern.contains("{skill}")) {
             for (String n : listNames(ROOT.resolve(".claude/skills"), true)) out.add(pattern.replace("{skill}", n));
         } else if (pattern.contains("{agent}")) {
             for (String n : listNames(ROOT.resolve(".claude/agents"), false)) out.add(pattern.replace("{agent}", n));
@@ -2739,6 +2917,14 @@ public class ArchHook {
         } else {
             root = new LinkedHashMap<>();
         }
+        if (isPrefixListFile(sch, id)) {
+            configWritePrefixes(sch, id, root, file, rel, key, raw, unset);
+            return;
+        }
+        if (unset && raw != null) {
+            err("❌ config: `" + id + "` takes no prefix — `config unset " + id + " " + key + "`.");
+            blockExit();
+        }
         String[] path = key.split("\\.");
         if (unset) {
             configRemove(root, path, 0);
@@ -2777,6 +2963,57 @@ public class ArchHook {
         Files.createDirectories(file.getParent());
         Files.writeString(file, jsonPretty(root, "") + "\n", StandardCharsets.UTF_8);
         System.out.println("✅ " + rel + " — " + (unset ? key + " back to its default" : key + " = " + jsonOf(configValue(raw))));
+    }
+
+    /**
+     * {@code config set|unset} for a `prefix_list` file: the key is a module path taken whole (it
+     * holds `/`, and may hold `.`), the value one prefix. `set` appends it, once; `unset` removes
+     * that prefix, or the whole key when none is given, and a key left with no prefix goes with
+     * it. Same gate as every other file: validated as it would be, written only when clean.
+     */
+    @SuppressWarnings("unchecked")
+    static void configWritePrefixes(Map<String, Object> sch, String id, Map<String, Object> root, Path file,
+            String rel, String key, String raw, boolean unset) throws IOException {
+        String prefix = raw == null ? null : raw.strip();
+        if (unset) {
+            if (!root.containsKey(key)) {
+                System.out.println("✅ " + rel + " — `" + key + "` was not set");
+                return;
+            }
+            if (prefix == null) {
+                root.remove(key);
+            } else if (root.get(key) instanceof List<?> l) {
+                List<Object> keep = new ArrayList<>(l);
+                keep.remove(prefix);
+                if (keep.isEmpty()) root.remove(key); else root.put(key, keep);
+            }
+        } else {
+            if (prefix == null || prefix.isEmpty()) configUsage();
+            Object cur = root.get(key);
+            if (cur != null && !(cur instanceof List)) {
+                err("❌ config: `" + key + "` in " + rel + " is not a list — `config unset " + id + " " + key + "` first.");
+                blockExit();
+            }
+            List<Object> l = cur == null ? new ArrayList<>() : new ArrayList<>((List<Object>) cur);
+            if (!l.contains(prefix)) l.add(prefix);
+            root.put(key, l);
+            List<String> problems = projectConfigProblems(sch, id, root);
+            problems.remove(problems.size() - 1);
+            if (!problems.isEmpty()) {
+                err("❌ config: " + rel + " would not be valid — nothing written.");
+                problems.forEach(p -> err("   " + p));
+                blockExit();
+            }
+        }
+        if (root.isEmpty()) {
+            Files.deleteIfExists(file);
+            System.out.println("✅ " + rel + " — removed, no project rule left");
+            return;
+        }
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, jsonPretty(root, "") + "\n", StandardCharsets.UTF_8);
+        System.out.println("✅ " + rel + " — " + (unset ? "`" + key + "`" + (prefix == null ? " removed" : " without " + prefix)
+                : "`" + key + "` forbids " + prefix));
     }
 
     /** A value typed on the command line: true/false, null, a number, else a string. */
@@ -4330,9 +4567,33 @@ public class ArchHook {
             blockExit();
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        List<String> unresolved = new ArrayList<>();
+        Set<String> out = deriveBoundaryLines(bm, lines, pkg, unresolved);
+        for (String u : new TreeSet<>(unresolved)) {
+            err("⚠️  boundary-map: `" + u + "` matches no entry of packages.map in " + id + " — its rules are skipped.");
+        }
+        if (out.isEmpty()) {
+            err("❌ boundary-map: " + id + " yields no rule — nothing written. A boundary map with no line blocks nothing.");
+            blockExit();
+        }
+        Path target = Paths.get(dest).toAbsolutePath().normalize().resolve(".claude/forbidden-imports.txt");
+        Files.createDirectories(target.getParent());
+        Files.writeString(target, "# Generated by /init-project — blueprint: " + id + " — do not edit by hand\n"
+                + "# package: " + pkg + "\n"
+                + String.join("\n", out) + "\n", StandardCharsets.UTF_8);
+        System.out.println("✅ boundary-map: " + out.size() + " rule(s) for " + id + " in " + target);
+    }
+
+    /**
+     * The boundary lines one blueprint derives for one base package — the single derivation
+     * {@code boundary-map} writes and {@code doctor}'s `Boundary map` line compares against
+     * (decision 0209). Pure: reads only its arguments; a {@code packages.map} name that matches
+     * no entry is added to {@code unresolved}.
+     */
+    static Set<String> deriveBoundaryLines(Map<String, Object> bm, List<String> lines, String pkg,
+            List<String> unresolved) {
         String layout = yamlNestedMap(lines, List.of("build")).get("layout");
         Set<String> out = new LinkedHashSet<>();
-        List<String> unresolved = new ArrayList<>();
 
         if ("single-module".equals(layout)) {
             String sourceRoot = asStr(bm.get("source_root"));
@@ -4367,18 +4628,7 @@ public class ArchHook {
                 }
             }
         }
-        for (String u : new TreeSet<>(unresolved)) {
-            err("⚠️  boundary-map: `" + u + "` matches no entry of packages.map in " + id + " — its rules are skipped.");
-        }
-        if (out.isEmpty()) {
-            err("❌ boundary-map: " + id + " yields no rule — nothing written. A boundary map with no line blocks nothing.");
-            blockExit();
-        }
-        Path target = Paths.get(dest).toAbsolutePath().normalize().resolve(".claude/forbidden-imports.txt");
-        Files.createDirectories(target.getParent());
-        Files.writeString(target, "# Generated by /init-project — blueprint: " + id + " — do not edit by hand\n"
-                + String.join("\n", out) + "\n", StandardCharsets.UTF_8);
-        System.out.println("✅ boundary-map: " + out.size() + " rule(s) for " + id + " in " + target);
+        return out;
     }
 
     /**
