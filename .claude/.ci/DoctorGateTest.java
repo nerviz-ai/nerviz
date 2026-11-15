@@ -43,6 +43,12 @@ public class DoctorGateTest {
         if (!healthy.contains("✅ doctor gate:")) fail("healthy project — no `✅ doctor gate:` line");
 
         broken("Boundaries", p -> Files.delete(p.resolve(".claude/forbidden-imports.txt")));
+        broken("Boundary map", p -> {
+            Path m = p.resolve(".claude/forbidden-imports.txt");
+            List<String> kept = new ArrayList<>(Files.readAllLines(m));
+            kept.remove(kept.size() - 1); // one delivered line deleted
+            Files.write(m, kept);
+        });
         broken("Boundary violations", p -> write(p.resolve("domain/src/main/java/x/Order.java"),
                 "package x;\n\nimport org.springframework.stereotype.Component;\n\nclass Order { }\n"));
         broken("Schema", p -> write(p.resolve(".claude/skills/x/SKILL.md"),
@@ -135,7 +141,11 @@ public class DoctorGateTest {
         Path p = Files.createTempDirectory("archhook-doctor-gate-ci");
         Path schemas = p.resolve(".claude/schemas");
         Files.createDirectories(schemas);
-        Files.copy(Paths.get(".claude/schemas/extensions.json"), schemas.resolve("extensions.json"));
+        // The blueprint copy below makes `.claude/blueprints` exist, which `export.source_marker` reads as
+        // "this is the source repository"; the exported manifest has no `export` block, so the marker
+        // is pointed at a directory that is not there, as in a generated project.
+        Files.writeString(schemas.resolve("extensions.json"), Files.readString(Paths.get(".claude/schemas/extensions.json"))
+                .replace("\"source_marker\": \".claude/blueprints\"", "\"source_marker\": \".claude/not-the-source\""));
         Path hooks = p.resolve(".claude/hooks");
         Files.createDirectories(hooks);
         Files.copy(Paths.get(".claude/hooks/ArchHook.java"), hooks.resolve("ArchHook.java"));
@@ -144,7 +154,18 @@ public class DoctorGateTest {
         Path gof = p.resolve(".claude/skills/gof-design-patterns/SKILL.md");
         Files.createDirectories(gof.getParent());
         Files.copy(Paths.get(".claude/skills/gof-design-patterns/SKILL.md"), gof);
-        write(p.resolve(".claude/forbidden-imports.txt"), "# boundary\ndomain|org.springframework\n");
+        // The delivered map is the real derivation of the hexagonal blueprint, with the blueprint copy
+        // beside it, so `Boundary map` compares something (decision 0209).
+        Path bp = p.resolve(".claude/blueprints/hexagonal/hexagonal.yaml");
+        Files.createDirectories(bp.getParent());
+        Files.copy(Paths.get(".claude/blueprints/hexagonal/hexagonal.yaml"), bp);
+        ProcessBuilder map = new ProcessBuilder("java", "-jar", HOOK.toString(), "boundary-map",
+                p.toString(), "--blueprint", "hexagonal", "--package", "com.acme.shop");
+        map.environment().put("CLAUDE_PROJECT_DIR", Paths.get(".").toAbsolutePath().normalize().toString());
+        map.redirectErrorStream(true);
+        Process mp = map.start();
+        mp.getInputStream().readAllBytes();
+        if (mp.waitFor() != 0) throw new IllegalStateException("boundary-map failed for the fixture");
         write(p.resolve(".claude/settings.json"), blockedPluginsOff());
         write(p.resolve(".mcp.json"), "{\"mcpServers\":{}}");
         write(p.resolve(".claude/audit-usage/audited.json"), "{}");
