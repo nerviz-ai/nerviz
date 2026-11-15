@@ -156,3 +156,5 @@ marker.
 
 `schema` (step `frontmatter schema`) already covers the two template registrations; the
 exported tree's `doctor` reports 28 registrations across 12 events, two more than before.
+
+> **Note (0210):** The marker is now also read by `guard sweep`, through the neutral helper `executorsOpen` (was `testsWriterRunning`); `schema` requires the `tests agent-start`/`agent-end` pair wherever `guard sweep` and an executor class coexist. See `0210-guard-sweep-judges-executor-writes-by-agent-class.md`.

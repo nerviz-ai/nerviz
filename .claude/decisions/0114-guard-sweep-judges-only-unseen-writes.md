@@ -178,3 +178,5 @@ no `extensions.json` change, so no template edit and no `migrations` entry.
 
 `SkillTerritoryTest`, `AgentTerritoryTest` and `BashGuardTest` stay green: the ledger write is
 an append after an admission, and none of them reads it.
+
+> **Note (0210):** An unseen write that an open or just-finished executor's class admits is no longer judged against the phase: `guard agent-end` admits it at `SubagentStop`, and the sweep skips it while the executor runs. See `0210-guard-sweep-judges-executor-writes-by-agent-class.md`.

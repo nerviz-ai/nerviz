@@ -148,6 +148,50 @@ public class SweepTest {
                 + spec + "\"}}", 2, "through the Edit tool", null,
                 "checklist toggle by sed -i — refused, the message names the Edit tool");
 
+        // An executor's write no tool-time guard saw (a `$VAR` target `guard bash` skips) is the
+        // executor's, not the phase's. While its marker is open the main Stop leaves it alone; at
+        // SubagentStop `guard agent-end` admits it by the agent's class, or sends it back to the
+        // agent naming that class. Issue #209, decision 0210.
+        String s6 = "ci-sweep-" + System.nanoTime();
+        String exec = "java-spring-boot-developer";
+        failures += guard(hook, repo, "prompt", "{\"session_id\":\"" + s6
+                + "\",\"prompt\":\"/new-feature-implement UC-007-x\"}", 0, null, null,
+                "orchestrator phase opens, executor to follow");
+        Path bg = repo.resolve("src/main/java/Bg.java");
+        Files.writeString(bg, "class Bg {}");
+        Path marker = marker(s6, "bg-1", exec);
+        failures += guard(hook, repo, "sweep", "{\"session_id\":\"" + s6 + "\"}", 0, null,
+                "src/main/java/Bg.java", "executor still running — its unseen src/ write is not the phase's");
+        failures += guard(hook, repo, "agent-end", "{\"session_id\":\"" + s6
+                + "\",\"agent_type\":\"" + exec + "\"}", 0, null, null,
+                "agent-end admits an unseen write its class allows");
+        Files.deleteIfExists(marker);
+        failures += guard(hook, repo, "sweep", "{\"session_id\":\"" + s6 + "\"}", 0, null,
+                "src/main/java/Bg.java", "marker closed, write admitted at agent-end — silent");
+
+        String s7 = "ci-sweep-" + System.nanoTime();
+        failures += guard(hook, repo, "prompt", "{\"session_id\":\"" + s7
+                + "\",\"prompt\":\"/new-feature-implement UC-008-x\"}", 0, null, null,
+                "orchestrator phase opens, second executor");
+        Path stray = repo.resolve("docs/stray/notes.md");
+        Files.createDirectories(stray.getParent());
+        Files.writeString(stray, "outside the class");
+        failures += guard(hook, repo, "agent-end", "{\"session_id\":\"" + s7
+                + "\",\"agent_type\":\"" + exec + "\"}", 2, "agent_classes", null,
+                "agent-end — a write outside the executor's class goes back to the agent");
+        failures += guard(hook, repo, "agent-end", "{\"session_id\":\"" + s7
+                + "\",\"stop_hook_active\":true,\"agent_type\":\"" + exec + "\"}", 0, null, null,
+                "agent-end with stop_hook_active — does not block twice");
+
+        String s8 = "ci-sweep-" + System.nanoTime();
+        failures += guard(hook, repo, "prompt", "{\"session_id\":\"" + s8
+                + "\",\"prompt\":\"/new-feature-implement UC-009-x\"}", 0, null, null,
+                "orchestrator phase opens, no executor");
+        Files.writeString(repo.resolve("src/main/java/Lone.java"), "class Lone {}");
+        failures += guard(hook, repo, "sweep", "{\"session_id\":\"" + s8 + "\"}", 2,
+                "src/main/java/Lone.java", null,
+                "no executor open, none ended — the unseen src/ write is still reported");
+
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `guard sweep` is NOT"
                     + " separating what this turn wrote from what was already dirty.");
@@ -161,6 +205,15 @@ public class SweepTest {
     /** An absolute `file_path`, as the runtime sends it, with `/` so Windows stays valid JSON. */
     static String abs(Path repo, String rel) {
         return repo.resolve(rel).toString().replace('\\', '/');
+    }
+
+    /** An open writer marker, as `tests agent-start` leaves it: type, then the start in epoch millis. */
+    static Path marker(String session, String agentId, String type) throws Exception {
+        Path dir = Paths.get(System.getProperty("java.io.tmpdir"), "archhook-tests", session);
+        Files.createDirectories(dir);
+        Path m = dir.resolve(agentId);
+        Files.writeString(m, type + "\n" + System.currentTimeMillis() + "\n");
+        return m;
     }
 
     static void git(Path dir, String... args) throws Exception {

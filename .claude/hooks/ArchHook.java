@@ -605,7 +605,8 @@ public class ArchHook {
         String mvnw = wrapper();
         if (mvnw == null) return;
 
-        String writer = testsWriterRunning(stdin);
+        List<String> open = executorsOpen(asStr(get(Json.parse(stdin), "session_id")));
+        String writer = open.isEmpty() ? null : open.get(0);
         if (writer != null) {
             err("⏸ Tests deferred: " + writer + " still running in background."
                     + " The Stop of the turn its result opens runs them.");
@@ -708,13 +709,13 @@ public class ArchHook {
      * machine sleep never reaches `SubagentStop`, and its marker must not switch the gate off
      * for the rest of the session. No value in `extensions.json` defers nothing.
      */
-    static String testsWriterRunning(String stdin) throws IOException {
-        Path dir = testsState(asStr(get(Json.parse(stdin), "session_id")));
-        if (!Files.isDirectory(dir)) return null;
+    static List<String> executorsOpen(String session) throws IOException {
+        List<String> running = new ArrayList<>();
+        Path dir = testsState(session);
+        if (!Files.isDirectory(dir)) return running;
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         long capMs = num(get(sch, "tests", "writer_agent_max_minutes")) * 60_000L;
         long now = System.currentTimeMillis();
-        String running = null;
         try (Stream<Path> files = Files.list(dir)) {
             for (Path f : files.collect(Collectors.toList())) {
                 List<String> lines = Files.readAllLines(f, StandardCharsets.UTF_8);
@@ -725,7 +726,7 @@ public class ArchHook {
                     // unreadable marker: treated as expired below
                 }
                 if (started > 0 && now - started < capMs) {
-                    if (running == null) running = lines.get(0).strip();
+                    running.add(lines.get(0).strip());
                 } else {
                     Files.deleteIfExists(f);
                 }
@@ -7063,6 +7064,49 @@ public class ArchHook {
                 }
             }
         }
+        checkAgentEndPair(sch, rel, hooks, errors);
+    }
+
+    /**
+     * A settings file listed in `guard.agent_end_required_in` that registers `guard sweep` must
+     * also register the executor-attribution trio — `tests agent-start` and `tests agent-end`
+     * (the writer marker the `Stop` sweep defers on) and `guard agent-end` (which judges an
+     * executor's unseen writes by its own class). Without them the sweep tells the model to
+     * revert an executor's legitimate `src/` write (issue #209). Only when an `executor: true`
+     * class exists. Design: .claude/decisions/0210-guard-sweep-judges-executor-writes-by-agent-class.md
+     */
+    static void checkAgentEndPair(Map<String, Object> sch, String rel, Map<String, Object> hooks,
+                                  List<String> errors) {
+        if (!asStrList(get(sch, "guard", "agent_end_required_in")).contains(rel)) return;
+        Map<String, Object> classes = asMap(get(sch, "agent_classes", "classes"));
+        boolean executor = false;
+        if (classes != null) {
+            for (Object c : classes.values()) {
+                if (Boolean.TRUE.equals(get(c, "executor"))) executor = true;
+            }
+        }
+        if (!executor) return;
+        Set<String> modes = new LinkedHashSet<>();
+        for (Object ev : hooks.values()) {
+            for (Object group : asList(ev)) {
+                for (Object entry : asList(get(group, "hooks"))) {
+                    String cmd = asStr(get(entry, "command"));
+                    if (cmd == null) continue;
+                    for (String mode : new String[] {"guard sweep", "tests agent-start",
+                            "tests agent-end", "guard agent-end"}) {
+                        if (cmd.strip().endsWith(" " + mode)) modes.add(mode);
+                    }
+                }
+            }
+        }
+        if (!modes.contains("guard sweep")) return;
+        for (String need : new String[] {"tests agent-start", "tests agent-end", "guard agent-end"}) {
+            if (!modes.contains(need)) {
+                errors.add("  " + rel + " — registers `guard sweep` but not `" + need + "`. An executor's"
+                        + " unseen write would be judged against the phase and reported for revert."
+                        + " Register it (SubagentStart/SubagentStop; .claude/decisions/0210-guard-sweep-judges-executor-writes-by-agent-class.md)");
+            }
+        }
     }
 
     /**
@@ -10114,6 +10158,7 @@ public class ArchHook {
             case "bash"   -> guardBash(sch, state, in);
             case "read"   -> guardRead(sch, in);
             case "sweep"  -> guardSweep(sch, state, in, stdin);
+            case "agent-end" -> guardAgentEnd(sch, state, in, stdin);
             case "status" -> guardStatus(sch, state);
             default       -> { }
         }
@@ -10934,6 +10979,10 @@ public class ArchHook {
         Set<String> admitted = new HashSet<>(
                 Arrays.asList(orEmpty(readOrNull(guardAdmittedFile(state))).split("\n")));
 
+        // An executor still running owns what its class admits (0210): its unseen writes are
+        // judged by `guard agent-end`, with its own territory, when it stops.
+        List<String> open = executorsOpen(asStr(get(in, "session_id")));
+
         List<String> lines = new ArrayList<>();
         for (String entry : now.out) {
             if (entry.isBlank() || before.contains(entry)) continue;
@@ -10941,6 +10990,9 @@ public class ArchHook {
             if (rel == null) continue;
             if (matchesAny(exempt, rel) || admitted.contains(rel)
                     || projectConfigIdAt(sch, rel) != null) continue;
+            boolean owned = false;
+            for (String type : open) owned |= matchesAny(agentWriteAllowOf(sch, type), rel);
+            if (owned) continue;
             List<String> v = guardViolations(sch, state, in, rel, true);
             if (!v.isEmpty()) { lines.add(""); lines.addAll(v); }
         }
@@ -10948,6 +11000,56 @@ public class ArchHook {
         err("❌ This turn wrote outside what the open phase and the frozen folders admit.");
         err("   The tool-time guards did not see these writes — a shell spelling they do not");
         err("   parse, or a tool with no matcher. Revert them, or report them and stop.");
+        lines.forEach(ArchHook::err);
+        blockExit();
+    }
+
+    /**
+     * `guard agent-end`, on `SubagentStop`: the one event that names the agent (`agent_type`)
+     * whose writes no tool-time guard could resolve (a `$VAR` target). Judges every unseen path
+     * against that agent's own class, never the phase the main thread left open (issue #209).
+     * In class → appended to `.admitted`, so the main `Stop` sweep skips it. Out of class → exit 2
+     * to the agent, naming `agent_classes.<cls>.write_allow`. Reads the type from the payload,
+     * never from the marker: `tests agent-end` runs in parallel and may delete it first.
+     * Design: .claude/decisions/0210-guard-sweep-judges-executor-writes-by-agent-class.md
+     */
+    static void guardAgentEnd(Map<String, Object> sch, Path state, Object in, String stdin)
+            throws Exception {
+        if (Pattern.compile("\"stop_hook_active\"\\s*:\\s*true").matcher(stdin).find()) return;
+        String agent = asStr(get(in, "agent_type"));
+        String cls = agentClassOf(sch, agent);
+        if (cls == null || !Boolean.TRUE.equals(get(sch, "agent_classes", "classes", cls, "executor"))) return;
+        Path baselineFile = guardBaselineFile(state);
+        if (!Files.isRegularFile(baselineFile)) return;
+        Proc now = run(gitCmd(), "status", "--porcelain", "--untracked-files=all");
+        if (now.exit != 0) return;
+        Set<String> before = new LinkedHashSet<>(Arrays.asList(readOrNull(baselineFile).split("\n")));
+        List<String> exempt = asStrList(get(sch, "guard", "sweep_exempt"));
+        Path admittedFile = guardAdmittedFile(state);
+        Set<String> admitted = new HashSet<>(
+                Arrays.asList(orEmpty(readOrNull(admittedFile)).split("\n")));
+
+        List<String> lines = new ArrayList<>();
+        StringBuilder add = new StringBuilder();
+        for (String entry : now.out) {
+            if (entry.isBlank() || before.contains(entry)) continue;
+            String rel = porcelainPath(entry);
+            if (rel == null) continue;
+            if (matchesAny(exempt, rel) || admitted.contains(rel)
+                    || projectConfigIdAt(sch, rel) != null) continue;
+            List<String> v = guardViolations(sch, state, in, rel, true);
+            if (v.isEmpty()) add.append(rel).append('\n');
+            else { lines.add(""); lines.addAll(v); }
+        }
+        if (add.length() > 0) {
+            Files.createDirectories(admittedFile.getParent());
+            Files.writeString(admittedFile, add.toString(), StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        }
+        if (lines.isEmpty()) return;
+        err("❌ Agent `" + agent + "` wrote outside the territory of its class `" + cls + "`");
+        err("   (agent_classes." + cls + ".write_allow in " + SCHEMA_FILE + ").");
+        err("   The tool-time guards did not see these writes. Revert them, or report them and stop.");
         lines.forEach(ArchHook::err);
         blockExit();
     }
