@@ -8,6 +8,10 @@
 // Why this test exists: such a citation reached generated projects three times (0200, issue #194)
 // and the export's residue scan only warns, in the target. Each case runs the real jar over a temp
 // copy of the real tree, so the test proves what production reads. Decision 0204.
+//
+// It also proves `schema` BLOCKS an exported file citing a path of an INCLUDED skill that the export
+// does not write (outside `export.skills.keep`, in no `export.copy` destination) and accepts one it
+// does write: `project-diagrams` shipped without its engine (issue #218). Decision 0212.
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +45,16 @@ public class ExportCitationSchemaTest {
                 "\n`$SRC/.claude/skills/project-bootstrap/SKILL.md`\n", 0, null);
         failures += expect(repo, hook, "dead citation in a decision record ignored", RECORD,
                 "# probe\n" + DEAD, 0, null);
+        failures += expect(repo, hook, "a skill path the export drops blocked", RULE,
+                "\n`.claude/skills/project-diagrams/scripts/Missing.java`\n", 2, "naming.md:");
+        failures += expect(repo, hook, "a non-kept directory blocked", RULE,
+                "\n`.claude/skills/use-case-design/examples/x.md`\n", 2, "use-case-design/examples");
+        failures += expect(repo, hook, "a copy destination accepted", RULE,
+                "\n`.claude/skills/project-diagrams/scripts/Diagrams.java`\n", 0, null);
+        failures += expect(repo, hook, "a kept path accepted", RULE,
+                "\n`.claude/skills/test-architect/templates/Foo.java.example`\n", 0, null);
+        failures += expect(repo, hook, "a placeholder accepted", RULE,
+                "\n`.claude/skills/<name>/scripts/x.java`\n", 0, null);
 
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — `schema` is NOT enforcing"
@@ -48,7 +62,8 @@ public class ExportCitationSchemaTest {
             System.exit(1);
         }
         System.out.println("✅ Export citations enforced: a path inside an excluded skill is blocked"
-                + " with exit 2 naming file and line; prose, exempt files and decision records accepted.");
+                + " with exit 2 naming file and line; prose, exempt files and decision records accepted;"
+                + " a skill path no export entry writes is blocked.");
     }
 
     /**

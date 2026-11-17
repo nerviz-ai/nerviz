@@ -1323,7 +1323,11 @@
       { "$comment": "`verbatim`: copied byte for byte, skipping `transform`. The jar below carries the SHA-256 of THIS source, and `schema` compares the two inside the generated project too — a citation cut here would make every exported jar read as stale. Design: .claude/decisions/0075-precompiled-hook-jar.md", "from": ".claude/hooks/ArchHook.java", "to": ".claude/hooks/ArchHook.java", "verbatim": true },
       { "from": ".claude/schemas/extensions.json", "to": ".claude/schemas/extensions.json" },
       { "$comment": "Apache License 2.0 § 4 obliges whoever redistributes the work to hand over the license text and the NOTICE; what `export` writes under `.claude/` is a redistribution. They sit INSIDE `.claude/`, never at the project root: the root `LICENSE` of a generated project is its owner's choice. Design: .claude/decisions/0181-apache-2-license-notice-and-trademark.md", "from": "LICENSE", "to": ".claude/LICENSE", "verbatim": true },
-      { "from": "NOTICE", "to": ".claude/NOTICE", "verbatim": true }
+      { "from": "NOTICE", "to": ".claude/NOTICE", "verbatim": true },
+      { "$comment": "project-diagrams' engine travels with the skill (0211): every step of its procedure runs it from the project. Outside `export.skills.keep` on purpose — the keep-list stays three entries — and verbatim because it is code: `transform` would cut its decision citations. Design: .claude/decisions/0212-project-diagrams-engine-travels-verbatim-and-exported-skill-paths-checked.md", "from": ".claude/skills/project-diagrams/scripts/Diagrams.java", "to": ".claude/skills/project-diagrams/scripts/Diagrams.java", "verbatim": true },
+      { "from": ".claude/skills/project-diagrams/scripts/export.mjs", "to": ".claude/skills/project-diagrams/scripts/export.mjs", "verbatim": true },
+      { "from": ".claude/skills/project-diagrams/package.json", "to": ".claude/skills/project-diagrams/package.json", "verbatim": true },
+      { "from": ".claude/skills/project-diagrams/package-lock.json", "to": ".claude/skills/project-diagrams/package-lock.json", "verbatim": true }
     ],
 
     "$comment_writer": "The skill that runs `export` inside a project. The Stop sweep judges what its Bash command wrote against this skill's territory, and `guard bash` does not see the targets, so every `to` of copy, overwrite, optional_copy, binary_copy and blueprint_copy must match its `write_allow` — `schema` fails by name on one that does not. Design: .claude/decisions/0208-arch-adopt-territory-covers-export-destinations.md",
@@ -1420,7 +1424,7 @@
     },
 
     "skills": {
-      "$comment": "`keep` is what travels out of each skill directory, and it is a keep-list rather than an exclude-list so that a new subdirectory here (use-case-design/examples/ was the first) stays out by default instead of leaking into every project. `exclude` holds the creation skills: they only serve before the project exists, and inside one they invite the model to regenerate on top of live code.",
+      "$comment": "`keep` is what travels out of each skill directory, and it is a keep-list rather than an exclude-list so that a new subdirectory here (use-case-design/examples/ was the first) stays out by default instead of leaking into every project. `exclude` holds the creation skills: they only serve before the project exists, and inside one they invite the model to regenerate on top of live code. A file of an included skill that must travel and is none of these goes in `copy`, verbatim when it is code — `schema` fails when an exported file cites a skill path neither writes.",
       "from": ".claude/skills",
       "to": ".claude/skills",
       "keep": ["SKILL.md", "templates", "references"],
@@ -1524,7 +1528,7 @@
       "citation_replacement": "a decision recorded in the meta-repository",
       "residue_markers": [".claude/decisions/", ".claude/blueprints/", "****", "— —", "—."],
       "$comment_exempt": "Two files name these directories on purpose and are not dead paths. `ArchHook.java`'s `export` mode prints them in its own usage and errors, and that mode refuses to run inside a project anyway (no `export` block there). `arch-adopt` talks about the tree it FETCHES, under /tmp, where blueprints/ does exist — cutting those sentences would delete the instructions instead of a citation.",
-      "residue_exempt": [".claude/hooks/ArchHook.java", ".claude/skills/arch-adopt/SKILL.md"],
+      "residue_exempt": [".claude/hooks/ArchHook.java", ".claude/skills/arch-adopt/SKILL.md", ".claude/skills/project-diagrams/scripts/Diagrams.java", ".claude/skills/project-diagrams/scripts/export.mjs"],
       "$comment_replace": "Literal find/with pairs applied to every copied file. Empty on purpose: the two pairs that lived here rewrote \"the active blueprint's `packages.map`\" into a pointer at the root `CLAUDE.md`, on the premise that no blueprint exists inside a project — false since `blueprint_copy` ships the active one, and the literal match missed every wrapped occurrence, so one exported skill cited two sources (lessons-learned-016 § 3). Design: .claude/decisions/0093-lessons-learned-016-fact-sources.md",
       "replace": [],
       "rewrite": [
