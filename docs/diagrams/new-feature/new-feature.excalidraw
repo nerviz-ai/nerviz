@@ -3789,7 +3789,7 @@
       "fillStyle": "solid",
       "frameId": null,
       "groupIds": [],
-      "height": 952,
+      "height": 956,
       "id": "edge-skip_term_step_new-feature_short_0",
       "isDeleted": false,
       "lastCommittedPoint": null,
@@ -3810,12 +3810,12 @@
           920
         ],
         [
-          -472,
+          -458,
           920
         ],
         [
-          -472,
-          952
+          -458,
+          956
         ]
       ],
       "roughness": 0,
@@ -3830,7 +3830,7 @@
       "updated": 1,
       "version": 1,
       "versionNonce": 870378102,
-      "width": 700,
+      "width": 686,
       "x": 1220,
       "y": 520
     },

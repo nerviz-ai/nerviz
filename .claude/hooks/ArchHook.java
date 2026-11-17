@@ -907,6 +907,8 @@ public class ArchHook {
 
         doctorShadowedSkills();
 
+        doctorDiagrams();
+
         doctorAgentInstructions();
 
         doctorVirtualThreads();
@@ -1146,6 +1148,87 @@ public class ArchHook {
             }
         }
         return found;
+    }
+
+    /**
+     * The `Diagrams` line: the inputs `/project-diagrams` drew the project's diagrams from
+     * (`diagrams.inputs` globs of extensions.json), each rehashed against
+     * `docs/diagrams/.inputs.sha256`, which `render` wrote. ⚪ when no diagram was rendered yet;
+     * a warning naming the first input that changed, was removed or appeared since — never a
+     * block: a diagram going stale is visible, not dangerous, and `doctor.gate.labels` does not
+     * list it. Holds no diagram logic: the line compares file hashes and nothing else.
+     * Design: `.claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md`.
+     */
+    static void doctorDiagrams() {
+        try {
+            Map<String, Object> dg = asMap(get(asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE)))), "diagrams"));
+            if (dg == null) return;
+            String mf = asStr(dg.get("inputs_manifest"));
+            Path man = ROOT.resolve(mf);
+            if (!Files.isRegularFile(man)) {
+                err("  Diagrams ......... ⚪ no " + mf + " — no project diagram rendered yet (optional)");
+                return;
+            }
+            Map<String, String> was = new TreeMap<>();
+            for (String l : Files.readAllLines(man, StandardCharsets.UTF_8)) {
+                int sp = l.indexOf("  ");
+                if (sp > 0) was.put(l.substring(sp + 2), l.substring(0, sp));
+            }
+            List<Pattern> ps = new ArrayList<>();
+            for (Object g : asList(dg.get("inputs"))) ps.add(diagramsGlob((String) g));
+            // The active blueprint, kept apart in the data: `.claude/blueprints/` is an export residue marker.
+            String bpDir = asStr(dg.get("blueprint_dir")), bpGlob = asStr(dg.get("blueprint_glob"));
+            if (bpDir != null && bpGlob != null) ps.add(diagramsGlob(bpDir + "/" + bpGlob));
+            Set<String> skip = new HashSet<>();
+            for (Object o : asList(dg.get("walk_exclude_dirs"))) skip.add((String) o);
+            List<String> now = new ArrayList<>();
+            try (Stream<Path> w = Files.walk(ROOT)) {
+                for (Path p : w.collect(Collectors.toList())) {
+                    Path rel = ROOT.relativize(p);
+                    boolean skipped = false;
+                    for (Path seg : rel) if (skip.contains(seg.toString())) skipped = true;
+                    if (skipped || !Files.isRegularFile(p)) continue;
+                    String r = rel.toString().replace('\\', '/');
+                    for (Pattern q : ps) if (q.matcher(r).matches()) { now.add(r); break; }
+                }
+            }
+            Collections.sort(now);
+            List<String> diff = new ArrayList<>();
+            for (String f : now) {
+                String h = fullSha(readOrNull(ROOT.resolve(f)).replace("\r\n", "\n"));
+                if (!was.containsKey(f)) diff.add(f + " (new)");
+                else if (!was.get(f).equals(h)) diff.add(f + " (changed)");
+            }
+            for (String f : was.keySet()) if (!now.contains(f)) diff.add(f + " (removed)");
+            if (diff.isEmpty()) {
+                report("Diagrams", true, "every input the diagrams were drawn from is unchanged", "");
+            } else {
+                err("  Diagrams ......... ⚠️  " + diff.size() + " input(s) changed since the last render, first " + diff.get(0)
+                        + " — run /project-diagrams (a warning, never a block)");
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /** `**` crosses `/` and `**` + `/` also matches no directory; `*` does not cross `/`. */
+    static Pattern diagramsGlob(String g) {
+        StringBuilder b = new StringBuilder("^");
+        for (int i = 0; i < g.length(); i++) {
+            char c = g.charAt(i);
+            if (c == '*' && i + 1 < g.length() && g.charAt(i + 1) == '*') {
+                i++;
+                if (i + 1 < g.length() && g.charAt(i + 1) == '/') { b.append("(?:.*/)?"); i++; } else b.append(".*");
+            } else if (c == '*') b.append("[^/]*");
+            else b.append(Pattern.quote(String.valueOf(c)));
+        }
+        return Pattern.compile(b.append("$").toString());
+    }
+
+    static String fullSha(String s) {
+        try {
+            StringBuilder b = new StringBuilder();
+            for (byte x : java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8))) b.append(String.format(Locale.ROOT, "%02x", x));
+            return b.toString();
+        } catch (Exception e) { return "?"; }
     }
 
     /**

@@ -1,6 +1,6 @@
 // PNG (and, with --video, WebM) of a rendered view, for the site and for promotional video.
 //
-//   node .claude/skills/nerviz-diagrams/scripts/export.mjs <view> [--video] [--root <dir>]
+//   node .claude/skills/project-diagrams/scripts/export.mjs <view> [--video] [--root <dir>]
 //
 // Reads docs/diagrams/<view>/<view>.svg (and .animated.svg for --video), writes
 // docs/diagrams/<view>/dist/<view>.png (+ .webm) and, beside each, <file>.source-sha256: the
@@ -33,15 +33,16 @@ function die(msg) {
 if (!view) die('usage: node export.mjs <view> [--video] [--root <dir>]');
 if (!existsSync(join(cache, 'node_modules'))) {
   die(`the export modules are not installed in ${cache}. Run, once:\n` +
-    `   mkdir -p "${cache}" && cp .claude/skills/nerviz-diagrams/package.json .claude/skills/nerviz-diagrams/package-lock.json "${cache}/" && ` +
+    `   mkdir -p "${cache}" && cp .claude/skills/project-diagrams/package.json .claude/skills/project-diagrams/package-lock.json "${cache}/" && ` +
     `npm ci --prefix "${cache}" --no-update-notifier --no-audit --no-fund`);
 }
 const need = createRequire(join(cache, 'package.json'));
 
 const dir = join(root, 'docs', 'diagrams', view);
-const svgPath = join(dir, `${view}.svg`);
-const animPath = join(dir, `${view}.animated.svg`);
-if (!existsSync(svgPath)) die(`${svgPath} is missing — run: java .claude/skills/nerviz-diagrams/scripts/Diagrams.java render`);
+const leaf = view.split('/').pop(); // a project view may be nested: use-cases/map
+const svgPath = join(dir, `${leaf}.svg`);
+const animPath = join(dir, `${leaf}.animated.svg`);
+if (!existsSync(svgPath)) die(`${svgPath} is missing — run: java .claude/skills/project-diagrams/scripts/Diagrams.java render`);
 
 const read = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 const sha = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
@@ -60,7 +61,7 @@ const png = new Resvg(svg, {
   fitTo: { mode: 'width', value: Number(m[1]) * 2 },
   font: { loadSystemFonts: true },
 }).render().asPng();
-const pngPath = join(dist, `${view}.png`);
+const pngPath = join(dist, `${leaf}.png`);
 writeFileSync(pngPath, png);
 stamp(pngPath, svgPath);
 console.log(`✅ ${pngPath} (${png.length} bytes)`);
@@ -87,7 +88,7 @@ if (video) {
   await browser.close();
   const rec = readdirSync(tmp).find((f) => f.endsWith('.webm'));
   if (!rec) die('Playwright wrote no recording');
-  const out = join(dist, `${view}.webm`);
+  const out = join(dist, `${leaf}.webm`);
   renameSync(join(tmp, rec), out);
   rmSync(tmp, { recursive: true, force: true });
   stamp(out, animPath);

@@ -2118,7 +2118,7 @@
           0
         ],
         [
-          148,
+          88,
           0
         ]
       ],
@@ -2134,8 +2134,8 @@
       "updated": 1,
       "version": 1,
       "versionNonce": 459874884,
-      "width": 148,
-      "x": 352,
+      "width": 88,
+      "x": 412,
       "y": 668
     },
     {
@@ -2405,8 +2405,8 @@
       "versionNonce": 1327113885,
       "verticalAlign": "top",
       "width": 33,
-      "x": 440,
-      "y": 411
+      "x": 462,
+      "y": 407
     },
     {
       "angle": 0,
@@ -2441,8 +2441,8 @@
       "versionNonce": 2018090063,
       "verticalAlign": "top",
       "width": 26,
-      "x": 443,
-      "y": 571
+      "x": 467,
+      "y": 567
     },
     {
       "angle": 0,
@@ -2477,8 +2477,8 @@
       "versionNonce": 910861836,
       "verticalAlign": "top",
       "width": 33,
-      "x": 440,
-      "y": 651
+      "x": 467,
+      "y": 647
     },
     {
       "angle": 0,

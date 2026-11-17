@@ -416,7 +416,7 @@ proposed fix, before anything is commented or designed. Details:
 |---|---|---|
 | Architecture blueprints | 9 + a template for your own | `.claude/blueprints/` |
 | Norms, loaded on demand through `paths` | 23 | `.claude/rules/` |
-| Skills (design, orchestration, build, ops, meta…) | 35 | `.claude/skills/` |
+| Skills (design, orchestration, build, ops, meta, media…) | 36 | `.claude/skills/` |
 | Agents (driver, executor, installer, verifier) | 7 | `.claude/agents/` |
 | Hook modes, in one Java file | 17 | `.claude/hooks/ArchHook.java` |
 | Decision records — why each piece has its form | 100+ | `.claude/decisions/` |
@@ -448,10 +448,12 @@ compose port-collision and reachability checks, and `permissions.deny` on secret
 agents, the hook and its schema, and the active blueprint. The manifest of what travels is
 data, the `export` block of `schemas/extensions.json`, and the `schema` hook fails if a
 skill or agent on disk is missing from it. Creation-only pieces stay here:
-`project-bootstrap`, `init-project`, `new-project`, `claude-code-architect-designer`, `triage-issue`,
+`project-bootstrap`, `init-project`, `new-project`, `claude-code-architect-designer`, `triage-issue`, `nerviz-diagrams`,
 `project-initializer`, `issue-verifier`, and the blueprint catalog. `arch-adopt` is the one
 creation skill that travels, because it is how the project updates itself once this
-repository is out of the picture.
+repository is out of the picture. `project-diagrams` travels too: it draws a generated
+project's architecture, containers, use case map and per-case flows from its own code, specs and
+compose file (`docs/en/17-project-diagrams.md`).
 
 ---
 
@@ -672,6 +674,7 @@ exists inside the project:
 | [`12-issues.md`](docs/en/12-issues.md) | `/report-issue` and `/triage-issue` |
 | [`15-platform-upgrade.md`](docs/en/15-platform-upgrade.md) | Taking a project below the Spring Boot floor up to it, before `/arch-adopt` |
 | [`16-project-config.md`](docs/en/16-project-config.md) | What a generated project configures in its own `.claude/`, `/project-config` and `ArchHook.jar config` |
+| [`17-project-diagrams.md`](docs/en/17-project-diagrams.md) | `/project-diagrams`: the architecture, containers, use case map and per-case flow diagrams of a generated project, derived from its code, specs and compose file |
 | [`roadmap.md`](roadmap.md) | Delivery phases and the feature checklist |
 
 Portuguese versions of every document live under [`docs/pt-br/`](docs/pt-br/README.md).

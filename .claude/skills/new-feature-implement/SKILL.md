@@ -255,7 +255,7 @@ first `Write`. A chain cut between groups resumes at the first group with open s
 
 **Runs:** self
 
-**Hands over:** `/clear`, `/git-publish`, `/new-feature`
+**Hands over:** `/clear`, `/git-publish`, `/project-diagrams`, `/new-feature`
 
 Last message of the run, and the only report: the spec path and its `status:`, the groups that
 ran and how each ended, **every `## Infrastructure` row of the spec, with what this run did to it** —
@@ -271,6 +271,7 @@ group's report, which carries every group's lines — and the next commands, in 
 ```
 /clear
 /git-publish feat(UC-NNN-<slug>): <one-line summary>[ — pre-existing: <paths>]
+/project-diagrams UC-NNN-<slug>
 /new-feature <next feature description>
 ```
 
@@ -278,7 +279,9 @@ group's report, which carries every group's lines — and the next commands, in 
 run, so its report and `history.jsonl` line are on disk and enter the same commit instead of
 staying staged behind it. `— pre-existing:` is present only when the guardrail's worktree step
 listed changes from before the run, with the list itself (directories past 20 paths).
-`/git-publish` is the person's call and may be skipped or typed later. A clean context per use
+`/git-publish` is the person's call and may be skipped or typed later. `/project-diagrams
+UC-NNN-<slug>` draws the case's flow from the spec's Mermaid blocks and the code just written; like
+`/git-publish` it is printed, never invoked (`@.claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md`). A clean context per use
 case keeps cost measurable per case. A failed group's report instead names the group, its
 failure, and `/new-feature-implement UC-NNN-<slug>` to resume there — no `/git-publish`.
 

@@ -82,7 +82,7 @@
   "shell_globs": {
     "$comment": "Read by ArchHook.java `schema`, over files, and by `guard bash` (`guard.unquoted_glob`), over the command a tool is about to run. A glob value of a shell flag written without quotes (`--include=*.java`) makes zsh abort with `no matches found` before the command runs: the Bash tool runs the user's shell, and bash, which CI uses, passes the word through, so the defect never shows there. 0037 quoted the five sites of its day by hand and the defect came back in 13 files, 52 lines. `scope` is every file the check reads (globs from the project root, `**` crosses `/`; a path with no `*` is one file) and `exclude` the prefixes left out: a decision record or a lessons-learned quotes the defect. A line matching any of `patterns` (a regex, found per line) is an error; `exempt_patterns` is the escape hatch, one regex per line, empty on purpose. The quoting is the fix, so a fenced block is not dropped: a command shown is a command run. Design: .claude/decisions/0196-new-feature-body-cut-quoted-globs-and-audit-effort.md `.claude/audit-usage/` is the audit trail: the hooks write it, it quotes failed commands verbatim, nobody edits it (0105, 0201).",
     "scope": [".claude/**/*.md", ".claude/**/*.example", "CLAUDE.md"],
-    "exclude": [".claude/decisions", ".claude/lessons-learned/", ".claude/audit-usage/", ".claude/skills/nerviz-diagrams/node_modules/"],
+    "exclude": [".claude/decisions", ".claude/lessons-learned/", ".claude/audit-usage/", ".claude/skills/nerviz-diagrams/node_modules/", ".claude/skills/project-diagrams/node_modules/"],
     "patterns": ["(^|\\s)--(include|exclude|exclude-dir)=[^\\s'\"]*[*?\\[]"],
     "exempt_patterns": []
   },
@@ -577,12 +577,12 @@
         "skills": ["sonar-lessons", "report-issue", "harness-lessons"]
       },
       "media": {
-        "$comment": "Renders diagrams of this repository's own `.claude/` from its data and writes them under docs/diagrams/ — and nothing else. Not `report`, whose reason to exist is an analyzer that writes a findings file and publishes it through report-issue: a renderer is neither, and borrowing its class with an override would name a territory the class does not describe (option B of the record). `blocked_during_design` because rendering is not part of a design run. Meta-repository only: the skill is in export.skills.exclude. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md",
+        "$comment": "Renders diagrams — of this repository's own `.claude/` (nerviz-diagrams, meta-repository only) and of a generated project (project-diagrams, which travels) — from their data and writes them under docs/diagrams/ — and nothing else. Not `report`, whose reason to exist is an analyzer that writes a findings file and publishes it through report-issue: a renderer is neither, and borrowing its class with an override would name a territory the class does not describe (option B of the record). `blocked_during_design` because rendering is not part of a design run. The class is no longer meta-only (0211): project-diagrams is in export.skills.include, nerviz-diagrams stays in export.skills.exclude. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md and .claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md",
         "blocked_during_design": true,
         "allowed_models": ["sonnet"],
         "write_allow": ["docs/diagrams/**"],
         "required_sections": ["## Procedure", "## Failure modes"],
-        "skills": ["nerviz-diagrams"]
+        "skills": ["nerviz-diagrams", "project-diagrams"]
       }
     }
   },
@@ -1235,6 +1235,87 @@
     "hash_entry": "META-INF/archhook-source.sha256"
   },
 
+  "diagrams": {
+    "$comment": "Single owner of what `Diagrams.java --source project` reads from a generated project and how it names it (invariant 10): the inputs the freshness line of `doctor` rehashes, the package roles of the architecture view, the logo and protocol of each compose image, the trigger words of a use case, the Mermaid types a spec may carry. Read by `.claude/skills/project-diagrams/scripts/Diagrams.java` and by `ArchHook.java doctor` (the `Diagrams` line, a warning that never gates). The layout numbers and the palette are `.claude/skills/project-diagrams/references/visual-identity.md`'s. Design: .claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md",
+    "inputs": [
+      "src/main/java/**/*.java",
+      "src/main/resources/application*.yml",
+      "src/main/resources/db/migration/**/*.sql",
+      "docs/use-cases/**/*.md",
+      "docker-compose.yml",
+      ".claude/forbidden-imports.txt"
+    ],
+    "$comment_blueprint": "The active blueprint is an input too, and the folder the architecture view reads `packages.map` from: `blueprint_dir` + `/` + `blueprint_glob`, joined by both readers. Split, and the directory written without a trailing slash, because that spelling is an export residue marker (`body_transforms.residue_markers`) — the same reason as `doctor.agent_instructions.blueprint_dir`.",
+    "blueprint_dir": ".claude/blueprints",
+    "blueprint_glob": "*/*.yaml",
+    "inputs_manifest": "docs/diagrams/.inputs.sha256",
+    "walk_exclude_dirs": [".git", "target", "build", ".gradle", "node_modules", "out", ".idea"],
+    "mermaid_types": ["sequenceDiagram", "flowchart TD", "classDiagram", "stateDiagram-v2"],
+    "dev_tool_services": ["sonarqube"],
+    "image_icons": {
+      "postgres*": { "slug": "postgresql", "generic": "database" },
+      "*kafka*": { "slug": "apachekafka", "generic": "broker" },
+      "*keycloak*": { "slug": "keycloak", "generic": "identity" },
+      "*otel*": { "slug": "opentelemetry", "generic": "telemetry" },
+      "*opentelemetry*": { "slug": "opentelemetry", "generic": "telemetry" },
+      "*sonarqube*": { "slug": "sonarqube", "generic": "devtool" },
+      "@app": { "slug": "springboot", "generic": "app" }
+    },
+    "protocols": {
+      "@client": "HTTP",
+      "postgresql": "JDBC",
+      "apachekafka": "Kafka",
+      "keycloak": "JWT",
+      "opentelemetry": "OTLP"
+    },
+    "trigger_kinds": [
+      { "label": "schedule", "match": ["schedule", "cron"] },
+      { "label": "Kafka", "match": ["Kafka", "message on", "topic"] },
+      { "label": "HTTP · REST", "match": ["HTTP", "REST"] }
+    ],
+    "verbs": ["INSERT", "UPDATE", "DELETE"],
+    "read_words": ["read only", "lookup", "SELECT"],
+    "architecture": {
+      "$comment": "First match wins, per type. `pkg` is a regex over the key of the blueprint's packages.map, `name` over the type's simple name, `kind` the declaration (class, interface, record, enum), `aggregate` a root a spec names, `implements_port` an implementation of a type already a port. A type no entry matches is `support` and is a caption, never a box.",
+      "roles": [
+        { "role": "exception", "pkg": "(^|\\.)exception$" },
+        { "role": "port", "pkg": "(^|\\.)(port|gateway)(\\.|$)", "kind": "interface" },
+        { "role": "usecase", "pkg": "application\\.(usecase|service)$|^service$", "name": ".*(UseCase|Service)$" },
+        { "role": "event", "pkg": "domain\\.event$" },
+        { "role": "aggregate", "pkg": "domain\\.model$", "aggregate": true },
+        { "role": "domain", "pkg": "domain\\.(model|service)$" },
+        { "role": "inbound", "pkg": "(^|\\.)(rest|messaging|scheduling|graphql|scheduler|controller|presentation)(\\.|$)", "name": ".*(Controller|Listener|Job|Consumer)$" },
+        { "role": "outbound", "implements_port": true }
+      ],
+      "columns": ["inbound adapters", "use cases", "domain", "ports", "outbound adapters"],
+      "domain_caption": "also in the domain: {names}",
+      "support_caption": "+ {n} support types (mappers, configuration, DTOs), not drawn",
+      "legend": ["solid arrow: the type's source names the other · dashed arrow, hollow head: implements, read in the source · rose dashed box: the spec names it, src/ has no such type · pill: an interface of the ports package"]
+    },
+    "blueprint": {
+      "col_left": "callers",
+      "col_app": "application",
+      "col_services": "runtime services",
+      "band_dev": "development tooling, not part of the runtime",
+      "legend": ["each service is drawn from docker-compose.yml, the tables from the migrations and the topics from application*.yml; a variable's value never appears · dashed: a development tool or an external system a spec names"]
+    },
+    "map": {
+      "col_trigger": "trigger",
+      "col_case": "use case",
+      "col_touch": "touches",
+      "col_published": "published",
+      "outbox_caption": "a spec names an outbox and the migrations hold no single outbox table: that edge is not drawn",
+      "spec_only": "spec only, no type of its own in src/",
+      "backlog": "backlog",
+      "legend": ["an arrow from a case to a table or topic is written where the Side effects row of its spec names it, its verb when the row has one · rose dashed: the spec cites Java files and none exists"]
+    },
+    "flow": {
+      "sequence_caption": "sequence · the path that succeeds",
+      "flow_caption": "decisions · where the case ends",
+      "fallback_caption": "spec has no flowchart: the header chain Trigger → adapter → use case → Side effects"
+    }
+  },
+
   "export": {
     "$comment": "Single owner of WHAT the `export` mode writes into a target project and HOW each piece is transformed. Read by ArchHook.java `export`; cross-checked by `schema` at sweep time, the same way `guard.executor_agents` is. The failure it exists to close is silent in both directions: a skill added to this repo and forgotten here never reaches any project generated afterwards, and an entry left behind after a rename points at a file that no longer exists — neither breaks anything at generation time, only for whoever reads the dead citation inside the project. That is why `include` and `exclude` together must cover every skill and every agent on disk: not listing one is the bug, and `schema` says so by name. Prose counterpart, which branch `feat/bootstrap-invokes-export` replaces with a call to the mode: project-bootstrap/SKILL.md §§ 6.6, 6.7, 6.8, 7. Design: .claude/decisions/0054-deterministic-export-provenance-plugin.md",
 
@@ -1363,6 +1444,7 @@
         "persistence-architect",
         "platform-upgrade",
         "project-config",
+        "project-diagrams",
         "report-issue",
         "rest-api-architect",
         "search-architect",

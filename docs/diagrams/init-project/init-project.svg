@@ -33,7 +33,7 @@
 <line x1="192" y1="536" x2="192" y2="560" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-entry_chip_step_init-project_6_0_0_0">
-<line x1="352" y1="668" x2="500" y2="668" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="412" y1="668" x2="500" y2="668" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-flow_step_init-project_5_step_init-project_6">
 <line x1="192" y1="616" x2="192" y2="640" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -152,13 +152,13 @@
 <text x="792" y="422" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
 </g>
 <g id="tool_chip_step_init-project_3_0_0_0">
-<text x="456" y="422" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
+<text x="478" y="418" font-size="11" text-anchor="middle" fill="#52606D">Agent</text>
 </g>
 <g id="tool_chip_step_init-project_5_0_0_0">
-<text x="456" y="582" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="480" y="578" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="tool_chip_step_init-project_6_0_0_0">
-<text x="456" y="662" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
+<text x="483" y="658" font-size="11" text-anchor="middle" fill="#52606D">Skill</text>
 </g>
 <g id="legend-text_ask">
 <text x="62" y="912" font-size="11" text-anchor="start" fill="#52606D">ask</text>

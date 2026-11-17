@@ -23,7 +23,7 @@ import java.util.stream.*;
 
 public class DiagramsTest {
 
-    static final String SCRIPT = ".claude/skills/nerviz-diagrams/scripts/Diagrams.java";
+    static final String SCRIPT = ".claude/skills/project-diagrams/scripts/Diagrams.java";
     static Path repo;
     static int failures = 0;
 
@@ -181,13 +181,16 @@ public class DiagramsTest {
         expect("everything restored is green once more", t, "check", 0, "equal a fresh render");
 
         deleteTree(t);
+        projectCases();
+        legibilityCases();
         if (failures > 0) {
             System.err.println("❌ " + failures + " case(s) failed — a committed diagram can drift from its data in silence.");
             System.exit(1);
         }
         System.out.println("✅ Committed diagrams match the data they cite: green on the tree, red by name on a renamed cited skill,"
                 + " a skill added to a class, a changed .svg byte, a node with no evidence, a step heading in the retired"
-                + " grammar, a .source-sha256 mismatch and every break of the step contract.");
+                + " grammar, a .source-sha256 mismatch and every break of the step contract; and, over a fixture project (--source project): a renamed package,"
+                + " a Mermaid block that is not an allowed type, a compose service removed, a long type name wrapped, one red case per legibility finding and the doctor line.");
     }
 
     /** Copies what Diagrams.java reads: skill dirs as their SKILL.md, the rest of .claude/ as empty entries. */
@@ -209,7 +212,7 @@ public class DiagramsTest {
                         if (n.equals("skills") && Files.isDirectory(k)) {
                             Files.createDirectories(kd);
                             if (Files.isRegularFile(k.resolve("SKILL.md"))) Files.copy(k.resolve("SKILL.md"), kd.resolve("SKILL.md"));
-                            if (k.getFileName().toString().equals("nerviz-diagrams")) copyTree(k.resolve("references"), kd.resolve("references"));
+                            if (k.getFileName().toString().equals("project-diagrams")) copyTree(k.resolve("references"), kd.resolve("references"));
                         } else if (n.equals("agents") || (n.equals("hooks") && k.getFileName().toString().equals("ArchHook.java"))) Files.copy(k, kd);
                         else if (Files.isDirectory(k)) Files.createDirectories(kd);
                         else Files.createFile(kd);
@@ -252,9 +255,13 @@ public class DiagramsTest {
 
     record Result(int exit, String out) {}
 
-    static Result run(Path root, String mode) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(ProcessHandle.current().info().command().orElse("java"),
-                repo.resolve(SCRIPT).toString(), mode, "--root", root.toString());
+    static Result run(Path root, String mode) throws Exception { return run(root, mode, new String[0]); }
+
+    static Result run(Path root, String mode, String... more) throws Exception {
+        List<String> cmd = new ArrayList<>(List.of(ProcessHandle.current().info().command().orElse("java"), repo.resolve(SCRIPT).toString(), mode));
+        cmd.addAll(Arrays.asList(more));
+        cmd.addAll(List.of("--root", root.toString()));
+        ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.environment().remove("CLAUDE_PROJECT_DIR");
         pb.redirectErrorStream(true);
         Process p = pb.start();
@@ -264,7 +271,11 @@ public class DiagramsTest {
     }
 
     static void expect(String label, Path root, String mode, int wantExit, String wantText) throws Exception {
-        Result r = run(root, mode);
+        expect(label, root, mode, wantExit, wantText, new String[0]);
+    }
+
+    static void expect(String label, Path root, String mode, int wantExit, String wantText, String... more) throws Exception {
+        Result r = run(root, mode, more);
         boolean ok = r.exit() == wantExit && r.out().contains(wantText);
         if (ok) {
             System.out.println("✅ " + label + " (exit " + r.exit() + (wantExit == 2 ? ", names '" + wantText + "'" : "") + ")");
@@ -273,5 +284,203 @@ public class DiagramsTest {
         failures++;
         System.out.println("❌ " + label + " — wanted exit " + wantExit + " naming '" + wantText + "', got exit " + r.exit());
         System.out.println(r.out());
+    }
+
+    // ── --source project (0211): a fixture project written here, never the repository's own files ──
+
+    static Path fixture() throws IOException {
+        Path t = Files.createTempDirectory("diagrams-project");
+        Files.createDirectories(t.resolve(".claude/schemas"));
+        Files.copy(repo.resolve(".claude/schemas/extensions.json"), t.resolve(".claude/schemas/extensions.json"));
+        copyTree(repo.resolve(".claude/skills/project-diagrams/references"), t.resolve(".claude/skills/project-diagrams/references"));
+        write(t.resolve(".claude/blueprints/b/b.yaml"), """
+                id: b
+                packages:
+                  base: "{{groupId}}.{{artifactName}}"
+                  map:
+                    domain.model: "domain.model"
+                    application.usecase: "application.usecase"
+                    application.port: "application.port"
+                    infrastructure.rest: "infrastructure.rest"
+                    infrastructure.persistence: "infrastructure.persistence"
+                """);
+        String b = "src/main/java/com/acme/app/";
+        write(t.resolve(b + "domain/model/Order.java"), "package com.acme.app.domain.model;\npublic class Order {}\n");
+        write(t.resolve(b + "application/port/OrderRepository.java"), "package com.acme.app.application.port;\npublic interface OrderRepository {}\n");
+        write(t.resolve(b + "application/usecase/order/PlaceOrderUseCase.java"), "package com.acme.app.application.usecase.order;\nclass PlaceOrderUseCase { Order o; OrderRepository r; }\n");
+        write(t.resolve(b + "infrastructure/rest/OrderController.java"), "package com.acme.app.infrastructure.rest;\nclass OrderController { PlaceOrderUseCase u; }\n");
+        write(t.resolve(b + "infrastructure/persistence/OrderJpaAdapter.java"), "package com.acme.app.infrastructure.persistence;\nclass OrderJpaAdapter implements OrderRepository {}\n");
+        write(t.resolve("src/main/resources/application.yml"), "spring:\n  application:\n    name: acme\n");
+        write(t.resolve("docker-compose.yml"), """
+                services:
+                  app:
+                    build: .
+                    ports:
+                      - "8080:8080"
+                    environment:
+                      DB_URL: jdbc:postgresql://postgres:5432/acme
+                  postgres:
+                    image: postgres:16-alpine
+                    ports:
+                      - "5432:5432"
+                """);
+        write(t.resolve("docs/use-cases/UC-001-place-order/00-use-case.md"), """
+                # UC-001 · Place order
+
+                | Field | Value |
+                |---|---|
+                | Trigger | placing an order, over HTTP |
+                | Side effects | **1** — `INSERT` into `orders` |
+                | External calls | none |
+
+                ```mermaid
+                sequenceDiagram
+                    autonumber
+                    actor caller
+                    participant adapter as inbound adapter
+                    participant PlaceOrderUseCase
+                    caller->>adapter: request
+                    adapter->>PlaceOrderUseCase: PlaceOrderCommand
+                    PlaceOrderUseCase-->>adapter: confirmation
+                ```
+
+                ```mermaid
+                flowchart TD
+                    trigger((placing an order)) --> ok{"order valid?"}
+                    ok -->|no| bad(["order refused"])
+                    ok -->|yes| done(["order placed"])
+                ```
+                """);
+        write(t.resolve("docs/diagrams/architecture/view.json"), """
+                { "kind": "architecture", "title": "acme", "facts": ["type:Order", "type:OrderRepository", "type:PlaceOrderUseCase", "type:OrderController", "type:OrderJpaAdapter"] }
+                """);
+        return t;
+    }
+
+    static void projectCases() throws Exception {
+        Path t = fixture();
+        String[] src = { "--source", "project" };
+        Result r = run(t, "render", src);
+        if (r.exit() != 0) { failures++; System.out.println("❌ the project fixture does not render: " + r.out()); deleteTree(t); return; }
+        expect("project: a fresh render of the four kinds is green", t, "check", 0, "equal a fresh render", src);
+        Result ov = run(t, "render", "--source", "project", "UC-001-place-order");
+        if (ov.exit() != 0) { failures++; System.out.println("❌ the flow view does not render: " + ov.out()); }
+        expect("project: the flow view is green too", t, "check", 0, "equal a fresh render", src);
+
+        // a 70-character type name must be wrapped, not drawn on one line past its box
+        String longName = "PlaceVeryLongNamedOrderWithManyWordsAndMoreWordsToCrossAnyBoxWidth";
+        Path uc = t.resolve("src/main/java/com/acme/app/application/usecase/order/PlaceOrderUseCase.java");
+        Files.move(uc, uc.resolveSibling(longName + "UseCase.java"));
+        write(t.resolve("docs/diagrams/architecture/view.json"), """
+                { "kind": "architecture", "title": "acme", "facts": ["type:*"] }
+                """);
+        Result lr = run(t, "render", "--source", "project", "architecture");
+        String svg = Files.isRegularFile(t.resolve("docs/diagrams/architecture/architecture.svg")) ? Files.readString(t.resolve("docs/diagrams/architecture/architecture.svg")) : "";
+        boolean wrapped = lr.exit() == 0 && !svg.contains(">" + longName + "UseCase<") && svg.contains("UseCase<");
+        report("project: a long type name is wrapped inside its box", wrapped, lr.out());
+        Files.move(uc.resolveSibling(longName + "UseCase.java"), uc);
+
+        // (a) a package renamed: the type a view cites by id no longer exists
+        write(t.resolve("docs/diagrams/architecture/view.json"), """
+                { "kind": "architecture", "title": "acme", "facts": ["type:Order", "type:OrderController"] }
+                """);
+        run(t, "render", "--source", "project", "architecture");
+        Path rest = t.resolve("src/main/java/com/acme/app/infrastructure/rest"), web = t.resolve("src/main/java/com/acme/app/infrastructure/web");
+        Files.move(rest, web);
+        expect("project: (a) a renamed package", t, "check", 2, "fact 'type:OrderController' not found", src);
+        Files.move(web, rest);
+
+        // (b) a spec whose flow block is no allowed Mermaid type, named by file and line
+        Path spec = t.resolve("docs/use-cases/UC-001-place-order/00-use-case.md");
+        String sgood = Files.readString(spec);
+        write(spec, sgood.replace("flowchart TD", "graph LR"));
+        expect("project: (b) a Mermaid block that is not an allowed type", t, "check", 2, "00-use-case.md:", src);
+        expect("project: (b) … and says which", t, "check", 2, "opens with 'graph LR'", src);
+        write(spec, sgood);
+
+        // (c) a compose service removed: the committed blueprint view is stale
+        Path comp = t.resolve("docker-compose.yml");
+        String cgood = Files.readString(comp);
+        Result br = run(t, "render", "--source", "project", "blueprint");
+        if (br.exit() != 0) { failures++; System.out.println("❌ the blueprint view does not render: " + br.out()); }
+        write(comp, cgood.replace("  postgres:\n    image: postgres:16-alpine\n    ports:\n      - \"5432:5432\"\n", ""));
+        expect("project: (c) a compose service removed", t, "check", 2, "differs from a fresh render", src);
+        write(comp, cgood);
+
+        // the doctor line: an input changed after the render warns, and `doctor gate` is the same either way
+        Files.createDirectories(t.resolve(".claude/hooks"));
+        Files.copy(repo.resolve(".claude/hooks/ArchHook.java"), t.resolve(".claude/hooks/ArchHook.java"));
+        run(t, "render", "--source", "project", "architecture", "blueprint", "map", "UC-001-place-order");
+        Result d1 = doctor(t, "doctor");
+        Result g1 = doctor(t, "doctor", "gate");
+        write(t.resolve("src/main/java/com/acme/app/domain/model/Order.java"), "package com.acme.app.domain.model;\npublic class Order { int x; }\n");
+        Result d2 = doctor(t, "doctor");
+        Result g2 = doctor(t, "doctor", "gate");
+        report("doctor: the Diagrams line is green with the inputs unchanged", d1.out().contains("Diagrams") && d1.out().contains("unchanged"), d1.out());
+        report("doctor: an input changed after render makes `Diagrams` warn, naming it and /project-diagrams",
+                d2.out().contains("Diagrams") && d2.out().contains("Order.java (changed)") && d2.out().contains("/project-diagrams"), d2.out());
+        report("doctor: `doctor gate` is not moved by it (same exit, `Diagrams` never a failing line)", g1.exit() == g2.exit() && !g2.out().contains("❌ Diagrams"), "gate exit " + g1.exit() + " → " + g2.exit() + "\n" + g2.out());
+        deleteTree(t);
+    }
+
+    static Result doctor(Path project, String... args) throws Exception {
+        List<String> cmd = new ArrayList<>(List.of(ProcessHandle.current().info().command().orElse("java"), project.resolve(".claude/hooks/ArchHook.java").toString()));
+        cmd.addAll(Arrays.asList(args));
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.environment().put("CLAUDE_PROJECT_DIR", project.toString());
+        pb.directory(project.toFile());
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        p.getOutputStream().close();
+        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        return new Result(p.waitFor(), out);
+    }
+
+    static void report(String label, boolean ok, String detail) {
+        if (ok) { System.out.println("✅ " + label); return; }
+        failures++;
+        System.out.println("❌ " + label + "\n" + detail);
+    }
+
+    // ── the legibility detector: one red case per finding, green on a clean SVG and on a badge ──
+
+    static String svgOf(String body) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"200\" viewBox=\"0 0 400 200\" font-family=\"Inter, sans-serif\">\n"
+                + "<rect width=\"400\" height=\"200\" fill=\"#FBFAF7\"/>\n" + body + "</svg>\n";
+    }
+
+    static void legibilityCases() throws Exception {
+        Path d = Files.createTempDirectory("diagrams-legible");
+        String box = "<g id=\"a\">\n<rect x=\"20\" y=\"20\" width=\"160\" height=\"40\" rx=\"8\" fill=\"#E4F1DE\" stroke=\"#4C8C3A\"/>\n<text x=\"30\" y=\"45\" font-size=\"13\" fill=\"#1F2933\">Inside its box</text>\n</g>\n";
+        write(d.resolve("clean.svg"), svgOf(box));
+        expectLegible("legibility: a clean SVG is green", d, "clean.svg", 0, "has no label over");
+        write(d.resolve("tt.svg"), svgOf(box + "<g id=\"b\">\n<text x=\"34\" y=\"47\" font-size=\"13\" fill=\"#1F2933\">Second label here</text>\n</g>\n"));
+        expectLegible("legibility: text over text", d, "tt.svg", 2, "TEXT×TEXT");
+        write(d.resolve("ts.svg"), svgOf(box.replace("Inside its box", "A label far wider than the box that holds it")));
+        expectLegible("legibility: text past its box", d, "ts.svg", 2, "TEXT×SHAPE");
+        write(d.resolve("tl.svg"), svgOf(box + "<g id=\"edge-x\">\n<line x1=\"60\" y1=\"10\" x2=\"60\" y2=\"90\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        expectLegible("legibility: text crossed by an edge", d, "tl.svg", 2, "TEXT×LINE");
+        write(d.resolve("ov.svg"), svgOf("<g id=\"c\">\n<text x=\"330\" y=\"100\" font-size=\"13\" fill=\"#1F2933\">A label running past the right edge</text>\n</g>\n"));
+        expectLegible("legibility: a label past the viewBox", d, "ov.svg", 2, "OUT OF VIEWBOX");
+        String two = "<g id=\"edge-a\">\n<line x1=\"40\" y1=\"120\" x2=\"200\" y2=\"120\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n";
+        write(d.resolve("ll.svg"), svgOf(two + "<g id=\"edge-b\">\n<line x1=\"100\" y1=\"120\" x2=\"300\" y2=\"120\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        expectLegible("legibility: two edges on one line", d, "ll.svg", 2, "LINE×LINE");
+        write(d.resolve("lv.svg"), svgOf("<g id=\"edge-a\">\n<line x1=\"60\" y1=\"20\" x2=\"60\" y2=\"150\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n<g id=\"edge-b\">\n<line x1=\"60\" y1=\"100\" x2=\"60\" y2=\"180\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        expectLegible("legibility: two vertical edges on one line", d, "lv.svg", 2, "LINE×LINE");
+        write(d.resolve("lf.svg"), svgOf(two.replace("<g id=\"edge-a\">", "<g id=\"edge-a\" data-fan=\"port-1\">") + "<g id=\"edge-b\" data-fan=\"port-1\">\n<line x1=\"100\" y1=\"120\" x2=\"300\" y2=\"120\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        expectLegible("legibility: edges leaving one declared source port may share a segment", d, "lf.svg", 0, "has no label over");
+        write(d.resolve("lo.svg"), svgOf(two + "<g id=\"edge-b\">\n<line x1=\"100\" y1=\"124\" x2=\"300\" y2=\"124\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        expectLegible("legibility: edges 4 px apart are two channels", d, "lo.svg", 0, "has no label over");
+        write(d.resolve("bd.svg"), svgOf(box + "<g id=\"badge-1\" data-badge=\"code-resolved\">\n<circle cx=\"180\" cy=\"20\" r=\"8\" fill=\"#4C8C3A\"/>\n<text x=\"175\" y=\"24\" font-size=\"11\" fill=\"#FFFFFF\">✓</text>\n</g>\n"));
+        expectLegible("legibility: a badge on a box corner is the declared exception", d, "bd.svg", 0, "has no label over");
+        deleteTree(d);
+    }
+
+    static void expectLegible(String label, Path dir, String file, int wantExit, String wantText) throws Exception {
+        Result r = run(repo, "legible", dir.resolve(file).toString());
+        boolean ok = r.exit() == wantExit && r.out().contains(wantText);
+        if (ok) { System.out.println("✅ " + label + " (exit " + r.exit() + ")"); return; }
+        failures++;
+        System.out.println("❌ " + label + " — wanted exit " + wantExit + " naming '" + wantText + "', got exit " + r.exit() + "\n" + r.out());
     }
 }

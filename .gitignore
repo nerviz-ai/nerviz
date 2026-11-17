@@ -55,3 +55,4 @@ docs/diagrams/facts.json
 
 # nerviz-diagrams' PNG/video export dependencies, installed by `npm ci` from its lockfile
 .claude/skills/nerviz-diagrams/node_modules/
+.claude/skills/project-diagrams/node_modules/

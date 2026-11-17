@@ -1,0 +1,22 @@
+Brand icons of the blueprint view (style `brand`)
+
+Source: simple-icons@13.21.0 (https://github.com/simple-icons/simple-icons), one path of a
+24-unit viewBox per product, copied unchanged. The package is CC0-1.0; the license each icon
+carries on top of it, and the trademark policy of the product it depicts, apply to its use:
+
+  postgresql.svg     PostgreSQL        no license of its own in the package; PostgreSQL trademark policy
+                                       (https://www.postgresql.org/about/policies/trademarks/)
+  apachekafka.svg    Apache Kafka      Apache-2.0; the mark is the ASF's (https://www.apache.org/foundation/marks/)
+  keycloak.svg       Keycloak          custom license of the package; Linux Foundation trademark policy
+                                       (https://www.linuxfoundation.org/legal/trademark-usage)
+  opentelemetry.svg  OpenTelemetry     CC-BY-4.0 — attribution: the OpenTelemetry logo, (c) The OpenTelemetry
+                                       Authors, https://opentelemetry.io/
+  sonarqube.svg      SonarQube         no license of its own in the package; SonarSource trademark policy
+  springboot.svg     Spring Boot       no license of its own in the package; VMware / Spring trademark policy
+
+The marks identify the products a diagram shows; they imply no endorsement. A project that wants
+no brand mark sets "style": "icons" or "boxes" in the view.
+
+generic-*.svg are this project's own icons (Apache-2.0, like the rest of `.claude/`): one stroke
+path of a 24-unit viewBox per role — database, broker, identity, telemetry, devtool, external,
+client, app, service. A service with no mapped logo, the client and an external system use them.

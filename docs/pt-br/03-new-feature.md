@@ -19,7 +19,7 @@ existe dentro de um projeto já gerado** por `/init-project`: lê `pom.xml`,
 | Fluxo | Comando | Termina com |
 |---|---|---|
 | 1 · Criar a spec | `/new-feature <descrição>` (ou `UC-NNN-slug` de um draft para retomar) | a spec aprovada, e os comandos a digitar em seguida: `/clear` · `/git-publish …` (os paths da spec aprovada) · `/new-feature-implement UC-NNN-slug` |
-| 2 · Implementar a spec | `/new-feature-implement UC-NNN-slug` sobre uma spec `approved`, depois do `/clear` | o pre-flight, depois o `java-spring-boot-developer` em três grupos encadeados — `domain` (blocos 1–2) → `adapters` (H, 3, S, M, J) → `tests` (bloco 4) —, `status: implemented` e os comandos a digitar em seguida: `/clear` · `/git-publish …` (o commit da feature) · `/new-feature <próxima>` |
+| 2 · Implementar a spec | `/new-feature-implement UC-NNN-slug` sobre uma spec `approved`, depois do `/clear` | o pre-flight, depois o `java-spring-boot-developer` em três grupos encadeados — `domain` (blocos 1–2) → `adapters` (H, 3, S, M, J) → `tests` (bloco 4) —, `status: implemented` e os comandos a digitar em seguida: `/clear` · `/git-publish …` (o commit da feature) · `/project-diagrams UC-NNN-slug` (o diagrama de fluxo do caso, impresso, nunca executado pelo fluxo) · `/new-feature <próxima>` |
 
 O design deixa a thread principal com 250–370k tokens de contexto; implementar em cima dele
 pagaria isso a cada hand-back — e num `git-publish` encadeado, por isso nenhum dos fluxos o encadeia: cada um imprime a linha `/git-publish` para digitar depois do `/clear`. Cada grupo do executor recomeça da spec e do

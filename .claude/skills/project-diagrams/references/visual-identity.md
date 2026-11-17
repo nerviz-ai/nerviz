@@ -61,7 +61,8 @@ badges and diamonds say what matters. Every length is a multiple of `grid`.
     "procedure":   { "fill": "#E4F1DE", "stroke": "#4C8C3A" },
     "isolation":   { "fill": "#EBE1F5", "stroke": "#7A4FA8" },
     "norms":       { "fill": "#F7EBC4", "stroke": "#A6841A" },
-    "neutral":     { "fill": "#ECECEC", "stroke": "#7A7A7A" }
+    "neutral":     { "fill": "#ECECEC", "stroke": "#7A7A7A" },
+    "drift":       { "fill": "#FBE0E6", "stroke": "#B23A5A" }
   },
   "roles": {
     "layer:mods": "interface",
@@ -79,7 +80,40 @@ badges and diamonds say what matters. Every length is a multiple of `grid`.
     "cmd": "enforcement",
     "handoff": "neutral",
     "agent": "isolation",
-    "agentclass": "isolation"
+    "agentclass": "isolation",
+    "role:inbound": "interface",
+    "role:usecase": "procedure",
+    "role:port": "procedure",
+    "role:aggregate": "norms",
+    "role:event": "norms",
+    "role:domain": "norms",
+    "role:outbound": "isolation",
+    "app": "procedure",
+    "uc": "procedure",
+    "trigger": "interface",
+    "table": "isolation",
+    "topic": "enforcement"
+  },
+  "brand": {
+    "postgresql": "#4169E1",
+    "apachekafka": "ink",
+    "keycloak": "#4D4D4D",
+    "opentelemetry": "ink",
+    "sonarqube": "#4E9BCD",
+    "springboot": "#6DB33F"
+  },
+  "project": {
+    "pad": 10,
+    "gap": 14,
+    "lane_step": 12,
+    "port_step": 20,
+    "col_gap_min": 56,
+    "node_min_w": 112,
+    "max_label_width": 232,
+    "label_lines": 3,
+    "icon": 44,
+    "max_msg_width": 210,
+    "max_note_width": 200
   },
   "font": {
     "family": "Inter, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif",
@@ -88,6 +122,15 @@ badges and diamonds say what matters. Every length is a multiple of `grid`.
     "detail": 11,
     "caption": 12,
     "char_width": 0.6
+  },
+  "text": {
+    "scale": 1.06,
+    "bold": 1.08,
+    "mono": 600,
+    "default": 560,
+    "line_height": 1.4,
+    "widths": "278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 556 556 333 500 278 556 500 722 500 500 500 334 260 334 584",
+    "extra": { "⑩": 1000, "⑪": 1000, "⑫": 1000, "⑬": 1000, "⑭": 1000, "⑮": 1000, "⑯": 1000, "⑰": 1000, "⑱": 1000, "⑲": 1000, "⑳": 1000, "✓": 800, "✗": 800, "→": 1000, "←": 1000, "·": 278, "…": 1000, "①": 1000, "②": 1000, "③": 1000, "④": 1000, "⑤": 1000, "⑥": 1000, "⑦": 1000, "⑧": 1000, "⑨": 1000, "×": 584, "↛": 1000, "●": 1000, "■": 800 }
   },
   "stroke": 1.5,
   "emphasis_stroke": 3,

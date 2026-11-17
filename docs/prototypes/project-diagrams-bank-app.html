@@ -1,0 +1,579 @@
+<title>project-diagrams · bank-app</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one reading column; each diagram a full-width plate with its fact sheet beneath. Palette = nerviz-diagrams visual-identity, roles remapped to project layers. */
+:root{
+  --bg:#FBFAF7; --surface:#FFFFFF; --ink:#1F2933; --muted:#52606D; --line:#52606D; --rule:#E3E1DA;
+  --in-f:#DCEFF7; --in-s:#2B7A9B;      /* inbound adapters  (interface)  */
+  --app-f:#E4F1DE; --app-s:#4C8C3A;    /* application       (procedure)  */
+  --dom-f:#F7EBC4; --dom-s:#A6841A;    /* domain            (norms/leaf) */
+  --out-f:#EBE1F5; --out-s:#7A4FA8;    /* outbound adapters (isolation)  */
+  --ext-f:#FBE3D6; --ext-s:#C4572A;    /* runtime services  (enforcement)*/
+  --neu-f:#ECECEC; --neu-s:#7A7A7A;
+  --gap-f:#FBE0E6; --gap-s:#B23A5A;    /* drift: spec without code       */
+  --b-pg:#4169E1; --b-kafka:#231F20; --b-keycloak:#4D4D4D; --b-otel:#000000; --b-sonar:#4E9BCD; --b-spring:#6DB33F;
+  --display:"Fraunces",Georgia,serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#171A1D; --surface:#1F2327; --ink:#E6E8EA; --muted:#A3ADB8; --line:#8A96A3; --rule:#30363C;
+  --in-f:#16313D; --in-s:#5FB3D6; --app-f:#1B3020; --app-s:#7CC067; --dom-f:#3A3116; --dom-s:#D9B548;
+  --out-f:#2C2140; --out-s:#B08BDB; --ext-f:#3D2418; --ext-s:#E8875A; --neu-f:#2A2D30; --neu-s:#9AA0A6;
+  --gap-f:#3E1C26; --gap-s:#E77B98; --b-kafka:#E6E8EA; --b-keycloak:#C9CED3; --b-otel:#E6E8EA; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171A1D; --surface:#1F2327; --ink:#E6E8EA; --muted:#A3ADB8; --line:#8A96A3; --rule:#30363C;
+  --in-f:#16313D; --in-s:#5FB3D6; --app-f:#1B3020; --app-s:#7CC067; --dom-f:#3A3116; --dom-s:#D9B548;
+  --out-f:#2C2140; --out-s:#B08BDB; --ext-f:#3D2418; --ext-s:#E8875A; --neu-f:#2A2D30; --neu-s:#9AA0A6;
+  --gap-f:#3E1C26; --gap-s:#E77B98; --b-kafka:#E6E8EA; --b-keycloak:#C9CED3; --b-otel:#E6E8EA; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:56px}
+h1{font-family:var(--display);font-size:clamp(28px,4vw,40px);line-height:1.15;margin:0 0 8px;text-wrap:balance}
+h2{font-family:var(--display);font-size:24px;margin:0;text-wrap:balance}
+h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
+p{margin:0;max-width:68ch}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.lede{color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:14px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 10px;border-radius:4px;border:1.5px solid}
+.c-in{background:var(--in-f);border-color:var(--in-s)} .c-app{background:var(--app-f);border-color:var(--app-s)}
+.c-dom{background:var(--dom-f);border-color:var(--dom-s)} .c-out{background:var(--out-f);border-color:var(--out-s)}
+.c-ext{background:var(--ext-f);border-color:var(--ext-s)} .c-neu{background:var(--neu-f);border-color:var(--neu-s)}
+.c-gap{background:var(--gap-f);border-color:var(--gap-s);border-style:dashed}
+section{display:flex;flex-direction:column;gap:16px}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.kind{font-family:var(--mono);font-size:12.5px;padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--rule)}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+.scroll svg{display:block;min-width:880px;width:100%;height:auto}
+.sheet{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 28px}
+.sheet>div{min-width:0}
+.sheet ul{margin:0;padding-left:18px;font-size:13.5px}
+.sheet li{margin:2px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:860px}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--rule)}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td:first-child{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.note{border-left:3px solid var(--gap-s);padding:8px 14px;background:var(--surface);font-size:14px}
+/* svg text */
+svg text{font-family:var(--body);fill:var(--ink)}
+svg .t{font-size:13px} svg .s{font-size:11px;fill:var(--muted)} svg .m{font-family:var(--mono);font-size:11.5px}
+svg .cap{font-size:11px;letter-spacing:.08em;text-transform:uppercase;fill:var(--muted);font-weight:600}
+svg .lbl{font-size:11px;fill:var(--muted)}
+svg .b{font-size:12px} svg .pk{font-family:var(--mono);font-size:10.5px;fill:var(--muted)} svg .pkb{font-family:var(--mono);font-size:11px}
+svg .dt{fill:var(--ink)}
+svg .ln{stroke:var(--line);stroke-width:1.4;fill:none}
+svg .dash{stroke-dasharray:5 4}
+.in{fill:var(--in-f);stroke:var(--in-s);stroke-width:1.5} .app{fill:var(--app-f);stroke:var(--app-s);stroke-width:1.5}
+.dom{fill:var(--dom-f);stroke:var(--dom-s);stroke-width:1.5} .out{fill:var(--out-f);stroke:var(--out-s);stroke-width:1.5}
+.ext{fill:var(--ext-f);stroke:var(--ext-s);stroke-width:1.5} .neu{fill:var(--neu-f);stroke:var(--neu-s);stroke-width:1.5}
+.gap{fill:var(--gap-f);stroke:var(--gap-s);stroke-width:1.5;stroke-dasharray:5 4}
+.dec{fill:var(--gap-f);stroke:var(--gap-s);stroke-width:1.5}
+.grp{fill:none;stroke:var(--rule);stroke-width:1.2}
+.ok{fill:var(--app-s)} .bad{fill:var(--gap-s)}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1>project-diagrams: protótipos sobre o bank-app</h1>
+  <p class="lede">Quatro tipos de view que a skill <code>/project-diagrams</code> vai gerar num projeto gerado. Todos os nomes vêm do código, das specs e do compose do <code>bank-app</code>. Nada aqui foi inventado: onde a spec e o código divergem, o diagrama mostra a divergência em vez de esconder.</p>
+  <div class="meta"><span>projeto: bank-app @ c7500c5 (2026-11-01)</span><span>blueprint: clean-architecture-single-module</span><span>base: dev.nerviz.bankapp</span><span>motor: Diagrams.java --source project</span></div>
+  <div class="legend">
+    <span class="chip c-in">adapter de entrada</span><span class="chip c-app">application · use case · port</span>
+    <span class="chip c-dom">domain</span><span class="chip c-out">adapter de saída</span>
+    <span class="chip c-ext">serviço de runtime</span><span class="chip c-neu">ferramenta / fora do runtime</span>
+    <span class="chip c-gap">spec sem código (drift)</span>
+  </div>
+</header>
+
+<section>
+  <div class="head"><h2>Qual diagrama a skill gera, e quando</h2></div>
+  <p>A skill não escolhe por gosto. Cada <em>kind</em> responde a uma única pergunta e tem um único tipo de diagrama. É esta tabela que vai para o <code>SKILL.md</code> como regra de seleção.</p>
+  <div class="scroll"><table>
+    <tr><th>kind · pasta</th><th>Tipo de diagrama</th><th>Pergunta que responde</th><th>Fatos de onde sai</th><th>Fica de fora</th><th>Gerado quando</th></tr>
+    <tr><td>architecture<br>docs/diagrams/architecture/</td><td>Componentes por camada (estilo Clean/Hexagonal): colunas entrada → application → domain, portas implementadas pela saída</td><td>Onde mora cada classe, e para onde as dependências apontam?</td><td><code>packages.map</code> do blueprint ativo, tipos em <code>src/main/java</code>, <code>.claude/forbidden-imports.txt</code>, specs (para drift)</td><td>Métodos, campos, DTOs, configs, testes</td><td>Sem argumento, ou <code>architecture</code></td></tr>
+    <tr><td>blueprint<br>docs/diagrams/blueprint/</td><td>Containers (C4 nível 2): app, serviços do compose, sistemas externos, com protocolo em cada aresta; cada peça com o logo do produto (estilo <code>brand</code>, o padrão)</td><td>O que roda junto, e como a app fala com cada peça?</td><td><code>docker-compose.yml</code>, <code>application*.yml</code> (tópicos, issuer, OTLP), migrations (tabelas), specs (sistema externo)</td><td>Portas internas, réplicas, segredos, valores de variável</td><td>Sem argumento, ou <code>blueprint</code></td></tr>
+    <tr><td>use-cases/map<br>docs/diagrams/use-cases/map/</td><td>Mapa: gatilho → use case → o que ele toca (agregado, tabela, tópico)</td><td>Quais casos existem, o que os dispara, e o que eles compartilham?</td><td>Linha <code>Trigger</code> e <code>Side effects</code> de cada <code>00-*.md</code>, <code>BACKLOG.md</code>, classes <code>*UseCase</code></td><td>Fluxo interno de cada caso</td><td>Sem argumento, ou <code>map</code>, ou junto de um UC</td></tr>
+    <tr><td>use-cases/UC-NNN-slug<br>docs/diagrams/use-cases/UC-…/</td><td>Dois painéis: sequência (caminho feliz) + fluxograma de decisões, cada participante conferido no código</td><td>Como este caso anda, e onde ele para?</td><td>Os blocos <code>mermaid</code> da spec (já presos aos nomes do texto por <code>spec-diagrams.md</code>); sem bloco, a tabela de cabeçalho</td><td>Path, verbo, status, exceções, retries</td><td><code>/project-diagrams UC-NNN-slug</code>; o <code>/new-feature-implement</code> imprime essa linha</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 1 ARCHITECTURE ============ -->
+<section>
+  <div class="head"><h2>1 · Arquitetura</h2><span class="kind">kind: architecture</span></div>
+  <p>As setas sólidas são chamadas, e as tracejadas são “implementa”. O domain não aponta para ninguém. A caixa rosa é o <code>Account</code> do UC-007: está na spec, mas nenhuma classe existe em <code>src/</code>.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 1160 590" role="img" aria-label="Diagrama de arquitetura do bank-app">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--bg)" stroke="var(--line)" stroke-width="1.2"/></marker></defs>
+    <text x="20" y="28" class="cap">infrastructure · entrada</text>
+    <text x="300" y="28" class="cap">application · usecase</text>
+    <text x="590" y="28" class="cap">domain</text>
+    <text x="880" y="28" class="cap">infrastructure · saída</text>
+
+    <!-- inbound -->
+    <rect x="20" y="40" width="250" height="112" rx="6" class="grp"/><text x="30" y="58" class="pk">.rest</text>
+    <rect x="30" y="66" width="230" height="30" rx="5" class="in"/><text x="40" y="86" class="b">CustomerController</text>
+    <text x="30" y="118" class="s">+ ApiExceptionHandler · CustomerMapper</text><text x="30" y="136" class="s">+ ApiVersioningConfig</text>
+    <rect x="20" y="164" width="250" height="68" rx="6" class="grp"/><text x="30" y="182" class="pk">.messaging.kycverificationcompleted</text>
+    <rect x="30" y="190" width="230" height="30" rx="5" class="in"/><text x="40" y="210" class="b">KycVerificationCompletedListener</text>
+    <rect x="20" y="244" width="250" height="138" rx="6" class="grp"/><text x="30" y="262" class="pk">.scheduling</text>
+    <rect x="30" y="268" width="230" height="30" rx="5" class="in"/><text x="40" y="288" class="b">PruneExpiredIdempotencyKeysJob</text>
+    <rect x="30" y="304" width="230" height="30" rx="5" class="in"/><text x="40" y="324" class="b">OutboxRelayJob</text>
+    <rect x="30" y="340" width="230" height="30" rx="5" class="in"/><text x="40" y="360" class="b">OutboxPruneJob</text>
+
+    <!-- use cases -->
+    <rect x="300" y="40" width="260" height="342" rx="6" class="grp"/>
+    <rect x="310" y="50"  width="240" height="30" rx="5" class="app"/><text x="320" y="70"  class="b">CreateCustomerUseCase</text>
+    <rect x="310" y="90"  width="240" height="30" rx="5" class="app"/><text x="320" y="110" class="b">GetCustomerUseCase</text>
+    <rect x="310" y="130" width="240" height="30" rx="5" class="app"/><text x="320" y="150" class="b">AnonymizeCustomerUseCase</text>
+    <rect x="310" y="190" width="240" height="30" rx="5" class="app"/><text x="320" y="210" class="b">RecordKycVerdictUseCase</text>
+    <rect x="310" y="268" width="240" height="30" rx="5" class="app"/><text x="320" y="288" class="b">PruneExpiredIdempotencyKeysUseCase</text>
+    <rect x="310" y="304" width="240" height="30" rx="5" class="app"/><text x="320" y="324" class="b">RelayOutboxEventsUseCase</text>
+    <rect x="310" y="340" width="240" height="30" rx="5" class="app"/><text x="320" y="360" class="b">PruneOutboxEventsUseCase</text>
+
+    <!-- domain -->
+    <rect x="590" y="40" width="260" height="342" rx="6" class="grp"/><text x="600" y="58" class="pk">.domain.model</text>
+    <rect x="600" y="66" width="240" height="34" rx="5" class="dom" style="stroke-width:2.6"/><text x="610" y="88" class="b" style="font-weight:600">Customer</text><text x="770" y="88" class="s">aggregate</text>
+    <text x="600" y="120" class="s">CustomerId · CustomerIdentity</text>
+    <text x="600" y="136" class="s">CustomerStatus · SecurityNumber · KycVerdict</text>
+    <text x="600" y="166" class="pk">.domain.event</text>
+    <rect x="600" y="174" width="240" height="30" rx="5" class="dom"/><text x="610" y="194" class="b">KycVerificationRequested</text>
+    <text x="600" y="230" class="pk">.domain.exception</text>
+    <rect x="600" y="262" width="240" height="56" rx="5" class="gap"/><text x="610" y="285" class="b" style="font-weight:600">Account</text><text x="610" y="305" class="s">UC-007 · spec only, no class in src/</text>
+    <text x="600" y="366" class="s">domain ↛ Spring · JPA · Jackson</text>
+
+    <!-- outbound -->
+    <rect x="880" y="40" width="260" height="342" rx="6" class="grp"/>
+    <text x="890" y="58" class="pk">.persistence.customer</text>
+    <rect x="890" y="66" width="240" height="30" rx="5" class="out"/><text x="900" y="86" class="b">CustomerRepositoryJpaAdapter</text>
+    <text x="890" y="122" class="pk">.persistence.idempotency</text>
+    <rect x="890" y="130" width="240" height="30" rx="5" class="out"/><text x="900" y="150" class="b pkb">persistence.idempotency.*</text>
+    <text x="890" y="186" class="pk">.messaging.kycverificationrequested</text>
+    <rect x="890" y="194" width="240" height="30" rx="5" class="out"/><text x="900" y="214" class="b">RequestKycVerificationOutboxAdapter</text>
+    <text x="890" y="250" class="pk">.persistence.outbox</text>
+    <rect x="890" y="258" width="240" height="30" rx="5" class="out"/><text x="900" y="278" class="b pkb">persistence.outbox.*</text>
+    <text x="890" y="314" class="pk">.messaging.outbox</text>
+    <rect x="890" y="322" width="240" height="30" rx="5" class="out"/><text x="900" y="342" class="b">KafkaOutboxEventSender</text>
+
+    <!-- ports -->
+    <text x="300" y="414" class="cap">application · port</text>
+    <rect x="300" y="424" width="550" height="150" rx="6" class="grp"/>
+    <rect x="310" y="436" width="180" height="30" rx="15" class="app"/><text x="324" y="456" class="b">IdempotencyKeyPort</text>
+    <rect x="310" y="476" width="180" height="30" rx="15" class="app"/><text x="324" y="496" class="b">OutboxRelayGateway</text>
+    <rect x="310" y="516" width="180" height="30" rx="15" class="app"/><text x="324" y="536" class="b">OutboxRetentionGateway</text>
+    <rect x="660" y="436" width="180" height="30" rx="15" class="app"/><text x="674" y="456" class="b">CustomerRepository</text>
+    <rect x="660" y="476" width="180" height="30" rx="15" class="app"/><text x="674" y="496" class="b">RequestKycVerification</text>
+    <rect x="660" y="516" width="180" height="30" rx="15" class="app"/><text x="674" y="536" class="b">OutboxEventSender</text>
+    <text x="300" y="586" class="s">pílula = interface em application.port · seta vazada tracejada = implements lido no fonte</text>
+
+    <!-- calls: inbound -> use cases -->
+    <path d="M260 81 H285 V65 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M285 81 V105 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M285 105 V145 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M260 205 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M260 283 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M260 319 H310" class="ln" marker-end="url(#ar)"/>
+    <path d="M260 355 H310" class="ln" marker-end="url(#ar)"/>
+    <!-- use cases -> domain -->
+    <path d="M550 65 H575 V79 H600" class="ln" marker-end="url(#ar)"/>
+    <path d="M550 205 H580 V91 H600" class="ln" marker-end="url(#ar)"/>
+    <!-- implements: outbound -> ports, outermost lane for the lowest port -->
+    <path d="M890 81 H860 V451 H840" class="ln dash" marker-end="url(#ao)"/>
+    <path d="M890 209 H866 V491 H840" class="ln dash" marker-end="url(#ao)"/>
+    <path d="M890 337 H872 V531 H840" class="ln dash" marker-end="url(#ao)"/>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Fatos citados</h3><ul>
+      <li><code>pkg:infrastructure.rest</code>, <code>pkg:domain.model</code> … (do <code>packages.map</code>)</li>
+      <li><code>type:CustomerController</code>, <code>type:CustomerRepository</code> (port), <code>type:Customer</code> (aggregate, <code>@AggregateRoot</code>/spec)</li>
+      <li><code>impl:CustomerRepositoryJpaAdapter→CustomerRepository</code> (lido do <code>implements</code>)</li>
+      <li><code>drift:uc:UC-007/aggregate:Account</code></li>
+    </ul></div>
+    <div><h3>Regras de desenho</h3><ul>
+      <li>Um pacote de adapter com mais de N tipos colapsa em <code>pkg.*</code></li>
+      <li>Classes de suporte (mapper, config, properties) viram legenda, não caixa</li>
+      <li>Aresta “implementa” só com <code>implements</code> lido no fonte</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 2 BLUEPRINT · BOXES ============ -->
+<section>
+  <div class="head"><h2>2 · Blueprint, em caixas</h2><span class="kind">kind: blueprint · style: boxes (opcional)</span></div>
+  <p>Contêineres do <code>docker-compose.yml</code> e o sistema externo que a spec nomeia. Cada aresta leva protocolo e o que trafega. O SonarQube aparece cinza e tracejado porque é ferramenta de desenvolvimento, não runtime.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 1070 440" role="img" aria-label="Diagrama blueprint do bank-app">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker></defs>
+    <g transform="translate(70 150)"><circle cx="0" cy="-22" r="14" class="neu"/><path d="M-26 22 Q-26 -4 0 -4 Q26 -4 26 22 Z" class="neu"/></g>
+    <text x="70" y="196" class="t" text-anchor="middle">API client</text>
+    <text x="70" y="212" class="s" text-anchor="middle">via edge TLS</text>
+    <text x="70" y="228" class="s" text-anchor="middle">topologia A</text>
+
+    <rect x="250" y="90" width="250" height="150" rx="8" class="app" style="stroke-width:2.6"/>
+    <text x="268" y="118" class="t" style="font-weight:600;font-size:15px">bank-app</text>
+    <text x="268" y="140" class="s">compose: app · :8080</text>
+    <text x="268" y="160" class="s">Spring Boot · Java 21 · Maven</text>
+    <text x="268" y="180" class="s">REST versionado · Kafka · JPA</text>
+    <text x="268" y="200" class="s">outbox + 2 jobs agendados</text>
+
+    <rect x="640" y="20" width="290" height="100" rx="8" class="ext"/>
+    <text x="656" y="44" class="t" style="font-weight:600">postgres</text>
+    <text x="656" y="62" class="s m">postgres:16-alpine · Flyway V1–V5</text>
+    <text x="656" y="84" class="s">customers · idempotency_keys</text>
+    <text x="656" y="102" class="s">outbox_events</text>
+
+    <rect x="640" y="146" width="290" height="118" rx="8" class="ext"/>
+    <text x="656" y="170" class="t" style="font-weight:600">kafka</text>
+    <text x="656" y="188" class="s">3 partições por tópico</text>
+    <text x="656" y="208" class="s m">→ kyc-verification-requested · P7D</text>
+    <text x="656" y="226" class="s m">← kyc-verification-completed</text>
+    <text x="656" y="246" class="s m">group bank-app.kyc-verdict</text>
+
+    <rect x="980" y="165" width="80" height="80" rx="8" class="neu" style="stroke-dasharray:5 4"/>
+    <text x="1020" y="200" class="t" text-anchor="middle">KYC app</text><text x="1020" y="218" class="s" text-anchor="middle">externo</text>
+
+    <rect x="250" y="340" width="200" height="70" rx="8" class="ext"/>
+    <text x="266" y="364" class="t" style="font-weight:600">keycloak</text><text x="266" y="384" class="s">realm bank · :8180</text>
+    <rect x="480" y="340" width="200" height="70" rx="8" class="ext"/>
+    <text x="496" y="364" class="t" style="font-weight:600">otel-collector</text><text x="496" y="384" class="s m">contrib:0.160.0</text>
+    <rect x="740" y="340" width="200" height="70" rx="8" class="neu" style="stroke-dasharray:5 4"/>
+    <text x="756" y="364" class="t">sonarqube</text><text x="756" y="384" class="s">dev tooling · fora do runtime</text>
+
+    <path d="M110 165 H250" class="ln" marker-end="url(#ar2)"/><text x="122" y="157" class="lbl">HTTP · JSON</text>
+    <path d="M500 120 H570 V60 H640" class="ln" marker-end="url(#ar2)"/><text x="580" y="52" class="lbl">JDBC</text>
+    <path d="M500 185 H640" class="ln" marker-end="url(#ar2)"/><text x="512" y="177" class="lbl">produz</text>
+    <path d="M640 222 H500" class="ln" marker-end="url(#ar2)"/><text x="512" y="238" class="lbl">consome</text>
+    <path d="M930 205 H980" class="ln" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+    <path d="M330 240 V340" class="ln" marker-end="url(#ar2)"/><text x="338" y="296" class="lbl">JWT</text>
+    <path d="M440 240 V290 H580 V340" class="ln" marker-end="url(#ar2)"/><text x="588" y="320" class="lbl">OTLP</text>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Fatos citados</h3><ul>
+      <li><code>service:app</code>, <code>service:postgres</code> (image), <code>service:kafka</code>, <code>service:keycloak</code>, <code>service:otel-collector</code>, <code>service:sonarqube</code></li>
+      <li><code>topic:kyc-verification-requested</code>, <code>topic:kyc-verification-completed</code> (de <code>app.kafka.topics</code>)</li>
+      <li><code>table:customers</code> … (de <code>CREATE TABLE</code> nas migrations)</li>
+      <li><code>external:KYC application</code> (linha <code>Trigger</code> do UC-005)</li>
+    </ul></div>
+    <div><h3>Regras de desenho</h3><ul>
+      <li>Serviço com rótulo de ferramenta (lista em <code>extensions.json</code>) fica cinza tracejado</li>
+      <li>Valor de variável nunca aparece; só o nome da chave</li>
+      <li>Sistema externo só entra se uma spec o nomear</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 2b BLUEPRINT · ICONS ============ -->
+<section>
+  <div class="head"><h2>2b · Blueprint, só com ícones</h2><span class="kind">kind: blueprint · style: icons (opcional)</span></div>
+  <p>Mesmos fatos e as mesmas arestas da versão 2, mas cada peça vira um ícone genérico do seu papel: cilindro para banco, faixas de partição para broker, escudo para identidade, funil para telemetria. Nenhum logo de marca é usado. A cor continua dizendo o papel, e o nome e a imagem ficam embaixo do ícone.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 1070 500" role="img" aria-label="Diagrama blueprint do bank-app com ícones">
+    <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker></defs>
+
+    <g transform="translate(70 160)"><circle cx="0" cy="-22" r="14" class="neu"/><path d="M-26 22 Q-26 -4 0 -4 Q26 -4 26 22 Z" class="neu"/></g>
+    <text x="70" y="206" class="t" text-anchor="middle">API client</text>
+    <text x="70" y="222" class="s" text-anchor="middle">via edge TLS</text>
+    <text x="70" y="238" class="s" text-anchor="middle">topologia A</text>
+
+    <g transform="translate(360 160)">
+      <path d="M0 -58 L50 -29 L50 29 L0 58 L-50 29 L-50 -29 Z" class="app" style="stroke-width:2.6"/>
+      <path d="M0 -36 L31 -18 L31 18 L0 36 L-31 18 L-31 -18 Z" class="app" style="fill:none"/>
+      <path d="M0 -16 L14 -8 L14 8 L0 16 L-14 8 L-14 -8 Z" class="dom"/>
+    </g>
+    <text x="360" y="238" class="t" text-anchor="middle" style="font-weight:600">bank-app</text>
+    <text x="360" y="254" class="s" text-anchor="middle">Spring Boot · Java 21 · :8080</text>
+
+    <g transform="translate(700 70)">
+      <path d="M-30 -26 V22 A30 9 0 0 0 30 22 V-26" class="ext"/>
+      <ellipse cx="0" cy="-26" rx="30" ry="9" class="ext"/>
+      <path d="M-30 -8 A30 9 0 0 0 30 -8 M-30 8 A30 9 0 0 0 30 8" style="stroke:var(--ext-s);fill:none;stroke-width:1.4"/>
+    </g>
+    <text x="750" y="50" class="t" style="font-weight:600">postgres</text>
+    <text x="750" y="66" class="s m">postgres:16-alpine</text>
+    <text x="750" y="84" class="s">customers · idempotency_keys</text>
+    <text x="750" y="100" class="s">outbox_events · Flyway V1–V5</text>
+
+    <g transform="translate(700 230)">
+      <path d="M-34 -22 H34 M-34 0 H34 M-34 22 H34" stroke="var(--ext-s)" stroke-width="12" stroke-linecap="round"/>
+      <path d="M-34 -22 H34 M-34 0 H34 M-34 22 H34" stroke="var(--ext-f)" stroke-width="7" stroke-linecap="round"/>
+      <g fill="var(--ext-s)"><circle cx="-18" cy="-22" r="2.5"/><circle cx="-6" cy="-22" r="2.5"/><circle cx="6" cy="-22" r="2.5"/><circle cx="-18" cy="0" r="2.5"/><circle cx="-6" cy="0" r="2.5"/><circle cx="-18" cy="22" r="2.5"/><circle cx="-6" cy="22" r="2.5"/><circle cx="6" cy="22" r="2.5"/><circle cx="18" cy="22" r="2.5"/></g>
+    </g>
+    <text x="750" y="198" class="t" style="font-weight:600">kafka</text>
+    <text x="750" y="214" class="s">3 partições por tópico</text>
+    <text x="750" y="232" class="s m">→ kyc-verification-requested</text>
+    <text x="750" y="248" class="s m">← kyc-verification-completed</text>
+    <text x="750" y="264" class="s m">group bank-app.kyc-verdict</text>
+
+    <text x="1010" y="160" class="t" text-anchor="middle">KYC app</text>
+    <text x="1010" y="176" class="s" text-anchor="middle">externo</text>
+    <g transform="translate(1010 210)"><path d="M-34 14 Q-44 14 -42 2 Q-40 -10 -26 -8 Q-22 -26 -2 -24 Q16 -30 22 -12 Q40 -14 40 2 Q40 14 28 14 Z" class="neu" style="stroke-dasharray:5 4"/></g>
+
+    <g transform="translate(250 410)">
+      <path d="M0 -32 L28 -22 V2 Q28 24 0 34 Q-28 24 -28 2 V-22 Z" class="ext"/>
+      <circle cx="0" cy="-4" r="6" fill="var(--ext-s)"/><path d="M-3 0 L-5 14 H5 L3 0 Z" fill="var(--ext-s)"/>
+    </g>
+    <text x="250" y="466" class="t" text-anchor="middle" style="font-weight:600">keycloak</text>
+    <text x="250" y="482" class="s" text-anchor="middle">realm bank · :8180</text>
+
+    <g transform="translate(470 410)">
+      <path d="M-30 -26 H30 L8 4 V28 L-8 20 V4 Z" class="ext"/>
+      <path d="M-22 -14 H-10 L-5 -22 L2 -6 L7 -16 H22" style="stroke:var(--ext-s);stroke-width:1.8;fill:none"/>
+    </g>
+    <text x="470" y="466" class="t" text-anchor="middle" style="font-weight:600">otel-collector</text>
+    <text x="470" y="482" class="s m" text-anchor="middle">contrib:0.160.0</text>
+
+    <g transform="translate(690 410)">
+      <circle cx="-6" cy="-6" r="20" class="neu" style="stroke-dasharray:5 4"/>
+      <path d="M8 8 L26 26" stroke="var(--neu-s)" stroke-width="6" stroke-linecap="round"/>
+    </g>
+    <text x="690" y="466" class="t" text-anchor="middle">sonarqube</text>
+    <text x="690" y="482" class="s" text-anchor="middle">dev tooling · fora do runtime</text>
+
+    <path d="M104 160 H302" class="ln" marker-end="url(#ar5)"/><text x="122" y="152" class="lbl">HTTP · JSON</text>
+    <path d="M412 130 H560 V70 H664" class="ln" marker-end="url(#ar5)"/><text x="588" y="62" class="lbl">JDBC</text>
+    <path d="M412 170 H600 V222 H660" class="ln" marker-end="url(#ar5)"/><text x="430" y="162" class="lbl">produz</text>
+    <path d="M660 240 H580 V190 H412" class="ln" marker-end="url(#ar5)"/><text x="430" y="206" class="lbl">consome</text>
+    <path d="M700 262 V296 H1010 V230" class="ln" marker-start="url(#ar5)" marker-end="url(#ar5)"/><text x="840" y="314" class="lbl">req / resultado</text>
+    <path d="M330 262 V320 H250 V372" class="ln" marker-end="url(#ar5)"/><text x="256" y="346" class="lbl">JWT</text>
+    <path d="M390 262 V320 H470 V378" class="ln" marker-end="url(#ar5)"/><text x="476" y="346" class="lbl">OTLP</text>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Ícone por papel (não por produto)</h3><ul>
+      <li>banco relacional → cilindro · broker → faixas, uma por partição</li>
+      <li>identidade → escudo · telemetria → funil com pulso</li>
+      <li>ferramenta dev → lupa cinza tracejada · externo → nuvem tracejada</li>
+      <li>a app → hexágono em camadas (domain no centro)</li>
+    </ul></div>
+    <div><h3>Como a skill escolhe</h3><ul>
+      <li>Mapa <code>image → icon</code> em <code>extensions.json</code> (ex.: <code>postgres*</code> → <code>database</code>); imagem desconhecida cai em <code>service</code></li>
+      <li><code>"style": "brand" | "icons" | "boxes"</code> no <code>view.json</code>; padrão <code>brand</code> (2c), e <code>icons</code> só quando o projeto não quer marca</li>
+      <li>O número de faixas do broker vem de <code>partitions</code>, quando todos os tópicos concordam</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 2c BLUEPRINT · BRAND ICONS ============ -->
+<section>
+  <div class="head"><h2>2c · Blueprint, com logos reais (padrão)</h2><span class="kind">kind: blueprint · style: brand · padrão</span></div>
+  <p>Os mesmos fatos da versão 2, agora com o logo de cada produto, tirado do pacote <code>simple-icons@13.21.0</code> (traço único, cor oficial da marca). O draw.io não tem logo de Kafka, Keycloak nem OpenTelemetry, e o único PostgreSQL dele é a variante da Azure. Por isso a fonte é o Simple Icons. A peça sem produto conhecido, como o sistema KYC externo e o cliente, continua com ícone genérico.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 1070 500" role="img" aria-label="Diagrama blueprint do bank-app com logos">
+    <defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+    <symbol id="si-postgresql" viewBox="0 0 24 24"><path d="M23.5594 14.7228a.5269.5269 0 0 0-.0563-.1191c-.139-.2632-.4768-.3418-1.0074-.2321-1.6533.3411-2.2935.1312-2.5256-.0191 1.342-2.0482 2.445-4.522 3.0411-6.8297.2714-1.0507.7982-3.5237.1222-4.7316a1.5641 1.5641 0 0 0-.1509-.235C21.6931.9086 19.8007.0248 17.5099.0005c-1.4947-.0158-2.7705.3461-3.1161.4794a9.449 9.449 0 0 0-.5159-.0816 8.044 8.044 0 0 0-1.3114-.1278c-1.1822-.0184-2.2038.2642-3.0498.8406-.8573-.3211-4.7888-1.645-7.2219.0788C.9359 2.1526.3086 3.8733.4302 6.3043c.0409.818.5069 3.334 1.2423 5.7436.4598 1.5065.9387 2.7019 1.4334 3.582.553.9942 1.1259 1.5933 1.7143 1.7895.4474.1491 1.1327.1441 1.8581-.7279.8012-.9635 1.5903-1.8258 1.9446-2.2069.4351.2355.9064.3625 1.39.3772a.0569.0569 0 0 0 .0004.0041 11.0312 11.0312 0 0 0-.2472.3054c-.3389.4302-.4094.5197-1.5002.7443-.3102.064-1.1344.2339-1.1464.8115-.0025.1224.0329.2309.0919.3268.2269.4231.9216.6097 1.015.6331 1.3345.3335 2.5044.092 3.3714-.6787-.017 2.231.0775 4.4174.3454 5.0874.2212.5529.7618 1.9045 2.4692 1.9043.2505 0 .5263-.0291.8296-.0941 1.7819-.3821 2.5557-1.1696 2.855-2.9059.1503-.8707.4016-2.8753.5388-4.1012.0169-.0703.0357-.1207.057-.1362.0007-.0005.0697-.0471.4272.0307a.3673.3673 0 0 0 .0443.0068l.2539.0223.0149.001c.8468.0384 1.9114-.1426 2.5312-.4308.6438-.2988 1.8057-1.0323 1.5951-1.6698zM2.371 11.8765c-.7435-2.4358-1.1779-4.8851-1.2123-5.5719-.1086-2.1714.4171-3.6829 1.5623-4.4927 1.8367-1.2986 4.8398-.5408 6.108-.13-.0032.0032-.0066.0061-.0098.0094-2.0238 2.044-1.9758 5.536-1.9708 5.7495-.0002.0823.0066.1989.0162.3593.0348.5873.0996 1.6804-.0735 2.9184-.1609 1.1504.1937 2.2764.9728 3.0892.0806.0841.1648.1631.2518.2374-.3468.3714-1.1004 1.1926-1.9025 2.1576-.5677.6825-.9597.5517-1.0886.5087-.3919-.1307-.813-.5871-1.2381-1.3223-.4796-.839-.9635-2.0317-1.4155-3.5126zm6.0072 5.0871c-.1711-.0428-.3271-.1132-.4322-.1772.0889-.0394.2374-.0902.4833-.1409 1.2833-.2641 1.4815-.4506 1.9143-1.0002.0992-.126.2116-.2687.3673-.4426a.3549.3549 0 0 0 .0737-.1298c.1708-.1513.2724-.1099.4369-.0417.156.0646.3078.26.3695.4752.0291.1016.0619.2945-.0452.4444-.9043 1.2658-2.2216 1.2494-3.1676 1.0128zm2.094-3.988-.0525.141c-.133.3566-.2567.6881-.3334 1.003-.6674-.0021-1.3168-.2872-1.8105-.8024-.6279-.6551-.9131-1.5664-.7825-2.5004.1828-1.3079.1153-2.4468.079-3.0586-.005-.0857-.0095-.1607-.0122-.2199.2957-.2621 1.6659-.9962 2.6429-.7724.4459.1022.7176.4057.8305.928.5846 2.7038.0774 3.8307-.3302 4.7363-.084.1866-.1633.3629-.2311.5454zm7.3637 4.5725c-.0169.1768-.0358.376-.0618.5959l-.146.4383a.3547.3547 0 0 0-.0182.1077c-.0059.4747-.054.6489-.115.8693-.0634.2292-.1353.4891-.1794 1.0575-.11 1.4143-.8782 2.2267-2.4172 2.5565-1.5155.3251-1.7843-.4968-2.0212-1.2217a6.5824 6.5824 0 0 0-.0769-.2266c-.2154-.5858-.1911-1.4119-.1574-2.5551.0165-.5612-.0249-1.9013-.3302-2.6462.0044-.2932.0106-.5909.019-.8918a.3529.3529 0 0 0-.0153-.1126 1.4927 1.4927 0 0 0-.0439-.208c-.1226-.4283-.4213-.7866-.7797-.9351-.1424-.059-.4038-.1672-.7178-.0869.067-.276.1831-.5875.309-.9249l.0529-.142c.0595-.16.134-.3257.213-.5012.4265-.9476 1.0106-2.2453.3766-5.1772-.2374-1.0981-1.0304-1.6343-2.2324-1.5098-.7207.0746-1.3799.3654-1.7088.5321a5.6716 5.6716 0 0 0-.1958.1041c.0918-1.1064.4386-3.1741 1.7357-4.4823a4.0306 4.0306 0 0 1 .3033-.276.3532.3532 0 0 0 .1447-.0644c.7524-.5706 1.6945-.8506 2.802-.8325.4091.0067.8017.0339 1.1742.081 1.939.3544 3.2439 1.4468 4.0359 2.3827.8143.9623 1.2552 1.9315 1.4312 2.4543-1.3232-.1346-2.2234.1268-2.6797.779-.9926 1.4189.543 4.1729 1.2811 5.4964.1353.2426.2522.4522.2889.5413.2403.5825.5515.9713.7787 1.2552.0696.087.1372.1714.1885.245-.4008.1155-1.1208.3825-1.0552 1.717-.0123.1563-.0423.4469-.0834.8148-.0461.2077-.0702.4603-.0994.7662zm.8905-1.6211c-.0405-.8316.2691-.9185.5967-1.0105a2.8566 2.8566 0 0 0 .135-.0406 1.202 1.202 0 0 0 .1342.103c.5703.3765 1.5823.4213 3.0068.1344-.2016.1769-.5189.3994-.9533.6011-.4098.1903-1.0957.333-1.7473.3636-.7197.0336-1.0859-.0807-1.1721-.151zm.5695-9.2712c-.0059.3508-.0542.6692-.1054 1.0017-.055.3576-.112.7274-.1264 1.1762-.0142.4368.0404.8909.0932 1.3301.1066.887.216 1.8003-.2075 2.7014a3.5272 3.5272 0 0 1-.1876-.3856c-.0527-.1276-.1669-.3326-.3251-.6162-.6156-1.1041-2.0574-3.6896-1.3193-4.7446.3795-.5427 1.3408-.5661 2.1781-.463zm.2284 7.0137a12.3762 12.3762 0 0 0-.0853-.1074l-.0355-.0444c.7262-1.1995.5842-2.3862.4578-3.4385-.0519-.4318-.1009-.8396-.0885-1.2226.0129-.4061.0666-.7543.1185-1.0911.0639-.415.1288-.8443.1109-1.3505.0134-.0531.0188-.1158.0118-.1902-.0457-.4855-.5999-1.938-1.7294-3.253-.6076-.7073-1.4896-1.4972-2.6889-2.0395.5251-.1066 1.2328-.2035 2.0244-.1859 2.0515.0456 3.6746.8135 4.8242 2.2824a.908.908 0 0 1 .0667.1002c.7231 1.3556-.2762 6.2751-2.9867 10.5405zm-8.8166-6.1162c-.025.1794-.3089.4225-.6211.4225a.5821.5821 0 0 1-.0809-.0056c-.1873-.026-.3765-.144-.5059-.3156-.0458-.0605-.1203-.178-.1055-.2844.0055-.0401.0261-.0985.0925-.1488.1182-.0894.3518-.1226.6096-.0867.3163.0441.6426.1938.6113.4186zm7.9305-.4114c.0111.0792-.049.201-.1531.3102-.0683.0717-.212.1961-.4079.2232a.5456.5456 0 0 1-.075.0052c-.2935 0-.5414-.2344-.5607-.3717-.024-.1765.2641-.3106.5611-.352.297-.0414.6111.0088.6356.1851z"/></symbol>
+    <symbol id="si-apachekafka" viewBox="0 0 24 24"><path d="M9.71 2.136a1.43 1.43 0 0 0-2.047 0h-.007a1.48 1.48 0 0 0-.421 1.042c0 .41.161.777.422 1.039l.007.007c.257.264.616.426 1.019.426.404 0 .766-.162 1.027-.426l.003-.007c.261-.262.421-.629.421-1.039 0-.408-.159-.777-.421-1.042H9.71zM8.683 22.295c.404 0 .766-.167 1.027-.429l.003-.008c.261-.261.421-.631.421-1.036 0-.41-.159-.778-.421-1.044H9.71a1.42 1.42 0 0 0-1.027-.432 1.4 1.4 0 0 0-1.02.432h-.007c-.26.266-.422.634-.422 1.044 0 .406.161.775.422 1.036l.007.008c.258.262.617.429 1.02.429zm7.89-4.462c.359-.096.683-.33.882-.684l.027-.052a1.47 1.47 0 0 0 .114-1.067 1.454 1.454 0 0 0-.675-.896l-.021-.014a1.425 1.425 0 0 0-1.078-.132c-.36.091-.684.335-.881.686-.2.349-.241.75-.146 1.119.099.363.33.691.675.896h.002c.346.203.737.239 1.101.144zm-6.405-7.342a2.083 2.083 0 0 0-1.485-.627c-.58 0-1.103.242-1.482.627-.378.385-.612.916-.612 1.507s.233 1.124.612 1.514a2.08 2.08 0 0 0 2.967 0c.379-.39.612-.923.612-1.514s-.233-1.122-.612-1.507zm-.835-2.51c.843.141 1.6.552 2.178 1.144h.004c.092.093.182.196.265.299l1.446-.851a3.176 3.176 0 0 1-.047-1.808 3.149 3.149 0 0 1 1.456-1.926l.025-.016a3.062 3.062 0 0 1 2.345-.306c.77.21 1.465.721 1.898 1.482v.002c.431.757.518 1.626.313 2.408a3.145 3.145 0 0 1-1.456 1.928l-.198.118h-.02a3.095 3.095 0 0 1-2.154.201 3.127 3.127 0 0 1-1.514-.944l-1.444.848a4.162 4.162 0 0 1 0 2.879l1.444.846c.413-.47.939-.789 1.514-.944a3.041 3.041 0 0 1 2.371.319l.048.023v.002a3.17 3.17 0 0 1 1.408 1.906 3.215 3.215 0 0 1-.313 2.405l-.026.053-.003-.005a3.147 3.147 0 0 1-1.867 1.436 3.096 3.096 0 0 1-2.371-.318v-.006a3.156 3.156 0 0 1-1.456-1.927 3.175 3.175 0 0 1 .047-1.805l-1.446-.848a3.905 3.905 0 0 1-.265.294l-.004.005a3.938 3.938 0 0 1-2.178 1.138v1.699a3.09 3.09 0 0 1 1.56.862l.002.004c.565.572.914 1.368.914 2.243 0 .873-.35 1.664-.914 2.239l-.002.009a3.1 3.1 0 0 1-2.21.931 3.1 3.1 0 0 1-2.206-.93h-.002v-.009a3.186 3.186 0 0 1-.916-2.239c0-.875.35-1.672.916-2.243v-.004h.002a3.1 3.1 0 0 1 1.558-.862v-1.699a3.926 3.926 0 0 1-2.176-1.138l-.006-.005a4.098 4.098 0 0 1-1.173-2.874c0-1.122.452-2.136 1.173-2.872h.006a3.947 3.947 0 0 1 2.176-1.144V6.289a3.137 3.137 0 0 1-1.558-.864h-.002v-.004a3.192 3.192 0 0 1-.916-2.243c0-.871.35-1.669.916-2.243l.002-.002A3.084 3.084 0 0 1 8.683 0c.861 0 1.641.355 2.21.932v.002h.002c.565.574.914 1.372.914 2.243 0 .876-.35 1.667-.914 2.243l-.002.005a3.142 3.142 0 0 1-1.56.864v1.692zm8.121-1.129l-.012-.019a1.452 1.452 0 0 0-.87-.668 1.43 1.43 0 0 0-1.103.146h.002c-.347.2-.58.529-.677.896-.095.365-.054.768.146 1.119l.007.009c.2.347.519.579.874.673.357.103.755.059 1.098-.144l.019-.009a1.47 1.47 0 0 0 .657-.885 1.493 1.493 0 0 0-.141-1.118"/></symbol>
+    <symbol id="si-keycloak" viewBox="0 0 24 24"><path d="m18.742 1.182-12.493.002C4.155 4.784 2.079 8.393 0 12.002c2.071 3.612 4.162 7.214 6.252 10.816l12.49-.004 3.089-5.404h2.158v-.002H24L23.996 6.59h-2.168zM8.327 4.792h2.081l1.04 1.8-3.12 5.413 3.117 5.403-1.035 1.81H8.327a2047.566 2047.566 0 0 0-4.168-7.204C5.547 9.606 6.937 7.2 8.327 4.792Zm6.241 0 2.086.003c1.393 2.405 2.78 4.813 4.166 7.222l-4.167 7.2h-2.08c-.382-.562-1.038-1.808-1.038-1.808l3.123-5.405-3.124-5.413z"/></symbol>
+    <symbol id="si-opentelemetry" viewBox="0 0 24 24"><path d="M12.6974 13.1173c-1.0224 1.0224-1.0224 2.68 0 3.7024 1.0224 1.0224 2.68 1.0224 3.7024 0 1.0224-1.0223 1.0224-2.68 0-3.7024-1.0223-1.0223-2.68-1.0223-3.7024 0zm2.7677 2.7701c-.5063.5063-1.3267.5063-1.833 0s-.5063-1.3266 0-1.833c.5063-.5062 1.3267-.5062 1.833 0 .5063.504.5063 1.3267 0 1.833zM16.356.2355l-1.6041 1.6042c-.314.314-.314.83 0 1.144L21.015 9.247c.314.314.83.314 1.144 0l1.6042-1.6041c.314-.314.314-.83 0-1.144L17.4976.2354c-.314-.314-.8276-.314-1.1416 0zM5.1173 20.734c.2848-.2848.2848-.7497 0-1.0345l-.8155-.8155c-.2848-.2848-.7497-.2848-1.0345 0l-1.6845 1.6845-.0024.0024-.4625-.4625c-.2556-.2556-.6718-.2556-.925 0-.2556.2556-.2556.6718 0 .925l2.775 2.775c.2556.2556.6718.2556.925 0 .2532-.2556.2556-.6718 0-.925l-.4625-.4625.0024-.0024zm8.4856-15.893-3.5637 3.5637c-.3164.3164-.3164.8374 0 1.1538l2.2006 2.2005c1.5554-1.1197 3.7365-.981 5.1361.4187l1.7819-1.7818c.3164-.3165.3164-.8374 0-1.1538l-4.401-4.401c-.3165-.319-.8374-.319-1.1539 0zm-2.2881 7.8455-1.2999-1.2999c-.3043-.3043-.8033-.3043-1.1076 0l-4.5836 4.586c-.3042.3043-.3042.8033 0 1.1076l2.5973 2.5973c.3043.3043.8033.3043 1.1076 0l2.9478-2.9527c-.6231-1.2877-.5112-2.8431.3384-4.0383z"/></symbol>
+    <symbol id="si-sonarqube" viewBox="0 0 24 24"><path d="M15.685.386l-.465.766c3.477 2.112 6.305 5.27 7.966 8.89L24 9.67C22.266 5.887 19.313 2.59 15.685.386zM8.462.91l-.305 1.075c6.89 1.976 12.384 7.64 13.997 14.421l1.085-.258C21.535 8.977 15.735 2.997 8.462.909zM0 2.667v1.342c10.963 0 19.883 8.795 19.883 19.605h1.342c0-11.55-9.522-20.947-21.225-20.947z"/></symbol>
+    <symbol id="si-springboot" viewBox="0 0 24 24"><path d="m23.693 10.7058-4.73-8.1844c-.4094-.7106-1.4166-1.2942-2.2402-1.2942H7.2725c-.819 0-1.8308.5836-2.2402 1.2942L.307 10.7058c-.4095.7106-.4095 1.873 0 2.5837l4.7252 8.189c.4094.7107 1.4166 1.2943 2.2402 1.2943h9.455c.819 0 1.826-.5836 2.2402-1.2942l4.7252-8.189c.4095-.7107.4095-1.8732 0-2.5838zM10.9763 5.7547c0-.5365.4377-.9742.9742-.9742s.9742.4377.9742.9742v5.8217c0 .5366-.4377.9742-.9742.9742s-.9742-.4376-.9742-.9742zm.9742 12.4294c-3.6427 0-6.6077-2.965-6.6077-6.6077.0047-2.0896.993-4.0521 2.6685-5.304a.8657.8657 0 0 1 1.2142.1788.8657.8657 0 0 1-.1788 1.2143c-2.1602 1.6048-2.612 4.6592-1.0072 6.8194 1.6049 2.1603 4.6593 2.612 6.8195 1.0072 1.2378-.9177 1.9673-2.372 1.9673-3.9157a4.8972 4.8972 0 0 0-1.9861-3.925c-.386-.2824-.466-.8284-.1836-1.2143.2824-.386.8283-.466 1.2143-.1835 1.6895 1.2471 2.6826 3.2238 2.6873 5.3228 0 3.6474-2.965 6.6077-6.6077 6.6077z"/></symbol>
+    </defs>
+
+    <g transform="translate(70 160)"><circle cx="0" cy="-22" r="14" class="neu"/><path d="M-26 22 Q-26 -4 0 -4 Q26 -4 26 22 Z" class="neu"/></g>
+    <text x="70" y="206" class="t" text-anchor="middle">API client</text>
+    <text x="70" y="222" class="s" text-anchor="middle">via edge TLS</text>
+    <text x="70" y="238" class="s" text-anchor="middle">topologia A</text>
+
+    <use href="#si-springboot" x="320" y="120" width="80" height="80" style="fill:var(--b-spring)"/>
+    <text x="360" y="238" class="t" text-anchor="middle" style="font-weight:600">bank-app</text>
+    <text x="360" y="254" class="s" text-anchor="middle">Spring Boot · Java 21 · :8080</text>
+
+    <use href="#si-postgresql" x="672" y="42" width="56" height="56" style="fill:var(--b-pg)"/>
+    <text x="750" y="50" class="t" style="font-weight:600">postgres</text>
+    <text x="750" y="66" class="s m">postgres:16-alpine</text>
+    <text x="750" y="84" class="s">customers · idempotency_keys</text>
+    <text x="750" y="100" class="s">outbox_events · Flyway V1–V5</text>
+
+    <use href="#si-apachekafka" x="672" y="202" width="56" height="56" style="fill:var(--b-kafka)"/>
+    <text x="750" y="198" class="t" style="font-weight:600">kafka</text>
+    <text x="750" y="214" class="s">3 partições por tópico</text>
+    <text x="750" y="232" class="s m">→ kyc-verification-requested</text>
+    <text x="750" y="248" class="s m">← kyc-verification-completed</text>
+    <text x="750" y="264" class="s m">group bank-app.kyc-verdict</text>
+
+    <text x="1010" y="160" class="t" text-anchor="middle">KYC app</text>
+    <text x="1010" y="176" class="s" text-anchor="middle">externo · sem logo</text>
+    <g transform="translate(1010 210)"><path d="M-34 14 Q-44 14 -42 2 Q-40 -10 -26 -8 Q-22 -26 -2 -24 Q16 -30 22 -12 Q40 -14 40 2 Q40 14 28 14 Z" class="neu" style="stroke-dasharray:5 4"/></g>
+
+    <use href="#si-keycloak" x="222" y="378" width="56" height="56" style="fill:var(--b-keycloak)"/>
+    <text x="250" y="466" class="t" text-anchor="middle" style="font-weight:600">keycloak</text>
+    <text x="250" y="482" class="s" text-anchor="middle">realm bank · :8180</text>
+
+    <use href="#si-opentelemetry" x="442" y="378" width="56" height="56" style="fill:var(--b-otel)"/>
+    <text x="470" y="466" class="t" text-anchor="middle" style="font-weight:600">otel-collector</text>
+    <text x="470" y="482" class="s m" text-anchor="middle">contrib:0.160.0</text>
+
+    <use href="#si-sonarqube" x="662" y="378" width="56" height="56" style="fill:var(--b-sonar);opacity:.55"/>
+    <text x="690" y="466" class="t" text-anchor="middle">sonarqube</text>
+    <text x="690" y="482" class="s" text-anchor="middle">dev tooling · fora do runtime</text>
+
+    <path d="M104 160 H316" class="ln" marker-end="url(#ar6)"/><text x="122" y="152" class="lbl">HTTP · JSON</text>
+    <path d="M404 130 H560 V70 H668" class="ln" marker-end="url(#ar6)"/><text x="588" y="62" class="lbl">JDBC</text>
+    <path d="M404 170 H600 V222 H668" class="ln" marker-end="url(#ar6)"/><text x="430" y="162" class="lbl">produz</text>
+    <path d="M668 240 H580 V190 H404" class="ln" marker-end="url(#ar6)"/><text x="430" y="206" class="lbl">consome</text>
+    <path d="M700 262 V296 H1010 V230" class="ln" marker-start="url(#ar6)" marker-end="url(#ar6)"/><text x="840" y="314" class="lbl">req / resultado</text>
+    <path d="M330 262 V320 H250 V374" class="ln" marker-end="url(#ar6)"/><text x="256" y="346" class="lbl">JWT</text>
+    <path d="M390 262 V320 H470 V374" class="ln" marker-end="url(#ar6)"/><text x="476" y="346" class="lbl">OTLP</text>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Fonte e licença por logo</h3><ul>
+      <li>Pacote <code>simple-icons@13.21.0</code>: CC0-1.0 no geral, mas a licença de cada ícone vale acima disso</li>
+      <li>Apache Kafka: Apache-2.0, marca da ASF (<code>apache.org/foundation/marks</code>)</li>
+      <li>Keycloak: custom, política de marca da Linux Foundation</li>
+      <li>OpenTelemetry: CC-BY-4.0, exige atribuição</li>
+      <li>PostgreSQL, SonarQube, Spring Boot: sem licença própria no pacote, valem as políticas de marca de cada projeto</li>
+    </ul></div>
+    <div><h3>Como a skill usaria</h3><ul>
+      <li>Ícones copiados em <code>project-diagrams/references/icons/&lt;slug&gt;.svg</code>, com um <code>NOTICE</code> listando fonte e licença</li>
+      <li>Mapa <code>image → slug</code> em <code>extensions.json</code> (<code>postgres*</code> → <code>postgresql</code>)</li>
+      <li>É o estilo padrão do blueprint; sem logo mapeado, a peça cai no ícone genérico da 2b</li>
+      <li>Logo preto vira a cor do texto no tema escuro</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 3 USE CASE MAP ============ -->
+<section>
+  <div class="head"><h2>3 · Mapa de use cases</h2><span class="kind">kind: use-cases/map</span></div>
+  <p>Gatilho à esquerda, caso no meio, o que ele escreve ou lê à direita. O status do caso vem do código: tem classe <code>*UseCase</code> ou não. O UC-004 não tem classe própria porque estende o <code>CreateCustomerUseCase</code>. O backlog aparece apagado embaixo.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 1000 490" role="img" aria-label="Mapa de use cases do bank-app">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker></defs>
+    <text x="20" y="28" class="cap">gatilho</text><text x="276" y="28" class="cap">use case</text><text x="716" y="28" class="cap">toca</text>
+    <rect x="20" y="70" width="170" height="40" rx="5" class="in"/><text x="34" y="95" class="t">HTTP · REST</text>
+    <rect x="20" y="300" width="170" height="40" rx="5" class="in"/><text x="34" y="325" class="t">Kafka · resultado KYC</text>
+    <rect x="20" y="370" width="170" height="40" rx="5" class="in"/><text x="34" y="395" class="t">schedule · 1 h</text>
+
+    <rect x="276" y="44"  width="300" height="30" rx="5" class="app"/><text x="288" y="64"  class="t"><tspan class="m">UC-001</tspan>  Create customer</text>
+    <rect x="276" y="84"  width="300" height="30" rx="5" class="app"/><text x="288" y="104" class="t"><tspan class="m">UC-003</tspan>  Get customer</text>
+    <rect x="276" y="124" width="300" height="30" rx="5" class="app"/><text x="288" y="144" class="t"><tspan class="m">UC-004</tspan>  Initiate KYC verification</text>
+    <text x="288" y="170" class="s">em CreateCustomerUseCase</text>
+    <rect x="276" y="182" width="300" height="30" rx="5" class="app"/><text x="288" y="202" class="t"><tspan class="m">UC-006</tspan>  Anonymize customer</text>
+    <rect x="276" y="236" width="300" height="30" rx="5" class="gap"/><text x="288" y="256" class="t"><tspan class="m">UC-007</tspan>  Open account</text><text x="500" y="256" class="s">spec only</text>
+    <rect x="276" y="305" width="300" height="30" rx="5" class="app"/><text x="288" y="325" class="t"><tspan class="m">UC-005</tspan>  Record KYC verdict</text>
+    <rect x="276" y="375" width="300" height="30" rx="5" class="app"/><text x="288" y="395" class="t" style="font-size:12.5px"><tspan class="m">UC-002</tspan>  Prune expired idempotency keys</text>
+
+    <rect x="716" y="60" width="260" height="56" rx="5" class="dom" style="stroke-width:2.6"/><text x="730" y="84" class="t" style="font-weight:600">Customer</text><text x="730" y="104" class="s m">table customers</text>
+    <rect x="716" y="136" width="260" height="30" rx="5" class="out"/><text x="730" y="156" class="t m">outbox_events</text>
+    <rect x="716" y="196" width="260" height="30" rx="5" class="ext"/><text x="730" y="216" class="t m">topic kyc-verification-requested</text>
+    <rect x="716" y="236" width="260" height="30" rx="5" class="gap"/><text x="730" y="256" class="t">Account</text>
+    <rect x="716" y="375" width="260" height="30" rx="5" class="out"/><text x="730" y="395" class="t m">idempotency_keys</text>
+
+    <path d="M190 90 H230 V59 H276" class="ln" marker-end="url(#ar3)"/>
+    <path d="M230 90 V99 H276" class="ln" marker-end="url(#ar3)"/>
+    <path d="M230 99 V139 H276" class="ln" marker-end="url(#ar3)"/>
+    <path d="M230 139 V197 H276" class="ln" marker-end="url(#ar3)"/>
+    <path d="M230 197 V251 H276" class="ln dash" marker-end="url(#ar3)"/>
+    <path d="M190 320 H276" class="ln" marker-end="url(#ar3)"/>
+    <path d="M190 390 H276" class="ln" marker-end="url(#ar3)"/>
+
+    <path d="M576 59 H716 V70" class="ln" marker-end="url(#ar3)"/><text x="600" y="52" class="lbl">INSERT</text>
+    <path d="M576 99 H716" class="ln dash" marker-end="url(#ar3)"/><text x="600" y="93" class="lbl">read</text>
+    <path d="M576 139 H650 V108 H716" class="ln" marker-end="url(#ar3)"/>
+    <path d="M650 139 V151 H716" class="ln" marker-end="url(#ar3)"/><text x="590" y="133" class="lbl">same tx</text>
+    <path d="M846 166 V196" class="ln" marker-end="url(#ar3)"/><text x="854" y="185" class="lbl">relay</text>
+    <path d="M576 197 H680 V112 H716" class="ln" marker-end="url(#ar3)"/><text x="590" y="191" class="lbl">UPDATE</text>
+    <path d="M576 251 H716" class="ln dash" marker-end="url(#ar3)"/><text x="600" y="245" class="lbl">INSERT</text>
+    <path d="M576 320 H696 V114 H716" class="ln" marker-end="url(#ar3)"/><text x="590" y="314" class="lbl">UPDATE status</text>
+    <path d="M576 390 H716" class="ln" marker-end="url(#ar3)"/><text x="600" y="384" class="lbl">DELETE expirados</text>
+
+    <rect x="20" y="420" width="960" height="62" rx="6" class="neu" style="stroke-dasharray:4 4;opacity:.75"/>
+    <text x="36" y="440" class="cap">backlog</text>
+    <text x="36" y="458" class="s m">BL-04 reset dead-lettered outbox row ← UC-004 · BL-05 Keycloak local ← UC-006</text>
+    <text x="36" y="474" class="s m">BL-06 deposit · BL-07 deactivate · BL-08 transfer ← UC-007</text>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Fatos citados</h3><ul>
+      <li><code>uc:UC-001</code> … <code>uc:UC-007</code> (título <code># UC-NNN · …</code>)</li>
+      <li><code>uc:UC-005/trigger</code>, <code>uc:UC-002/side-effects</code> (linhas da tabela de cabeçalho)</li>
+      <li><code>type:RecordKycVerdictUseCase</code> → status implementado</li>
+      <li><code>bl:BL-04</code> … <code>bl:BL-08</code> (<code>BACKLOG.md</code>, tabela ativa)</li>
+    </ul></div>
+    <div><h3>Regras de desenho</h3><ul>
+      <li>O verbo da aresta (INSERT, UPDATE, DELETE, read) vem da linha <code>Side effects</code>; sem verbo, a aresta fica sem rótulo</li>
+      <li>Caso sem classe e sem “extends” declarado na spec = rosa, “spec only”</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 4 USE CASE FLOW ============ -->
+<section>
+  <div class="head"><h2>4 · Fluxo de use case</h2><span class="kind">kind: use-cases/UC-006-anonymize-customer</span></div>
+  <p>À esquerda, a sequência e, à direita, as decisões, os dois tirados dos blocos <code>mermaid</code> da spec do UC-006. Cada participante ganha um ✓ quando o arquivo existe no código. O diagrama não acrescenta nenhum passo além dos que a spec já tem (<code>rules/spec-diagrams.md</code>).</p>
+  <div class="scroll">
+  <svg viewBox="0 0 960 1300" role="img" aria-label="Fluxo do UC-006">
+    <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker></defs>
+    <text x="20" y="26" class="cap">sequência · caminho feliz</text>
+    <rect x="20"  y="40" width="80"  height="40" rx="5" class="neu"/><text x="60"  y="65" class="t" text-anchor="middle">caller</text>
+    <rect x="255" y="40" width="110" height="40" rx="5" class="in"/><text x="310" y="55" class="b" text-anchor="middle">inbound</text><text x="310" y="73" class="b" text-anchor="middle">adapter</text>
+    <rect x="420" y="40" width="140" height="40" rx="5" class="app"/><text x="490" y="55" class="b" text-anchor="middle">AnonymizeCustomer</text><text x="490" y="73" class="b" text-anchor="middle">UseCase</text>
+    <rect x="685" y="40" width="110" height="40" rx="15" class="app"/><text x="740" y="55" class="b" text-anchor="middle">Customer</text><text x="740" y="73" class="b" text-anchor="middle">Repository</text>
+    <rect x="815" y="40" width="90"  height="40" rx="5" class="dom"/><text x="860" y="65" class="b" text-anchor="middle">Customer</text>
+    <g data-badge="code-resolved">
+      <circle cx="560" cy="40" r="8" class="ok"/><path d="M556 40 l3 3 l5 -6" stroke="var(--bg)" stroke-width="2" fill="none"/>
+      <circle cx="795" cy="40" r="8" class="ok"/><path d="M791 40 l3 3 l5 -6" stroke="var(--bg)" stroke-width="2" fill="none"/>
+      <circle cx="905" cy="40" r="8" class="ok"/><path d="M901 40 l3 3 l5 -6" stroke="var(--bg)" stroke-width="2" fill="none"/>
+    </g>
+    <g class="ln dash" style="stroke-dasharray:3 4"><path d="M60 80 V430"/><path d="M310 80 V430"/><path d="M490 80 V430"/><path d="M740 80 V430"/><path d="M860 80 V430"/></g>
+    <path d="M60 120 H310" class="ln" marker-end="url(#ar4)"/><text x="66" y="113" class="lbl">① request, access and id shape checked</text>
+    <path d="M310 170 H490" class="ln" marker-end="url(#ar4)"/><text x="316" y="163" class="lbl">② AnonymizeCustomerCommand</text>
+    <path d="M490 220 H740" class="ln" marker-end="url(#ar4)"/><text x="496" y="213" class="lbl">③ loads Customer by id</text>
+    <path d="M490 270 H860" class="ln" marker-end="url(#ar4)"/><text x="496" y="263" class="lbl">④ anonymizes, rules in the aggregate</text>
+    <path d="M490 320 H740" class="ln" marker-end="url(#ar4)"/><text x="496" y="313" class="lbl">⑤ saves Customer, only when it changed</text>
+    <rect x="560" y="340" width="160" height="40" rx="4" class="dom"/><text x="570" y="357" class="s">note: UPDATE of one</text><text x="570" y="372" class="s">row in customers</text>
+    <path d="M310 410 H60" class="ln dash" marker-end="url(#ar4)"/><text x="70" y="403" class="lbl">⑥ confirmation</text>
+
+    <path d="M20 456 H940" stroke="var(--rule)" stroke-width="1"/>
+    <text x="20" y="484" class="cap">decisões · onde o caso termina</text>
+    <circle cx="200" cy="514" r="16" class="in"/><text x="226" y="518" class="s">anonymization of one customer</text>
+
+    <g>
+      <path d="M200 548 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="580" class="s dt" text-anchor="middle">caller identified and a</text><text x="200" y="594" class="s dt" text-anchor="middle">data protection officer?</text>
+      <path d="M200 644 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="676" class="s dt" text-anchor="middle">id parses as a</text><text x="200" y="690" class="s dt" text-anchor="middle">customer id?</text>
+      <path d="M200 740 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="772" class="s dt" text-anchor="middle">customer with that</text><text x="200" y="786" class="s dt" text-anchor="middle">id exists?</text>
+      <path d="M200 836 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="876" class="s dt" text-anchor="middle">already anonymized?</text>
+      <path d="M200 932 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="964" class="s dt" text-anchor="middle">KYC verification still</text><text x="200" y="978" class="s dt" text-anchor="middle">in progress?</text>
+      <path d="M200 1028 l130 36 l-130 36 l-130 -36 z" class="dec"/><text x="200" y="1060" class="s dt" text-anchor="middle">another writer changed</text><text x="200" y="1074" class="s dt" text-anchor="middle">the customer first?</text>
+      <rect x="130" y="1124" width="140" height="34" rx="17" class="app" style="stroke-width:2.4"/><text x="200" y="1146" class="t" text-anchor="middle" style="font-weight:600">anonymized</text>
+    </g>
+    <path d="M200 530 V548" class="ln" marker-end="url(#ar4)"/>
+    <path d="M200 620 V644" class="ln" marker-end="url(#ar4)"/><text x="208" y="636" class="lbl">yes</text>
+    <path d="M200 716 V740" class="ln" marker-end="url(#ar4)"/><text x="208" y="732" class="lbl">yes</text>
+    <path d="M200 812 V836" class="ln" marker-end="url(#ar4)"/><text x="208" y="828" class="lbl">yes</text>
+    <path d="M200 908 V932" class="ln" marker-end="url(#ar4)"/><text x="208" y="924" class="lbl">no</text>
+    <path d="M200 1004 V1028" class="ln" marker-end="url(#ar4)"/><text x="208" y="1020" class="lbl">no</text>
+    <path d="M200 1100 V1124" class="ln" marker-end="url(#ar4)"/><text x="208" y="1116" class="lbl">no</text>
+
+    <path d="M330 584 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="576" class="lbl">no</text><rect x="400" y="570" width="310" height="28" rx="14" class="neu"/><text x="414" y="588" class="s dt">caller not identified, or without the role</text>
+    <path d="M330 680 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="672" class="lbl">no</text><rect x="400" y="666" width="310" height="28" rx="14" class="neu"/><text x="414" y="684" class="s dt">id does not parse as a customer id</text>
+    <path d="M330 776 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="768" class="lbl">no</text><rect x="400" y="762" width="310" height="28" rx="14" class="neu"/><text x="414" y="780" class="s dt">no customer with that id</text>
+    <path d="M330 872 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="864" class="lbl">yes</text><rect x="400" y="858" width="310" height="28" rx="14" class="neu"/><text x="414" y="876" class="s dt">already anonymized</text>
+    <path d="M330 968 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="960" class="lbl">yes</text><rect x="400" y="954" width="310" height="28" rx="14" class="neu"/><text x="414" y="972" class="s dt">KYC verification still in progress</text>
+    <path d="M330 1064 H400" class="ln" marker-end="url(#ar4)"/><text x="340" y="1056" class="lbl">yes</text><rect x="400" y="1050" width="310" height="28" rx="14" class="neu"/><text x="414" y="1068" class="s dt">another writer changed the customer first</text>
+
+    <path d="M20 1186 H940" stroke="var(--rule)" stroke-width="1"/>
+    <text x="20" y="1212" class="cap">sem mermaid na spec · ex.: UC-005</text>
+    <rect x="20"  y="1226" width="180" height="44" rx="5" class="in"/><text x="32" y="1244" class="s dt">KYC result topic</text><text x="32" y="1260" class="s">Kafka</text>
+    <rect x="230" y="1226" width="180" height="44" rx="5" class="in"/><text x="242" y="1244" class="s dt">KycVerificationCompleted</text><text x="242" y="1260" class="s dt">Listener ✓</text>
+    <rect x="440" y="1226" width="180" height="44" rx="5" class="app"/><text x="452" y="1244" class="s dt">RecordKycVerdictUseCase</text><text x="452" y="1260" class="s dt">✓</text>
+    <rect x="650" y="1226" width="180" height="44" rx="5" class="dom"/><text x="662" y="1244" class="s dt">UPDATE</text><text x="662" y="1260" class="s m">customers.status</text>
+    <path d="M200 1248 H230" class="ln" marker-end="url(#ar4)"/><path d="M410 1248 H440" class="ln" marker-end="url(#ar4)"/><path d="M620 1248 H650" class="ln" marker-end="url(#ar4)"/>
+    <text x="20" y="1292" class="s">só a cadeia Trigger → adapter → use case → Side effects; sem painel de decisões, e o caption avisa “spec has no flowchart”.</text>
+  </svg></div>
+  <div class="sheet">
+    <div><h3>Fatos citados</h3><ul>
+      <li><code>mermaid:UC-006/00-caso-de-uso.md#sequenceDiagram</code> → participantes e mensagens, na ordem do <code>autonumber</code></li>
+      <li><code>mermaid:UC-006/00-caso-de-uso.md#flowchart</code> → decisões e terminais</li>
+      <li><code>type:AnonymizeCustomerUseCase</code>, <code>type:CustomerRepository</code>, <code>type:Customer</code> → ✓</li>
+      <li>UC-005: <code>uc:UC-005/trigger</code>, <code>uc:UC-005/side-effects</code>, <code>type:KycVerificationCompletedListener</code></li>
+    </ul></div>
+    <div><h3>Regras de desenho</h3><ul>
+      <li>Participante com nome de tipo e sem arquivo leva ✗ rosa. É drift entre spec e código, e o <code>doctor</code> aponta</li>
+      <li>Alias de prosa (<code>inbound adapter</code>) não é conferido</li>
+      <li><code>classDiagram</code> e <code>stateDiagram-v2</code> continuam só na spec: o projeto já os mostra no PR, via GitHub</li>
+    </ul></div>
+  </div>
+  <p class="note">De 7 specs, só UC-006 e UC-007 têm blocos <code>mermaid</code>. As outras são anteriores à decisão <code>0143</code>. O caminho de fallback não é exceção: é o caso mais comum hoje.</p>
+</section>
+
+</div>
