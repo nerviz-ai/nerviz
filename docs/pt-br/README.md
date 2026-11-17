@@ -36,6 +36,7 @@ os outros.
 | [14-rules.md](14-rules.md) | O papel de cada rule de `.claude/rules/`: o que só ela decide, onde passa a palavra para outra, o que a verifica — e uma tabela de perguntas de fronteira (quem decide o status, o nível de log, a máscara, o TLS de entrada e de saída). Não repete as normas; aponta para elas |
 | [15-platform-upgrade.md](15-platform-upgrade.md) | Workflow de `/platform-upgrade`: levar um projeto que builda numa linha do Spring Boot abaixo do piso até ele — o modo `upgrade-recipe` e suas duas passadas, o baseline do `test-diff`, os dados que lê (`doctor.platform.upgrade`), o resíduo guiado e a execução do contexto, o que não faz, o que o CI prova |
 | [16-project-config.md](16-project-config.md) | O que um projeto gerado configura no próprio `.claude/`: as três configurações, `ArchHook.jar config` como único escritor, `/project-config`, como adicionar uma nova |
+| [17-project-diagrams.md](17-project-diagrams.md) | Fluxo do `/project-diagrams`: os quatro tipos de diagrama que um projeto gerado ganha de si mesmo (arquitetura, containers com logos dos produtos, mapa de use cases, fluxo de um caso), de onde vem cada fato, a checagem de legibilidade, a linha do `doctor`, PNG com Node opcional |
 
 ## Como este repositório está organizado (referência rápida)
 

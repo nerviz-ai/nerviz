@@ -116,31 +116,31 @@
           <mxGeometry x="374" y="221" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_init-project_1_step_init-project_2" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="302" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="302" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_init-project_3_0_0_1" value="Skill" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="776" y="411" width="33" height="15" as="geometry"/>
+          <mxGeometry x="781" y="411" width="23" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_init-project_3_0_0_0" value="Agent" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="440" y="411" width="33" height="15" as="geometry"/>
+          <mxGeometry x="462" y="407" width="32" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_init-project_5_0_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="443" y="571" width="26" height="15" as="geometry"/>
+          <mxGeometry x="466" y="567" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_init-project_6_0_0_0" value="Skill" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="440" y="651" width="33" height="15" as="geometry"/>
+          <mxGeometry x="472" y="647" width="23" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_ask" value="ask" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="62" y="901" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_confirm" value="confirm" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="136" y="901" width="46" height="15" as="geometry"/>
+          <mxGeometry x="136" y="901" width="40" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_stop" value="stop" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="236" y="901" width="26" height="15" as="geometry"/>
+          <mxGeometry x="236" y="901" width="24" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_decision" value="decision" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="316" y="901" width="53" height="15" as="geometry"/>
+          <mxGeometry x="316" y="901" width="45" height="15" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>

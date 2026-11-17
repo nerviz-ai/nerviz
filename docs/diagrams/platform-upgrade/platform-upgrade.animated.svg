@@ -280,13 +280,13 @@
 <text x="384" y="584" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
 </g>
 <g id="tool_chip_step_platform-upgrade_4b_0_0_0" class="r" style="animation-delay:2.80s">
-<text x="428" y="694" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="452" y="690" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="no-label_step_platform-upgrade_4_step_platform-upgrade_4b" class="r" style="animation-delay:2.80s">
 <text x="202" y="665" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
 <g id="tool_chip_step_platform-upgrade_5_0_0_0" class="r" style="animation-delay:3.50s">
-<text x="428" y="774" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="452" y="770" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="yes-label_step_platform-upgrade_5_0" class="r" style="animation-delay:4.35s">
 <text x="384" y="872" font-size="11" text-anchor="middle" fill="#52606D">yes</text>
@@ -295,13 +295,13 @@
 <text x="202" y="945" font-size="11" text-anchor="start" fill="#52606D">no</text>
 </g>
 <g id="tool_chip_step_platform-upgrade_7_0_0_0" class="r" style="animation-delay:6.10s">
-<text x="428" y="1142" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="452" y="1138" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="tool_chip_step_platform-upgrade_9_0_0_0" class="r" style="animation-delay:8.20s">
-<text x="428" y="1383" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="452" y="1374" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="tool_chip_step_platform-upgrade_9_0_1_0" class="r" style="animation-delay:8.20s">
-<text x="428" y="1413" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
+<text x="452" y="1441" font-size="11" text-anchor="middle" fill="#52606D">Bash</text>
 </g>
 <g id="yes-label_step_platform-upgrade_9_0" class="r" style="animation-delay:9.05s">
 <text x="384" y="1512" font-size="11" text-anchor="middle" fill="#52606D">yes</text>

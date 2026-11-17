@@ -91,7 +91,7 @@
 <line x1="748" y1="1688" x2="748" y2="1712" stroke="#52606D" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
 </g>
 <g id="edge-skip_term_step_new-feature_short_0" class="r" style="animation-delay:11.20s">
-<polyline fill="none" points="1220,520 1448,520 1448,1440 748,1440 748,1472" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline fill="none" points="1220,520 1448,520 1448,1440 762,1440 762,1476" stroke="#52606D" stroke-width="1.5" marker-end="url(#arrow)"/>
 </g>
 <g id="root_new-feature">
 <rect x="588" y="96" width="320" height="64" rx="8" fill="#E4F1DE" stroke="#4C8C3A" stroke-width="1.5"/>

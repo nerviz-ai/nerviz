@@ -20,7 +20,7 @@ real project.
 | Flow | Command | Ends with |
 |---|---|---|
 | 1 · Create the spec | `/new-feature <description>` (or `UC-NNN-slug` of a draft to resume) | the spec approved, and the commands to type next: `/clear` · `/git-publish …` (the approved spec's paths) · `/new-feature-implement UC-NNN-slug` |
-| 2 · Implement the spec | `/new-feature-implement UC-NNN-slug` over an `approved` spec, after `/clear` | the pre-flight, then `java-spring-boot-developer` in three chained groups — `domain` (blocks 1–2) → `adapters` (H, 3, S, M, J) → `tests` (block 4) — `status: implemented`, and the commands to type next: `/clear` · `/git-publish …` (the feature commit) · `/new-feature <next>` |
+| 2 · Implement the spec | `/new-feature-implement UC-NNN-slug` over an `approved` spec, after `/clear` | the pre-flight, then `java-spring-boot-developer` in three chained groups — `domain` (blocks 1–2) → `adapters` (H, 3, S, M, J) → `tests` (block 4) — `status: implemented`, and the commands to type next: `/clear` · `/git-publish …` (the feature commit) · `/project-diagrams UC-NNN-slug` (the case's flow diagram, printed, never run by the flow) · `/new-feature <next>` |
 
 The design leaves the main thread at 250–370k tokens of context; implementing on top of it
 would pay for that on every hand-back — and on a chained `git-publish`, which is why neither flow chains it: each prints the `/git-publish` line to type after `/clear`. Each executor group starts again

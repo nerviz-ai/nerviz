@@ -206,61 +206,61 @@
           <mxGeometry x="374" y="237" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_platform-upgrade_1_step_platform-upgrade_2" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="318" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="318" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_yes-label_step_platform-upgrade_2_0" value="yes" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="374" y="365" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_platform-upgrade_2_step_platform-upgrade_3" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="438" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="438" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_yes-label_step_platform-upgrade_4_0" value="yes" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="374" y="573" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_platform-upgrade_4b_0_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="415" y="683" width="26" height="15" as="geometry"/>
+          <mxGeometry x="438" y="679" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_platform-upgrade_4_step_platform-upgrade_4b" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="654" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="654" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_platform-upgrade_5_0_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="415" y="763" width="26" height="15" as="geometry"/>
+          <mxGeometry x="438" y="759" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_yes-label_step_platform-upgrade_5_0" value="yes" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="374" y="861" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_verdict_step_platform-upgrade_5_0_step_platform-upgrade_5b" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="934" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="934" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_platform-upgrade_7_0_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="415" y="1131" width="26" height="15" as="geometry"/>
+          <mxGeometry x="438" y="1127" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_platform-upgrade_9_0_0_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="415" y="1372" width="26" height="15" as="geometry"/>
+          <mxGeometry x="438" y="1363" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_tool_chip_step_platform-upgrade_9_0_1_0" value="Bash" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="415" y="1402" width="26" height="15" as="geometry"/>
+          <mxGeometry x="438" y="1430" width="29" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_yes-label_step_platform-upgrade_9_0" value="yes" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="374" y="1501" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_verdict_step_platform-upgrade_9_0_step_platform-upgrade_10" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="202" y="1574" width="13" height="15" as="geometry"/>
+          <mxGeometry x="202" y="1574" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_ask" value="ask" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="62" y="1773" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_stop" value="stop" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="136" y="1773" width="26" height="15" as="geometry"/>
+          <mxGeometry x="136" y="1773" width="24" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_gate" value="gate" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="216" y="1773" width="26" height="15" as="geometry"/>
+          <mxGeometry x="216" y="1773" width="25" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_decision" value="decision" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="296" y="1773" width="53" height="15" as="geometry"/>
+          <mxGeometry x="296" y="1773" width="45" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_conditional" value="conditional" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="403" y="1773" width="73" height="15" as="geometry"/>
+          <mxGeometry x="403" y="1773" width="58" height="15" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>

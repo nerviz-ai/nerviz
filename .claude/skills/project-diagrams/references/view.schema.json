@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "nerviz-diagrams/view.schema.json",
-  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md, .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md and .claude/decisions/0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md. The gate vocabulary of the step contract (references/step-contract.md) is $defs.gate.enum, the gate words that branch are $defs.branchGate.enum, and the limits of the texts a step declares are $defs.branchCondition, branchLine and phaseNote (validated by the same interpreter, their x-fix printed): Diagrams.java reads all of it from here, never from a constant.",
+  "$id": "project-diagrams/view.schema.json",
+  "$comment": "The contract of docs/diagrams/<view>/view.json. Diagrams.java validate reads THIS file and interprets a subset of JSON Schema 2020-12: type, enum, required, properties, additionalProperties (false), items, minItems, minLength, pattern, oneOf, $ref to #/$defs and the non-standard x-fix (the sentence printed after an error). Anything else here is documentation. Every entity cites evidence (a fact id or a selector over facts); free text exists only in title, caption and a group's caption label. Design: .claude/decisions/0190-nerviz-diagrams-skill-derived-from-data.md, .claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md (the project kinds), .claude/decisions/0192-nerviz-diagrams-draws-the-orchestrators.md and .claude/decisions/0193-nerviz-diagrams-branches-phases-and-one-stepped-kind.md. The gate vocabulary of the step contract (references/step-contract.md) is $defs.gate.enum, the gate words that branch are $defs.branchGate.enum, and the limits of the texts a step declares are $defs.branchCondition, branchLine and phaseNote (validated by the same interpreter, their x-fix printed): Diagrams.java reads all of it from here, never from a constant.",
   "title": "nerviz-diagrams view",
   "type": "object",
   "additionalProperties": false,
-  "required": ["kind", "title", "groups"],
+  "required": ["kind", "title"],
   "properties": {
     "kind": {
-      "enum": ["layers", "classes", "territory", "orchestrator"],
-      "x-fix": "kind is one of layers, classes, territory, orchestrator; an orchestrator view draws a skill's steps, and derive picks its layout"
+      "enum": ["layers", "classes", "territory", "orchestrator", "architecture", "blueprint", "usecase-map", "usecase-flow"],
+      "x-fix": "kind is one of layers, classes, territory, orchestrator (--source harness; an orchestrator view draws a skill's steps, and derive picks its layout) or architecture, blueprint, usecase-map, usecase-flow (--source project; they cite facts and take their layout from them)"
     },
     "skill": {
       "type": "string",
@@ -19,6 +19,21 @@
     "title": { "type": "string", "minLength": 1 },
     "caption": { "type": "string" },
     "groups": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/group" } },
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "x-fix": "facts lists the fact ids or selectors (\"type:*\") a project view draws; a harness view uses groups"
+    },
+    "style": {
+      "enum": ["brand", "icons", "boxes"],
+      "x-fix": "style is brand (the product logos, the default), icons (a generic icon per role) or boxes (a rectangle with text) — the blueprint view only"
+    },
+    "uc": {
+      "type": "string",
+      "pattern": "^UC-[0-9]+$",
+      "x-fix": "uc is the number of the use case a usecase-flow view draws, as in uc:UC-006"
+    },
     "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
     "steps": {
       "type": "array",

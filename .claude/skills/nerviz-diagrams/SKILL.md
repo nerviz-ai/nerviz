@@ -32,15 +32,17 @@ class has: `docs/diagrams/**`. The closest rejected form was an `ArchHook.java` 
 
 ## Procedure
 
-Run every command from the repository root. No network at run time; `npm ci` in step 5 is the
+The engine, its visual identity, its view schema, the step contract and the PNG export live in
+`.claude/skills/project-diagrams/` (`@.claude/decisions/0211-project-diagrams-skill-sharing-the-diagram-engine.md`);
+this skill is its meta-only caller, always with `--source harness`. Run every command from the repository root. No network at run time; `npm ci` in step 5 is the
 only download, and nothing is ever `npx`-ed from an unpinned package.
 
-1. **Facts.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java facts` writes
+1. **Facts.** `java .claude/skills/project-diagrams/scripts/Diagrams.java facts --source harness` writes
    `docs/diagrams/facts.json` (gitignored): `layer:*`, `class:*`, `agentclass:*`, `skill:*`,
    `agent:*`, `cmd:*` (the modes of `ArchHook.java`), `handoff:*` and `step:<skill>:<id>`,
    each with a stable id. Read it to learn what you may cite.
 2. **Compose.** Write or adjust `docs/diagrams/<view>/view.json` per
-   `references/view.schema.json` and `references/visual-identity.md`. Every entity node is
+   `.claude/skills/project-diagrams/references/view.schema.json` and `visual-identity.md`. Every entity node is
    `{"fact":"<id>"}` or a selector `{"from":"<path into facts>"}` (`step:*`, or
    `class:design.members`, `step:<skill>:*`). Free text lives only in `title`, `caption` and a
    group's caption label. `steps` gives the animation order of `layers`, `classes` and `territory`
@@ -49,18 +51,18 @@ only download, and nothing is ever `npx`-ed from an unpinned package.
    last carries `skill`, names only that skill's steps (`{"from":"step:<skill>:*"}`), picks its
    layout with `derive` (`sequence`: one column with the chips of who runs each step;
    `depends_on`: rows with the dependencies) and reads the step contract of
-   `references/step-contract.md`.
-3. **Validate.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java validate`.
+   `.claude/skills/project-diagrams/references/step-contract.md`.
+3. **Validate.** `java .claude/skills/project-diagrams/scripts/Diagrams.java validate --source harness`.
    Every fact id and selector must resolve against facts extracted now.
-4. **Render.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java render` writes
+4. **Render.** `java .claude/skills/project-diagrams/scripts/Diagrams.java render --source harness` writes
    `<view>.drawio`, `<view>.excalidraw`, `<view>.svg` and `<view>.animated.svg` beside the view.
-5. **Export (optional).** Once per machine, copy the skill's `package.json` and
-   `package-lock.json` into `"${XDG_CACHE_HOME:-$HOME/.cache}/nerviz-diagrams"` and run
+5. **Export (optional).** Once per machine, copy `project-diagrams`'s `package.json` and
+   `package-lock.json` (`.claude/skills/project-diagrams/`) into `"${XDG_CACHE_HOME:-$HOME/.cache}/nerviz-diagrams"` and run
    `npm ci --prefix "${XDG_CACHE_HOME:-$HOME/.cache}/nerviz-diagrams" --no-update-notifier --no-audit --no-fund`.
-   Then `node .claude/skills/nerviz-diagrams/scripts/export.mjs <view> [--video]` writes
+   Then `node .claude/skills/project-diagrams/scripts/export.mjs <view> [--video]` writes
    `docs/diagrams/<view>/dist/<view>.png` (and `.webm` with `--video`) and a
    `<file>.source-sha256` holding the SHA-256 of the SVG it came from.
-6. **Check.** `java .claude/skills/nerviz-diagrams/scripts/Diagrams.java check` — what CI runs.
+6. **Check.** `java .claude/skills/project-diagrams/scripts/Diagrams.java check --source harness` — what CI runs.
 
 Never hand-edit a rendered file: edit `view.json` and render again. Never write under
 `docs/use-cases/`.
@@ -79,10 +81,12 @@ branch gate word with no `**Stops when:**` line, a condition or line past its li
 `**Depends on:**` or `**To:**` naming a step written after the reader, a field line outside the block
 under its heading, a `**Note:**` on a one-phase step:
 `facts`, `validate` and `check` exit 2 naming file and line, so CI goes red by name. Fix the
-skill's step, or `references/step-contract.md` and the extractor in the same change.
+skill's step, or `.claude/skills/project-diagrams/references/step-contract.md` and the extractor in the same change.
 
 **Unresolved fact id.** A piece was renamed or removed: `validate` names the view, the JSON
 path and nearby ids. Update the view.
+
+**Illegible label.** `validate`, `render` and `check` also exit 2 on a label that lies over text, a shape's outline or a line (`TEXT×TEXT`, `TEXT×SHAPE`, `TEXT×LINE`, `OUT OF VIEWBOX`); fix the layout, not the facts.
 
 **Stale render.** `check` lists each file that differs from a fresh render, or a `dist/` file
 whose `.source-sha256` is not its SVG's hash. Run `render` (and `export.mjs` for `dist/`).
@@ -93,10 +97,10 @@ whose `.source-sha256` is not its SVG's hash. Run `render` (and `export.mjs` for
 `docs/diagrams/**`, nothing else. `ArchHook.java guard` enforces it.
 
 **Reads** `.claude/schemas/extensions.json`, the `SKILL.md` of every skill a view names (its
-steps, per `references/step-contract.md`), the `switch (mode)` dispatch of
+steps, per `project-diagrams/references/step-contract.md`), the `switch (mode)` dispatch of
 `.claude/hooks/ArchHook.java`, the frontmatter of the skills and agents those steps cite, the
 `.claude/` tree on disk, `.claude/settings.json`,
-`.mcp.json` when present, and this skill's `references/`.
+`.mcp.json` when present, and `project-diagrams`'s `references/`.
 
 **Writes** `docs/diagrams/**` only.
 

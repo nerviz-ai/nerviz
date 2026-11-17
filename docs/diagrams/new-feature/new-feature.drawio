@@ -190,7 +190,7 @@
             <Array as="points">
               <mxPoint x="1448" y="520"/>
               <mxPoint x="1448" y="1440"/>
-              <mxPoint x="748" y="1440"/>
+              <mxPoint x="762" y="1440"/>
             </Array>
           </mxGeometry>
         </mxCell>
@@ -204,25 +204,25 @@
           <mxGeometry x="930" y="1501" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_new-feature_guardrail_step_new-feature_1" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="758" y="286" width="13" height="15" as="geometry"/>
+          <mxGeometry x="758" y="286" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_new-feature_short_step_new-feature_2" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="758" y="574" width="13" height="15" as="geometry"/>
+          <mxGeometry x="758" y="574" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_no-label_step_new-feature_approval_step_new-feature_report" value="no" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="758" y="1574" width="13" height="15" as="geometry"/>
+          <mxGeometry x="758" y="1574" width="15" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_ask" value="ask" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
           <mxGeometry x="62" y="1837" width="20" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_stop" value="stop" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="136" y="1837" width="26" height="15" as="geometry"/>
+          <mxGeometry x="136" y="1837" width="24" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_decision" value="decision" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="216" y="1837" width="53" height="15" as="geometry"/>
+          <mxGeometry x="216" y="1837" width="45" height="15" as="geometry"/>
         </mxCell>
         <mxCell id="t_legend-text_conditional" value="conditional" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=nowrap;fontSize=11;fontFamily=Inter;fontColor=#52606D;" vertex="1" parent="1">
-          <mxGeometry x="323" y="1837" width="73" height="15" as="geometry"/>
+          <mxGeometry x="323" y="1837" width="58" height="15" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>

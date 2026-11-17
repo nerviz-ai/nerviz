@@ -396,7 +396,7 @@ jobs:
       # view), a dist/ hash — goes red by name (0190).
       - name: committed diagrams match the data they cite
         run: |
-          java .claude/skills/nerviz-diagrams/scripts/Diagrams.java check
+          java .claude/skills/project-diagrams/scripts/Diagrams.java check
           java .claude/.ci/DiagramsTest.java
 
       - name: decisions/ doesn't grow paths or enter 00-index.md

@@ -85,6 +85,7 @@ every skill belongs to exactly one of seven classes, and the class declares both
 | `observer` | `arch-doctor`, `audit-usage` | nothing |
 | `meta` | `claude-code-architect-designer` | `.claude/**`, `CLAUDE.md`, `.mcp.json`, `docs/**`, `.github/**` |
 | `ops` | `git-publish`, `triage-issue` | nothing — its effect is `git`, or a comment on an issue of this repo, over Bash |
+| `media` | `nerviz-diagrams` (this repository only), `project-diagrams` (travels) | `docs/diagrams/**` — nothing else; `blocked_during_design`, `sonnet` |
 | `report` | `sonar-lessons`, `report-issue`, `harness-lessons` | `docs/lessons-learned/**` — `harness-lessons` also `.claude/lessons-learned/harness-*.md`, its folder in this repository, where `docs/` is public — and, for `report-issue` only and after a confirmation, an issue outside the tree, over `gh` |
 
 `ArchHook.java schema` enforces the structure (the class declared in the body as
