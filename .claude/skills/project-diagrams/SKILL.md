@@ -55,7 +55,7 @@ project's trademark policy); the `image → slug` map is data in `extensions.jso
 and an external system fall back to the generic role icon of `icons` (cylinder, partition bands,
 shield, funnel, cloud); a black logo takes the text colour. `icons` and `boxes` stay for a
 project that wants no brand mark. In this repository the word "blueprint" also names the
-architecture blueprint (`.claude/blueprints/`), so this skill calls the kind "the blueprint view"
+active architecture blueprint, so this skill calls the kind "the blueprint view"
 and never bare "blueprint".
 
 Drawing rules: a spec-only element (no type in `src/`) is rose dashed and labelled `spec only`; a
@@ -122,7 +122,7 @@ the blueprint views still render.
 
 **Reads** `src/main/java/**`, `docs/use-cases/**`, `docker-compose.yml`,
 `src/main/resources/application*.yml`, `src/main/resources/db/migration/**`,
-`.claude/blueprints/<active>/<active>.yaml`, `.claude/forbidden-imports.txt`, and this skill's `references/`.
+the active blueprint's YAML, `.claude/forbidden-imports.txt`, and this skill's `references/`.
 
 **Writes** `docs/diagrams/**` only — never under `docs/use-cases/` (`0143`).
 

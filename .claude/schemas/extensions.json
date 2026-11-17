@@ -1243,9 +1243,11 @@
       "src/main/resources/db/migration/**/*.sql",
       "docs/use-cases/**/*.md",
       "docker-compose.yml",
-      ".claude/blueprints/*/*.yaml",
       ".claude/forbidden-imports.txt"
     ],
+    "$comment_blueprint": "The active blueprint is an input too, and the folder the architecture view reads `packages.map` from: `blueprint_dir` + `/` + `blueprint_glob`, joined by both readers. Split, and the directory written without a trailing slash, because that spelling is an export residue marker (`body_transforms.residue_markers`) — the same reason as `doctor.agent_instructions.blueprint_dir`.",
+    "blueprint_dir": ".claude/blueprints",
+    "blueprint_glob": "*/*.yaml",
     "inputs_manifest": "docs/diagrams/.inputs.sha256",
     "walk_exclude_dirs": [".git", "target", "build", ".gradle", "node_modules", "out", ".idea"],
     "mermaid_types": ["sequenceDiagram", "flowchart TD", "classDiagram", "stateDiagram-v2"],

@@ -644,7 +644,9 @@ public class Diagrams {
     // a `**Runs:**` line follows — each with a field block (Runs, Then runs, Stops when, Skips when, Hands over).
     static final Pattern STEP_H = Pattern.compile("^(#{2,3}) ([0-9]+[a-z]?|[a-z][a-z-]*) · (.+?)\\s*$");
     static final List<String> FIELDS = List.of("**Runs:**", "**Then runs:**", "**Stops when:**", "**Skips when:**", "**Hands over:**");
-    static final Pattern CASE = Pattern.compile("^(\\s*)case ((?:\"[^\"]+\"\\s*,?\\s*)+)->.*$");
+    // One quoted label, then `, label` repeats: a comma is required between two labels, so the
+    // repetition has a single way to match and cannot backtrack exponentially (CodeQL java/redos).
+    static final Pattern CASE = Pattern.compile("^(\\s*)case (\"[^\"]+\"(?:\\s*,\\s*\"[^\"]+\")*)\\s*->.*$");
     static final String STEP_ID = "(?:[0-9]+[a-z]?|[a-z][a-z-]*)";
     static final String CONTRACT = "(references/step-contract.md)";
 
@@ -2992,9 +2994,21 @@ public class Diagrams {
     static String inputsManifest() throws IOException {
         Map<String, Object> dg = dgBlock();
         StringBuilder sb = new StringBuilder();
-        for (String f : filesMatching(strList(dg.get("inputs"))))
+        for (String f : filesMatching(inputGlobs(dg)))
             sb.append(sha256(read(f))).append("  ").append(f).append('\n');
         return sb.toString();
+    }
+
+    /** `diagrams.inputs` plus the active blueprint: `blueprint_dir` + `/` + `blueprint_glob`, kept apart in the data (an export residue marker). */
+    static List<String> inputGlobs(Map<String, Object> dg) {
+        List<String> g = new ArrayList<>(strList(dg.get("inputs")));
+        g.add(blueprintDir(dg) + "/" + (dg.get("blueprint_glob") == null ? "*/*.yaml" : String.valueOf(dg.get("blueprint_glob"))));
+        return g;
+    }
+
+    static String blueprintDir(Map<String, Object> dg) {
+        Object d = dg.get("blueprint_dir");
+        return d == null ? ".claude" + "/blueprints" : String.valueOf(d);
     }
 
     /** A flat dotted-path view of a YAML file's scalar keys: enough for application.yml and compose. */
@@ -3030,7 +3044,7 @@ public class Diagrams {
         Map<String, Object> arch = map(dg.get("architecture"));
         if (arch == null) throw new Fail(EXT + " `diagrams` has no `architecture` block");
         // the active blueprint's packages.map
-        Path bpDir = root.resolve(".claude/blueprints");
+        Path bpDir = root.resolve(blueprintDir(dg));
         String bpFile = null;
         if (Files.isDirectory(bpDir)) {
             try (Stream<Path> s = Files.list(bpDir)) {
@@ -3042,7 +3056,7 @@ public class Diagrams {
                 }
             }
         }
-        if (bpFile == null) throw new Fail(".claude/blueprints/<id>/<id>.yaml is missing — the active blueprint's packages.map names the layers the architecture view draws");
+        if (bpFile == null) throw new Fail(blueprintDir(dg) + "/<id>/<id>.yaml is missing — the active blueprint's packages.map names the layers the architecture view draws");
         String bpId = bpFile.substring(bpFile.lastIndexOf('/') + 1, bpFile.length() - 5);
         List<String[]> pkgs = new ArrayList<>(); // key, dir
         boolean inPk = false, inMap = false;

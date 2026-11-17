@@ -1176,6 +1176,9 @@ public class ArchHook {
             }
             List<Pattern> ps = new ArrayList<>();
             for (Object g : asList(dg.get("inputs"))) ps.add(diagramsGlob((String) g));
+            // The active blueprint, kept apart in the data: `.claude/blueprints/` is an export residue marker.
+            String bpDir = asStr(dg.get("blueprint_dir")), bpGlob = asStr(dg.get("blueprint_glob"));
+            if (bpDir != null && bpGlob != null) ps.add(diagramsGlob(bpDir + "/" + bpGlob));
             Set<String> skip = new HashSet<>();
             for (Object o : asList(dg.get("walk_exclude_dirs"))) skip.add((String) o);
             List<String> now = new ArrayList<>();

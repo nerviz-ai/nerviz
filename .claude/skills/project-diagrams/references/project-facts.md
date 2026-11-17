@@ -8,7 +8,7 @@ their logos, the trigger words — is the `diagrams` block of `@.claude/schemas/
 
 | Prefix | Id | Comes from | Carries |
 |---|---|---|---|
-| `project:` | `project:info` | the active blueprint (`.claude/blueprints/<id>/<id>.yaml`), `application*.yml` | blueprint id, base package, `spring.application.name` |
+| `project:` | `project:info` | the active blueprint's YAML, `application*.yml` | blueprint id, base package, `spring.application.name` |
 | `pkg:` | `pkg:<key>` | a key of the blueprint's `packages.map`, found under `src/main/java` | directory, the `type:` ids it holds |
 | `type:` | `type:<SimpleName>` | one `.java` file under a mapped package | package key, `role` (first match of `diagrams.architecture.roles`), declaration kind, `uses` (other types its source names), `implements` (ports) |
 | `impl:` | `impl:<Adapter>.<Port>` | an `implements` clause **read in the source** | the adapter and the port |
