@@ -6338,6 +6338,7 @@ public class ArchHook {
         }
 
         checkExportCitations(exp, errors);
+        checkExportSkillPaths(exp, errors);
     }
 
     /**
@@ -6359,6 +6360,36 @@ public class ArchHook {
         List<String> excluded = asStrList(get(exp, "skills", "exclude"));
         if (excluded.isEmpty()) return;
         Set<String> exempt = new HashSet<>(asStrList(get(exp, "body_transforms", "residue_exempt")));
+        List<Path> files = exportedFileSet(exp);
+
+        for (String id : excluded) {
+            java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
+                    "(?<![A-Za-z0-9_-])" + java.util.regex.Pattern.quote(id)
+                            + "/(SKILL\\.md|references/|templates/)");
+            for (Path f : files) {
+                String rel = ROOT.relativize(f).toString().replace('\\', '/');
+                if (exempt.contains(rel)) continue;
+                byte[] raw = Files.readAllBytes(f);
+                String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+                String[] lines = text.split("\n", -1);
+                for (int i = 0; i < lines.length; i++) {
+                    java.util.regex.Matcher m = pat.matcher(lines[i]);
+                    while (m.find()) {
+                        errors.add("  " + rel + ":" + (i + 1) + " cites `" + m.group() + "` — skill `" + id
+                                + "` is in export.skills.exclude, so the path does not exist inside a"
+                                + " generated project. Cite a file that travels, or say it in prose.");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The files an export ships whose text a check reads: the kept subdirectories of every
+     * included skill, every included agent, every rule not excluded, and the active-blueprint
+     * files {@code export.blueprint_copy} names. {@code residue_exempt} is the caller's to apply.
+     */
+    private static List<Path> exportedFileSet(Map<String, Object> exp) throws IOException {
         List<Path> files = new ArrayList<>();
 
         String skillsDir = asStr(get(exp, "skills", "from"));
@@ -6398,23 +6429,58 @@ public class ArchHook {
                 }
             }
         }
+        return files;
+    }
 
-        for (String id : excluded) {
+    /**
+     * Refuses an exported file that cites a path inside an included skill that the export does
+     * not write into a generated project: the first segment is outside {@code export.skills.keep}
+     * and no {@code copy}, {@code overwrite}, {@code optional_copy} or {@code binary_copy}
+     * destination equals the path or lies under it. Every list is read from the `export` block;
+     * returns at once when {@code export.skills} is absent.
+     *
+     * <p>Form 7c of `claude-code-architect-designer`, run by `schema` at sweep time (Stop, or a manual run) — motivated by axis 7: `project-diagrams` reached generated projects without the engine every step of its procedure runs (issue #218), because `export.skills.keep` writes three entries of a skill and nothing compared what an exported file cites against them. The closest rejected form was adding the engine's directory to the global `keep`, which would undo the keep-list and send code through `transform`. Design: .claude/decisions/0212-project-diagrams-engine-travels-verbatim-and-exported-skill-paths-checked.md
+     */
+    static void checkExportSkillPaths(Map<String, Object> exp, List<String> errors) throws IOException {
+        if (asMap(exp.get("skills")) == null) return;
+        List<String> ids = asStrList(get(exp, "skills", "include"));
+        if (ids.isEmpty()) return;
+        List<String> keep = asStrList(get(exp, "skills", "keep"));
+        Set<String> exempt = new HashSet<>(asStrList(get(exp, "body_transforms", "residue_exempt")));
+        List<String> dests = new ArrayList<>();
+        for (String k : List.of("copy", "overwrite", "optional_copy", "binary_copy")) {
+            for (Object e : asList(exp.get(k))) {
+                String to = asStr(get(e, "to"));
+                if (to != null) dests.add(to);
+            }
+        }
+        List<Path> files = exportedFileSet(exp);
+        for (String id : ids) {
+            String base = ".claude/skills/" + id + "/";
             java.util.regex.Pattern pat = java.util.regex.Pattern.compile(
-                    "(?<![A-Za-z0-9_-])" + java.util.regex.Pattern.quote(id)
-                            + "/(SKILL\\.md|references/|templates/)");
+                    "(?<![A-Za-z0-9_-])" + java.util.regex.Pattern.quote(".claude/skills/" + id)
+                            + "/([A-Za-z0-9_.*{}<>/-]+)");
             for (Path f : files) {
                 String rel = ROOT.relativize(f).toString().replace('\\', '/');
                 if (exempt.contains(rel)) continue;
-                byte[] raw = Files.readAllBytes(f);
-                String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+                String text = new String(Files.readAllBytes(f), java.nio.charset.StandardCharsets.UTF_8);
                 String[] lines = text.split("\n", -1);
                 for (int i = 0; i < lines.length; i++) {
                     java.util.regex.Matcher m = pat.matcher(lines[i]);
                     while (m.find()) {
-                        errors.add("  " + rel + ":" + (i + 1) + " cites `" + m.group() + "` — skill `" + id
-                                + "` is in export.skills.exclude, so the path does not exist inside a"
-                                + " generated project. Cite a file that travels, or say it in prose.");
+                        String rest = m.group(1).replaceAll("[.,:;]+$", "").replaceAll("/+$", "");
+                        if (rest.isEmpty()) continue;
+                        String first = rest.contains("/") ? rest.substring(0, rest.indexOf('/')) : rest;
+                        if (keep.contains(first)) continue;
+                        String full = base + rest;
+                        boolean ok = false;
+                        for (String to : dests) {
+                            if (to.equals(full) || to.startsWith(full + "/")) { ok = true; break; }
+                        }
+                        if (ok) continue;
+                        errors.add("  " + rel + ":" + (i + 1) + " cites `" + m.group() + "` — the export writes no such path into a generated project: `"
+                                + first + "` is outside export.skills.keep and no export.copy entry writes it."
+                                + " Add a `copy` entry (verbatim for code), or cite a file that travels.");
                     }
                 }
             }
