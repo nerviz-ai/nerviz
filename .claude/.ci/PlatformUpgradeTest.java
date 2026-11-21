@@ -83,6 +83,8 @@ public class PlatformUpgradeTest {
         Matcher cloud = Pattern.compile("\"spring-cloud\"\\s*:\\s*\\{[^}]*\"version\"\\s*:\\s*\"([^\"]+)\"").matcher(metadata);
         if (!cloud.find()) { fail("the Initializr lists no spring-cloud BOM — the case has nothing to move"); System.exit(1); }
         String newTrain = cloud.group(1), oldTrain = trainBefore(newTrain);
+        // A SNAPSHOT train is not on Maven Central: the mode leaves the project's train as it is.
+        if (newTrain.endsWith("-SNAPSHOT")) newTrain = oldTrain;
         System.out.println("Spring Cloud train " + oldTrain + " → " + newTrain + " (the Initializr's)");
 
         try {
@@ -123,7 +125,7 @@ public class PlatformUpgradeTest {
         checks(app, "pom.xml", target, "spring-boot-starter-webmvc");
         String pom0 = Files.readString(app.resolve("pom.xml"));
         expectIn(pom0, "<spring-cloud.version>" + newTrain + "</spring-cloud.version>", "pom.xml: the Spring Cloud BOM moved to the Initializr's train");
-        if (pom0.contains(oldTrain)) fail("pom.xml still carries the old Spring Cloud train " + oldTrain);
+        if (!oldTrain.equals(newTrain) && pom0.contains(oldTrain)) fail("pom.xml still carries the old Spring Cloud train " + oldTrain);
         expectIn(pom0, "<artifactId>spring-boot-starter-flyway</artifactId>", "pom.xml: flyway-core renamed to its starter");
         expectIn(pom0, "<artifactId>spring-boot-starter-cache</artifactId>", "pom.xml: the cache starter added, @EnableCaching being used");
         if (Pattern.compile("<artifactId>spring-boot-starter-(cache|aspectj)</artifactId>\\s*<version>").matcher(pom0).find()) {
@@ -203,7 +205,7 @@ public class PlatformUpgradeTest {
         checks(app, "build.gradle", target, "spring-boot-starter-webmvc");
         String gradle0 = Files.readString(app.resolve("build.gradle"));
         expectIn(gradle0, "set('springCloudVersion', \"" + newTrain + "\")", "build.gradle: the Spring Cloud BOM moved to the Initializr's train");
-        if (gradle0.contains(oldTrain)) fail("build.gradle still carries the old Spring Cloud train " + oldTrain);
+        if (!oldTrain.equals(newTrain) && gradle0.contains(oldTrain)) fail("build.gradle still carries the old Spring Cloud train " + oldTrain);
         expectIn(gradle0, "org.springframework.boot:spring-boot-starter-flyway", "build.gradle: flyway-core renamed to its starter");
         if (!Pattern.compile("org\\.springframework\\.boot:spring-boot-starter-cache['\"]").matcher(gradle0).find()) {
             fail("build.gradle: the cache starter is missing, or carries a version the BOM manages:\n" + gradle0);

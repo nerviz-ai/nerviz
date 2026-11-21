@@ -1765,6 +1765,11 @@ public class ArchHook {
         entries.addAll(deps == null ? List.of() : deps.values());
         for (Object e : entries) {
             String group = asStr(get(e, "groupId")), artifact = asStr(get(e, "artifactId")), version = asStr(get(e, "version"));
+            if (version != null && version.endsWith("-SNAPSHOT")) {
+                // Maven Central does not serve it: writing it would leave the build unable to resolve the BOM.
+                err("ℹ️  upgrade-recipe: " + group + ":" + artifact + " is " + version + " in the Initializr's metadata — left as it is.");
+                continue;
+            }
             if (group != null && artifact != null && version != null) found.putIfAbsent(group + ":" + artifact, version);
         }
         return found;
