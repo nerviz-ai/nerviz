@@ -97,6 +97,14 @@ public class ArchHook {
             case "compose" -> args.length > 1 && "gate".equals(args[1]) ? readAll(System.in) : "";
             default -> "";
         };
+        // The write modes read one payload shape; the Copilot CLI's native edit names the same
+        // fields differently (decision 0213). Translated once here, never inside a mode.
+        if ("format".equals(mode) || "schema".equals(mode)
+                || ("check".equals(mode) && args.length <= 1)
+                || ("audit".equals(mode) && args.length > 1 && "file".equals(args[1]))
+                || ("guard".equals(mode) && (args.length <= 1 || "write".equals(args[1])))) {
+            stdin = canonicalInput(stdin);
+        }
         HOOK_EVENT = hookEvent(stdin);
         if (!"doctor".equals(mode)) {
             // Never through ERR: a refusal repeats ERR on stdout as its reason, and this is no refusal.
@@ -7162,6 +7170,8 @@ public class ArchHook {
         Pattern archRe = archShape == null ? null : Pattern.compile(archShape);
         String psFrom = asStr(get(sch, "settings", "archhook_powershell", "from"));
         String psTo = asStr(get(sch, "settings", "archhook_powershell", "to"));
+        String psSuffix = asStr(get(sch, "settings", "archhook_powershell", "suffix"));
+        if (psSuffix == null) psSuffix = "";
 
         for (Map.Entry<String, Object> ev : hooks.entrySet()) {
             String event = ev.getKey();
@@ -7209,7 +7219,7 @@ public class ArchHook {
                                     + "` is not a hook entry field");
                         }
                     }
-                    checkHookEntry(where, h, entryTypes, badChars, archRe, psFrom, psTo, errors);
+                    checkHookEntry(where, h, entryTypes, badChars, archRe, psFrom, psTo, psSuffix, errors);
                 }
             }
         }
@@ -7294,7 +7304,7 @@ public class ArchHook {
      */
     static void checkHookEntry(String where, Map<String, Object> h, List<String> entryTypes,
                                List<String> badChars, Pattern archRe, String psFrom, String psTo,
-                               List<String> errors) {
+                               String psSuffix, List<String> errors) {
         String type = asStr(h.get("type"));
         if (type != null && !entryTypes.isEmpty() && !entryTypes.contains(type)) {
             errors.add("  " + where + " — `type: " + type + "` has no handler here."
@@ -7324,8 +7334,11 @@ public class ArchHook {
         // same command with the placeholder in its `$env:` form; the field is derived, never free.
         String powershell = asStr(h.get("powershell"));
         if (powershell != null) {
+            // The one `;` the field admits is the fixed suffix (0213); everything before it is judged.
+            String body = !psSuffix.isEmpty() && powershell.endsWith(psSuffix)
+                    ? powershell.substring(0, powershell.length() - psSuffix.length()) : powershell;
             for (String bad : badChars) {
-                if (powershell.contains(bad)) {
+                if (body.contains(bad)) {
                     errors.add("  " + where + " — `powershell` contains `" + bad
                             + "`: a hook command is one process — no pipe, chain, redirect"
                             + " or substitution");
@@ -7334,7 +7347,7 @@ public class ArchHook {
             }
         }
         if (psFrom != null && psTo != null && command != null && command.contains("ArchHook.")) {
-            String expected = command.replace(psFrom, psTo);
+            String expected = command.replace(psFrom, psTo) + psSuffix;
             if (powershell == null) {
                 errors.add("  " + where + " — an ArchHook entry needs `powershell`: under Windows"
                         + " the Copilot CLI runs `command` in PowerShell, where " + psFrom
@@ -7342,7 +7355,8 @@ public class ArchHook {
                         + expected + "\"");
             } else if (!powershell.equals(expected)) {
                 errors.add("  " + where + " — `powershell` is `" + powershell + "`, expected `"
-                        + expected + "`: `command` with " + psFrom + " replaced by " + psTo);
+                        + expected + "`: `command` with " + psFrom + " replaced by " + psTo
+                        + (psSuffix.isEmpty() ? "" : " and `" + psSuffix + "` appended, so the exit code survives"));
             }
         } else if (powershell != null && (command == null || !command.contains("ArchHook."))) {
             errors.add("  " + where + " — `powershell` on an entry that does not launch ArchHook:"
@@ -10850,7 +10864,87 @@ public class ArchHook {
                 if (hit != null) return hit;
             }
         }
+        List<String> psReaders = asStrList(shapes.get("powershell_commands"));
+        return psReaders.isEmpty() ? null : powershellSecretRead(sch, psReaders, markers, outOps, cmd);
+    }
+
+    /**
+     * The PowerShell half of {@link #bashSecretRead}: a segment whose head is one of
+     * `guard.secret_read_shapes.powershell_commands` (compared case-insensitively) reads every
+     * operand it names. The shell call of the Copilot CLI reaches `guard bash` as `Bash` whatever
+     * its shell, and `\` there is a path separator, not an escape, so these segments are cut by
+     * {@link #psSegments} and the sh tokenizer stays untouched for every other one. A flag is
+     * skipped except `-Path`/`-LiteralPath`, whose value is an operand; a comma list is several
+     * operands; the target of an output redirect is a write; an unresolvable marker is skipped
+     * (the bar of 0063). Design: `.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+     */
+    static String powershellSecretRead(Map<String, Object> sch, List<String> readers, List<String> markers,
+                                       List<String> outOps, String cmd) {
+        Set<String> names = new HashSet<>();
+        for (String r : readers) names.add(r.toLowerCase(Locale.ROOT));
+        for (List<Tok> seg : psSegments(cmd)) {
+            if (seg.isEmpty()) continue;
+            String head = seg.get(0).text().replaceFirst("^[(@$]+", "").toLowerCase(Locale.ROOT);
+            if (!names.contains(head)) continue;
+            for (int i = 1; i < seg.size(); i++) {
+                Tok t = seg.get(i);
+                if (!t.quoted() && outOps.contains(t.text())) { i++; continue; }
+                String text = t.text();
+                if (!t.quoted() && text.startsWith("-") && text.length() > 1) {
+                    int colon = text.indexOf(':');
+                    String flag = (colon < 0 ? text : text.substring(0, colon)).substring(1).toLowerCase(Locale.ROOT);
+                    if (!flag.equals("path") && !flag.equals("literalpath") && !flag.equals("lp")) continue;
+                    if (colon >= 0) text = text.substring(colon + 1);
+                    else if (i + 1 < seg.size()) text = seg.get(++i).text();
+                    else continue;
+                }
+                for (String part : text.replaceAll("[)]+$", "").split(",")) {
+                    String hit = secretOperand(sch, markers, new Tok(part.strip().replace('\\', '/'), t.quoted()));
+                    if (hit != null) return hit;
+                }
+            }
+        }
         return null;
+    }
+
+    /**
+     * Cuts a command into segments the PowerShell way for {@link #powershellSecretRead}: `\` is an
+     * ordinary character, a backtick escapes the next one, a quote keeps what it encloses whole,
+     * and `;`, `|`, `&` or a newline ends a segment. `>` and `>>` come out as their own token.
+     */
+    static List<List<Tok>> psSegments(String cmd) {
+        List<List<Tok>> segs = new ArrayList<>();
+        List<Tok> cur = new ArrayList<>();
+        StringBuilder tok = new StringBuilder();
+        boolean quoted = false, started = false;
+        char quote = 0;
+        for (int i = 0; i < cmd.length(); i++) {
+            char c = cmd.charAt(i);
+            if (quote != 0) {
+                if (c == quote) quote = 0; else tok.append(c);
+                continue;
+            }
+            if (c == '\'' || c == '"') { quote = c; quoted = true; started = true; continue; }
+            if (c == '`' && i + 1 < cmd.length()) { tok.append(cmd.charAt(++i)); quoted = true; started = true; continue; }
+            boolean sep = c == ';' || c == '|' || c == '&' || c == '\n' || c == '\r';
+            if (Character.isWhitespace(c) || sep || c == '>') {
+                if (started) cur.add(new Tok(tok.toString(), quoted));
+                tok.setLength(0); quoted = false; started = false;
+                if (c == '>') {
+                    StringBuilder op = new StringBuilder().append(c);
+                    while (i + 1 < cmd.length() && cmd.charAt(i + 1) == '>') { op.append('>'); i++; }
+                    cur.add(new Tok(op.toString(), false));
+                } else if (sep && !cur.isEmpty()) {
+                    segs.add(cur); cur = new ArrayList<>();
+                }
+                continue;
+            }
+            tok.append(c);
+            started = true;
+        }
+        if (started) cur.add(new Tok(tok.toString(), quoted));
+        if (!cur.isEmpty()) segs.add(cur);
+        return segs;
     }
 
     static String secretOperand(Map<String, Object> sch, List<String> markers, Tok tok) {
@@ -11519,6 +11613,41 @@ public class ArchHook {
     }
 
     // ── utilities ────────────────────────────────────────────────────────────
+
+    /**
+     * The write modes' stdin with the Copilot CLI's native edit names translated to the ones
+     * Claude Code sends — `guard.tool_input_aliases` of extensions.json, canonical name to its
+     * aliases. Only when `tool_input` is an object that holds an alias and not its canonical
+     * name does the envelope come back re-serialized; every other payload, a Claude Code one
+     * included, is returned byte for byte. A string `tool_input` (the apply_patch of 0169) is
+     * {@link #patchPayloads}'s. Design: `.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+     */
+    static String canonicalInput(String stdin) {
+        if (stdin == null || stdin.isBlank()) return stdin;
+        Map<String, Object> env = asMap(Json.parse(stdin));
+        Map<String, Object> ti = asMap(get(env, "tool_input"));
+        if (ti == null) return stdin;
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> aliases = asMap(get(sch, "guard", "tool_input_aliases"));
+        if (aliases == null) return stdin;
+        Map<String, Object> fixed = new LinkedHashMap<>(ti);
+        boolean changed = false;
+        for (Map.Entry<String, Object> a : aliases.entrySet()) {
+            if (ti.containsKey(a.getKey())) continue;
+            for (String alias : asStrList(a.getValue())) {
+                if (ti.containsKey(alias)) {
+                    fixed.remove(alias);
+                    fixed.put(a.getKey(), ti.get(alias));
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if (!changed) return stdin;
+        Map<String, Object> out = new LinkedHashMap<>(env);
+        out.put("tool_input", fixed);
+        return jsonOf(out);
+    }
 
     /** Extracts tool_input.file_path from the stdin JSON without an external library. */
     static String filePath(String json) {

@@ -172,3 +172,5 @@ the variable set to this repository.
 - `build --verify`: the committed jar equals the source with the new rules.
 - Not proven in CI: that the Copilot CLI prefers the field — Capture 5, by hand.
 - `settings.json` is read only at startup: restart Claude Code.
+
+Update (0213): every `powershell` field now ends with `; exit $LASTEXITCODE`, the exit code the `-Command` form lost — see `0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.

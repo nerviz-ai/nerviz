@@ -324,6 +324,21 @@ API fails the PR that raises it. Nothing a person or a generated project runs ne
 | `claude plugin validate` | The marketplace and each mod, read the way the engine reads them; fails on any `gating hook without .catch` line | What `ModsSchemaTest` checks as data, proven against the engine's own parser |
 | `claude plugin test` | Each mod's `tests/*.test.ts` against the engine's own `$` — no session, sign-in or network | The TypeScript itself: the band, the spinner left untouched, the guard dialog, `/nerviz-doctor` where nothing draws |
 
+## The sibling workflow: `copilot-live.yml`
+
+Path-filtered on the hook, its jar, `extensions.json`, both settings files, the test and itself, plus
+a weekly schedule and `workflow_dispatch`; not a required check; matrix ubuntu and windows;
+`permissions: contents: read`, 15 minutes. It installs the Copilot CLI from npm at `copilot.ci_version`
+(read with `sed` from the `copilot` block) and runs the real CLI against a scratch project. The secret
+`COPILOT_GITHUB_TOKEN` reaches only the test step's `env`; with it empty (a fork PR, no secret) the step
+prints `skipped: no COPILOT_GITHUB_TOKEN` and passes. Design:
+`.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+
+| Step | Verifies | Against what |
+|---|---|---|
+| `install the Copilot CLI` | The pinned version installs and answers `--version` | `copilot.ci_version` of `extensions.json` |
+| `five scenarios against the real CLI` | `CopilotLiveTest.java`: a native edit of an approved spec, a native create in the frozen folder, a shell read of `.env`, a native create with a forbidden import, and the deny reason reaching the model are all refused; a scenario where the tool was never called is retried once, then fails | What the CLI really sends today, which every stubbed test only assumes |
+
 ## What's not here yet
 
 - Invariant 9 (the generated project is self-contained) is now **half** covered: the

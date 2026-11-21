@@ -181,3 +181,5 @@ path built by expansion. The VS Code `matcher` and `toolArgs` as a string are un
 
 What CI cannot prove: that the Copilot CLI and the VS Code load `.github/hooks/archhook.json` and match
 `view|read_file`. That is step E1′.
+
+Update (0213): `guard bash` also refuses the PowerShell readers of `guard.secret_read_shapes.powershell_commands` — see `0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.

@@ -322,6 +322,21 @@ projeto gerado roda precisa dele (mods ficam neste repositório). Design:
 | `claude plugin validate` | O marketplace e cada mod, lidos como o engine lê; falha em qualquer linha `gating hook without .catch` | O que o `ModsSchemaTest` checa como dado, provado contra o parser do próprio engine |
 | `claude plugin test` | Os `tests/*.test.ts` de cada mod contra o `$` do próprio engine — sem sessão, login nem rede | O TypeScript em si: a faixa, o spinner deixado intocado, o diálogo do guard, `/nerviz-doctor` onde nada desenha |
 
+## O workflow vizinho: `copilot-live.yml`
+
+Filtrado por paths no hook, no jar, no `extensions.json`, nos dois settings, no teste e nele mesmo, mais
+um agendamento semanal e `workflow_dispatch`; não é check obrigatório; matriz ubuntu e windows;
+`permissions: contents: read`, 15 minutos. Instala o Copilot CLI via npm em `copilot.ci_version` (lido
+com `sed` do bloco `copilot`) e roda o CLI real contra um projeto descartável. O secret
+`COPILOT_GITHUB_TOKEN` chega só no `env` do passo do teste; vazio (PR de fork, sem secret) o passo
+imprime `skipped: no COPILOT_GITHUB_TOKEN` e passa. Design:
+`.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+
+| Passo | Verifica | Contra o quê |
+|---|---|---|
+| `install the Copilot CLI` | A versão fixada instala e responde `--version` | `copilot.ci_version` do `extensions.json` |
+| `five scenarios against the real CLI` | `CopilotLiveTest.java`: edição nativa de spec aprovada, create nativo na pasta congelada, leitura de `.env` pelo shell, create nativo com import proibido e o motivo da recusa chegando ao modelo são todos recusados; cenário em que a ferramenta nunca foi chamada é repetido uma vez e depois falha | O que o CLI realmente manda hoje, que todo teste com stub só supõe |
+
 ## O que ainda não está aqui
 
 - Invariante 9 (o projeto gerado é self-contained) está coberto **pela metade**: o passo

@@ -56,7 +56,7 @@ jobs:
       - name: install the Claude Code CLI the mods are tested against
         run: |
           set -euo pipefail
-          V=$(sed -n 's/^ *"ci_version": *"\([^"]*\)".*/\1/p' .claude/schemas/extensions.json)
+          V=$(sed -n '/^  "mods": {/,/^  },*$/ s/^ *"ci_version": *"\([^"]*\)".*/\1/p' .claude/schemas/extensions.json)
           [ -n "$V" ] || { echo "❌ no mods.ci_version in extensions.json"; exit 1; }
           npm install --global --no-audit --no-fund "@anthropic-ai/claude-code@$V"
           claude --version

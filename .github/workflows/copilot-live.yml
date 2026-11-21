@@ -1,0 +1,87 @@
+name: copilot-live
+
+# Runs the REAL GitHub Copilot CLI against a scratch project and proves the hooks of this
+# repository still refuse what they must, on the payloads the CLI sends today.
+# Every other check stubs the CLI with payloads somebody captured once; none proves it still
+# sends them, which is how 1.0.98 -> 1.0.114 changed the shape of an edit unseen.
+# The test is .claude/.ci/CopilotLiveTest.java; five scenarios, asserted on the filesystem and
+# on the CLI's output, never on the model's words. A scenario where the model never called the
+# tool is retried once and then fails the job: a silent pass is worse than a red one.
+# Design: .claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md
+#
+# The secret. The CLI authenticates from COPILOT_GITHUB_TOKEN (a fine-grained token with the
+# Copilot Requests permission), passed through `env:` and written nowhere. A fork pull request,
+# or a repository with no secret, gets an empty value: the step prints
+# `skipped: no COPILOT_GITHUB_TOKEN` and exits 0 — green, but visibly skipped.
+#
+# Cost. Five short prompts per OS, synthetic files only, nothing of this repository is sent to
+# the service; credits are spent on the owner's Copilot plan, so the schedule is weekly.
+#
+# Path-filtered and not a required check, like mods.yml: a required check on a path-filtered
+# workflow stays pending forever on the PRs it skips.
+on:
+  push:
+    branches: [main]
+    # Same list under both triggers — keep them identical.
+    paths:
+      - '.claude/hooks/ArchHook.java'
+      - '.claude/hooks/ArchHook.jar'
+      - '.claude/schemas/extensions.json'
+      - '.claude/settings.json'
+      - '.claude/skills/project-bootstrap/templates/settings.json.example'
+      - '.claude/.ci/CopilotLiveTest.java'
+      - '.github/workflows/copilot-live.yml'
+  pull_request:
+    paths:
+      - '.claude/hooks/ArchHook.java'
+      - '.claude/hooks/ArchHook.jar'
+      - '.claude/schemas/extensions.json'
+      - '.claude/settings.json'
+      - '.claude/skills/project-bootstrap/templates/settings.json.example'
+      - '.claude/.ci/CopilotLiveTest.java'
+      - '.github/workflows/copilot-live.yml'
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copilot-live-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  copilot:
+    name: copilot CLI meets the hooks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # sed, not a JSON tool: the file writes one key per line, and the version has one owner.
+      # Scoped to the `copilot` block: `mods.ci_version` has the same key name.
+      - name: install the Copilot CLI the hooks are tested against
+        run: |
+          set -euo pipefail
+          V=$(sed -n '/^  "copilot": {/,/^  },*$/ s/^ *"ci_version": *"\([^"]*\)".*/\1/p' .claude/schemas/extensions.json)
+          [ -n "$V" ] || { echo "❌ no copilot.ci_version in extensions.json"; exit 1; }
+          npm install --global --no-audit --no-fund "@github/copilot@$V"
+          copilot --version
+
+      - name: five scenarios against the real CLI
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: java .claude/.ci/CopilotLiveTest.java

@@ -79,6 +79,28 @@ public class ApplyPatchTest {
                 "guard write · CHANGELOG.md inside the frozen folder — admitted");
         expect("guard", "write", claudeEdit(SPEC, "# UC-900", "# UC-900\n- probe"), 2, "immutable",
                 "guard write · Claude Code `Edit` with file_path — refused, as before");
+
+        // The Copilot CLI 1.0.114 native edit: `Edit` {path, old_str, new_str} and `Write` {path,
+        // file_text}, absolute path (captured, decision 0213). The same frozen spec judges them.
+        expect("guard", "write", copilotEdit(SPEC, "status: approved", "status: implemented"), 0, null,
+                "guard write · native Edit {path, old_str, new_str} closing the status — admitted");
+        expect("guard", "write", copilotEdit(SPEC, "- [ ] a", "- [x] a"), 0, null,
+                "guard write · native Edit toggling `[ ]` → `[x]` — admitted");
+        expect("guard", "write", copilotEdit(SPEC, "# UC-900", "# UC-900\n- probe"), 2, "immutable",
+                "guard write · native Edit changing the spec — refused");
+        expect("guard", "write", copilotEdit(SPEC, "- [ ] a", "- [x] b"), 2, "immutable",
+                "guard write · native Edit toggling and changing a word — refused");
+        expect("guard", "write", copilotWrite(SPEC, "# overwritten\n"), 2, "UC-900-probe",
+                "guard write · native Write {path, file_text} onto a frozen spec — refused");
+        expect("guard", "write", copilotWrite("docs/use-cases/UC-900-probe/extra.md", "x\n"), 2, "UC-900-probe",
+                "guard write · native Write of a new file in a frozen folder — refused");
+        expect("guard", "write", copilotWrite("docs/use-cases/UC-900-probe/CHANGELOG.md", "x\n"), 0, null,
+                "guard write · native Write of CHANGELOG.md in a frozen folder — admitted");
+        expect("guard", "write", copilotWrite("notes/free.md", "x\n"), 0, null,
+                "guard write · native Write outside every frozen folder — admitted");
+        expect("guard", "write", copilotEdit(SPEC, "# UC-900", "# UC-900\n- probe")
+                        .replace("\"path\":", "\"filePath\":"), 2, "immutable",
+                "guard write · the `filePath` spelling — refused");
         spec("draft");
         expect("guard", "write", d4Spec, 0, null,
                 "guard write · the captured D4 patch on a draft spec — admitted");
@@ -106,6 +128,15 @@ public class ApplyPatchTest {
                 "org.springframework.", "check · the same file through a relative path — refused");
         write(MODEL + "Probe.java", "package com.example.probesingle.domain.model;\n\npublic class Probe {}\n");
         expect("check", null, d1Add, 0, null, "check · captured D1 Add, clean file — admitted");
+        write(MODEL + "Probe.java", "package com.example.probesingle.domain.model;\n\n"
+                + "import org.springframework.stereotype.Component;\n\n@Component\npublic class Probe {}\n");
+        expect("check", null, copilotWrite(MODEL + "Probe.java", "x"), 2, "org.springframework.",
+                "check · native Write {path, file_text}, forbidden import — refused");
+        expect("check", null, copilotEdit(MODEL + "Probe.java", "a", "b"), 2, "org.springframework.",
+                "check · native Edit {path, old_str, new_str}, forbidden import — refused");
+        write(MODEL + "Probe.java", "package com.example.probesingle.domain.model;\n\npublic class Probe {}\n");
+        expect("check", null, copilotWrite(MODEL + "Probe.java", "x"), 0, null,
+                "check · native Write, clean file — admitted");
 
         // ── format (PostToolUse) ─────────────────────────────────────────────
         Files.writeString(root.resolve("pom.xml"), "<project/>\n");
@@ -127,6 +158,9 @@ public class ApplyPatchTest {
         write(".claude/skills/bad/SKILL.md", "---\nname: bad\ndescription: x\nnot_a_field: 1\n---\n\n# bad\n");
         expect("schema", null, patch("*** Update File: .claude/skills/bad/SKILL.md\n@@\n-x\n+y\n"), 2,
                 "not_a_field", "schema · patch on a SKILL.md with an unknown field — refused, naming it");
+        expect("schema", null, copilotWrite(".claude/skills/fresh/SKILL.md",
+                        "---\nname: fresh\ndescription: x\nnot_a_field: 1\n---\n\n# fresh\n"), 2,
+                "not_a_field", "schema · native Write {path, file_text}, content read before it is written — refused");
         expect("schema", null, patch("*** Update File: notes/plain.md\n@@\n-x\n+y\n"), 0, null,
                 "schema · patch on a file no type matches while another is invalid — no sweep, exit 0");
 
@@ -134,6 +168,11 @@ public class ApplyPatchTest {
         Path state = root.resolve(".claude/audit-usage/.state");
         Files.createDirectories(state);
         Path trail = state.resolve(session + ".ndjson");
+        Files.writeString(trail, "");
+        expect("audit", "file", copilotWrite("notes/native.md", "x"), 0, null,
+                "audit file · native Write {path, file_text} — exit 0");
+        check(Files.readString(trail).contains("notes/native.md"),
+                "audit file · the native Write's path is recorded");
         Files.writeString(trail, "");
         expect("audit", "file", d1Add, 0, null, "audit file · captured D1 Add — exit 0");
         String events = Files.readString(trail);
@@ -186,6 +225,20 @@ public class ApplyPatchTest {
         return "{\"session_id\":\"" + session + "\",\"tool_name\":\"Edit\",\"tool_input\":{"
                 + "\"file_path\":\"" + json(root.resolve(rel).toString()) + "\","
                 + "\"old_string\":\"" + json(oldS) + "\",\"new_string\":\"" + json(newS) + "\"}}";
+    }
+
+    /** The Copilot CLI 1.0.114 native `Edit`: {path, old_str, new_str}, absolute path. */
+    static String copilotEdit(String rel, String oldS, String newS) {
+        return "{\"session_id\":\"" + session + "\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Edit\","
+                + "\"tool_input\":{\"path\":\"" + json(root.resolve(rel).toString()) + "\","
+                + "\"old_str\":\"" + json(oldS) + "\",\"new_str\":\"" + json(newS) + "\"}}";
+    }
+
+    /** The Copilot CLI 1.0.114 native create, sent under `Write`: {path, file_text}, absolute path. */
+    static String copilotWrite(String rel, String text) {
+        return "{\"session_id\":\"" + session + "\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\","
+                + "\"tool_input\":{\"path\":\"" + json(root.resolve(rel).toString()) + "\","
+                + "\"file_text\":\"" + json(text) + "\"}}";
     }
 
     static String json(String s) {
