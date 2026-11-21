@@ -33,7 +33,7 @@ Design, exit codes, and commit order:
 | Field | For what |
 |---|---|
 | `name` | Identifier. Lowercase and hyphens |
-| `description` | **The field that decides whether the skill is invoked.** Concrete use case first, trigger phrases after. Truncated to 1536 characters in the listing |
+| `description` | **The field that decides whether the skill is invoked.** Concrete use case first, trigger phrases and prerequisites after. Maximum 1024 characters after YAML folding (`types.skill.max_description_chars` in the schema), for Claude Code and Copilot compatibility; Copilot CLI 1.0.114 rejects a longer value |
 | `when_to_use` | Extra trigger phrases |
 | `argument-hint` | Autocomplete hint, e.g. `"[usecase-name]"` |
 | `arguments` | Positional names, for `$name` substitution |

@@ -1,18 +1,15 @@
 ---
 name: graphql-api-architect
 description: >
-  Designs the inbound GraphQL adapter of an already-modeled use case — schema-first, Spring for
-  GraphQL on the servlet stack — into the `31-graphql.md` partial: the root fields and the input port
-  each calls (the same port a REST adapter calls), types and nullability, mutation inputs and
-  payloads with `userErrors`, Relay connections with a page ceiling, `@BatchMapping` child fields and
-  the batch ports they ask for, the error map, field-level access, personal data per output field,
-  and — on the project's first GraphQL case — the depth, complexity, timeout, batch-size,
-  introspection, GraphiQL and CORS setup, plus a quota per caller or a concurrency cap when the use
-  case states one. Use when the request involves GraphQL, a schema or `.graphqls` file, a query or
-  mutation, a resolver, `@QueryMapping`, `@BatchMapping`, DataLoader, N+1 in GraphQL, a connection or
-  cursor, GraphQL errors, or a rate limit on the GraphQL endpoint. Piece of the `/new-feature` pipeline:
-  requires `10-domain.md` and a `00-use-case.md` whose `Trigger` names a GraphQL adapter in the
-  given folder — and stops without them.
+  Designs the schema-first inbound GraphQL adapter of an already-modeled use case on the servlet
+  stack into `31-graphql.md`: root fields/ports, nullability, mutation `userErrors`, Relay
+  pagination, batching, errors, field access, personal data, depth/complexity/timeout/batch-size
+  limits, introspection, GraphiQL, CORS, caller quotas and concurrency caps. Use when the request
+  involves GraphQL, a schema or `.graphqls` file, a query or mutation, a resolver,
+  `@QueryMapping`, `@BatchMapping`, DataLoader, N+1 in GraphQL, a connection or cursor, GraphQL
+  errors, or a rate limit on the GraphQL endpoint. Piece of the `/new-feature` pipeline: requires
+  `10-domain.md` and a `00-use-case.md` whose `Trigger` names a GraphQL adapter in the given
+  folder - and stops without them.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(curl:*)
 model: opus

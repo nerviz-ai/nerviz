@@ -106,7 +106,8 @@ jobs:
 
       # Decision 0174: Claude Code's frontmatter parser forgives an unquoted `: `, GitHub
       # Copilot's refuses it and drops the file. `schema` scans by hand, with no YAML library,
-      # so each shape it refuses or reads is a case (lessons-learned-022 § 9).
+      # so each shape it refuses or reads is a case (lessons-learned-022 § 9). Decision 0215
+      # adds the 1024-character skill `description` cap GitHub Copilot's loader enforces.
       - name: schema refuses frontmatter a strict YAML parser refuses
         run: java .claude/.ci/FrontmatterYamlTest.java
 

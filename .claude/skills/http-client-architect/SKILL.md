@@ -1,18 +1,16 @@
 ---
 name: http-client-architect
 description: >
-  Designs the outbound HTTP adapter of an already-modeled use case — which client (HTTP interface
-  with @HttpExchange over RestClient, RestClient directly, OpenAPI Generator, WebClient for a
-  stream, OpenFeign as legacy), the engine and its pool (Apache HttpClient 5, JDK HttpClient,
-  Reactor Netty), timeouts, the retry allowlist and the one retrying layer, circuit breaker and
-  bulkhead, outbound authentication (OAuth2 client credentials, token relay, API key, Basic, mutual
-  TLS, HMAC signing), how each failure maps to the integration exception families, and the
-  WireMock test cases — into the `28-http-client.md` partial. Use when the request involves
-  calling an external API, a third-party or partner service, a payment gateway, a REST client, an
-  HTTP client, RestClient, RestTemplate, WebClient, Feign, @HttpExchange, a timeout or retry on a
-  remote call, a circuit breaker, or "the provider is down". Piece of the `/new-feature` pipeline:
-  requires `10-domain.md` in the given folder with a port of kind `external HTTP`, and stops
-  without it.
+  Designs an already-modeled use case's outbound HTTP adapter into `28-http-client.md`:
+  @HttpExchange/RestClient, OpenAPI Generator, WebClient streams, legacy OpenFeign; Apache
+  HttpClient 5/JDK HttpClient/Reactor Netty pools, timeouts, retry allowlist/one retrying layer,
+  circuit breaker, bulkhead, OAuth2 client credentials, token relay, API key, Basic, mutual TLS,
+  HMAC, failure translation and WireMock cases. Servlet applications only. Use when the request
+  involves calling an external API, a third-party or partner service, a payment gateway, a REST
+  client, an HTTP client, RestClient, RestTemplate, WebClient, Feign, @HttpExchange, a timeout or
+  retry on a remote call, a circuit breaker, or "the provider is down". Piece of the
+  `/new-feature` pipeline: requires `10-domain.md` in the given folder with a port of kind
+  `external HTTP`, and stops without it.
 argument-hint: "[path of the UC-NNN-<slug> folder]"
 allowed-tools: Read, Write, Glob, Grep, AskUserQuestion, Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(sort:*), Bash(curl:*)
 model: opus

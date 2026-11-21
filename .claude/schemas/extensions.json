@@ -5,6 +5,8 @@
 
   "types": {
     "skill": {
+      "$comment_max_description_chars": "Largest `description` a skill may carry after its folded or quoted scalar is joined to one line. GitHub Copilot's native loader rejects a longer one with `Skill description must be at most 1024 characters` and drops the skill, while Claude Code reads it, so only a deterministic check sees the defect. `schema` reads this value; the designer skill, both skill exemplars and the frontmatter reference show it as derived. Design: .claude/decisions/0215-skill-discovery-and-writer-session-alias.md",
+      "max_description_chars": 1024,
       "match": ".claude/skills/*/SKILL.md",
       "case": "kebab",
       "native_commands": [
@@ -457,6 +459,10 @@
   "tests": {
     "$comment": "Read by ArchHook.java `tests`. `tests agent-start` (SubagentStart) and `tests agent-end` (SubagentStop), registered only in project-bootstrap/templates/settings.json.example, keep one marker per `agent_id` for every agent whose class in `agent_classes` has `executor: true`; the `Stop` gate defers, exit 0 with one stderr line, while a marker younger than `writer_agent_max_minutes` exists. A background executor's Stop otherwise ran Maven over its half-written tree and blocked a main thread that cannot write src/ (issue #76). The cap is what an agent killed by machine sleep, which never reaches SubagentStop, costs: past it the marker is deleted and the gate runs again. The marker is read by `guard` too, through the neutral helper `executorsOpen` (decision 0210). Design: .claude/decisions/0116-tests-defers-while-a-writer-subagent-runs.md",
     "writer_agent_max_minutes": 120,
+    "$comment_input_aliases": "Names the session field under another spelling, canonical name to its aliases, read by `canonicalSessionInput` for the `tests` lifecycle only. Copilot's SubagentStart sends `sessionId` where its SubagentStop and Claude Code send `session_id`; without this the marker is written under `unknown` and Stop never finds it. The canonical key wins when both are present. No agent_id or agent_type alias, and the other modes are untouched. Design: .claude/decisions/0215-skill-discovery-and-writer-session-alias.md",
+    "input_aliases": {
+      "session_id": ["sessionId"]
+    },
     "$comment_stop_maven_args": "What the `Stop` gate hands the Maven wrapper after `-q -o -pl <changed modules> -am`. `verify`, because the generated POM binds spotless:check and checkstyle-test there, and a gate stopping at `test` printed green on a tree CI's `./mvnw clean verify` rejects (issue #126). `-DskipITs` and `-Djacoco.skip=true` keep Docker and the coverage gate out of every turn end: integration tests need Testcontainers, and JaCoCo's check blocks mid-feature before the tests exist — the executor's own `verify` and CI run both. A project with a network-bound plugin of its own at `verify` adds its skip flag here; the gate runs offline. A missing or empty list blocks, naming this key. Design: .claude/decisions/0142-stop-gate-runs-verify-without-its.md",
     "stop_maven_args": ["verify", "-DskipITs", "-Djacoco.skip=true"]
   },
