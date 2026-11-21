@@ -97,12 +97,42 @@ public class SecretReadTest {
             check(r.code == 0 && r.out.isEmpty(), "guard bash · `" + c + "` — exit 0");
         }
 
+        // ── guard bash, PowerShell readers (decision 0213) ───────────────────
+        // The Copilot CLI's `powershell` tool reaches `guard bash` as `Bash`. A backslash is a path
+        // separator there, and a reader's name is case-insensitive.
+        for (String c : List.of("Get-Content .env", "gc .probe/e1.env", "type .env", "Select-String -Pattern TOKEN .env",
+                "sls TOKEN -Path .env", "GET-CONTENT .env", "get-content -LiteralPath .env", "Get-Content -Raw -LiteralPath:.env",
+                "Get-Content config\\app.env", "Get-Content .\\.env", "Get-Content 'config\\secrets\\db.txt'",
+                "GC .env | Select-Object -First 1", "Write-Output x; Get-Content .env", "(Get-Content .env)",
+                "Format-Hex certs\\server.pem", "Import-Csv .env", "Get-Content x.txt,.env",
+                "Get-Content " + root.toString() + "\\.env")) {
+            Run r = bash(c);
+            check(r.code == 2 && r.out.startsWith("{\"permissionDecision\":\"deny\""),
+                    "guard bash · PowerShell `" + c + "` — exit 2, reason on stdout");
+        }
+        for (String c : List.of("Get-Content .env.example", "Get-ChildItem x.env", "Get-Content x.txt > .env",
+                "Get-Content .env.example | Set-Content .env", "Set-Content .env x", "Get-Content $env:HOME\\.env",
+                "Get-Content README.md", "Get-FileHash .env", "Write-Output 'gc .env'", "Test-Path .env",
+                "Get-Content config\\app.env.example")) {
+            Run r = bash(c);
+            check(r.code == 0 && r.out.isEmpty(), "guard bash · PowerShell `" + c + "` — exit 0");
+        }
+
         // ── The list is data ─────────────────────────────────────────────────
         Path ext = root.resolve(".claude/schemas/extensions.json");
         String real = Files.readString(ext, StandardCharsets.UTF_8);
         Files.writeString(ext, real.replace("\"./**/*.env\",", ""), StandardCharsets.UTF_8);
         check(read("{\"toolName\":\"view\",\"toolArgs\":{\"path\":\".env\"}}").code == 0
                 && bash("cat .env").code == 0, "guard read and bash · *.env off the list — admitted");
+        Files.writeString(ext, real, StandardCharsets.UTF_8);
+        Files.writeString(ext, real.replaceAll("\"powershell_commands\": \\[[^\\]]*\\]", "\"powershell_commands\": []"),
+                StandardCharsets.UTF_8);
+        check(bash("Get-Content .env").code == 0 && bash("gc config\\app.env").code == 0
+                        && bash("cat .env").code == 2,
+                "guard bash · `powershell_commands` emptied — PowerShell readers admitted, `cat .env` still refused");
+        Files.writeString(ext, real.replace("\"Select-String\", \"sls\"", "\"Select-String\""), StandardCharsets.UTF_8);
+        check(bash("sls TOKEN .env").code == 0 && bash("Select-String TOKEN .env").code == 2,
+                "guard bash · `sls` off the list — admitted, `Select-String` still refused");
         Files.writeString(ext, real, StandardCharsets.UTF_8);
 
         // ── schema: permissions.deny and the Copilot hook file ───────────────

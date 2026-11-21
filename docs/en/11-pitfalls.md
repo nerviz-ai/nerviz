@@ -281,6 +281,16 @@ project, `guard read` in `.github/hooks/archhook.json` denies the Copilot CLI's 
 list first, and `schema` fails when the `Read(...)` lines of a `settings.json` drift from it. Design:
 `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
 
+**A PowerShell read of a secret is refused too, and a hook's exit 2 needs the suffix.** `guard bash`
+also denies `Get-Content`, `gc`, `type`, `Select-String`/`sls`, `Format-Hex` and `Import-Csv` on a path
+of `guard.secret_paths` (`guard.secret_read_shapes.powershell_commands`; `\` is a separator, a backtick
+escapes, `>` and its target are a write, not a read) — a read through `[IO.File]` or a path built by
+expansion still passes. Every `powershell` field of an ArchHook entry ends with `; exit $LASTEXITCODE`
+(`settings.archhook_powershell.suffix`): without it PowerShell's `-Command` returns 1 for a failing
+native command, the Copilot CLI reads a hook error and the deny reason never reaches the model.
+`schema` fails on a field without the suffix, and on a `;` anywhere else in `command` or `powershell`
+(one process per hook, no chain). Design: `.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+
 **A project setting cannot be edited, not even outside any skill.** A Write, an Edit or a shell
 redirect into a file `project_config` lists (`audited.json`, `plan-limits.json`,
 `compose-gate.json`) is refused by `guard write` / `guard bash`, phase or no phase. That is not

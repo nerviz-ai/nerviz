@@ -217,3 +217,5 @@ of ` ---` reads as the removal of `--`, and the spec close was refused. The capt
 prefix every context line with a space, as the grammar requires. A model that drops that space
 gets its spec close refused, with the reason mute under Copilot, and that is the failure the
 D7 live run should look for first.
+
+Update (0213): the Copilot CLI 1.0.114 sends a native object (`{path, old_str, new_str}`, `{path, file_text}`) instead of the patch; `canonicalInput` maps it through `guard.tool_input_aliases` — see `0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.

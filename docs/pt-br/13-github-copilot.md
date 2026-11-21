@@ -149,6 +149,18 @@ próprios (`chat.useHooks`) e lê o formato Claude com `chat.useClaudeHooks`.
   relativo à raiz. Desde a decisão 0169, `guard write`, `check`, `format`, `schema` e `audit file`
   traduzem esse patch nos payloads do Claude. O VS Code (`tool_input.input`) e o camelCase
   (`toolArgs`) não são lidos: nenhum registro os entrega hoje.
+- **Observado no CLI 1.0.114 (decisão 0213).** A ferramenta de edição não manda mais o patch: chega como
+  `tool_name: "Edit"` com `tool_input` o objeto `{path, old_str, new_str}` (caminho absoluto), e um create
+  como `tool_name: "Write"` com `{path, file_text}`; a ferramenta de shell chega como `tool_name: "Bash"`.
+  Os modos de escrita (`guard write`, `check`, `format`, `schema`, `audit file`) mapeiam essas chaves nas
+  do Claude (`guard.tool_input_aliases` do `extensions.json`) uma vez, em `canonicalInput`; um payload que
+  já tem a chave canônica fica byte a byte. No Windows o CLI roda o campo `powershell` de cada entrada, que
+  termina em `; exit $LASTEXITCODE` (`settings.archhook_powershell.suffix`): sem isso o `-Command`
+  transforma o exit 2 do hook em 1 e o motivo da recusa nunca chega ao modelo. Uma leitura de segredo em
+  PowerShell (`Get-Content`, `gc`, `type`, `Select-String`, `Format-Hex`, `Import-Csv`) é recusada pelo
+  `guard bash`. Sem cobertura, por falta de captura: `MultiEdit`, `NotebookEdit`, o envelope camelCase de
+  escrita, o `run_in_terminal` do VS Code, `[IO.File]::ReadAllText`, um caminho montado por expansão. O
+  workflow `copilot-live` roda o CLI real contra essas regras (precisa do secret `COPILOT_GITHUB_TOKEN`).
 - **Bloqueio**: stdout com `{"permissionDecision":"deny","permissionDecisionReason":"…"}`
   (plano, não aninhado em `hookSpecificOutput` — a forma aninhada do Claude Code não está
   documentada); `exit 2` sempre nega, "mesmo que o stdout diga allow"; qualquer saída não

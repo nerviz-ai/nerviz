@@ -289,6 +289,16 @@ ferramenta quebrada: o conteúdo iria ao provedor do modelo. `test -f`, `ls`, um
 entra primeiro na lista, e o `schema` falha se as linhas `Read(...)` de um `settings.json` divergirem
 dela. Design: `.claude/decisions/0173-secret-read-guard-for-copilot.md`.
 
+**Uma leitura de segredo em PowerShell também é recusada, e o exit 2 de um hook precisa do sufixo.** O
+`guard bash` também nega `Get-Content`, `gc`, `type`, `Select-String`/`sls`, `Format-Hex` e `Import-Csv`
+sobre um caminho de `guard.secret_paths` (`guard.secret_read_shapes.powershell_commands`; `\` é separador,
+o crase escapa, `>` e seu alvo são escrita, não leitura) — leitura por `[IO.File]` ou por caminho montado
+por expansão ainda passa. Todo campo `powershell` de uma entrada ArchHook termina em `; exit $LASTEXITCODE`
+(`settings.archhook_powershell.suffix`): sem ele o `-Command` do PowerShell devolve 1 para um comando
+nativo que falha, o Copilot CLI lê erro de hook e o motivo da recusa nunca chega ao modelo. O `schema`
+falha num campo sem o sufixo, e num `;` em qualquer outro ponto de `command` ou `powershell` (um processo
+por hook, sem encadeamento). Design: `.claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md`.
+
 **Uma configuração do projeto não se edita, nem fora de qualquer skill.** Write, Edit ou
 redirect de shell num arquivo listado em `project_config` (`audited.json`, `plan-limits.json`,
 `compose-gate.json`) é recusado pelo `guard write` / `guard bash`, com ou sem fase aberta. Não
