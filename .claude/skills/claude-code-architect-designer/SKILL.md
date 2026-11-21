@@ -276,6 +276,11 @@ the same interview again.
    reads a `matcher`, it is `references/hook-events.md`; for a Form 9 event, call or
    program, it is `references/mod-events.md` — same discipline,
    `.claude/schemas/extensions.json` is the actual owner of all four.
+   A skill's `description` has a maximum of **1024 characters** after YAML folding
+   (`types.skill.max_description_chars` in that schema). Keep its concrete triggers
+   and prerequisites; move detail to the body. Check the limit with `schema` and
+   confirm native Copilot discovery: Claude Code plugin validation alone does not
+   prove the skill loads in Copilot.
 3. No `metadata:` in frontmatter. Ownership, `reads`, and handoff go in the `## Contract`
    section of the body.
 4. Code boilerplate goes to `templates/<name>.example` inside the skill that emits it,

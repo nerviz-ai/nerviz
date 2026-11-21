@@ -105,6 +105,7 @@ public class ArchHook {
                 || ("guard".equals(mode) && (args.length <= 1 || "write".equals(args[1])))) {
             stdin = canonicalInput(stdin);
         }
+        if ("tests".equals(mode)) stdin = canonicalSessionInput(stdin);
         HOOK_EVENT = hookEvent(stdin);
         if (!"doctor".equals(mode)) {
             // Never through ERR: a refusal repeats ERR on stdout as its reason, and this is no refusal.
@@ -7015,6 +7016,16 @@ public class ArchHook {
         }
 
         Map<String, Object> enums = asMap(t.get("enum"));
+        if ("skill".equals(type)) {
+            long cap = num(t.get("max_description_chars"));
+            String description = fpText(content, "description");
+            if (cap > 0 && description.length() > cap) {
+                errors.add("  " + rel + " — `description` is " + description.length()
+                        + " characters; maximum is " + cap
+                        + " (types.skill.max_description_chars). Shorten it while preserving"
+                        + " triggers and prerequisites; move detail to the skill body");
+            }
+        }
         if (enums == null) return;
         for (Map.Entry<String, Object> e : enums.entrySet()) {
             String v = fm.get(e.getKey());
@@ -11635,23 +11646,49 @@ public class ArchHook {
         Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
         Map<String, Object> aliases = asMap(get(sch, "guard", "tool_input_aliases"));
         if (aliases == null) return stdin;
-        Map<String, Object> fixed = new LinkedHashMap<>(ti);
+        Map<String, Object> fixed = canonicalFields(ti, aliases);
+        if (fixed == ti) return stdin;
+        Map<String, Object> out = new LinkedHashMap<>(env);
+        out.put("tool_input", fixed);
+        return jsonOf(out);
+    }
+
+    static Map<String, Object> canonicalFields(Map<String, Object> input,
+            Map<String, Object> aliases) {
+        Map<String, Object> fixed = new LinkedHashMap<>(input);
         boolean changed = false;
         for (Map.Entry<String, Object> a : aliases.entrySet()) {
-            if (ti.containsKey(a.getKey())) continue;
+            if (input.containsKey(a.getKey())) continue;
             for (String alias : asStrList(a.getValue())) {
-                if (ti.containsKey(alias)) {
+                if (input.containsKey(alias)) {
                     fixed.remove(alias);
-                    fixed.put(a.getKey(), ti.get(alias));
+                    fixed.put(a.getKey(), input.get(alias));
                     changed = true;
                     break;
                 }
             }
         }
-        if (!changed) return stdin;
-        Map<String, Object> out = new LinkedHashMap<>(env);
-        out.put("tool_input", fixed);
-        return jsonOf(out);
+        return changed ? fixed : input;
+    }
+
+    /**
+     * This adjusts the existing Form 7c tests lifecycle, invoked at SubagentStart,
+     * SubagentStop and Stop. The observed Copilot Start session alias must resolve
+     * to the same per-session marker as Claude's canonical payload, without changing
+     * who writes or how long a marker lives. A tests-local alias reader was rejected
+     * in favor of the existing normalization algorithm, with aliases owned by data
+     * (`tests.input_aliases` of extensions.json). Design:
+     * `.claude/decisions/0215-skill-discovery-and-writer-session-alias.md`.
+     */
+    static String canonicalSessionInput(String stdin) {
+        if (stdin == null || stdin.isBlank()) return stdin;
+        Map<String, Object> env = asMap(Json.parse(stdin));
+        if (env == null) return stdin;
+        Map<String, Object> sch = asMap(Json.parse(readOrNull(ROOT.resolve(SCHEMA_FILE))));
+        Map<String, Object> aliases = asMap(get(sch, "tests", "input_aliases"));
+        if (aliases == null) return stdin;
+        Map<String, Object> fixed = canonicalFields(env, aliases);
+        return fixed == env ? stdin : jsonOf(fixed);
     }
 
     /** Extracts tool_input.file_path from the stdin JSON without an external library. */

@@ -1,5 +1,6 @@
 ---
 name: <name-in-kebab-case>
+# description: maximum 1024 characters after YAML folding (types.skill.max_description_chars in .claude/schemas/extensions.json).
 description: >
   <What it does, in one sentence, with the concrete object first.> <If it has a side
   effect, say so here.> Explicit invocation only.

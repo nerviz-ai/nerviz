@@ -24,10 +24,15 @@ import java.util.stream.*;
 public class FrontmatterYamlTest {
 
     static int failures = 0;
-    static final Path HOOK = Paths.get(".claude/hooks/ArchHook.jar").toAbsolutePath();
+    static final Path HOOK = Paths.get(
+            System.getProperty("archhook.test.jar", ".claude/hooks/ArchHook.jar")).toAbsolutePath();
     static final String MARK = "a strict YAML parser refuses this frontmatter";
+    static final String SKILL = ".claude/skills/probe/SKILL.md";
+    static final String TOO_LONG = "characters; maximum is ";
 
     public static void main(String[] args) throws Exception {
+        if (!Files.isRegularFile(HOOK)) throw new IllegalStateException("no hook jar at " + HOOK);
+        descriptionLength();
         String colon = "---\nname: probe\ndescription: writes the `**Mappers: manual.**` paragraph\n---\n";
         for (String rel : List.of(".claude/rules/probe.md", ".claude/agents/probe.md",
                 ".claude/skills/probe/SKILL.md")) {
@@ -104,6 +109,72 @@ public class FrontmatterYamlTest {
         System.exit(failures == 0 ? 0 : 1);
     }
 
+    /**
+     * Decision 0215: GitHub Copilot's loader rejects a skill whose `description` is over 1024
+     * characters and Claude Code does not, so `schema` reads the cap from `types.skill.max_description_chars`.
+     * The length diagnostic is asserted by name: a partial skill fixture raises unrelated errors.
+     */
+    static void descriptionLength() throws Exception {
+        String over = words(1025), at = words(1024);
+        lengthRefused("plain " + over.length(), "---\nname: probe\ndescription: " + over + "\n---\n", 1024, 1025);
+        lengthRefused("double-quoted", "---\nname: probe\ndescription: \"" + over + "\"\n---\n", 1024, 1025);
+        lengthRefused("single-quoted", "---\nname: probe\ndescription: '" + over + "'\n---\n", 1024, 1025);
+        lengthRefused("folded", "---\nname: probe\ndescription: >\n" + fold(over, "\n") + "\nmodel: sonnet\n---\n",
+                1024, 1025);
+        lengthRefused("folded, CRLF", ("---\nname: probe\ndescription: >\n" + fold(over, "\n")
+                + "\nmodel: sonnet\n---\n").replace("\n", "\r\n"), 1024, 1025);
+        lengthAccepted("plain, exactly at the cap", "---\nname: probe\ndescription: " + at + "\n---\n", 1024);
+        lengthAccepted("folded, exactly at the cap", "---\nname: probe\ndescription: >\n" + fold(at, "\n")
+                + "\nmodel: sonnet\n---\n", 1024);
+        lengthAccepted("folded CRLF, exactly at the cap", ("---\nname: probe\ndescription: >\n" + fold(at, "\n")
+                + "\nmodel: sonnet\n---\n").replace("\n", "\r\n"), 1024);
+
+        // The cap is data: a fixture schema with a smaller one refuses what 1024 admits.
+        String sixty = words(60);
+        lengthRefused("a fixture cap of 50", "---\nname: probe\ndescription: " + sixty + "\n---\n", 50, 60);
+        lengthAccepted("a fixture cap of 60", "---\nname: probe\ndescription: " + sixty + "\n---\n", 60);
+    }
+
+    /** Exactly {@code n} characters, no leading or trailing space, safe as a plain scalar. */
+    static String words(int n) {
+        return "abcdefgh ".repeat(n / 9 + 1).substring(0, n);
+    }
+
+    /** The words of {@code s} on indented lines, which a folded scalar joins back with single spaces. */
+    static String fold(String s, String eol) {
+        List<String> lines = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        for (String w : s.split(" ")) {
+            if (cur.length() > 0 && cur.length() + 1 + w.length() > 72) {
+                lines.add("  " + cur);
+                cur.setLength(0);
+            }
+            if (cur.length() > 0) cur.append(' ');
+            cur.append(w);
+        }
+        lines.add("  " + cur);
+        return String.join(eol, lines);
+    }
+
+    static void lengthRefused(String name, String content, int cap, int length) throws Exception {
+        Res r = run(SKILL, content + "\n# Probe\n", cap);
+        String needle = "`description` is " + length + " characters; maximum is " + cap;
+        if (r.code == 2 && r.out.contains(needle) && r.out.contains("types.skill.max_description_chars"))
+            System.out.println("✅ refused (exit 2) — description over the cap: " + name);
+        else fail("description over the cap: " + name + " — expected exit 2 and \"" + needle
+                + "\", got exit " + r.code + "\n" + r.out);
+    }
+
+    static void lengthAccepted(String name, String content, int cap) throws Exception {
+        Res r = run(SKILL, content + "\n# Probe\n", cap);
+        if (r.code == 2 && r.out.contains("`probe` is in no skill_classes class")
+                && !r.out.contains(TOO_LONG)) {
+            System.out.println("✅ not refused for length — " + name);
+        } else fail("description at the cap: " + name
+                + " — expected only the partial fixture's class diagnostic, got exit "
+                + r.code + "\n" + r.out);
+    }
+
     static void refused(String frontmatter, String needle, String name) throws Exception {
         refused(".claude/rules/probe.md", frontmatter, needle, name);
     }
@@ -122,10 +193,33 @@ public class FrontmatterYamlTest {
 
     /** `schema` over one file of a throwaway project, the PostToolUse form: only that file is checked. */
     static String schema(String rel, String content) throws Exception {
+        return run(rel, content, null).out;
+    }
+
+    record Res(int code, String out) { }
+
+    /** {@code cap}, when given, is the fixture schema's `types.skill.max_description_chars`, replaced or added. */
+    static Res run(String rel, String content, Integer cap) throws Exception {
         Path p = Files.createTempDirectory("archhook-yaml-ci");
         try {
             Files.createDirectories(p.resolve(".claude/schemas"));
-            Files.copy(Paths.get(".claude/schemas/extensions.json"), p.resolve(".claude/schemas/extensions.json"));
+            Path sch = p.resolve(".claude/schemas/extensions.json");
+            if (cap == null) {
+                Files.copy(Paths.get(".claude/schemas/extensions.json"), sch);
+            } else {
+                String s = Files.readString(Paths.get(".claude/schemas/extensions.json"), StandardCharsets.UTF_8);
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("\"max_description_chars\"\\s*:\\s*\\d+").matcher(s);
+                if (m.find()) {
+                    s = m.replaceFirst("\"max_description_chars\": " + cap);
+                } else {
+                    java.util.regex.Matcher k = java.util.regex.Pattern
+                            .compile("\"types\"\\s*:\\s*\\{\\s*\"skill\"\\s*:\\s*\\{").matcher(s);
+                    if (!k.find()) throw new IllegalStateException("extensions.json has no types.skill to anchor the cap");
+                    s = s.substring(0, k.end()) + "\n      \"max_description_chars\": " + cap + "," + s.substring(k.end());
+                }
+                Files.writeString(sch, s, StandardCharsets.UTF_8);
+            }
             Path f = p.resolve(rel);
             Files.createDirectories(f.getParent());
             Files.writeString(f, content, StandardCharsets.UTF_8);
@@ -138,8 +232,7 @@ public class FrontmatterYamlTest {
             proc.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
             proc.getOutputStream().close();
             String out = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            proc.waitFor();
-            return out;
+            return new Res(proc.waitFor(), out);
         } finally {
             try (Stream<Path> s = Files.walk(p)) {
                 for (Path x : s.sorted(Comparator.reverseOrder()).toList()) Files.delete(x);
