@@ -194,7 +194,7 @@ public class CopilotLiveTest {
 
     static String copilot(String prompt) throws Exception {
         List<String> argv = new ArrayList<>(List.of(WINDOWS ? "copilot.cmd" : "copilot", "-p", prompt,
-                "--allow-all-tools", "--allow-all-paths", "--no-ask-user", "--no-auto-update", "--no-color",
+                "--allow-all-tools", "--allow-all-paths", "--trust-folder", "--no-ask-user", "--no-auto-update", "--no-color",
                 "--log-level", "debug", "--log-dir", logs.toString()));
         Result r = exec(argv, scratch, scratch);
         return r.out + "\n" + r.err;

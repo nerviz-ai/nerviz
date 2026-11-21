@@ -1616,7 +1616,7 @@
   },
 
   "copilot": {
-    "$comment": "`ci_version` is the GitHub Copilot CLI the `copilot` job of .github/workflows/copilot-live.yml installs (`npm install -g @github/copilot@<ci_version>`) to run .claude/.ci/CopilotLiveTest.java against the real CLI — pinned, so a release that changes what it sends to a hook fails a pull request that raises it, not an unrelated one. Read with sed, like `mods.ci_version`, from the line inside this block. Design: .claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md",
+    "$comment": "`ci_version` is the GitHub Copilot CLI the `copilot` job of .github/workflows/copilot-live.yml installs (`npm i -g @github/copilot@<ci_version>`) to run .claude/.ci/CopilotLiveTest.java against the real CLI — pinned, so a release that changes what it sends to a hook fails a pull request that raises it, not an unrelated one. Read with sed, like `mods.ci_version`, from the line inside this block. Design: .claude/decisions/0213-copilot-native-edit-aliases-powershell-readers-and-exit-code.md",
     "ci_version": "1.0.114"
   },
 
