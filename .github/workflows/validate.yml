@@ -357,6 +357,25 @@ jobs:
       - name: audit genesis fills GENESIS from the transcripts, once
         run: java .claude/.ci/GenesisTest.java
 
+  diagrams-cross-platform:
+    name: diagrams · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: diagram mutations reject invalid LF and CRLF fixtures
+        run: java .claude/.ci/DiagramsTest.java
+
   design:
     name: design invariants
     runs-on: ubuntu-latest
@@ -388,16 +407,14 @@ jobs:
       # is `types.skill.native_commands` now, and `schema` above fails on it (0084).
 
       # The diagrams under docs/diagrams/ are renders of view.json and of the data it cites.
-      # `Diagrams.java check` is Java only; the test proves each way a committed one drifts —
+      # `Diagrams.java check` is Java only; diagrams-cross-platform proves each way one drifts —
       # a renamed cited skill, a skill added to a class, a hand-edited byte, a node with no
       # evidence, a step that breaks the step contract (0192, 0193: a branch gate word with no
       # Stops when line, a condition past its limit, Reads or To naming a wrong step, a field line
       # outside its block, a note on a one-phase step, emphasis/steps/kind pipeline in an orchestrator
       # view), a dist/ hash — goes red by name (0190).
       - name: committed diagrams match the data they cite
-        run: |
-          java .claude/skills/project-diagrams/scripts/Diagrams.java check
-          java .claude/.ci/DiagramsTest.java
+        run: java .claude/skills/project-diagrams/scripts/Diagrams.java check
 
       - name: decisions/ doesn't grow paths or enter 00-index.md
         run: |

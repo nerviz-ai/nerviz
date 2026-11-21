@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.regex.*;
 import java.util.stream.*;
 
 public class DiagramsTest {
@@ -29,6 +30,7 @@ public class DiagramsTest {
 
     public static void main(String[] args) throws Exception {
         repo = Paths.get("").toAbsolutePath();
+        mutationGuardCases();
 
         // ── green on the tree ──
         Path t = copy();
@@ -62,27 +64,27 @@ public class DiagramsTest {
         // (c) one byte of a committed svg
         Path svg = t.resolve("docs/diagrams/layers/layers.svg");
         String good = Files.readString(svg);
-        write(svg, good.replaceFirst("Interface", "Interfacf"));
+        write(svg, replaceFirst(good, "Interface", "Interfacf"));
         expect("(c) one byte of a committed .svg changed", t, "check", 2, "docs/diagrams/layers/layers.svg");
         write(svg, good);
 
         // (d) a node with no evidence
         Path view = t.resolve("docs/diagrams/layers/view.json");
         String vgood = Files.readString(view);
-        write(view, vgood.replace("{ \"fact\": \"layer:mods\" }", "{ \"label\": \"Mods, from memory\" }"));
+        write(view, replace(vgood, "{ \"fact\": \"layer:mods\" }", "{ \"label\": \"Mods, from memory\" }"));
         expect("(d) a node with neither fact nor from", t, "validate", 2, "$.groups[0].nodes[0]: matches none of the allowed shapes");
         write(view, vgood);
 
         // (b) a skill joins a class: the classes view renders its members, so the render is stale
         Path ext = t.resolve(".claude/schemas/extensions.json");
         String egood = Files.readString(ext);
-        write(ext, egood.replace("\"use-case-design\", \"domain-modeling\"", "\"use-case-design\", \"domain-modeling\", \"nerviz-diagrams\""));
+        write(ext, replace(egood, "\"use-case-design\", \"domain-modeling\"", "\"use-case-design\", \"domain-modeling\", \"nerviz-diagrams\""));
         expect("(b) a skill added to a class without a re-render", t, "check", 2, "docs/diagrams/classes/classes.svg — differs from a fresh render");
         write(ext, egood);
 
         // (a) a skill the view cites is renamed (directory and every entry of extensions.json)
         Files.move(t.resolve(".claude/skills/sonar-lessons"), t.resolve(".claude/skills/sonar-lessons-v2"));
-        write(ext, egood.replace("\"sonar-lessons\"", "\"sonar-lessons-v2\""));
+        write(ext, replace(egood, "\"sonar-lessons\"", "\"sonar-lessons-v2\""));
         expect("(a) a cited skill renamed", t, "validate", 2, "fact 'skill:sonar-lessons' not found");
         Files.move(t.resolve(".claude/skills/sonar-lessons-v2"), t.resolve(".claude/skills/sonar-lessons"));
         write(ext, egood);
@@ -91,33 +93,29 @@ public class DiagramsTest {
         // (e) a step heading goes back to the retired grammar
         Path nf = t.resolve(".claude/skills/new-feature/SKILL.md");
         String ngood = Files.readString(nf);
-        write(nf, ngood.replace("### 3b · Security", "### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)"));
+        write(nf, replace(ngood, "### 3b · Security", "### Step 3b: Security (depends on 1, 2, 3, 3g, conditional)"));
         expect("(e) a step heading in the retired grammar", t, "check", 2, "is the retired grammar");
         write(nf, ngood);
 
-        // (f) a step without its Runs line
         Path ni = t.resolve(".claude/skills/new-feature-implement/SKILL.md");
         String igood = Files.readString(ni);
-        write(ni, igood.replaceFirst("(### 2 · Implement\\n\\n)\\*\\*Runs:\\*\\*[^\\n]*\\n\\n", "$1"));
-        expect("(f) a step with no **Runs:** line", t, "check", 2, "step 2 has no **Runs:** line");
-        write(ni, igood);
 
         // (g) a Runs ref that is no fact
         Path ip = t.resolve(".claude/skills/init-project/SKILL.md");
         String pgood = Files.readString(ip);
-        write(ip, pgood.replace("agent:project-initializer>", "agent:project-initialiser>"));
+        write(ip, replace(pgood, "agent:project-initializer>", "agent:project-initialiser>"));
         expect("(g) a Runs ref that resolves to no fact", t, "check", 2, "runs 'agent:project-initialiser', which is no fact");
         write(ip, pgood);
 
         // (h) a gate word outside the vocabulary
         Path np = t.resolve(".claude/skills/platform-upgrade/SKILL.md");
         String ugood = Files.readString(np);
-        write(np, ugood.replaceFirst("\\*\\*Gate:\\*\\* stop", "**Gate:** halt"));
+        write(np, replaceFirst(ugood, "\\*\\*Gate:\\*\\* stop", "**Gate:** halt"));
         expect("(h) a gate word outside the vocabulary", t, "check", 2, "**Runs:** does not match");
         write(np, ugood);
 
         // (i) a Hands over command that is no skill or native command
-        write(ni, igood.replace("`/git-publish`", "`/git-publsh`"));
+        write(ni, replace(igood, "`/git-publish`", "`/git-publsh`"));
         expect("(i) a Hands over command that is no skill", t, "check", 2, "'/git-publsh'");
         expect("(i) … and says why", t, "check", 2, "no skill or native command");
         write(ni, igood);
@@ -125,59 +123,46 @@ public class DiagramsTest {
         // (j) a view that draws another skill's step
         Path iv = t.resolve("docs/diagrams/init-project/view.json");
         String ivgood = Files.readString(iv);
-        write(iv, ivgood.replace("{ \"from\": \"step:init-project:*\" }", "{ \"fact\": \"step:platform-upgrade:1\" }"));
+        write(iv, replace(ivgood, "{ \"from\": \"step:init-project:*\" }", "{ \"fact\": \"step:platform-upgrade:1\" }"));
         expect("(j) an orchestrator view drawing a foreign step", t, "validate", 2, "draws the steps of init-project only");
-
-        // (k) an orchestrator view without skill
-        write(iv, ivgood.replace("  \"skill\": \"init-project\",\n", ""));
-        expect("(k) an orchestrator view without skill", t, "validate", 2, "requires skill");
         write(iv, ivgood);
 
         // (l) an ArchHook mode vanishes from the dispatch
         Path hk = t.resolve(".claude/hooks/ArchHook.java");
         String hgood = Files.readString(hk);
-        write(hk, hgood.replace("case \"test-diff\" ->", "case \"test-dif\" ->"));
+        write(hk, replace(hgood, "case \"test-diff\" ->", "case \"test-dif\" ->"));
         expect("(l) a cmd mode renamed in the dispatch", t, "check", 2, "runs 'cmd:test-diff', which is no fact");
         write(hk, hgood);
         // (m) a branch gate word with no **Stops when:** line
-        write(ip, pgood.replaceFirst("\\n\\*\\*Stops when:\\*\\*[^\\n]*\\n", "\n"));
+        write(ip, replaceFirst(pgood, "(\\r?\\n)\\*\\*Stops when:\\*\\*[^\\r\\n]*\\r?\\n", "$1"));
         expect("(m) a branch gate word with no Stops when line", t, "check", 2, "has 1 branch gate word(s) (stop) and 0 **Stops when:** line(s)");
         write(ip, pgood);
 
         // (n) a condition past the limit the schema states
-        write(np, ugood.replace("ref predates this skill?", "does the ref predate this very skill now?"));
+        write(np, replace(ugood, "ref predates this skill?", "does the ref predate this very skill now?"));
         expect("(n) a condition over 34 characters", t, "check", 2, "is a question of at most 34 characters");
         write(np, ugood);
 
         // (o) Reads names a step written after the reader
-        write(nf, ngood.replace("**Reads:** 3, 3b ·", "**Reads:** 3, 3d ·"));
+        write(nf, replace(ngood, "**Reads:** 3, 3b ·", "**Reads:** 3, 3d ·"));
         expect("(o) Reads names a later step", t, "check", 2, "reads '3d', which is written after it");
         write(nf, ngood);
 
         // (p) Skips when names no later step
-        write(nf, ngood.replace("**To:** approval", "**To:** nowhere"));
+        write(nf, replace(ngood, "**To:** approval", "**To:** nowhere"));
         expect("(p) To names no later step", t, "check", 2, "skips to 'nowhere', which is no later step");
         write(nf, ngood);
 
         // (q) (r) (s) an orchestrator view with emphasis, with steps, of a kind that no longer exists
-        write(iv, ivgood.replace("\"edges\"", "\"emphasis\": [\"step:init-project:1\"],\n  \"edges\""));
+        write(iv, replace(ivgood, "\"edges\"", "\"emphasis\": [\"step:init-project:1\"],\n  \"edges\""));
         expect("(q) an orchestrator view with emphasis", t, "validate", 2, "takes no emphasis");
-        write(iv, ivgood.replace("\"edges\"", "\"steps\": [\"step:init-project:1\"],\n  \"edges\""));
+        write(iv, replace(ivgood, "\"edges\"", "\"steps\": [\"step:init-project:1\"],\n  \"edges\""));
         expect("(r) an orchestrator view with steps", t, "validate", 2, "follows the written order");
-        write(iv, ivgood.replace("\"orchestrator\"", "\"pipeline\""));
+        write(iv, replace(ivgood, "\"orchestrator\"", "\"pipeline\""));
         expect("(s) the retired kind pipeline", t, "validate", 2, "'pipeline' is not one of");
         write(iv, ivgood);
 
-        // (t) a field line below the body's first paragraph
-        write(ni, igood.replaceFirst("(\\*\\*Stops when:\\*\\* a group fails\\?[^\\n]*\\n\\n)((?:\\*\\*Then runs:[^\\n]*\\n\\n))", "$2\nA paragraph of the body.\n\n$1"));
-        expect("(t) a Stops when line outside the field block", t, "check", 2, "must be in the field block");
-        write(ni, igood);
-
-        // (u) a note on a step with one phase
-        write(ip, pgood.replace("### 4 · Relay the report\n\n**Runs:** self\n", "### 4 · Relay the report\n\n**Runs:** self · **Note:** relay\n"));
-        expect("(u) a note on a one-phase step", t, "check", 2, "a note names a phase");
-        write(ip, pgood);
-
+        lineEndingCases(t);
         expect("everything restored is green once more", t, "check", 0, "equal a fresh render");
 
         deleteTree(t);
@@ -245,6 +230,73 @@ public class DiagramsTest {
     static void write(Path p, String s) throws IOException {
         Files.createDirectories(p.getParent());
         Files.writeString(p, s, StandardCharsets.UTF_8);
+    }
+
+    static String replace(String text, String target, String replacement) {
+        String changed = text.replace(target, replacement);
+        if (changed.equals(text)) throw new IllegalArgumentException("Fixture mutation did not change its input: " + target);
+        return changed;
+    }
+
+    static String replaceFirst(String text, String regex, String replacement) {
+        String changed = Pattern.compile(regex).matcher(text).replaceFirst(replacement);
+        if (changed.equals(text)) throw new IllegalArgumentException("Fixture mutation did not change its input: " + regex);
+        return changed;
+    }
+
+    static void mutationGuardCases() {
+        for (String[] change : List.of(new String[] { "missing", "changed" }, new String[] { "fixture", "fixture" }))
+            for (boolean regex : new boolean[] { false, true }) {
+                String label = "mutation guard: " + (regex ? "regex" : "literal") + " " + change[0];
+                try {
+                    String changed = regex ? replaceFirst("fixture", change[0], change[1]) : replace("fixture", change[0], change[1]);
+                    report(label, false, "accepted an unchanged fixture: " + changed);
+                } catch (IllegalArgumentException e) {
+                    report(label, e.getMessage().contains("Fixture mutation did not change"), e.getMessage());
+                }
+            }
+    }
+
+    static void lineEndingCases(Path t) throws Exception {
+        Path ni = t.resolve(".claude/skills/new-feature-implement/SKILL.md");
+        Path ip = t.resolve(".claude/skills/init-project/SKILL.md");
+        Path iv = t.resolve("docs/diagrams/init-project/view.json");
+        String igood = Files.readString(ni), pgood = Files.readString(ip), ivgood = Files.readString(iv);
+        try {
+            for (String nl : List.of("\n", "\r\n")) {
+                String label = nl.equals("\n") ? "LF" : "CRLF";
+                String implement = igood.replace("\r\n", "\n").replace("\n", nl);
+                String init = pgood.replace("\r\n", "\n").replace("\n", nl);
+                String view = ivgood.replace("\r\n", "\n").replace("\n", nl);
+                write(ni, implement);
+                write(ip, init);
+                write(iv, view);
+                expect(label + " valid fixtures", t, "check", 0, "equal a fresh render");
+
+                write(ni, replaceFirst(implement, "(### 2 · Implement\\r?\\n\\r?\\n)\\*\\*Runs:\\*\\*[^\\r\\n]*\\r?\\n\\r?\\n", "$1"));
+                expect(label + " (f) a step with no **Runs:** line", t, "check", 2, "step 2 has no **Runs:** line");
+                write(ni, implement);
+
+                write(iv, replaceFirst(view, "  \"skill\": \"init-project\",\\r?\\n", ""));
+                expect(label + " (k) an orchestrator view without skill", t, "validate", 2, "requires skill");
+                write(iv, view);
+
+                write(ni, replaceFirst(implement, "(\\*\\*Stops when:\\*\\* a group fails\\?[^\\r\\n]*\\r?\\n\\r?\\n)(\\*\\*Then runs:[^\\r\\n]*\\r?\\n\\r?\\n)",
+                        "$2" + nl + "A paragraph of the body." + nl + nl + "$1"));
+                expect(label + " (t) a Stops when line outside the field block", t, "check", 2, "must be in the field block");
+                write(ni, implement);
+
+                write(ip, replaceFirst(init, "(### 4 · Relay the report\\r?\\n\\r?\\n\\*\\*Runs:\\*\\* self)(\\r?\\n)",
+                        "$1 · **Note:** relay$2"));
+                expect(label + " (u) a note on a one-phase step", t, "check", 2, "a note names a phase");
+                write(ip, init);
+                expect(label + " restored fixtures", t, "check", 0, "equal a fresh render");
+            }
+        } finally {
+            write(ni, igood);
+            write(ip, pgood);
+            write(iv, ivgood);
+        }
     }
 
     static String sha(String s) throws Exception {
@@ -393,7 +445,7 @@ public class DiagramsTest {
         // (b) a spec whose flow block is no allowed Mermaid type, named by file and line
         Path spec = t.resolve("docs/use-cases/UC-001-place-order/00-use-case.md");
         String sgood = Files.readString(spec);
-        write(spec, sgood.replace("flowchart TD", "graph LR"));
+        write(spec, replace(sgood, "flowchart TD", "graph LR"));
         expect("project: (b) a Mermaid block that is not an allowed type", t, "check", 2, "00-use-case.md:", src);
         expect("project: (b) … and says which", t, "check", 2, "opens with 'graph LR'", src);
         write(spec, sgood);
@@ -403,7 +455,7 @@ public class DiagramsTest {
         String cgood = Files.readString(comp);
         Result br = run(t, "render", "--source", "project", "blueprint");
         if (br.exit() != 0) { failures++; System.out.println("❌ the blueprint view does not render: " + br.out()); }
-        write(comp, cgood.replace("  postgres:\n    image: postgres:16-alpine\n    ports:\n      - \"5432:5432\"\n", ""));
+        write(comp, replace(cgood, "  postgres:\n    image: postgres:16-alpine\n    ports:\n      - \"5432:5432\"\n", ""));
         expect("project: (c) a compose service removed", t, "check", 2, "differs from a fresh render", src);
         write(comp, cgood);
 
@@ -456,7 +508,7 @@ public class DiagramsTest {
         expectLegible("legibility: a clean SVG is green", d, "clean.svg", 0, "has no label over");
         write(d.resolve("tt.svg"), svgOf(box + "<g id=\"b\">\n<text x=\"34\" y=\"47\" font-size=\"13\" fill=\"#1F2933\">Second label here</text>\n</g>\n"));
         expectLegible("legibility: text over text", d, "tt.svg", 2, "TEXT×TEXT");
-        write(d.resolve("ts.svg"), svgOf(box.replace("Inside its box", "A label far wider than the box that holds it")));
+        write(d.resolve("ts.svg"), svgOf(replace(box, "Inside its box", "A label far wider than the box that holds it")));
         expectLegible("legibility: text past its box", d, "ts.svg", 2, "TEXT×SHAPE");
         write(d.resolve("tl.svg"), svgOf(box + "<g id=\"edge-x\">\n<line x1=\"60\" y1=\"10\" x2=\"60\" y2=\"90\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
         expectLegible("legibility: text crossed by an edge", d, "tl.svg", 2, "TEXT×LINE");
@@ -467,7 +519,7 @@ public class DiagramsTest {
         expectLegible("legibility: two edges on one line", d, "ll.svg", 2, "LINE×LINE");
         write(d.resolve("lv.svg"), svgOf("<g id=\"edge-a\">\n<line x1=\"60\" y1=\"20\" x2=\"60\" y2=\"150\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n<g id=\"edge-b\">\n<line x1=\"60\" y1=\"100\" x2=\"60\" y2=\"180\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
         expectLegible("legibility: two vertical edges on one line", d, "lv.svg", 2, "LINE×LINE");
-        write(d.resolve("lf.svg"), svgOf(two.replace("<g id=\"edge-a\">", "<g id=\"edge-a\" data-fan=\"port-1\">") + "<g id=\"edge-b\" data-fan=\"port-1\">\n<line x1=\"100\" y1=\"120\" x2=\"300\" y2=\"120\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
+        write(d.resolve("lf.svg"), svgOf(replace(two, "<g id=\"edge-a\">", "<g id=\"edge-a\" data-fan=\"port-1\">") + "<g id=\"edge-b\" data-fan=\"port-1\">\n<line x1=\"100\" y1=\"120\" x2=\"300\" y2=\"120\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
         expectLegible("legibility: edges leaving one declared source port may share a segment", d, "lf.svg", 0, "has no label over");
         write(d.resolve("lo.svg"), svgOf(two + "<g id=\"edge-b\">\n<line x1=\"100\" y1=\"124\" x2=\"300\" y2=\"124\" stroke=\"#52606D\" stroke-width=\"1.5\"/>\n</g>\n"));
         expectLegible("legibility: edges 4 px apart are two channels", d, "lo.svg", 0, "has no label over");
