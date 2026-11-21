@@ -20,6 +20,7 @@ flowchart TD
     T --> J2
     T --> J3
     T --> J4
+    T --> J5
 
     subgraph J1["hooks-cross-platform (matrix: ubuntu · macos · windows)"]
         H1[ArchHook.java doctor]
@@ -81,7 +82,7 @@ flowchart TD
         D26[MessagingRetryTemplateTest.java — Kafka consumer exemplars leave retry and commit to the container and retry a lost race]
         D27[AsyncApiTemplateTest.java — AsyncAPI exemplars annotate both sides explicitly and gate the served document against a snapshot]
         D28[BlueprintSkeletonTest.java selftest — the blueprints workflow generates only what a change impacts]
-        D29[DiagramsTest.java — committed diagrams equal a fresh render of the data they cite]
+        D29[Diagrams.java check — committed diagrams equal a fresh render of the data they cite]
         D30[ExportCitationSchemaTest.java — an exported file citing a path inside a skill that export.skills.exclude keeps out → schema exit 2, by file and line]
         D31[ExportTerritorySchemaTest.java — an export destination outside the write_allow of the skill that writes it, or an unknown writer_skill → schema exit 2, by path]
         D16[exemplar bodies carry no comment but Javadoc]
@@ -106,6 +107,10 @@ flowchart TD
         X3[exported jar runs schema + doctor on its own tree]
         X4[re-export deletes every export.retired path]
     end
+
+    subgraph J5["diagrams-cross-platform (matrix: ubuntu · macos · windows)"]
+        G1[DiagramsTest.java — effective mutations, LF and CRLF fixtures, refusals by name]
+    end
 ```
 
 ## What each check covers
@@ -113,6 +118,7 @@ flowchart TD
 | Job / step | Verifies | Against what |
 |---|---|---|
 | `hooks-cross-platform` | `ArchHook.java doctor`, `build --verify`, then seventeen tests on all three OSes, every one spawning `java -jar .claude/hooks/ArchHook.jar` — the exact command the registrations run | Decision D8 — "cross-platform" as a fact, not a claim — and decision 0084: a test of the source proves nothing about the jar the hooks launch |
+| `diagrams-cross-platform` | `DiagramsTest.java` on all three OSes; four newline-sensitive mutations exercised with LF and CRLF, valid fixtures before and after; a replacement that changes nothing fails explicitly | Prevents a Windows checkout from leaving a fixture valid because a replacement matched LF only; the engine shared by Claude Code and Copilot is unchanged |
 | `committed ArchHook.jar is what the source compiles to` | `build --verify` recompiles under the pinned `hook_build.javac_feature` and compares byte for byte | Decision 0075 — an edit to `ArchHook.java` without a rebuild changes nothing any hook executes. Runs before the tests, so they exercise reviewed bytes |
 | `hook blocks forbidden import, from the payload and from argv` | `BoundaryTest.java`, a throwaway project with a `forbidden-imports.txt`: the stdin payload and `check <path>` both exit 2 on a forbidden import, the argv form with stdin left open; a clean file exits 0, a missing one 1 | Decision 0123 — `check <path>` read stdin first, hung until the tool timeout, then passed in silence; the bootstrap's boundary probe reported a ✓ no hook produced (lessons-learned-020 § 3) |
 | `check compiles with the project's Maven or Gradle wrapper` | `BuildToolTest.java`, throwaway projects with the real `extensions.json` and a fake wrapper that records its arguments and exits 1: Gradle multi-module gets `-q --offline :domain:compileTestJava`, Gradle single-module `-q --offline compileTestJava`, Maven `-q -o -pl domain -am test-compile`, each failing `check` with exit 2; `doctor` prints `Build wrapper` green with `(gradle)` | Issue #167, decision 0180 — `wrapper()` resolved `mvnw` only, so a Gradle project got no incremental compile and a red `Maven wrapper` on every run |
